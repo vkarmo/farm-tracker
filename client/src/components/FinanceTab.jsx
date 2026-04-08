@@ -1,0 +1,197 @@
+import React, { useState } from 'react';
+import { useSelector, useDispatch } from 'react-redux';
+import { queueAction } from '../store/syncSlice';
+import { addTransaction, deleteTransaction } from '../store/financialsSlice';
+import { DollarSign, X } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, PieChart, Pie, Cell } from 'recharts';
+import CrudTable from './CrudTable';
+
+const INIT_TX = { assetId: '', txType: 'Expense', category: 'Fertilizer', amount: '', vendor: '', notes: '' };
+
+export default function FinanceTab() {
+  const dispatch = useDispatch();
+  const transactions = useSelector(state => state.financials.transactions) || [];
+  
+  const fields = useSelector(state => state.fields.data) || [];
+  const crops = useSelector(state => state.assets.crops) || [];
+  const livestock = useSelector(state => state.assets.livestock) || [];
+  const harvests = useSelector(state => state.assets.harvests) || [];
+
+  const [txData, setTxData] = useState(INIT_TX);
+  const [editingId, setEditingId] = useState(null);
+
+  const handleSubmit = (e) => {
+    e.preventDefault();
+    const parsedAmount = parseFloat(txData.amount);
+    if (!txData.amount || isNaN(parsedAmount) || parsedAmount < 0) return alert("Validation Error: Valid positive Transaction Amount is required.");
+
+    if (editingId) {
+      const updatedTx = { ...txData, id: editingId };
+      dispatch(addTransaction(updatedTx));
+      dispatch(queueAction({ type: 'core/updateNode', payload: { id: editingId, properties: updatedTx }, meta: { id: Date.now() } }));
+    } else {
+      const newTx = { id: `t_${Date.now()}`, ...txData, date: new Date().toISOString().split('T')[0] };
+      dispatch(addTransaction(newTx));
+      dispatch(queueAction({ type: 'financials/addTransaction', payload: newTx, meta: { id: Date.now() } }));
+    }
+    
+    setTxData(INIT_TX);
+    setEditingId(null);
+  };
+
+  const columns = [
+    { key: 'date', header: 'Date' },
+    { key: 'txType', header: 'Type' },
+    { key: 'category', header: 'Category' },
+    { key: 'vendor', header: 'Vendor' },
+    { 
+      key: 'amount', 
+      header: 'Amount',
+      render: (r) => <strong style={{color: r.txType === 'Sale' ? 'green' : 'red'}}>${r.amount}</strong>
+    }
+  ];
+
+  // Process data for Recharts
+  const monthlyData = transactions.reduce((acc, curr) => {
+    const month = curr.date ? curr.date.substring(0, 7) : 'Unknown';
+    if (!acc[month]) acc[month] = { name: month, Sales: 0, Expenses: 0 };
+    if (curr.txType === 'Sale') acc[month].Sales += parseFloat(curr.amount);
+    if (curr.txType === 'Expense') acc[month].Expenses += parseFloat(curr.amount);
+    return acc;
+  }, {});
+  const barData = Object.values(monthlyData).sort((a,b) => a.name.localeCompare(b.name));
+
+  const pieDataRaw = transactions.reduce((acc, curr) => {
+    if (curr.txType === 'Sale') acc.Sales += parseFloat(curr.amount);
+    if (curr.txType === 'Expense') acc.Expenses += parseFloat(curr.amount);
+    return acc;
+  }, { Sales: 0, Expenses: 0 });
+  const pieData = [
+    { name: 'Sales / Revenue', value: pieDataRaw.Sales },
+    { name: 'Expenses', value: pieDataRaw.Expenses }
+  ];
+  const COLORS = ['#2e7d32', '#d32f2f'];
+
+  return (
+    <div className="card">
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h2>{editingId ? 'Edit Ledger Record' : 'Log Offline Transaction'}</h2>
+        {editingId && (
+          <button onClick={() => { setEditingId(null); setTxData(INIT_TX); }} className="btn" style={{ background: '#f5f5f5', color: '#333' }}>
+            <X size={14} style={{ marginRight: 4 }} /> Cancel Edit
+          </button>
+        )}
+      </div>
+
+      <form onSubmit={handleSubmit}>
+        <div className="form-grid" style={{marginBottom: '15px'}}>
+          <div className="form-group form-grid-full">
+            <div style={{display: 'flex', gap: '10px', background: '#f5f5f5', padding: '4px', borderRadius: '8px'}}>
+            <select value={txData.assetId} onChange={e => setTxData({...txData, assetId: e.target.value})}>
+              <option value="">General ledger...</option>
+              <optgroup label="Crops">
+                {crops.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              </optgroup>
+              <optgroup label="Harvest Pulls">
+                {harvests.map(h => <option key={h.id} value={h.id}>{h.amount} {h.unit} pulled on {h.date}</option>)}
+              </optgroup>
+              <optgroup label="Livestock">
+                {livestock.map(l => <option key={l.id} value={l.id}>{l.type} - {l.tagNumber}</option>)}
+              </optgroup>
+              <optgroup label="Fields">
+                {fields.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+              </optgroup>
+            </select>
+            </div>
+          </div>
+          <div className="form-group">
+            <label>Transaction Type</label>
+            <select value={txData.txType} onChange={e => setTxData({...txData, txType: e.target.value})}>
+              <option>Expense</option>
+              <option>Sale</option>
+            </select>
+          </div>
+          <div className="form-group">
+            <label>Category</label>
+            <select value={txData.category} onChange={e => setTxData({...txData, category: e.target.value})}>
+              {txData.txType === 'Expense' ? (
+                <><option>Fertilizer</option><option>Seed</option><option>Fuel</option><option>Labor</option><option>Equipment Maintenance</option></>
+              ) : (
+                <><option>Crop Sale</option><option>Livestock Sale</option><option>Subsidy</option></>
+              )}
+            </select>
+          </div>
+          <div className="form-group">
+            <label>Amount ($)</label>
+            <input type="number" step="0.01" value={txData.amount} onChange={e => setTxData({...txData, amount: e.target.value})} placeholder="250.00"/>
+          </div>
+          <div className="form-group">
+            <label>Vendor / Buyer</label>
+            <input type="text" value={txData.vendor} onChange={e => setTxData({...txData, vendor: e.target.value})} placeholder="John Deere, Local Co-op..."/>
+          </div>
+        <div className="form-group form-grid-full">
+          <label>Notes / Memo</label>
+            <textarea rows="2" value={txData.notes} onChange={e => setTxData({...txData, notes: e.target.value})}></textarea>
+          </div>
+        </div>
+        <button type="submit" className="btn btn-primary" style={{marginTop: 10}}>
+          <DollarSign size={16} style={{marginRight: 6}}/> 
+          {editingId ? 'Update Ledger Entry' : txData.txType === 'Sale' ? 'Save Sale in Ledger' : 'Save Expense in Ledger'}
+        </button>
+      </form>
+
+      <hr style={{border: 'none', borderTop: '1px solid var(--color-border)', margin: '30px 0'}} />
+
+      {transactions.length > 0 && (
+        <div style={{ marginBottom: '30px' }}>
+          <h3 style={{ marginBottom: '15px', color: '#444' }}>Financial Analytics</h3>
+          <div className="form-grid">
+            <div className="card" style={{ padding: '10px', boxShadow: 'none', background: '#fafafa' }}>
+              <h4 style={{textAlign: 'center', marginBottom: 10, fontSize: '0.9rem'}}>Monthly Revenue vs Expenses</h4>
+              <div style={{ width: '100%', height: 250 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={barData}>
+                    <CartesianGrid strokeDasharray="3 3" />
+                    <XAxis dataKey="name" tick={{fontSize: 12}} />
+                    <YAxis tick={{fontSize: 12}} />
+                    <Tooltip cursor={{fill: '#f5f5f5'}} />
+                    <Legend wrapperStyle={{fontSize: 12}} />
+                    <Bar dataKey="Sales" fill="#2e7d32" />
+                    <Bar dataKey="Expenses" fill="#d32f2f" />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+
+            <div className="card" style={{ padding: '10px', boxShadow: 'none', background: '#fafafa' }}>
+              <h4 style={{textAlign: 'center', marginBottom: 10, fontSize: '0.9rem'}}>Total Aggregate Flow</h4>
+              <div style={{ width: '100%', height: 250 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie data={pieData} cx="50%" cy="50%" innerRadius={40} outerRadius={80} paddingAngle={5} dataKey="value" label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`}>
+                      {pieData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <CrudTable 
+        data={transactions} 
+        columns={columns} 
+        onEdit={(row) => { setTxData(row); setEditingId(row.id); }} 
+        onDelete={(id) => {
+          dispatch(deleteTransaction(id));
+          dispatch(queueAction({ type: 'core/deleteNode', payload: { id }, meta: { id: Date.now() } }));
+        }} 
+        itemLabel="Transaction" 
+      />
+    </div>
+  );
+}

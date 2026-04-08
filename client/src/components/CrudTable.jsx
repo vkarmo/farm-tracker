@@ -1,0 +1,126 @@
+import React, { useState } from 'react';
+import { Search, Edit2, Trash2 } from 'lucide-react';
+
+export default function CrudTable({ data, columns, onEdit, onDelete, itemLabel = 'Item', rowStyle }) {
+  const [searchTerm, setSearchTerm] = useState('');
+
+  // Filter data across all string/number columns
+  const filteredData = data.filter(row => 
+    Object.values(row).some(val => 
+      String(val).toLowerCase().includes(searchTerm.toLowerCase())
+    )
+  );
+
+  return (
+    <div style={{ marginTop: '20px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+        <h3 style={{ margin: 0 }}>Active {itemLabel}s</h3>
+        
+        <div style={{ position: 'relative', width: '250px' }}>
+          <Search size={16} style={{ position: 'absolute', left: '10px', top: '10px', color: '#888' }} />
+          <input 
+            type="text" 
+            placeholder={`Search ${itemLabel.toLowerCase()}s...`}
+            value={searchTerm}
+            onChange={e => setSearchTerm(e.target.value)}
+            style={{ width: '100%', paddingLeft: '35px', paddingRight: '10px', height: '36px', borderRadius: '20px', border: '1px solid var(--color-border)' }}
+          />
+        </div>
+      </div>
+
+      <div className="desktop-table-container" style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', margin: '0 -20px', padding: '0 20px' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', background: 'white', minWidth: '600px' }}>
+          <thead>
+            <tr style={{ background: '#f5f7fa', borderBottom: '2px solid var(--color-border)' }}>
+              {columns.map((col, i) => (
+                <th key={i} style={{ padding: '12px 15px', color: '#555', fontSize: '0.85rem', textTransform: 'uppercase' }}>
+                  {col.header}
+                </th>
+              ))}
+              <th style={{ padding: '12px 15px', textAlign: 'right', color: '#555', fontSize: '0.85rem', textTransform: 'uppercase' }}>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {filteredData.length === 0 ? (
+              <tr>
+                <td colSpan={columns.length + 1} style={{ padding: '30px', textAlign: 'center', color: '#999', fontStyle: 'italic' }}>
+                  No {itemLabel.toLowerCase()}s found matching your search.
+                </td>
+              </tr>
+            ) : (
+              filteredData.map((row, rowIndex) => (
+                <tr key={row.id || rowIndex} style={{ borderBottom: '1px solid #eee', transition: 'background 0.2s', ...(rowStyle ? rowStyle(row) : {}), ':hover': { background: '#fcfcfc' } }}>
+                  {columns.map((col, colIndex) => (
+                    <td key={colIndex} style={{ padding: '12px 15px' }}>
+                      {/* Render custom func if passed, otherwise raw key string */}
+                      {col.render ? col.render(row) : row[col.key]}
+                    </td>
+                  ))}
+                  <td style={{ padding: '12px 15px', textAlign: 'right' }}>
+                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                      {onEdit && (
+                        <button 
+                          onClick={() => onEdit(row)} 
+                          title="Edit Record"
+                          style={{ padding: '6px', background: '#e3f2fd', color: '#1565c0', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+                          <Edit2 size={14} />
+                        </button>
+                      )}
+                      {onDelete && (
+                        <button 
+                          onClick={() => { if(window.confirm(`Permanently delete this ${itemLabel.toLowerCase()}?`)) onDelete(row.id) }} 
+                          title="Delete Record"
+                          style={{ padding: '6px', background: '#ffebee', color: '#c62828', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+                          <Trash2 size={14} />
+                        </button>
+                      )}
+                    </div>
+                  </td>
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Mobile Card Framework */}
+      <div className="card-list">
+        {filteredData.length === 0 ? (
+          <div style={{ padding: '30px', textAlign: 'center', color: '#999', fontStyle: 'italic', background: 'white', borderRadius: '8px' }}>
+             No {itemLabel.toLowerCase()}s found matching your search.
+          </div>
+        ) : (
+          filteredData.map((row, rowIndex) => (
+            <div key={row.id || rowIndex} className="mobile-data-card" style={rowStyle ? rowStyle(row) : {}}>
+              {columns.map((col, colIndex) => (
+                <div key={colIndex} className="mobile-data-card-row">
+                  <div className="mobile-data-card-label">{col.header}:</div>
+                  <div className="mobile-data-card-value">
+                    {col.render ? col.render(row) : row[col.key]}
+                  </div>
+                </div>
+              ))}
+              
+              <div className="mobile-data-actions">
+                {onEdit && (
+                  <button 
+                    onClick={() => onEdit(row)} 
+                    style={{ flex: 1, padding: '10px', background: '#e3f2fd', color: '#1565c0', border: 'none', borderRadius: '4px', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', fontSize: '1rem', fontWeight: 600 }}>
+                    <Edit2 size={16} /> Edit
+                  </button>
+                )}
+                {onDelete && (
+                  <button 
+                    onClick={() => { if(window.confirm(`Permanently delete this ${itemLabel.toLowerCase()}?`)) onDelete(row.id) }} 
+                    style={{ flex: 1, padding: '10px', background: '#ffebee', color: '#c62828', border: 'none', borderRadius: '4px', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', fontSize: '1rem', fontWeight: 600 }}>
+                    <Trash2 size={16} /> Delete
+                  </button>
+                )}
+              </div>
+            </div>
+          ))
+        )}
+      </div>
+    </div>
+  );
+}

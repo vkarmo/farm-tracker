@@ -1,0 +1,44 @@
+import { configureStore, combineReducers } from '@reduxjs/toolkit';
+import { persistStore, persistReducer } from 'redux-persist';
+import localForage from 'localforage';
+import syncReducer from './syncSlice';
+import fieldsReducer from './fieldsSlice';
+import assetsReducer from './assetsSlice';
+import financialsReducer from './financialsSlice';
+import settingsReducer from './settingsSlice';
+import nurseryReducer from './nurserySlice';
+import activityReducer from './activitySlice';
+import authReducer from './authSlice';
+
+// Persist config that uses IndexedDB via localforage
+const persistConfig = {
+  key: 'root',
+  storage: localForage,
+  whitelist: ['sync', 'fields', 'assets', 'financials', 'settings', 'nurseries', 'activities', 'auth'] // Store all entity & settings data
+};
+
+const rootReducer = combineReducers({
+  sync: syncReducer,
+  fields: fieldsReducer,
+  assets: assetsReducer,
+  financials: financialsReducer,
+  settings: settingsReducer,
+  nurseries: nurseryReducer,
+  activities: activityReducer,
+  auth: authReducer
+});
+
+const persistedReducer = persistReducer(persistConfig, rootReducer);
+
+export const store = configureStore({
+  reducer: persistedReducer,
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware({
+      serializableCheck: {
+        // Ignore redux-persist actions
+        ignoredActions: ['persist/PERSIST', 'persist/REHYDRATE', 'persist/REGISTER'],
+      },
+    }),
+});
+
+export const persistor = persistStore(store);
