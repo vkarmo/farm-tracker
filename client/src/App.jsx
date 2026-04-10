@@ -1,8 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { fetchFields } from './store/fieldsSlice';
-import { addUnit, removeUnit, addKmlUrl, removeKmlUrl, setLogo } from './store/settingsSlice';
-import { Wifi, WifiOff, CloudOff, Target, Tractor, Leaf, DollarSign, MapPin, Rabbit, Settings, BarChart, Layers, Box, ClipboardList, ShieldAlert } from 'lucide-react';
+import { addUnit, removeUnit, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter } from './store/settingsSlice';
+import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+
+const LocationMarker = () => {
+  const dispatch = useDispatch();
+  useMapEvents({
+    click(e) {
+      dispatch(setMapCenter([e.latlng.lat, e.latlng.lng]));
+    },
+  });
+  const position = useSelector(state => state.settings?.mapCenter) || [51.505, -0.09];
+  return <Marker position={position}></Marker>;
+};
+import { Wifi, WifiOff, CloudOff, Target, Tractor, Leaf, DollarSign, MapPin, Rabbit, Settings, BarChart, Layers, Box, ClipboardList, ShieldAlert, Calculator } from 'lucide-react';
 import MapLayer from './MapLayer';
 
 // Modular Tabs
@@ -12,6 +25,7 @@ import CropTab from './components/CropTab';
 import HarvestTab from './components/HarvestTab';
 import LivestockTab from './components/LivestockTab';
 import FinanceTab from './components/FinanceTab';
+import BudgetTab from './components/BudgetTab';
 import ActivityTab from './components/ActivityTab';
 import LoginScreen from './components/LoginScreen';
 import AdminTab from './components/AdminTab';
@@ -27,6 +41,8 @@ export default function App() {
   const units = useSelector(state => state.settings?.units) || ['lbs'];
   const kmlUrls = useSelector(state => state.settings?.kmlUrls) || [];
   const logo = useSelector(state => state.settings?.logo);
+  const polygonColor = useSelector(state => state.settings?.polygonColor) || '#ffffff';
+  const mapCenter = useSelector(state => state.settings?.mapCenter) || [51.505, -0.09];
   const syncQueue = useSelector(state => state.sync.offlineActionQueue) || [];
   const isSyncing = useSelector(state => state.sync.isSyncing);
 
@@ -104,6 +120,7 @@ export default function App() {
         <button onClick={() => setActiveTab('harvest')} className={`btn ${activeTab === 'harvest' ? 'btn-primary' : ''}`}><BarChart size={16} style={{marginRight: 6}}/> Harvests</button>
         <button onClick={() => setActiveTab('livestock')} className={`btn ${activeTab === 'livestock' ? 'btn-primary' : ''}`}><Rabbit size={16} style={{marginRight: 6}}/> Livestock</button>
         <button onClick={() => setActiveTab('finance')} className={`btn ${activeTab === 'finance' ? 'btn-primary' : ''}`}><DollarSign size={16} style={{marginRight: 6}}/> Financials</button>
+        <button onClick={() => setActiveTab('budget')} className={`btn ${activeTab === 'budget' ? 'btn-primary' : ''}`}><Calculator size={16} style={{marginRight: 6}}/> Budgets</button>
         <div style={{ flex: 1 }}></div>
         {currentUser?.role === 'Admin' && (
            <button onClick={() => setActiveTab('admin')} className={`btn ${activeTab === 'admin' ? 'btn-primary' : ''}`} style={{ background: activeTab === 'admin' ? '#c62828' : 'white', color: activeTab === 'admin' ? 'white' : '#c62828', borderColor: '#c62828' }}>
@@ -117,7 +134,10 @@ export default function App() {
         
         {activeTab === 'dashboard' && <DashboardTab />}
         {activeTab === 'map' && (
-          <div className="card"><h2>GIS Field Map</h2><MapLayer fields={fields} /></div>
+          <div className="card" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 180px)' }}>
+            <h2>GIS Field Map</h2>
+            <MapLayer fields={fields} />
+          </div>
         )}
 
         {/* Modular Entity CRUD Component Wrappers */}
@@ -128,6 +148,7 @@ export default function App() {
         {activeTab === 'harvest' && <HarvestTab />}
         {activeTab === 'livestock' && <LivestockTab />}
         {activeTab === 'finance' && <FinanceTab />}
+        {activeTab === 'budget' && <BudgetTab />}
         {activeTab === 'admin' && <AdminTab />}
 
         {activeTab === 'settings' && (
@@ -177,7 +198,27 @@ export default function App() {
                <button type="submit" className="btn btn-primary">Add Layer</button>
              </form>
            </div>
-         </div>
+
+           <hr style={{border: 'none', borderTop: '1px solid var(--color-border)', margin: '20px 0'}} />
+           
+           <div style={{marginBottom: 20}}>
+             <h3>Map Preferences</h3>
+             <div style={{ marginBottom: 16 }}>
+               <label>Polygon Draw Color</label>
+               <input type="color" value={polygonColor} onChange={(e) => dispatch(setPolygonColor(e.target.value))} style={{ display: 'block', marginTop: 8 }} />
+             </div>
+             <div>
+               <label>Default Map Tab Location (Drop Pin by clicking on map)</label>
+               <div style={{ height: '300px', width: '100%', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--color-border)', marginTop: 8 }}>
+                 <MapContainer center={mapCenter} zoom={13} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
+                   <TileLayer attribution="Google Maps" url="http://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}&s=Ga" />
+                   <LocationMarker />
+                 </MapContainer>
+               </div>
+             </div>
+           </div>
+
+          </div>
         )}
 
       </main>

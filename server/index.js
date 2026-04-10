@@ -88,27 +88,14 @@ app.post('/api/sync', async (req, res) => {
         results.push({ actionId: action.meta?.id, status: 'success' });
       }
       else if (action.type === 'nurseries/addBed') {
-        const { id, name, capacity, status } = action.payload;
+        const { id, name, capacity, status, polygon } = action.payload;
         await session.run(
-          'MERGE (n:NurseryBed {id: $id}) SET n.name = $name, n.capacity = $capacity, n.status = $status RETURN n',
-          { id, name, capacity, status }
+          'MERGE (n:NurseryBed {id: $id}) SET n.name = $name, n.capacity = $capacity, n.status = $status, n.polygon = $polygon RETURN n',
+          { id, name, capacity, status, polygon }
         );
         results.push({ actionId: action.meta?.id, status: 'success' });
       }
-      else if (action.type === 'activities/addActivity') {
-        const { id, type, date, notes, fieldId } = action.payload;
-        const r = await session.run(
-          `
-          MATCH (f:Field {id: $fieldId})
-          MERGE (a:Activity {id: $id})
-          SET a.type = $type, a.date = $date, a.notes = $notes
-          MERGE (a)-[:OCCURRED_ON]->(f)
-          RETURN a
-          `,
-          { id, type, date, notes, fieldId }
-        );
-        results.push({ actionId: action.meta?.id, status: 'success' });
-      }
+
       else if (action.type === 'assets/addCrop') {
         const { id, name, variety, fieldId, plantingDate, expectedHarvest, seedingRate, targetYield, sowType } = action.payload;
         
@@ -192,15 +179,37 @@ app.post('/api/sync', async (req, res) => {
         results.push({ actionId: action.meta?.id, status: 'success' });
       }
       else if (action.type === 'activities/addActivity') {
-        const { id, type: activityType, targetId, date, notes } = action.payload;
+        const { id, type: activityType, targetId, date, plannedDate, personResponsible, notes } = action.payload;
         await session.run(`
           MERGE (a:Activity {id: $id})
-          SET a.type = $activityType, a.date = $date, a.notes = $notes
+          SET a.type = $activityType, a.date = $date, a.plannedDate = $plannedDate, a.personResponsible = $personResponsible, a.notes = $notes
           WITH a
           MATCH (target {id: $targetId})
           MERGE (a)-[:PERFORMED_ON]->(target)
           RETURN a
-        `, { id, activityType, targetId, date, notes });
+        `, { id, activityType, targetId, date, plannedDate, personResponsible, notes });
+        results.push({ actionId: action.meta?.id, status: 'success' });
+      }
+      else if (action.type === 'budgets/upsertBudget') {
+        const { id, name, description, exchangeRate } = action.payload;
+        await session.run(`
+          MERGE (b:Budget {id: $id})
+          SET b.name = $name, b.description = $description, b.exchangeRate = $exchangeRate
+          RETURN b
+        `, { id, name, description, exchangeRate });
+        results.push({ actionId: action.meta?.id, status: 'success' });
+      }
+      else if (action.type === 'budgets/upsertBudgetItem') {
+        const { budgetId, item } = action.payload;
+        await session.run(`
+          MERGE (i:BudgetItem {id: $item.id})
+          SET i.category = $item.category, i.description = $item.description, 
+              i.amount = toFloat($item.amount), i.currency = $item.currency, i.status = $item.status
+          WITH i
+          MATCH (b:Budget {id: $budgetId})
+          MERGE (b)-[:CONTAINS]->(i)
+          RETURN i
+        `, { budgetId, item });
         results.push({ actionId: action.meta?.id, status: 'success' });
       }
       else if (action.type === 'users/upsertUser') {

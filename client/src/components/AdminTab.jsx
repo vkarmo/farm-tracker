@@ -9,6 +9,7 @@ export default function AdminTab() {
   const dispatch = useDispatch();
   const usersList = useSelector(state => state.auth?.usersList) || [];
   const currentUser = useSelector(state => state.auth?.currentUser);
+  const [newEmail, setNewEmail] = useState('');
   
   // Force fetch users from Neo4j when Admin mounts (if online)
   useEffect(() => {
@@ -53,6 +54,31 @@ export default function AdminTab() {
         Review and audit anyone authenticated to access offline payloads. 
         As the Admin, you can permanently revoke their structural access tokens at any time.
       </p>
+
+      <form onSubmit={(e) => {
+        e.preventDefault();
+        if (!newEmail.trim() || !newEmail.includes('@gmail.com')) return alert("Enter a valid Google Mail address.");
+        const seedPayload = {
+          id: `u_${Date.now()}`,
+          name: newEmail.split('@')[0],
+          email: newEmail.toLowerCase().trim(),
+          role: 'Staff',
+          profilePic: `https://api.dicebear.com/7.x/initials/svg?seed=${newEmail}`
+        };
+        dispatch(queueAction({ type: 'users/upsertUser', payload: seedPayload, meta: { id: Date.now() } }));
+        // Also fast-update the local sync array
+        dispatch({ type: 'auth/setUsersList', payload: [...usersList, seedPayload] });
+        setNewEmail('');
+      }} style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+        <input 
+          type="email" 
+          placeholder="New user gmail address (e.g., worker@gmail.com)" 
+          value={newEmail} 
+          onChange={e => setNewEmail(e.target.value)} 
+          style={{ flex: 1 }}
+        />
+        <button type="submit" className="btn btn-primary">Whitelist User</button>
+      </form>
 
       <hr style={{border: 'none', borderTop: '1px solid var(--color-border)', margin: '30px 0'}} />
 

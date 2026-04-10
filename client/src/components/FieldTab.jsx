@@ -21,6 +21,8 @@ const INIT_STATE = { name: '', area: '', year: String(new Date().getFullYear()),
 export default function FieldTab() {
   const dispatch = useDispatch();
   const fields = useSelector(state => state.fields.data) || [];
+  const polygonColor = useSelector(state => state.settings?.polygonColor) || '#ffffff';
+  const mapCenter = useSelector(state => state.settings?.mapCenter) || [51.505, -0.09];
   
   const [formData, setFormData] = useState(INIT_STATE);
   const [editingId, setEditingId] = useState(null);
@@ -100,14 +102,14 @@ export default function FieldTab() {
               )}
             </label>
             <div style={{ height: '300px', width: '100%', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--color-border)' }}>
-              <MapContainer center={[51.505, -0.09]} zoom={13} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
+              <MapContainer center={mapCenter} zoom={13} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
                 <TileLayer
                   attribution="Google Maps"
                   url="http://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}&s=Ga"
                 />
                 <ClickToDrawComponent polygon={polygonPositions} setPolygon={setPolygonPositions} />
                 {polygonPositions.length > 0 && (
-                  <Polygon positions={polygonPositions} pathOptions={{ color: 'var(--color-primary)' }} />
+                  <Polygon positions={polygonPositions} pathOptions={{ color: polygonColor }} />
                 )}
               </MapContainer>
             </div>

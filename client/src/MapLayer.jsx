@@ -6,6 +6,8 @@ import 'leaflet/dist/leaflet.css';
 
 const MapLayer = ({ fields }) => {
   const kmlUrls = useSelector(state => state.settings.kmlUrls);
+  const polygonColor = useSelector(state => state.settings?.polygonColor) || '#ffffff';
+  const mapCenter = useSelector(state => state.settings?.mapCenter) || [51.505, -0.09];
   const [geoJsonLayers, setGeoJsonLayers] = useState([]);
   const [errors, setErrors] = useState([]);
 
@@ -57,11 +59,10 @@ const MapLayer = ({ fields }) => {
     fetchKMLs();
   }, [kmlUrls]);
 
-  const defaultCenter = [51.505, -0.09];
   const zoom = 13;
 
   return (
-    <div style={{ height: '400px', width: '100%', borderRadius: 'var(--radius-md)', overflow: 'hidden', zIndex: 0, position: 'relative' }}>
+    <div style={{ flex: 1, minHeight: 0, width: '100%', borderRadius: 'var(--radius-md)', overflow: 'hidden', zIndex: 0, position: 'relative' }}>
       
       {errors.length > 0 && (
         <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 1000, background: 'rgba(198, 40, 40, 0.9)', color: 'white', padding: '8px 12px', borderRadius: '4px', fontSize: '0.85rem' }}>
@@ -69,7 +70,7 @@ const MapLayer = ({ fields }) => {
         </div>
       )}
 
-      <MapContainer center={defaultCenter} zoom={zoom} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
+      <MapContainer center={mapCenter} zoom={zoom} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
         <TileLayer
           attribution="Google Maps"
           url="http://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}&s=Ga"
@@ -108,7 +109,7 @@ const MapLayer = ({ fields }) => {
           }
           
           return (
-            <Polygon key={field.id} pathOptions={{ color: 'var(--color-primary)' }} positions={positions}>
+            <Polygon key={field.id} pathOptions={{ color: polygonColor }} positions={positions}>
               <Popup>
                 <strong>{field.name}</strong><br/>
                 Area: {field.area}

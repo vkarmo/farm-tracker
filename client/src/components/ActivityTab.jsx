@@ -5,7 +5,7 @@ import { addActivity, deleteActivity } from '../store/activitySlice';
 import { ClipboardList, X } from 'lucide-react';
 import CrudTable from './CrudTable';
 
-const INIT_ACT = { targetId: '', type: 'Brushing', date: '', notes: '' };
+const INIT_ACT = { targetId: '', type: 'Brushing', date: '', plannedDate: '', personResponsible: '', notes: '' };
 
 const ACTIVITY_TYPES = [
   'Brushing', 'Burning', 'Felling', 'Preparing for Planting', 
@@ -25,8 +25,8 @@ export default function ActivityTab() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!activityData.activityType) return alert("Validation Error: Please select an Activity Type.");
-    if (!activityData.date) return alert("Validation Error: Date is required.");
+    if (!actData.type) return alert("Validation Error: Please select an Activity Type.");
+    if (!actData.plannedDate) return alert("Validation Error: Planned Date is required.");
     if (!actData.targetId) return;
 
     if (editingId) {
@@ -44,8 +44,10 @@ export default function ActivityTab() {
   };
 
   const columns = [
-    { key: 'date', header: 'Date' },
+    { key: 'plannedDate', header: 'Planned Date' },
+    { key: 'date', header: 'Execution Date' },
     { key: 'type', header: 'Task' },
+    { key: 'personResponsible', header: 'Responsible' },
     { 
       key: 'targetId', 
       header: 'Target Asset',
@@ -97,8 +99,16 @@ export default function ActivityTab() {
             </select>
           </div>
           <div className="form-group">
-            <label>Execution Date</label>
+            <label>Planned Date</label>
+            <input type="date" value={actData.plannedDate} onChange={e => setActData({...actData, plannedDate: e.target.value})}/>
+          </div>
+          <div className="form-group">
+            <label>Execution Date (Optional until done)</label>
             <input type="date" value={actData.date} onChange={e => setActData({...actData, date: e.target.value})}/>
+          </div>
+          <div className="form-group form-grid-full">
+            <label>Person Responsible</label>
+            <input type="text" value={actData.personResponsible} onChange={e => setActData({...actData, personResponsible: e.target.value})} placeholder="e.g. John Doe"/>
           </div>
           <div className="form-group form-grid-full">
             <label>Notes / Custom Description</label>

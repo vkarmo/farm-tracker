@@ -6,6 +6,8 @@ export const settingsSlice = createSlice({
     units: ['lbs', 'kg', 'bushels', 'crates', 'tons'],
     kmlUrls: [], // Array of URLs to fetch and render
     logo: null, // Base64 encoded logo image
+    polygonColor: '#ffffff',
+    mapCenter: [51.505, -0.09]
   },
   reducers: {
     addUnit: (state, action) => {
@@ -28,9 +30,15 @@ export const settingsSlice = createSlice({
     },
     setLogo: (state, action) => {
       state.logo = action.payload;
+    },
+    setPolygonColor: (state, action) => {
+      state.polygonColor = action.payload;
+    },
+    setMapCenter: (state, action) => {
+      state.mapCenter = action.payload;
     }
   }
 });
 
-export const { addUnit, removeUnit, addKmlUrl, removeKmlUrl, setLogo } = settingsSlice.actions;
+export const { addUnit, removeUnit, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter } = settingsSlice.actions;
 export default settingsSlice.reducer;

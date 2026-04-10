@@ -5,6 +5,17 @@ import { addBed, deleteBed } from '../store/nurserySlice';
 import { transplantCrop } from '../store/assetsSlice';
 import { Box, MoveRight, X } from 'lucide-react';
 import CrudTable from './CrudTable';
+import { MapContainer, TileLayer, Polygon, useMapEvents } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+
+const ClickToDrawComponent = ({ polygon, setPolygon }) => {
+  useMapEvents({
+    click(e) {
+      setPolygon([...polygon, [e.latlng.lat, e.latlng.lng]]);
+    }
+  });
+  return null;
+};
 
 const INIT_BED = { name: '', capacity: '', status: 'Available', gps: '' };
 
@@ -12,11 +23,14 @@ export default function NurseryTab() {
   const dispatch = useDispatch();
   const nurseries = useSelector(state => state.nurseries?.beds) || [];
   const crops = useSelector(state => state.assets.crops) || [];
+  const polygonColor = useSelector(state => state.settings?.polygonColor) || '#ffffff';
+  const mapCenter = useSelector(state => state.settings?.mapCenter) || [51.505, -0.09];
   const fields = useSelector(state => state.fields.data) || [];
 
   const [bedData, setBedData] = useState(INIT_BED);
   const [editingId, setEditingId] = useState(null);
   const [transplantFieldId, setTransplantFieldId] = useState('');
+  const [polygonPositions, setPolygonPositions] = useState([]);
 
   const handleAddBed = (e) => {
     e.preventDefault();
@@ -25,18 +39,21 @@ export default function NurseryTab() {
     if (bedData.capacity && (isNaN(parsedCap) || parsedCap < 0)) return alert("Validation Error: Bed Capacity must be positive.");
     if (!bedData.name) return;
     
+    const finalData = { ...bedData, polygon: JSON.stringify(polygonPositions) };
+
     if (editingId) {
-      const updatedBed = { ...bedData, id: editingId };
+      const updatedBed = { ...finalData, id: editingId };
       dispatch(addBed(updatedBed)); // addBed actually functions as an upsert/merge locally
       dispatch(queueAction({ type: 'core/updateNode', payload: { id: editingId, properties: updatedBed }, meta: { id: Date.now() } }));
     } else {
-      const newBed = { id: `n_${Date.now()}`, ...bedData };
+      const newBed = { id: `n_${Date.now()}`, ...finalData };
       dispatch(addBed(newBed));
       dispatch(queueAction({ type: 'nurseries/addBed', payload: newBed, meta: { id: Date.now() } }));
     }
     
     setBedData(INIT_BED);
     setEditingId(null);
+    setPolygonPositions([]);
   };
 
   const handleTransplant = (cropId) => {
@@ -58,7 +75,7 @@ export default function NurseryTab() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h2>{editingId ? 'Edit Nursery Bed' : 'Nursery Bed Management'}</h2>
         {editingId && (
-          <button onClick={() => { setEditingId(null); setBedData(INIT_BED); }} className="btn" style={{ background: '#f5f5f5', color: '#333' }}>
+          <button onClick={() => { setEditingId(null); setBedData(INIT_BED); setPolygonPositions([]); }} className="btn" style={{ background: '#f5f5f5', color: '#333' }}>
             <X size={14} style={{ marginRight: 4 }} /> Cancel Edit
           </button>
         )}
@@ -68,9 +85,27 @@ export default function NurseryTab() {
       
       <form onSubmit={handleAddBed} style={{marginBottom: 30}}>
         <div className="form-grid">
-          <div className="form-group form-grid-full">
-            <label>GPS Coordinates (Location of Bed/Tray)</label>
-            <input type="text" value={bedData.gps} onChange={e => setBedData({...bedData, gps: e.target.value})} placeholder="e.g. 34.0522, -118.2437"/>
+          <div className="form-group form-grid-full" style={{ marginBottom: '15px' }}>
+            <label style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span>Draw Nursery Location on Map (Click to add points to polygon)</span>
+              {polygonPositions.length > 0 && (
+                <button type="button" onClick={() => setPolygonPositions([])} className="btn" style={{ padding: '2px 8px', fontSize: '12px' }}>
+                  Clear Drawing
+                </button>
+              )}
+            </label>
+            <div style={{ height: '300px', width: '100%', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--color-border)' }}>
+              <MapContainer center={mapCenter} zoom={13} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
+                <TileLayer
+                  attribution="Google Maps"
+                  url="http://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}&s=Ga"
+                />
+                <ClickToDrawComponent polygon={polygonPositions} setPolygon={setPolygonPositions} />
+                {polygonPositions.length > 0 && (
+                  <Polygon positions={polygonPositions} pathOptions={{ color: polygonColor }} />
+                )}
+              </MapContainer>
+            </div>
           </div>
           <div className="form-group">
             <label>Bed/Tray Designation</label>
@@ -87,7 +122,13 @@ export default function NurseryTab() {
       <CrudTable 
         data={nurseries} 
         columns={nurseryColumns} 
-        onEdit={(row) => { setBedData(row); setEditingId(row.id); }} 
+        onEdit={(row) => { 
+          setBedData(row); 
+          setEditingId(row.id); 
+          if (row.polygon) {
+            try { setPolygonPositions(JSON.parse(row.polygon)); } catch(e) { setPolygonPositions([]); }
+          } else { setPolygonPositions([]); }
+        }} 
         onDelete={(id) => {
           dispatch(deleteBed(id));
           dispatch(queueAction({ type: 'core/deleteNode', payload: { id }, meta: { id: Date.now() } }));
