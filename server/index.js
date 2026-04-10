@@ -52,10 +52,10 @@ app.get('/api/fields', async (req, res) => {
 app.post('/api/fields', async (req, res) => {
   const session = driver.session();
   try {
-    const { id, name, area, soil_type, irrigation, status, year } = req.body;
+    const { id, name, area, soil_type, irrigation, status, year, polygon } = req.body;
     const result = await session.run(
-      'CREATE (f:Field {id: $id, name: $name, area: $area, soil_type: $soil_type, irrigation: $irrigation, status: $status, year: $year}) RETURN f',
-      { id, name, area, soil_type, irrigation, status, year }
+      'CREATE (f:Field {id: $id, name: $name, area: $area, soil_type: $soil_type, irrigation: $irrigation, status: $status, year: $year, polygon: $polygon}) RETURN f',
+      { id, name, area, soil_type, irrigation, status, year, polygon }
     );
     const field = result.records[0].get('f').properties;
     res.json(field);
@@ -79,11 +79,11 @@ app.post('/api/sync', async (req, res) => {
     // Run all actions sequentially to maintain order and data integrity
     for (const action of queue) {
       if (action.type === 'fields/addField') {
-        const { id, name, area, soil_type, irrigation, status, year } = action.payload;
+        const { id, name, area, soil_type, irrigation, status, year, polygon } = action.payload;
         // Merge so we don't recreate if it exists somehow
         await session.run(
-          'MERGE (f:Field {id: $id}) SET f.name = $name, f.area = $area, f.soil_type = $soil_type, f.irrigation = $irrigation, f.status = $status, f.year = $year RETURN f',
-          { id, name, area, soil_type, irrigation, status, year }
+          'MERGE (f:Field {id: $id}) SET f.name = $name, f.area = $area, f.soil_type = $soil_type, f.irrigation = $irrigation, f.status = $status, f.year = $year, f.polygon = $polygon RETURN f',
+          { id, name, area, soil_type, irrigation, status, year, polygon }
         );
         results.push({ actionId: action.meta?.id, status: 'success' });
       }

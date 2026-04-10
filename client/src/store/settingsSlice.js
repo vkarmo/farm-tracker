@@ -5,6 +5,7 @@ export const settingsSlice = createSlice({
   initialState: {
     units: ['lbs', 'kg', 'bushels', 'crates', 'tons'],
     kmlUrls: [], // Array of URLs to fetch and render
+    logo: null, // Base64 encoded logo image
   },
   reducers: {
     addUnit: (state, action) => {
@@ -24,9 +25,12 @@ export const settingsSlice = createSlice({
     removeKmlUrl: (state, action) => {
       if (!state.kmlUrls) state.kmlUrls = [];
       state.kmlUrls = state.kmlUrls.filter(u => u !== action.payload);
+    },
+    setLogo: (state, action) => {
+      state.logo = action.payload;
     }
   }
 });
 
-export const { addUnit, removeUnit, addKmlUrl, removeKmlUrl } = settingsSlice.actions;
+export const { addUnit, removeUnit, addKmlUrl, removeKmlUrl, setLogo } = settingsSlice.actions;
 export default settingsSlice.reducer;

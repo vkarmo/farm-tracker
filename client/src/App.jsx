@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { fetchFields } from './store/fieldsSlice';
-import { addUnit, removeUnit, addKmlUrl, removeKmlUrl } from './store/settingsSlice';
+import { addUnit, removeUnit, addKmlUrl, removeKmlUrl, setLogo } from './store/settingsSlice';
 import { Wifi, WifiOff, CloudOff, Target, Tractor, Leaf, DollarSign, MapPin, Rabbit, Settings, BarChart, Layers, Box, ClipboardList, ShieldAlert } from 'lucide-react';
 import MapLayer from './MapLayer';
 
@@ -26,6 +26,7 @@ export default function App() {
   const fields = useSelector(state => state.fields.data) || [];
   const units = useSelector(state => state.settings?.units) || ['lbs'];
   const kmlUrls = useSelector(state => state.settings?.kmlUrls) || [];
+  const logo = useSelector(state => state.settings?.logo);
   const syncQueue = useSelector(state => state.sync.offlineActionQueue) || [];
   const isSyncing = useSelector(state => state.sync.isSyncing);
 
@@ -48,6 +49,17 @@ export default function App() {
   const handleAddUnit = (e) => { e.preventDefault(); if (newUnit) { dispatch(addUnit(newUnit.toLowerCase())); setNewUnit(''); } };
   const handleAddKml = (e) => { e.preventDefault(); if (newKml) { dispatch(addKmlUrl(newKml)); setNewKml(''); } };
 
+  const handleLogoUpload = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        dispatch(setLogo(reader.result));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   if (!currentUser) {
     return <LoginScreen />;
   }
@@ -56,7 +68,11 @@ export default function App() {
     <>
       <header>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Tractor color="var(--color-primary-dark)" />
+          {logo ? (
+            <img src={logo} alt="Company Logo" style={{ maxHeight: '40px', maxWidth: '150px', objectFit: 'contain' }} />
+          ) : (
+            <Tractor color="var(--color-primary-dark)" />
+          )}
           <h1>Antigravity Farm Tracker</h1>
         </div>
         
@@ -117,6 +133,20 @@ export default function App() {
         {activeTab === 'settings' && (
            <div className="card">
            <h2>Configuration</h2>
+           <div style={{marginBottom: 20}}>
+             <h3>Company Logo</h3>
+             <div style={{ marginBottom: 16 }}>
+               {logo && (
+                 <div style={{ marginBottom: 10 }}>
+                   <img src={logo} alt="Current Logo" style={{ maxHeight: '60px', borderRadius: '4px', border: '1px solid var(--color-border)' }} />
+                   <br/>
+                   <button onClick={() => dispatch(setLogo(null))} className="btn" style={{marginTop: 8, background: '#ffebee', color: '#c62828', padding: '4px 8px'}}>Remove Logo</button>
+                 </div>
+               )}
+               <input type="file" accept="image/*" onChange={handleLogoUpload} className="btn" style={{ padding: '6px' }} />
+             </div>
+           </div>
+           <hr style={{border: 'none', borderTop: '1px solid var(--color-border)', margin: '20px 0'}} />
            <div style={{marginBottom: 20}}>
              <h3>Configurable Measurement Units</h3>
              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: 16 }}>
