@@ -33,12 +33,16 @@ const SyncController = ({ children }) => {
   return <>{children}</>;
 };
 
+import { GoogleOAuthProvider } from '@react-oauth/google';
+
 ReactDOM.createRoot(document.getElementById('root')).render(
   <Provider store={store}>
     <PersistGate loading={<div>Loading App State...</div>} persistor={persistor}>
-      <SyncController>
-        <App />
-      </SyncController>
+      <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
+        <SyncController>
+          <App />
+        </SyncController>
+      </GoogleOAuthProvider>
     </PersistGate>
   </Provider>
 );

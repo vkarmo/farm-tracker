@@ -4,30 +4,46 @@ import { queueAction } from '../store/syncSlice';
 import { addField, updateField, deleteField } from '../store/fieldsSlice';
 import { CheckCircle2, Target, X } from 'lucide-react';
 import CrudTable from './CrudTable';
+import { MapContainer, TileLayer, Polygon, useMapEvents } from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+
+const ClickToDrawComponent = ({ polygon, setPolygon }) => {
+  useMapEvents({
+    click(e) {
+      setPolygon([...polygon, [e.latlng.lat, e.latlng.lng]]);
+    }
+  });
+  return null;
+};
 
 const INIT_STATE = { name: '', area: '', year: String(new Date().getFullYear()), soil_type: 'Loam', irrigation: 'None', status: 'Fallow', gps: '' };
 
 export default function FieldTab() {
   const dispatch = useDispatch();
   const fields = useSelector(state => state.fields.data) || [];
+  const polygonColor = useSelector(state => state.settings?.polygonColor) || '#ffffff';
+  const mapCenter = useSelector(state => state.settings?.mapCenter) || [51.505, -0.09];
   
   const [formData, setFormData] = useState(INIT_STATE);
   const [editingId, setEditingId] = useState(null);
+  const [polygonPositions, setPolygonPositions] = useState([]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!fieldData.name.trim()) return alert("Validation Error: Field Name is strictly required.");
-    if (parseFloat(fieldData.size) < 0) return alert("Validation Error: Mathematical acreage cannot be negative.");
+    if (!formData.name.trim()) return alert("Validation Error: Field Name is strictly required.");
+    if (parseFloat(formData.area) < 0) return alert("Validation Error: Mathematical acreage cannot be negative.");
     if (!formData.name || !formData.area) return;
+
+    const finalData = { ...formData, polygon: JSON.stringify(polygonPositions) };
 
     if (editingId) {
       // UPDATE
-      const updatedField = { ...formData, id: editingId };
+      const updatedField = { ...finalData, id: editingId };
       dispatch(updateField(updatedField));
       dispatch(queueAction({ type: 'core/updateNode', payload: { id: editingId, properties: updatedField }, meta: { id: Date.now() } }));
     } else {
       // CREATE
-      const newField = { ...formData, id: `f_${Date.now()}` };
+      const newField = { ...finalData, id: `f_${Date.now()}` };
       dispatch(addField(newField));
       // fields/addField logic on server uses MERGE and sets all props, so it acts like an update/create.
       dispatch(queueAction({ type: 'fields/addField', payload: newField, meta: { id: Date.now() } }));
@@ -35,11 +51,19 @@ export default function FieldTab() {
     
     setFormData(INIT_STATE);
     setEditingId(null);
+    setPolygonPositions([]);
   };
 
   const handleEdit = (row) => {
     setFormData(row);
     setEditingId(row.id);
+    if (row.polygon) {
+      try {
+        setPolygonPositions(JSON.parse(row.polygon));
+      } catch(e) { setPolygonPositions([]); }
+    } else {
+      setPolygonPositions([]);
+    }
   };
 
   const handleDelete = (id) => {
@@ -60,7 +84,7 @@ export default function FieldTab() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h2>{editingId ? 'Edit Field Geometry' : 'Track New Field Geometry'}</h2>
         {editingId && (
-          <button onClick={() => { setEditingId(null); setFormData(INIT_STATE); }} className="btn" style={{ background: '#f5f5f5', color: '#333' }}>
+          <button onClick={() => { setEditingId(null); setFormData(INIT_STATE); setPolygonPositions([]); }} className="btn" style={{ background: '#f5f5f5', color: '#333' }}>
             <X size={14} style={{ marginRight: 4 }} /> Cancel Edit
           </button>
         )}
@@ -68,9 +92,27 @@ export default function FieldTab() {
 
       <form onSubmit={handleSubmit}>
         <div className="form-grid">
-          <div className="form-group form-grid-full">
-            <label>GPS Coordinates (Google Maps Link or Lat/Long)</label>
-            <input type="text" value={formData.gps} onChange={e => setFormData({...formData, gps: e.target.value})} placeholder="e.g. 34.0522, -118.2437"/>
+          <div className="form-group form-grid-full" style={{ marginBottom: '15px' }}>
+            <label style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <span>Draw Field Location on Map (Click to add points to polygon)</span>
+              {polygonPositions.length > 0 && (
+                <button type="button" onClick={() => setPolygonPositions([])} className="btn" style={{ padding: '2px 8px', fontSize: '12px' }}>
+                  Clear Drawing
+                </button>
+              )}
+            </label>
+            <div style={{ height: '300px', width: '100%', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--color-border)' }}>
+              <MapContainer center={mapCenter} zoom={13} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
+                <TileLayer
+                  attribution="Google Maps"
+                  url="http://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}&s=Ga"
+                />
+                <ClickToDrawComponent polygon={polygonPositions} setPolygon={setPolygonPositions} />
+                {polygonPositions.length > 0 && (
+                  <Polygon positions={polygonPositions} pathOptions={{ color: polygonColor }} />
+                )}
+              </MapContainer>
+            </div>
           </div>
           <div className="form-group">
             <label>Field Name / Identifier</label>
