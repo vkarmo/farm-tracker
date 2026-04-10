@@ -246,6 +246,15 @@ app.post('/api/sync', async (req, res) => {
   }
 });
 
+// Serve client dist conditionally in production
+const path = require('path');
+if (process.env.NODE_ENV === 'production') {
+  app.use(express.static(path.join(__dirname, '../client/dist')));
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, '../client/dist/index.html'));
+  });
+}
+
 app.listen(port, () => {
   console.log(`Node Server proxy running on port ${port}`);
 });

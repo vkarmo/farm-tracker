@@ -27,7 +27,7 @@ export const { login, logout, setUsersList, removeUserOffline } = authSlice.acti
 // Thunk to fetch users list for Admin
 export const fetchAllUsers = () => async (dispatch) => {
   try {
-    const response = await fetch('http://localhost:3001/api/users');
+    const response = await fetch('/api/users');
     if (response.ok) {
       const users = await response.json();
       dispatch(setUsersList(users));

@@ -32,7 +32,7 @@ export const { addField, updateField, deleteField, setFields } = fieldsSlice.act
 
 export const fetchFields = () => async (dispatch) => {
   try {
-    const res = await fetch('http://localhost:3001/api/fields');
+    const res = await fetch('/api/fields');
     if (res.ok) {
       const data = await res.json();
       dispatch(setFields(data));
