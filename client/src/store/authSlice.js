@@ -18,11 +18,17 @@ export const authSlice = createSlice({
     },
     removeUserOffline: (state, action) => {
       state.usersList = state.usersList.filter(u => u.email !== action.payload);
+    },
+    updateUserAccess: (state, action) => {
+      const idx = state.usersList.findIndex(u => u.email === action.payload.email);
+      if (idx !== -1) {
+        state.usersList[idx].allowedTabs = action.payload.allowedTabs;
+      }
     }
   }
 });
 
-export const { login, logout, setUsersList, removeUserOffline } = authSlice.actions;
+export const { login, logout, setUsersList, removeUserOffline, updateUserAccess } = authSlice.actions;
 
 // Thunk to fetch users list for Admin
 export const fetchAllUsers = () => async (dispatch) => {

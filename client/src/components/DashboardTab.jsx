@@ -31,6 +31,8 @@ export default function DashboardTab() {
   const livestock = useSelector(state => state.assets.livestock) || [];
   const transactions = useSelector(state => state.financials.transactions) || [];
   const activities = useSelector(state => state.activities?.log) || [];
+  const deadlines = useSelector(state => state.deadlines?.list) || [];
+  const incidents = useSelector(state => state.incidents?.list) || [];
 
   // Top-Level Metric Calculations
   const totalAcres = fields.reduce((sum, f) => sum + (parseFloat(f.size) || 0), 0);
@@ -148,6 +150,79 @@ export default function DashboardTab() {
           <div><div style={{ fontSize: '0.85rem', color: '#666' }}>CROPS</div><div style={{ fontSize: '1.5rem', fontWeight: 700 }}>{activeCrops.length}</div></div>
         </div>
       </div>
+
+      {/* Incidents Feed Table */}
+      <CollapsibleCard title="Active Incidents & Issues" forceFullGrid>
+        <div style={{ overflowX: 'auto' }}>
+          <table className="crud-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Title</th>
+                <th>Affected Asset</th>
+                <th>Severity</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {incidents.length === 0 ? (
+                <tr><td colSpan="5" style={{textAlign: 'center', padding: '20px', color: '#888'}}>No incidents reported.</td></tr>
+              ) : (
+                incidents.slice().sort((a,b) => b.date.localeCompare(a.date)).map(i => (
+                  <tr key={i.id}>
+                    <td>{i.date}</td>
+                    <td>{i.title}</td>
+                    <td>{i.associatedAsset || '-'}</td>
+                    <td>
+                      <span style={{ 
+                        color: i.severity === 'High' ? '#c62828' : i.severity === 'Medium' ? '#f57c00' : '#4caf50',
+                        fontWeight: 'bold' 
+                      }}>{i.severity}</span>
+                    </td>
+                    <td>{i.resolutionStatus}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </CollapsibleCard>
+
+      {/* Deadlines Feed Table */}
+      <CollapsibleCard title="Upcoming Deadlines" forceFullGrid>
+        <div style={{ overflowX: 'auto' }}>
+          <table className="crud-table">
+            <thead>
+              <tr>
+                <th>Due Date</th>
+                <th>Title</th>
+                <th>Category</th>
+                <th>Responsible</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {deadlines.length === 0 ? (
+                <tr><td colSpan="5" style={{textAlign: 'center', padding: '20px', color: '#888'}}>No upcoming deadlines.</td></tr>
+              ) : (
+                deadlines.slice().sort((a,b) => a.dueDate.localeCompare(b.dueDate)).map(d => (
+                  <tr key={d.id} style={{ opacity: d.status === 'Resolved' ? 0.6 : 1 }}>
+                    <td>{d.dueDate}</td>
+                    <td>{d.title}</td>
+                    <td>{d.type}</td>
+                    <td>{d.personResponsible || '-'}</td>
+                    <td>
+                      <span style={{ color: d.status === 'Overdue' ? '#c62828' : d.status === 'Resolved' ? '#2e7d32' : '#f57c00' }}>
+                        {d.status}
+                      </span>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </CollapsibleCard>
 
       {/* Activities Feed Table */}
       <CollapsibleCard title="Recent & Upcoming Activities" forceFullGrid>
