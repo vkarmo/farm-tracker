@@ -102,14 +102,12 @@ export default function App() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
-          {isSyncing ? (
-            <div className="status-indicator status-syncing"><CloudOff size={16} /> Syncing...</div>
-          ) : isOnline ? (
+          {isOnline ? (
             <div className="status-indicator status-online"><Wifi size={16} /> Online</div>
           ) : (
             <div className="status-indicator status-offline">
-              <WifiOff size={16} /> Offline
-              {syncQueue.length > 0 && <span style={{ marginLeft: '4px' }}>({syncQueue.length} pending)</span>}
+              <WifiOff size={16} /> Offline Cache Active
+              {syncQueue.length > 0 && <span style={{ marginLeft: '4px' }}>({syncQueue.length} pending writes)</span>}
             </div>
           )}
 

@@ -35,10 +35,15 @@ const SyncController = ({ children }) => {
 
 import { GoogleOAuthProvider } from '@react-oauth/google';
 
-ReactDOM.createRoot(document.getElementById('root')).render(
+const rootElement = document.getElementById('root');
+if (!rootElement._reactRoot) {
+  rootElement._reactRoot = ReactDOM.createRoot(rootElement);
+}
+
+rootElement._reactRoot.render(
   <Provider store={store}>
     <PersistGate loading={<div>Loading App State...</div>} persistor={persistor}>
-      <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID}>
+      <GoogleOAuthProvider clientId={import.meta.env.VITE_GOOGLE_CLIENT_ID || "95276392841-r1cogm3i20a6vp6v0953dk63ikkvh3g9.apps.googleusercontent.com"}>
         <SyncController>
           <App />
         </SyncController>

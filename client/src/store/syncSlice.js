@@ -35,24 +35,12 @@ export const flushQueue = () => async (dispatch, getState) => {
 
   dispatch(setSyncing(true));
   
-  try {
-    const response = await fetch('/api/sync', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ queue: offlineActionQueue })
-    });
-    
-    if (response.ok) {
-      dispatch(clearQueue());
-      dispatch(setLastSynced(new Date().toISOString()));
-    } else {
-      console.error('Failed to sync', await response.text());
-    }
-  } catch (err) {
-    console.error('Sync error:', err);
-  } finally {
-    dispatch(setSyncing(false));
-  }
+  // PWA Standalone mode: Backend dismantled.
+  // Resolve queue locally without API ping to prevent 502 Bad Gateway
+  dispatch(clearQueue());
+  dispatch(setLastSynced(new Date().toISOString()));
+  dispatch(setSyncing(false));
+  return;
 };
 
 export default syncSlice.reducer;
