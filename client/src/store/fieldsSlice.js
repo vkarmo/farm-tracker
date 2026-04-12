@@ -31,15 +31,9 @@ export const fieldsSlice = createSlice({
 export const { addField, updateField, deleteField, setFields } = fieldsSlice.actions;
 
 export const fetchFields = () => async (dispatch) => {
-  try {
-    const res = await fetch('/api/fields');
-    if (res.ok) {
-      const data = await res.json();
-      dispatch(setFields(data));
-    }
-  } catch (err) {
-    console.error('Failed to fetch from server. Serving offline data.');
-  }
+  // PWA Standalone Mode: Backend dismantled. 
+  // Serving local IndexedDB storage.
+  return;
 };
 
 export default fieldsSlice.reducer;

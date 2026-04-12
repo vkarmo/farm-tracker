@@ -18,9 +18,8 @@ export default function CropTab() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!cropData.name.trim()) return alert("Validation Error: Crop Name is required to initialize a batch.");
-    if (!cropData.status.trim()) return alert("Validation Error: Growth Status is required.");
-    if (!cropData.name) return;
+    if (!cropData.name || !cropData.name.trim()) return alert("Validation Error: Crop Name is required to initialize a batch.");
+    if (!cropData.sowType || !cropData.sowType.trim()) return alert("Validation Error: Sowing Strategy is required.");
 
     if (editingId) {
       const updatedCrop = { ...cropData, id: editingId };
