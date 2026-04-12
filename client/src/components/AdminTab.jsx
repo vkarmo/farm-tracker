@@ -10,26 +10,26 @@ export default function AdminTab() {
   const usersList = useSelector(state => state.auth?.usersList) || [];
   const currentUser = useSelector(state => state.auth?.currentUser);
   const [newEmail, setNewEmail] = useState('');
-  
+
   // Force fetch users from Neo4j when Admin mounts (if online)
   useEffect(() => {
     if (navigator.onLine) {
-       dispatch(fetchAllUsers());
+      dispatch(fetchAllUsers());
     }
   }, [dispatch]);
 
   const columns = [
-    { 
-      key: 'profilePic', 
+    {
+      key: 'profilePic',
       header: 'Avatar',
-      render: (r) => <img src={r.profile_pic || r.profilePic} alt="" width="32" height="32" style={{borderRadius: '50%'}} />
+      render: (r) => <img src={r.profile_pic || r.profilePic} alt="" width="32" height="32" style={{ borderRadius: '50%' }} />
     },
     { key: 'name', header: 'Display Name' },
     { key: 'email', header: 'Email Address' },
-    { 
-      key: 'role', 
+    {
+      key: 'role',
       header: 'System Permissions',
-      render: (r) => r.role === 'Admin' ? <><Shield size={14} color="#d32f2f"/> <strong style={{color: '#d32f2f'}}>Admin</strong></> : <><User size={14} color="#1976d2"/> Staff</>
+      render: (r) => r.role === 'Admin' ? <><Shield size={14} color="#d32f2f" /> <strong style={{ color: '#d32f2f' }}>Admin</strong></> : <><User size={14} color="#1976d2" /> Staff</>
     }
   ];
 
@@ -49,9 +49,9 @@ export default function AdminTab() {
         <h2>System Users Framework</h2>
         <span style={{ fontSize: '0.9rem', color: '#666' }}>Total Authorized: {usersList.length}</span>
       </div>
-      
+
       <p style={{ color: '#555', marginBottom: '20px', fontSize: '0.95rem' }}>
-        Review and audit anyone authenticated to access offline payloads. 
+        Review and audit anyone authenticated to access offline payloads.
         As the Admin, you can permanently revoke their structural access tokens at any time.
       </p>
 
@@ -70,21 +70,21 @@ export default function AdminTab() {
         dispatch({ type: 'auth/setUsersList', payload: [...usersList, seedPayload] });
         setNewEmail('');
       }} style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
-        <input 
-          type="email" 
-          placeholder="New user gmail address (e.g., worker@gmail.com)" 
-          value={newEmail} 
-          onChange={e => setNewEmail(e.target.value)} 
+        <input
+          type="email"
+          placeholder="New user gmail address (e.g., worker@gmail.com)"
+          value={newEmail}
+          onChange={e => setNewEmail(e.target.value)}
           style={{ flex: 1 }}
         />
         <button type="submit" className="btn btn-primary">Whitelist User</button>
       </form>
 
-      <hr style={{border: 'none', borderTop: '1px solid var(--color-border)', margin: '30px 0'}} />
+      <hr style={{ border: 'none', borderTop: '1px solid var(--color-border)', margin: '30px 0' }} />
 
-      <CrudTable 
-        data={usersList} 
-        columns={columns} 
+      <CrudTable
+        data={usersList}
+        columns={columns}
         onEdit={null} // We don't edit users manually, Google OAuth determines metadata
         onDelete={(id) => {
           // Identify the exact user ID internally assigned
@@ -97,8 +97,8 @@ export default function AdminTab() {
             dispatch(removeUserOffline(target?.email));
             dispatch(queueAction({ type: 'core/deleteNode', payload: { id }, meta: { id: Date.now() } }));
           }
-        }} 
-        itemLabel="User" 
+        }}
+        itemLabel="User"
       />
     </div>
   );

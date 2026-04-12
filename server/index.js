@@ -10,6 +10,7 @@ app.use(cors());
 app.use(express.json());
 
 // Initialize Neo4j Driver
+console.info('******-->', process.env.NEO4J_URI, process.env.NEO4J_USER, process.env.NEO4J_PASSWORD);
 const driver = neo4j.driver(
   process.env.NEO4J_URI || 'bolt://localhost:7687',
   neo4j.auth.basic(
@@ -98,7 +99,7 @@ app.post('/api/sync', async (req, res) => {
 
       else if (action.type === 'assets/addCrop') {
         const { id, name, variety, fieldId, plantingDate, expectedHarvest, seedingRate, targetYield, sowType } = action.payload;
-        
+
         if (sowType === 'Nursery') {
           await session.run(`
             MERGE (c:Crop {id: $id}) 
@@ -111,7 +112,7 @@ app.post('/api/sync', async (req, res) => {
             RETURN c
           `, { id, name, variety, fieldId, plantingDate, expectedHarvest, seedingRate, targetYield });
         } else {
-           await session.run(`
+          await session.run(`
             MERGE (c:Crop {id: $id}) 
             SET c.name = $name, c.variety = $variety, 
                 c.planting_date = $plantingDate, c.expected_harvest = $expectedHarvest, 
@@ -122,7 +123,7 @@ app.post('/api/sync', async (req, res) => {
             RETURN c
           `, { id, name, variety, fieldId, plantingDate, expectedHarvest, seedingRate, targetYield });
         }
-        
+
         results.push({ actionId: action.meta?.id, status: 'success' });
       }
       else if (action.type === 'assets/transplantCrop') {
@@ -237,7 +238,7 @@ app.post('/api/sync', async (req, res) => {
         results.push({ actionId: action.meta?.id, status: 'ignored' });
       }
     }
-    
+
     res.json({ success: true, processed: results });
   } catch (err) {
     res.status(500).json({ error: err.message });
