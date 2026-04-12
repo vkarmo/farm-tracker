@@ -15,7 +15,7 @@ const LocationMarker = () => {
   const position = useSelector(state => state.settings?.mapCenter) || [51.505, -0.09];
   return <Marker position={position}></Marker>;
 };
-import { Wifi, WifiOff, CloudOff, Target, Tractor, Leaf, DollarSign, MapPin, Rabbit, Settings, BarChart, Layers, Box, ClipboardList, ShieldAlert, Calculator, CalendarClock, AlertTriangle, LogOut } from 'lucide-react';
+import { Wifi, WifiOff, CloudOff, Target, Tractor, Leaf, DollarSign, MapPin, Rabbit, Settings, BarChart, Layers, Box, ClipboardList, ShieldAlert, Calculator, CalendarClock, AlertTriangle, LogOut, Database } from 'lucide-react';
 import NmkLogo from './components/NmkLogo';
 import MapLayer from './MapLayer';
 
@@ -103,6 +103,10 @@ export default function App() {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
+          
+          <div style={{ fontSize: '0.85rem', color: 'var(--color-primary-dark)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.6)', padding: '6px 12px', borderRadius: '6px', border: '1px solid rgba(46, 125, 50, 0.2)' }}>
+            <Database size={14} /> neo4j+s://3fa11aa8.databases.neo4j.io
+          </div>
           {isOnline ? (
             <div className="status-indicator status-online"><Wifi size={16} /> Online</div>
           ) : (
