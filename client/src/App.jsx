@@ -15,7 +15,8 @@ const LocationMarker = () => {
   const position = useSelector(state => state.settings?.mapCenter) || [51.505, -0.09];
   return <Marker position={position}></Marker>;
 };
-import { Wifi, WifiOff, CloudOff, Target, Tractor, Leaf, DollarSign, MapPin, Rabbit, Settings, BarChart, Layers, Box, ClipboardList, ShieldAlert, Calculator, CalendarClock, AlertTriangle } from 'lucide-react';
+import { Wifi, WifiOff, CloudOff, Target, Tractor, Leaf, DollarSign, MapPin, Rabbit, Settings, BarChart, Layers, Box, ClipboardList, ShieldAlert, Calculator, CalendarClock, AlertTriangle, LogOut } from 'lucide-react';
+import NmkLogo from './components/NmkLogo';
 import MapLayer from './MapLayer';
 
 // Modular Tabs
@@ -96,7 +97,7 @@ export default function App() {
           {logo ? (
             <img src={logo} alt="Company Logo" style={{ maxHeight: '40px', maxWidth: '150px', objectFit: 'contain' }} />
           ) : (
-            <Tractor color="var(--color-primary-dark)" />
+            <NmkLogo size={32} color="transparent" textColor="white" />
           )}
           <h1>NMK Farm Tracker</h1>
         </div>
@@ -111,8 +112,8 @@ export default function App() {
             </div>
           )}
 
-          <button onClick={() => { if (window.confirm('Sign out and lock offline data?')) dispatch(logout()) }} style={{ background: 'transparent', border: '1px solid rgba(255,255,255,0.3)', color: 'white', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}>
-            Sign Out
+          <button onClick={() => { if (window.confirm('Sign out and lock offline data?')) dispatch(logout()) }} style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'transparent', border: '1px solid rgba(255,255,255,0.5)', color: 'white', padding: '6px 14px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 500 }}>
+            <LogOut size={16} /> Logout
           </button>
         </div>
       </header>

@@ -5,12 +5,14 @@ import { queueAction } from '../store/syncSlice';
 import { Tractor, ShieldCheck } from 'lucide-react';
 import { GoogleLogin } from '@react-oauth/google';
 import { jwtDecode } from 'jwt-decode';
+import NmkLogo from './NmkLogo';
 
 export default function LoginScreen() {
   const dispatch = useDispatch();
   const [loading, setLoading] = useState(false);
 
   const usersList = useSelector(state => state.auth?.usersList) || [];
+  const logo = useSelector(state => state.settings?.logo);
 
   // Fetch online users immediately upon attempting login if possible
   React.useEffect(() => {
@@ -55,9 +57,15 @@ export default function LoginScreen() {
       
       <div style={{ background: 'white', padding: '40px', borderRadius: '16px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', textAlign: 'center', maxWidth: '400px', width: '90%' }}>
         
-        <div style={{ width: '64px', height: '64px', background: 'var(--color-primary)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 20px auto', color: 'white' }}>
-          <Tractor size={32} />
-        </div>
+        {logo ? (
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
+            <img src={logo} alt="NMK Logo" style={{ maxWidth: '200px', maxHeight: '100px', objectFit: 'contain' }} />
+          </div>
+        ) : (
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
+            <NmkLogo size={70} color="var(--color-primary)" textColor="white" />
+          </div>
+        )}
 
         <h1 style={{ fontSize: '1.5rem', marginBottom: '10px', color: '#2e7d32' }}>Farm Tracker Pro</h1>
         <p style={{ color: '#666', fontSize: '0.9rem', marginBottom: '30px' }}>
@@ -71,7 +79,6 @@ export default function LoginScreen() {
             <GoogleLogin
               onSuccess={handleGoogleSuccess}
               onError={handleGoogleFailure}
-              useOneTap
               theme="outline"
               size="large"
             />
