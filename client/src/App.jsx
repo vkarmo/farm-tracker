@@ -112,7 +112,7 @@ export default function App() {
             </div>
           )}
 
-          <button onClick={() => { if (window.confirm('Sign out and lock offline data?')) dispatch(logout()) }} style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'transparent', border: '1px solid rgba(255,255,255,0.5)', color: 'white', padding: '6px 14px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 500 }}>
+          <button onClick={() => { if (window.confirm('Sign out and lock offline data?')) dispatch(logout()) }} style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'transparent', border: '1px solid rgba(255,255,255,0.5)', color: 'var(--color-primary-dark)', padding: '6px 14px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 500 }}>
             <LogOut size={16} /> Logout
           </button>
         </div>
