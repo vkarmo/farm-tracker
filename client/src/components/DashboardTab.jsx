@@ -270,7 +270,7 @@ export default function DashboardTab() {
         {/* Harvest by Day */}
         <CollapsibleCard title="Harvest by Day">
           <div style={{ width: '100%', height: 300 }}>
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="99%" height={300} minWidth={1} minHeight={1}>
               <BarChart data={harvestByDay} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="date" tick={{fontSize: 12}} />
@@ -285,7 +285,7 @@ export default function DashboardTab() {
         {/* Expenses and Revenue by 2 weeks */}
         <CollapsibleCard title="Finances (2 Week Segments)">
           <div style={{ width: '100%', height: 300 }}>
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="99%" height={300} minWidth={1} minHeight={1}>
               <BarChart data={fortnightData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="time" tick={{fontSize: 12}} />
@@ -302,7 +302,7 @@ export default function DashboardTab() {
         {/* Revenue by Category (Pie) */}
         <CollapsibleCard title="Revenue by Category">
           <div style={{ width: '100%', height: 300, display: 'flex', justifyContent: 'center' }}>
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="99%" height={300} minWidth={1} minHeight={1}>
               <PieChart>
                 <Pie data={revPieData} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={5} dataKey="value" label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`}>
                   {revPieData.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
@@ -316,7 +316,7 @@ export default function DashboardTab() {
         {/* Expenses by Category (Pie) */}
         <CollapsibleCard title="Expenses by Category">
           <div style={{ width: '100%', height: 300, display: 'flex', justifyContent: 'center' }}>
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="99%" height={300} minWidth={1} minHeight={1}>
               <PieChart>
                 <Pie data={expPieData} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={5} dataKey="value" label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`}>
                   {expPieData.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
@@ -330,7 +330,7 @@ export default function DashboardTab() {
         {/* Monthly Revenue & Expenses (Line) */}
         <CollapsibleCard title="Monthly Financial Trend" forceFullGrid>
           <div style={{ width: '100%', height: 350 }}>
-            <ResponsiveContainer width="100%" height="100%">
+            <ResponsiveContainer width="99%" height={350} minWidth={1} minHeight={1}>
               <LineChart data={monthData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="time" />

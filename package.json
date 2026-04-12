@@ -1,0 +1,15 @@
+{
+  "name": "farm-tracker",
+  "version": "1.0.0",
+  "description": "Farm Tracker Deployment Package",
+  "scripts": {
+    "build": "cd client && npm install && npm run build",
+    "start": "serve -s client/dist -l tcp://0.0.0.0:${PORT:-8080}"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "serve": "^14.2.1"
+  }
+}
