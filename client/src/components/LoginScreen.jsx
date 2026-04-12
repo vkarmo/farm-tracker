@@ -36,7 +36,8 @@ export default function LoginScreen() {
       name: decoded.name || email.split('@')[0],
       email: email,
       role: isAdminRoot || (existingUser && existingUser.role === 'Admin') ? 'Admin' : 'Staff',
-      profilePic: decoded.picture || `https://api.dicebear.com/7.x/initials/svg?seed=${email}`
+      profilePic: decoded.picture || `https://api.dicebear.com/7.x/initials/svg?seed=${email}`,
+      allowedTabs: existingUser?.allowedTabs || null
     };
 
     dispatch(login(userPayload));
