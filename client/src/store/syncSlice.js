@@ -35,12 +35,30 @@ export const flushQueue = () => async (dispatch, getState) => {
 
   dispatch(setSyncing(true));
   
-  // PWA Standalone mode: Backend temporarily dismantled.
-  // Resolve queue locally without API ping to prevent connection errors
-  dispatch(clearQueue());
-  dispatch(setLastSynced(new Date().toISOString()));
-  dispatch(setSyncing(false));
-  return;
+  // Restoring full REST telemetry for Live Backend Connectivity
+  try {
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+    
+    // Relay exact array of actions sequentially to backend sync engine
+    const response = await fetch(`${API_URL}/api/sync`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ queue: offlineActionQueue })
+    });
+
+    if (response.ok) {
+      dispatch(clearQueue());
+      dispatch(setLastSynced(new Date().toISOString()));
+    } else {
+      console.warn("Sync Endpoint Rejected Payload. Wait for offline mode bypass.");
+    }
+  } catch (error) {
+    console.error("Critical Sync Failure - Backend Offline - Reverting to caching.", error);
+  } finally {
+    dispatch(setSyncing(false));
+  }
 };
 
 export default syncSlice.reducer;
