@@ -2,7 +2,7 @@
   "name": "farm-tracker-pwa",
   "version": "1.0.0",
   "scripts": {
-    "build": "cd server && npm install && cd ../client && npm install --legacy-peer-deps && npm run build",
+    "build": "cd client && npm install --legacy-peer-deps && npm run build",
     "start": "NODE_ENV=production PORT=5000 node server/index.js",
     "dev": "cd client && npm run dev"
   },
