@@ -2,32 +2,57 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
-// https://vite.dev/config/
-export default defineConfig({
-  server: {
-    // Proxy removed since backend server is decoupled
-  },
-  plugins: [
-    react(),
-    VitePWA({
-      registerType: 'autoUpdate',
-      devOptions: {
-        enabled: true
-      },
-      manifest: {
-        name: 'Farm Tracker',
-        short_name: 'FarmTracker',
-        description: 'Offline-first Farm Management System',
-        theme_color: '#2e7d32',
-        icons: [
-          {
-            src: 'favicon.svg',
-            sizes: '192x192 512x512',
-            type: 'image/svg+xml',
-            purpose: 'any maskable'
-          }
-        ]
+export default defineConfig(() => {
+  const buildTime = Date.now();
+
+  return {
+    define: {
+      __BUILD_TIME__: JSON.stringify(buildTime)
+    },
+    plugins: [
+      react(),
+      VitePWA({
+        registerType: 'autoUpdate',
+        devOptions: {
+          enabled: true
+        },
+        workbox: {
+          skipWaiting: true,
+          clientsClaim: true,
+          additionalManifestEntries: [
+            { url: '/', revision: String(buildTime) }
+          ]
+        },
+        manifest: {
+          name: 'Farm Tracker PWA',
+          short_name: 'FarmTracker',
+          description: 'Offline-first Farm Management System',
+          theme_color: '#2e7d32',
+          icons: [
+            {
+              src: 'pwa-192x192.png',
+              sizes: '192x192',
+              type: 'image/png'
+            },
+            {
+              src: 'pwa-512x512.png',
+              sizes: '512x512',
+              type: 'image/png'
+            }
+          ]
+        }
+      })
+    ],
+    server: {
+      host: '0.0.0.0',
+      port: 5000,
+      allowedHosts: true,
+      proxy: {
+        '/api': {
+          target: 'http://localhost:3001',
+          changeOrigin: true
+        }
       }
-    })
-  ],
+    }
+  }
 })

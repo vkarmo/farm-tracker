@@ -35,6 +35,9 @@ const SyncController = ({ children }) => {
 
 import { GoogleOAuthProvider } from '@react-oauth/google';
 
+// Injected at build time to guarantee a unique bundle hash per deploy
+console.info('Farm Tracker build:', typeof __BUILD_TIME__ !== 'undefined' ? __BUILD_TIME__ : 'dev');
+
 const rootElement = document.getElementById('root');
 if (!rootElement._reactRoot) {
   rootElement._reactRoot = ReactDOM.createRoot(rootElement);

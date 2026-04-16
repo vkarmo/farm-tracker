@@ -6,6 +6,8 @@ export const syncSlice = createSlice({
     offlineActionQueue: [],
     isSyncing: false,
     lastSynced: null,
+    backendFailures: 0,
+    backendAvailable: true,
   },
   reducers: {
     queueAction: (state, action) => {
@@ -19,32 +21,52 @@ export const syncSlice = createSlice({
     },
     setLastSynced: (state, action) => {
       state.lastSynced = action.payload;
+      state.backendFailures = 0;
+      state.backendAvailable = true;
+    },
+    incrementFailures: (state) => {
+      state.backendFailures += 1;
+      if (state.backendFailures >= 3) {
+        state.backendAvailable = false;
+      }
+    },
+    resetBackend: (state) => {
+      state.backendFailures = 0;
+      state.backendAvailable = true;
     }
   }
 });
 
-export const { queueAction, clearQueue, setSyncing, setLastSynced } = syncSlice.actions;
+export const { queueAction, clearQueue, setSyncing, setLastSynced, incrementFailures, resetBackend } = syncSlice.actions;
 
 export const flushQueue = () => async (dispatch, getState) => {
-  const { offlineActionQueue } = getState().sync;
-  
+  const { offlineActionQueue, isSyncing, backendAvailable, backendFailures } = getState().sync;
+
   if (offlineActionQueue.length === 0) return;
-  
-  // Basic check for online status
   if (!navigator.onLine) return;
+  if (isSyncing) return;
+
+  // If backend has consistently failed, only retry every ~60 attempts (3 min at 3s interval)
+  if (!backendAvailable) {
+    if (backendFailures % 60 !== 0) {
+      dispatch(incrementFailures());
+      return;
+    }
+  }
 
   dispatch(setSyncing(true));
-  
-  // Restoring full REST telemetry for Live Backend Connectivity
+
   try {
-    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001';
-    
-    // Relay exact array of actions sequentially to backend sync engine
+    const API_URL = import.meta.env.VITE_API_URL || '';
+    if (!API_URL) {
+      // No backend configured — stay silent and cache locally
+      dispatch(setSyncing(false));
+      return;
+    }
+
     const response = await fetch(`${API_URL}/api/sync`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ queue: offlineActionQueue })
     });
 
@@ -52,10 +74,14 @@ export const flushQueue = () => async (dispatch, getState) => {
       dispatch(clearQueue());
       dispatch(setLastSynced(new Date().toISOString()));
     } else {
-      console.warn("Sync Endpoint Rejected Payload. Wait for offline mode bypass.");
+      console.warn('Sync endpoint rejected payload — will retry.');
+      dispatch(incrementFailures());
     }
   } catch (error) {
-    console.error("Critical Sync Failure - Backend Offline - Reverting to caching.", error);
+    dispatch(incrementFailures());
+    if (backendFailures === 0) {
+      console.warn('Backend unreachable — data cached locally until reconnected.');
+    }
   } finally {
     dispatch(setSyncing(false));
   }
