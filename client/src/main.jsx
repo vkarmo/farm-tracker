@@ -38,6 +38,16 @@ import { GoogleOAuthProvider } from '@react-oauth/google';
 // Injected at build time to guarantee a unique bundle hash per deploy
 console.info('Farm Tracker build:', typeof __BUILD_TIME__ !== 'undefined' ? __BUILD_TIME__ : 'dev');
 
+// Force-reload when a new service worker takes control so users always get the latest build
+if ('serviceWorker' in navigator) {
+  let reloading = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (reloading) return;
+    reloading = true;
+    window.location.reload();
+  });
+}
+
 const rootElement = document.getElementById('root');
 if (!rootElement._reactRoot) {
   rootElement._reactRoot = ReactDOM.createRoot(rootElement);
