@@ -15,7 +15,7 @@ export default defineConfig({
         enabled: true
       },
       manifest: {
-        name: 'Farm Tracker PWA',
+        name: 'Farm Tracker',
         short_name: 'FarmTracker',
         description: 'Offline-first Farm Management System',
         theme_color: '#2e7d32',
