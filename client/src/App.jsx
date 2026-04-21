@@ -15,7 +15,7 @@ const LocationMarker = () => {
   const position = useSelector(state => state.settings?.mapCenter) || [51.505, -0.09];
   return <Marker position={position}></Marker>;
 };
-import { Wifi, WifiOff, CloudOff, Target, Tractor, Leaf, DollarSign, MapPin, Rabbit, Settings, BarChart, Layers, Box, ClipboardList, ShieldAlert, Calculator, CalendarClock, AlertTriangle, LogOut, Database } from 'lucide-react';
+import { Wifi, WifiOff, CloudOff, Target, Tractor, Leaf, DollarSign, MapPin, Rabbit, Settings, BarChart, Layers, Box, ClipboardList, ShieldAlert, Calculator, CalendarClock, AlertTriangle, LogOut, Database, Users, Contact, Briefcase } from 'lucide-react';
 import NmkLogo from './components/NmkLogo';
 import MapLayer from './MapLayer';
 
@@ -34,6 +34,9 @@ import LoginScreen from './components/LoginScreen';
 import AdminTab from './components/AdminTab';
 import AccessControlTab from './components/AccessControlTab';
 import DashboardTab from './components/DashboardTab';
+import AssignmentTab from './components/AssignmentTab';
+import EmployeeTab from './components/EmployeeTab';
+import EquipmentTab from './components/EquipmentTab';
 import { logout } from './store/authSlice';
 
 export default function App() {
@@ -133,6 +136,9 @@ export default function App() {
         {hasAccess('activity') && <button onClick={() => setActiveTab('activity')} className={`btn ${activeTab === 'activity' ? 'btn-primary' : ''}`}><ClipboardList size={16} style={{ marginRight: 6 }} /> Activities</button>}
         {hasAccess('deadline') && <button onClick={() => setActiveTab('deadline')} className={`btn ${activeTab === 'deadline' ? 'btn-primary' : ''}`}><CalendarClock size={16} style={{ marginRight: 6 }} /> Deadlines</button>}
         {hasAccess('incident') && <button onClick={() => setActiveTab('incident')} className={`btn ${activeTab === 'incident' ? 'btn-primary' : ''}`}><AlertTriangle size={16} style={{ marginRight: 6 }} /> Incidents</button>}
+        {hasAccess('assignment') && <button onClick={() => setActiveTab('assignment')} className={`btn ${activeTab === 'assignment' ? 'btn-primary' : ''}`}><Users size={16} style={{ marginRight: 6 }} /> Assignments</button>}
+        {hasAccess('employee') && <button onClick={() => setActiveTab('employee')} className={`btn ${activeTab === 'employee' ? 'btn-primary' : ''}`}><Contact size={16} style={{ marginRight: 6 }} /> Employees</button>}
+        {hasAccess('equipment') && <button onClick={() => setActiveTab('equipment')} className={`btn ${activeTab === 'equipment' ? 'btn-primary' : ''}`}><Briefcase size={16} style={{ marginRight: 6 }} /> Hard Assets</button>}
         {hasAccess('finance') && <button onClick={() => setActiveTab('finance')} className={`btn ${activeTab === 'finance' ? 'btn-primary' : ''}`}><DollarSign size={16} style={{ marginRight: 6 }} /> Financials</button>}
         {hasAccess('budget') && <button onClick={() => setActiveTab('budget')} className={`btn ${activeTab === 'budget' ? 'btn-primary' : ''}`}><Calculator size={16} style={{ marginRight: 6 }} /> Budgets</button>}
         <div style={{ flex: 1 }}></div>
@@ -168,6 +174,9 @@ export default function App() {
         {activeTab === 'incident' && <IncidentTab />}
         {activeTab === 'harvest' && <HarvestTab />}
         {activeTab === 'livestock' && <LivestockTab />}
+        {activeTab === 'employee' && <EmployeeTab />}
+        {activeTab === 'equipment' && <EquipmentTab />}
+        {activeTab === 'assignment' && <AssignmentTab />}
         {activeTab === 'finance' && <FinanceTab />}
         {activeTab === 'budget' && <BudgetTab />}
         {activeTab === 'admin' && <AdminTab />}
