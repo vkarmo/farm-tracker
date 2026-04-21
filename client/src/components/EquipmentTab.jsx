@@ -29,6 +29,11 @@ export default function EquipmentTab() {
   const [gpsLocation, setGpsLocation] = useState(null);
   const [searchResultCenter, setSearchResultCenter] = useState(null);
 
+  const handleLocationFound = (loc) => {
+    setSearchResultCenter(loc);
+    setGpsLocation(loc); // Equipments only have 1 active pin
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!formData.name.trim()) return alert("Validation Error: Asset Name is strictly required.");
@@ -115,7 +120,7 @@ export default function EquipmentTab() {
               )}
             </label>
             <div style={{ marginBottom: '10px' }}>
-              <MapSearchBox onLocationFound={setSearchResultCenter} />
+              <MapSearchBox onLocationFound={handleLocationFound} showSaveButton={true} />
             </div>
             <div style={{ height: '280px', width: '100%', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--color-border)' }}>
               <MapContainer center={gpsLocation || mapCenter} zoom={14} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>

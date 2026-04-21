@@ -4,7 +4,7 @@ import { queueAction } from '../store/syncSlice';
 import { addField, updateField, deleteField } from '../store/fieldsSlice';
 import { CheckCircle2, Target, X } from 'lucide-react';
 import CrudTable from './CrudTable';
-import { MapContainer, TileLayer, Polygon, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Polygon, Marker, useMapEvents } from 'react-leaflet';
 import { MapSearchBox, MapFlyTo } from './MapSearchBox';
 import 'leaflet/dist/leaflet.css';
 
@@ -29,6 +29,11 @@ export default function FieldTab() {
   const [editingId, setEditingId] = useState(null);
   const [polygonPositions, setPolygonPositions] = useState([]);
   const [searchResultCenter, setSearchResultCenter] = useState(null);
+
+  const handleLocationFound = (loc) => {
+    setSearchResultCenter(loc);
+    setPolygonPositions(prev => [...prev, loc]);
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -104,7 +109,7 @@ export default function FieldTab() {
               )}
             </label>
             <div style={{ marginBottom: '10px' }}>
-              <MapSearchBox onLocationFound={setSearchResultCenter} />
+              <MapSearchBox onLocationFound={handleLocationFound} showSaveButton={true} />
             </div>
             <div style={{ height: '300px', width: '100%', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--color-border)' }}>
               <MapContainer center={mapCenter} zoom={13} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
@@ -114,6 +119,9 @@ export default function FieldTab() {
                   url="http://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}&s=Ga"
                 />
                 <ClickToDrawComponent polygon={polygonPositions} setPolygon={setPolygonPositions} />
+                {polygonPositions.map((pos, idx) => (
+                  <Marker key={`pin_${idx}`} position={pos} />
+                ))}
                 {polygonPositions.length > 0 && (
                   <Polygon positions={polygonPositions} pathOptions={{ color: polygonColor }} />
                 )}
