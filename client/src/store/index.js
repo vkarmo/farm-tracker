@@ -12,12 +12,14 @@ import authReducer from './authSlice';
 import budgetReducer from './budgetSlice';
 import deadlinesReducer from './deadlinesSlice';
 import incidentsReducer from './incidentsSlice';
+import assignmentReducer from './assignmentSlice';
+import employeeReducer from './employeeSlice';
 
 // Persist config that uses IndexedDB via localforage
 const persistConfig = {
   key: 'root',
   storage: localForage,
-  whitelist: ['sync', 'fields', 'assets', 'financials', 'settings', 'nurseries', 'activities', 'auth', 'budgets', 'deadlines', 'incidents'] // Store all entity & settings data
+  whitelist: ['sync', 'fields', 'assets', 'financials', 'settings', 'nurseries', 'activities', 'auth', 'budgets', 'deadlines', 'incidents', 'assignments', 'employees'] // Store all entity & settings data
 };
 
 const rootReducer = combineReducers({
@@ -31,7 +33,9 @@ const rootReducer = combineReducers({
   auth: authReducer,
   budgets: budgetReducer,
   deadlines: deadlinesReducer,
-  incidents: incidentsReducer
+  incidents: incidentsReducer,
+  assignments: assignmentReducer,
+  employees: employeeReducer
 });
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);

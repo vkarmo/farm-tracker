@@ -23,6 +23,7 @@
     "react-leaflet": "^5.0.0",
     "react-redux": "^9.2.0",
     "react-router-dom": "^7.14.0",
+    "react-select": "^5.10.2",
     "recharts": "^3.8.1",
     "redux-persist": "^6.0.0",
     "vite-plugin-pwa": "^0.19.8"
