@@ -5,17 +5,7 @@ import { addUnit, removeUnit, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor,
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 
-const LocationMarker = () => {
-  const dispatch = useDispatch();
-  useMapEvents({
-    click(e) {
-      dispatch(setMapCenter([e.latlng.lat, e.latlng.lng]));
-    },
-  });
-  const position = useSelector(state => state.settings?.mapCenter) || [51.505, -0.09];
-  return <Marker position={position}></Marker>;
-};
-import { Wifi, WifiOff, CloudOff, Target, Tractor, Leaf, DollarSign, MapPin, Rabbit, Settings, BarChart, Layers, Box, ClipboardList, ShieldAlert, Calculator, CalendarClock, AlertTriangle, LogOut, Database, Users, Contact, Briefcase } from 'lucide-react';
+import { Wifi, WifiOff, CloudOff, Target, Tractor, Leaf, DollarSign, MapPin, Rabbit, Settings, BarChart, Layers, Box, ClipboardList, ShieldAlert, Calculator, CalendarClock, AlertTriangle, LogOut, Database, Users, Contact, Briefcase, RefreshCw } from 'lucide-react';
 import NmkLogo from './components/NmkLogo';
 import MapLayer from './MapLayer';
 
@@ -37,6 +27,7 @@ import DashboardTab from './components/DashboardTab';
 import AssignmentTab from './components/AssignmentTab';
 import EmployeeTab from './components/EmployeeTab';
 import EquipmentTab from './components/EquipmentTab';
+import SyncTab from './components/SyncTab';
 import { logout } from './store/authSlice';
 
 export default function App() {
@@ -89,6 +80,15 @@ export default function App() {
     }
   };
 
+  const LocationMarker = () => {
+    const dispatch = useDispatch();
+    useMapEvents({
+      click(e) {
+        dispatch(setMapCenter([e.latlng.lat, e.latlng.lng]));
+      },
+    });
+  };
+
   if (!currentUser) {
     return <LoginScreen />;
   }
@@ -110,7 +110,9 @@ export default function App() {
           <div style={{ fontSize: '0.85rem', color: 'var(--color-primary-dark)', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px', background: 'rgba(255,255,255,0.6)', padding: '6px 12px', borderRadius: '6px', border: '1px solid rgba(46, 125, 50, 0.2)' }}>
             <Database size={14} /> neo4j+s://3fa11aa8.databases.neo4j.io | User: 3fa11aa8
           </div>
-          {isOnline ? (
+          {isSyncing ? (
+            <div className="status-indicator status-syncing"><RefreshCw size={16} className="spin" /> Pushing to DB...</div>
+          ) : isOnline ? (
             <div className="status-indicator status-online"><Wifi size={16} /> Online</div>
           ) : (
             <div className="status-indicator status-offline">
@@ -141,6 +143,9 @@ export default function App() {
         {hasAccess('equipment') && <button onClick={() => setActiveTab('equipment')} className={`btn ${activeTab === 'equipment' ? 'btn-primary' : ''}`}><Briefcase size={16} style={{ marginRight: 6 }} /> Hard Assets</button>}
         {hasAccess('finance') && <button onClick={() => setActiveTab('finance')} className={`btn ${activeTab === 'finance' ? 'btn-primary' : ''}`}><DollarSign size={16} style={{ marginRight: 6 }} /> Financials</button>}
         {hasAccess('budget') && <button onClick={() => setActiveTab('budget')} className={`btn ${activeTab === 'budget' ? 'btn-primary' : ''}`}><Calculator size={16} style={{ marginRight: 6 }} /> Budgets</button>}
+        <button onClick={() => setActiveTab('sync')} className={`btn ${activeTab === 'sync' ? 'btn-primary' : ''}`} style={{ background: activeTab === 'sync' ? '#1565c0' : 'white', color: activeTab === 'sync' ? 'white' : '#1565c0', borderColor: '#1565c0' }}>
+          <RefreshCw size={16} style={{ marginRight: 6 }} className={isSyncing ? "spin" : ""} /> {isSyncing ? "Syncing API..." : "System Sync"}
+        </button>
         <div style={{ flex: 1 }}></div>
         {currentUser?.role === 'Admin' && (
           <>
@@ -178,6 +183,7 @@ export default function App() {
         {activeTab === 'equipment' && <EquipmentTab />}
         {activeTab === 'assignment' && <AssignmentTab />}
         {activeTab === 'finance' && <FinanceTab />}
+        {activeTab === 'sync' && <SyncTab />}
         {activeTab === 'budget' && <BudgetTab />}
         {activeTab === 'admin' && <AdminTab />}
         {activeTab === 'access' && <AccessControlTab />}

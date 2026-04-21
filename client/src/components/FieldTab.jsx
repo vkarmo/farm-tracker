@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { queueAction } from '../store/syncSlice';
 import { addField, updateField, deleteField } from '../store/fieldsSlice';
@@ -6,6 +6,8 @@ import { CheckCircle2, Target, X } from 'lucide-react';
 import CrudTable from './CrudTable';
 import { MapContainer, TileLayer, Polygon, Marker, useMapEvents } from 'react-leaflet';
 import { MapSearchBox, MapFlyTo } from './MapSearchBox';
+import area from '@turf/area';
+import { polygon } from '@turf/helpers';
 import 'leaflet/dist/leaflet.css';
 
 const ClickToDrawComponent = ({ polygon, setPolygon }) => {
@@ -34,6 +36,25 @@ export default function FieldTab() {
     setSearchResultCenter(loc);
     setPolygonPositions(prev => [...prev, loc]);
   };
+
+  useEffect(() => {
+    if (polygonPositions.length >= 3) {
+      try {
+        const ring = polygonPositions.map(p => [p[1], p[0]]); // Turf expects [lng, lat]
+        if (ring[0][0] !== ring[ring.length - 1][0] || ring[0][1] !== ring[ring.length - 1][1]) {
+          ring.push([...ring[0]]); // Close the ring
+        }
+        const turfPoly = polygon([ring]);
+        const sqMeters = area(turfPoly);
+        const acres = sqMeters * 0.000247105;
+        // Do not violently overwrite if they typed something manually right before, 
+        // but if it's explicitly calculated, update state
+        setFormData(prev => ({ ...prev, area: acres.toFixed(2) }));
+      } catch (err) {
+        console.warn("Geographic computation failed:", err);
+      }
+    }
+  }, [polygonPositions]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -109,7 +130,7 @@ export default function FieldTab() {
               )}
             </label>
             <div style={{ marginBottom: '10px' }}>
-              <MapSearchBox onLocationFound={handleLocationFound} showSaveButton={true} />
+              <MapSearchBox onLocationFound={handleLocationFound} />
             </div>
             <div style={{ height: '300px', width: '100%', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--color-border)' }}>
               <MapContainer center={mapCenter} zoom={13} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
