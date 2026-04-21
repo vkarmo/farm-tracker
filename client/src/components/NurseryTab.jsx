@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { queueAction } from '../store/syncSlice';
 import { addBed, deleteBed } from '../store/nurserySlice';
@@ -7,6 +7,8 @@ import { Box, MoveRight, X } from 'lucide-react';
 import CrudTable from './CrudTable';
 import { MapContainer, TileLayer, Polygon, Marker, useMapEvents } from 'react-leaflet';
 import { MapSearchBox, MapFlyTo } from './MapSearchBox';
+import area from '@turf/area';
+import { polygon } from '@turf/helpers';
 import 'leaflet/dist/leaflet.css';
 
 const ClickToDrawComponent = ({ polygon, setPolygon }) => {
@@ -18,7 +20,7 @@ const ClickToDrawComponent = ({ polygon, setPolygon }) => {
   return null;
 };
 
-const INIT_BED = { name: '', capacity: '', status: 'Available', gps: '' };
+const INIT_BED = { name: '', capacity: '', area: '', status: 'Available', gps: '' };
 
 export default function NurseryTab() {
   const dispatch = useDispatch();
@@ -38,6 +40,23 @@ export default function NurseryTab() {
     setSearchResultCenter(loc);
     setPolygonPositions(prev => [...prev, loc]);
   };
+
+  useEffect(() => {
+    if (polygonPositions.length >= 3) {
+      try {
+        const ring = polygonPositions.map(p => [p[1], p[0]]); // Turf expects [lng, lat]
+        if (ring[0][0] !== ring[ring.length - 1][0] || ring[0][1] !== ring[ring.length - 1][1]) {
+          ring.push([...ring[0]]); // Close the ring
+        }
+        const turfPoly = polygon([ring]);
+        const sqMeters = area(turfPoly);
+        const sqFeet = sqMeters * 10.7639; // Use sq ft for Nursery beds since they are intimately smaller than Fields
+        setBedData(prev => ({ ...prev, area: sqFeet.toFixed(2) }));
+      } catch (err) {
+        console.warn("Geographic computation failed:", err);
+      }
+    }
+  }, [polygonPositions]);
 
   const handleAddBed = (e) => {
     e.preventDefault();
@@ -73,6 +92,7 @@ export default function NurseryTab() {
 
   const nurseryColumns = [
     { key: 'name', header: 'Bed/Tray Name' },
+    { key: 'area', header: 'Est. Area (Sq Ft)', render: (r) => r.area ? `${r.area} sqft` : '-' },
     { key: 'capacity', header: 'Plug Capacity' },
     { key: 'status', header: 'Status' }
   ];
@@ -102,7 +122,7 @@ export default function NurseryTab() {
               )}
             </label>
             <div style={{ marginBottom: '10px' }}>
-              <MapSearchBox onLocationFound={handleLocationFound} showSaveButton={true} />
+              <MapSearchBox onLocationFound={handleLocationFound} />
             </div>
             <div style={{ height: '300px', width: '100%', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--color-border)' }}>
               <MapContainer center={mapCenter} zoom={13} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
@@ -124,6 +144,10 @@ export default function NurseryTab() {
           <div className="form-group">
             <label>Bed/Tray Designation</label>
             <input type="text" value={bedData.name} onChange={e => setBedData({...bedData, name: e.target.value})} placeholder="e.g. Greenhouse Rack A"/>
+          </div>
+          <div className="form-group">
+            <label>Physical Area (Sq Ft)</label>
+            <input type="number" step="0.01" value={bedData.area} onChange={e => setBedData({...bedData, area: e.target.value})} placeholder="e.g. 50.0"/>
           </div>
           <div className="form-group">
             <label>Plug Capacity</label>

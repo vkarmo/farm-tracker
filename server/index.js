@@ -84,7 +84,7 @@ app.post('/api/sync', async (req, res) => {
         // Merge so we don't recreate if it exists somehow
         await session.run(
           'MERGE (f:Field {id: $id}) SET f.name = $name, f.area = $area, f.soil_type = $soil_type, f.irrigation = $irrigation, f.status = $status, f.year = $year, f.polygon = $polygon RETURN f',
-          { id, name, area, soil_type, irrigation, status, year, polygon }
+          { id, name, area, soil_type, irrigation, status, year, polygon: polygon ? JSON.stringify(polygon) : null }
         );
         results.push({ actionId: action.meta?.id, status: 'success' });
       }
@@ -92,7 +92,7 @@ app.post('/api/sync', async (req, res) => {
         const { id, name, capacity, status, polygon } = action.payload;
         await session.run(
           'MERGE (n:NurseryBed {id: $id}) SET n.name = $name, n.capacity = $capacity, n.status = $status, n.polygon = $polygon RETURN n',
-          { id, name, capacity, status, polygon }
+          { id, name, capacity, status, polygon: polygon ? JSON.stringify(polygon) : null }
         );
         results.push({ actionId: action.meta?.id, status: 'success' });
       }

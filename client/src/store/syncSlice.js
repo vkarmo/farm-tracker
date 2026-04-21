@@ -39,15 +39,15 @@ export const syncSlice = createSlice({
 
 export const { queueAction, clearQueue, setSyncing, setLastSynced, incrementFailures, resetBackend } = syncSlice.actions;
 
-export const flushQueue = () => async (dispatch, getState) => {
+export const flushQueue = (forceSync = false) => async (dispatch, getState) => {
   const { offlineActionQueue, isSyncing, backendAvailable, backendFailures } = getState().sync;
 
   if (offlineActionQueue.length === 0) return;
   if (!navigator.onLine) return;
   if (isSyncing) return;
 
-  // If backend has consistently failed, only retry every ~60 attempts (3 min at 3s interval)
-  if (!backendAvailable) {
+  // If backend has consistently failed, only retry every ~60 attempts (3 min at 3s interval) unless explicitly overridden
+  if (!forceSync && !backendAvailable) {
     if (backendFailures % 60 !== 0) {
       dispatch(incrementFailures());
       return;
@@ -72,8 +72,11 @@ export const flushQueue = () => async (dispatch, getState) => {
 
     if (response.ok) {
       dispatch(clearQueue());
+      dispatch(resetBackend());
       dispatch(setLastSynced(new Date().toISOString()));
     } else {
+      const errText = await response.text();
+      console.error('Remote DB Sync Exception:', errText);
       console.warn('Sync endpoint rejected payload — will retry.');
       dispatch(incrementFailures());
     }

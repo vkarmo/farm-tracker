@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useMap } from 'react-leaflet';
 
-export const MapSearchBox = ({ onLocationFound, showSaveButton = false }) => {
+export const MapSearchBox = ({ onLocationFound }) => {
   const [query, setQuery] = useState('');
 
   const handleSearch = async (e) => {
@@ -44,11 +44,6 @@ export const MapSearchBox = ({ onLocationFound, showSaveButton = false }) => {
       <button type="button" onClick={handleSearch} className="btn" style={{ padding: '6px 12px', fontSize: '0.85rem', background: '#e0e0e0', color: '#333' }}>
         Add Pin
       </button>
-      {showSaveButton && (
-        <button type="submit" className="btn btn-primary" style={{ padding: '6px 12px', fontSize: '0.85rem' }}>
-          Connect-the-Dots
-        </button>
-      )}
     </div>
   );
 };
