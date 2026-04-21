@@ -5,6 +5,7 @@ import { addField, updateField, deleteField } from '../store/fieldsSlice';
 import { CheckCircle2, Target, X } from 'lucide-react';
 import CrudTable from './CrudTable';
 import { MapContainer, TileLayer, Polygon, useMapEvents } from 'react-leaflet';
+import { MapSearchBox, MapFlyTo } from './MapSearchBox';
 import 'leaflet/dist/leaflet.css';
 
 const ClickToDrawComponent = ({ polygon, setPolygon }) => {
@@ -27,6 +28,7 @@ export default function FieldTab() {
   const [formData, setFormData] = useState(INIT_STATE);
   const [editingId, setEditingId] = useState(null);
   const [polygonPositions, setPolygonPositions] = useState([]);
+  const [searchResultCenter, setSearchResultCenter] = useState(null);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -101,8 +103,12 @@ export default function FieldTab() {
                 </button>
               )}
             </label>
+            <div style={{ marginBottom: '10px' }}>
+              <MapSearchBox onLocationFound={setSearchResultCenter} />
+            </div>
             <div style={{ height: '300px', width: '100%', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--color-border)' }}>
               <MapContainer center={mapCenter} zoom={13} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
+                <MapFlyTo center={searchResultCenter} />
                 <TileLayer
                   attribution="Google Maps"
                   url="http://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}&s=Ga"

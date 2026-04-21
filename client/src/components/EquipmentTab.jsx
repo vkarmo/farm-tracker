@@ -5,6 +5,7 @@ import { addEquipment, updateEquipment, deleteEquipment } from '../store/assetsS
 import { CheckCircle2, X } from 'lucide-react';
 import CrudTable from './CrudTable';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import { MapSearchBox, MapFlyTo } from './MapSearchBox';
 import 'leaflet/dist/leaflet.css';
 
 const ClickToMarkComponent = ({ setGpsLocation }) => {
@@ -26,6 +27,7 @@ export default function EquipmentTab() {
   const [formData, setFormData] = useState(INIT_STATE);
   const [editingId, setEditingId] = useState(null);
   const [gpsLocation, setGpsLocation] = useState(null);
+  const [searchResultCenter, setSearchResultCenter] = useState(null);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -112,8 +114,12 @@ export default function EquipmentTab() {
                 </button>
               )}
             </label>
+            <div style={{ marginBottom: '10px' }}>
+              <MapSearchBox onLocationFound={setSearchResultCenter} />
+            </div>
             <div style={{ height: '280px', width: '100%', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--color-border)' }}>
               <MapContainer center={gpsLocation || mapCenter} zoom={14} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
+                <MapFlyTo center={searchResultCenter} />
                 <TileLayer
                   attribution="Google Maps"
                   url="http://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}&s=Ga"
