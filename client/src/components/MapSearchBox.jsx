@@ -3,7 +3,7 @@ import { useMap } from 'react-leaflet';
 
 export const MapSearchBox = ({ onLocationFound, showSaveButton = false }) => {
   const [query, setQuery] = useState('');
-  
+
   const handleSearch = async (e) => {
     e.preventDefault();
     if (!query.trim()) return;
@@ -33,20 +33,20 @@ export const MapSearchBox = ({ onLocationFound, showSaveButton = false }) => {
 
   return (
     <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
-      <input 
-        type="text" 
-        placeholder="Search address or enter coordinates (lat, lng)..." 
-        value={query} 
-        onChange={e => setQuery(e.target.value)} 
-        onKeyDown={(e) => { if(e.key === 'Enter') handleSearch(e); }}
-        style={{ flex: 1, padding: '6px 10px', fontSize: '0.85rem', borderRadius: '4px', border: '1px solid #ccc' }} 
+      <input
+        type="text"
+        placeholder="Search address or enter coordinates (lat, lng)..."
+        value={query}
+        onChange={e => setQuery(e.target.value)}
+        onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(e); }}
+        style={{ flex: 1, padding: '6px 10px', fontSize: '0.85rem', borderRadius: '4px', border: '1px solid #ccc' }}
       />
       <button type="button" onClick={handleSearch} className="btn" style={{ padding: '6px 12px', fontSize: '0.85rem', background: '#e0e0e0', color: '#333' }}>
         Add Pin
       </button>
       {showSaveButton && (
         <button type="submit" className="btn btn-primary" style={{ padding: '6px 12px', fontSize: '0.85rem' }}>
-          Connect & Save Database
+          Connect-the-Dots
         </button>
       )}
     </div>
