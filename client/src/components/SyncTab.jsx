@@ -5,7 +5,8 @@ import { RefreshCw, Database } from 'lucide-react';
 
 export default function SyncTab() {
   const dispatch = useDispatch();
-  const syncModule = useSelector(state => state.sync || {});
+  const fullState = useSelector(state => state);
+  const syncModule = fullState.sync || {};
   const { offlineActionQueue = [], isSyncing = false, lastSynced, backendAvailable = true, backendFailures = 0 } = syncModule;
 
   const handleForceSync = () => {
@@ -68,10 +69,74 @@ export default function SyncTab() {
       <hr style={{ border: 'none', borderTop: '1px solid var(--color-border)', margin: '20px 0' }} />
 
       <h3>Raw Local Redux Memory Diagnostics</h3>
-      <p style={{ fontSize: '0.8rem', color: '#666', marginBottom: '10px' }}>This terminal displays exactly what is persisted mathematically inside the application cache.</p>
+      <p style={{ fontSize: '0.85rem', color: 'var(--color-text-light)', marginBottom: '20px' }}>
+        This dashboard displays a comprehensive breakdown of what is persisted mathematically inside the application cache across all modules.
+      </p>
 
-      <div style={{ background: '#1e1e1e', color: '#a6e22e', padding: '15px', borderRadius: '8px', overflowX: 'auto', maxHeight: '550px', fontSize: '0.85rem', fontFamily: 'monospace', boxShadow: 'inset 0 0 10px rgba(0,0,0,0.1)' }}>
-        <pre>{JSON.stringify(syncModule, null, 2)}</pre>
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
+        gap: '20px'
+      }}>
+        {Object.entries(fullState).map(([key, value]) => {
+          if (key === '_persist') return null;
+          const isArray = Array.isArray(value);
+          const isObject = value !== null && typeof value === 'object' && !isArray;
+          const itemCount = isArray ? value.length : (isObject ? Object.keys(value).length : 0);
+          
+          return (
+            <div key={key} style={{
+              background: 'white',
+              border: '1px solid var(--color-border)',
+              borderRadius: '12px',
+              padding: '20px',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
+              display: 'flex',
+              flexDirection: 'column',
+              transition: 'transform 0.2s ease, box-shadow 0.2s ease'
+            }}
+            onMouseEnter={(e) => {
+              e.currentTarget.style.transform = 'translateY(-2px)';
+              e.currentTarget.style.boxShadow = '0 6px 16px rgba(0,0,0,0.08)';
+            }}
+            onMouseLeave={(e) => {
+              e.currentTarget.style.transform = 'translateY(0)';
+              e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.03)';
+            }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', borderBottom: '2px solid #f0f0f0', paddingBottom: '10px' }}>
+                <h4 style={{ margin: 0, color: 'var(--color-primary)', textTransform: 'capitalize', fontSize: '1.1rem', fontWeight: 600 }}>
+                  {key}
+                </h4>
+                <span style={{
+                  background: itemCount > 0 ? '#e3f2fd' : '#f5f5f5',
+                  color: itemCount > 0 ? '#1976d2' : '#9e9e9e',
+                  padding: '4px 10px',
+                  borderRadius: '20px',
+                  fontSize: '0.75rem',
+                  fontWeight: 'bold'
+                }}>
+                  {itemCount} {itemCount === 1 ? 'Entry' : 'Entries'}
+                </span>
+              </div>
+              
+              <div style={{ 
+                background: '#1e1e1e', 
+                color: '#a6e22e', 
+                padding: '12px', 
+                borderRadius: '8px', 
+                overflowX: 'auto', 
+                overflowY: 'auto',
+                height: '150px', 
+                fontSize: '0.8rem', 
+                fontFamily: 'monospace',
+                boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.2)'
+              }}>
+                <pre style={{ margin: 0 }}>{JSON.stringify(value, null, 2)}</pre>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
