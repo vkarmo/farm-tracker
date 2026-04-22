@@ -4,9 +4,12 @@
   "scripts": {
     "build": "cd client && npm install --legacy-peer-deps && npm run build",
     "start": "NODE_ENV=production PORT=5000 node server/index.js",
-    "dev": "cd client && npm run dev"
+    "dev": "concurrently \"npm start --prefix server\" \"npm run dev --prefix client\""
   },
   "dependencies": {
     "@replit/connectors-sdk": "^0.4.0"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
   }
 }
