@@ -60,6 +60,7 @@ expertMode = true
 
 [nix]
 channel = "stable-25_05"
+packages = ["vim-full"]
 
 [deployment]
 deploymentTarget = "static"
