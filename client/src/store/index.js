@@ -42,6 +42,16 @@ const rootReducer = combineReducers({
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);
 
+const reduxLoggingMiddleware = store => next => action => {
+  if (action.type !== 'persist/PERSIST' && action.type !== 'persist/REHYDRATE' && action.type !== 'persist/REGISTER') {
+    console.log(`[Redux Sync] SAVING DATA TO REDUX - Action Type: ${action.type}`);
+    if (action.payload) {
+      console.log(`[Redux Sync] Data Payload:`, action.payload);
+    }
+  }
+  return next(action);
+};
+
 export const store = configureStore({
   reducer: persistedReducer,
   middleware: (getDefaultMiddleware) =>
@@ -50,7 +60,7 @@ export const store = configureStore({
         // Ignore redux-persist actions
         ignoredActions: ['persist/PERSIST', 'persist/REHYDRATE', 'persist/REGISTER'],
       },
-    }).concat(auditMiddleware),
+    }).concat(auditMiddleware, reduxLoggingMiddleware),
 });
 
 export const persistor = persistStore(store);
