@@ -70,4 +70,5 @@ publicDir = "client/dist"
 [userenv]
 
 [userenv.shared]
-NEO4J_PASSWORD = "86pHNuUi5baXVA7X05y_0gVQAHyZ72L3uCM1PQ3frUo"
+NEO4J_USER = "3fa11aa8"
+NEO4J_URI = "bolt+s://3fa11aa8.databases.neo4j.io:7687"
