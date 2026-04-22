@@ -10,14 +10,23 @@ app.use(cors());
 app.use(express.json());
 
 // Initialize Neo4j Driver
-console.info('******-->', process.env.NEO4J_URI, process.env.NEO4J_USER, process.env.NEO4J_PASSWORD);
+const neo4jUri = process.env.NEO4J_URI || 'bolt://localhost:7687';
+const neo4jUser = process.env.NEO4J_USER || 'neo4j';
+const neo4jPassword = process.env.NEO4J_PASSWORD || 'password';
 const driver = neo4j.driver(
-  process.env.NEO4J_URI || 'bolt://localhost:7687',
-  neo4j.auth.basic(
-    process.env.NEO4J_USER || 'neo4j',
-    process.env.NEO4J_PASSWORD || 'password'
-  )
+  neo4jUri,
+  neo4j.auth.basic(neo4jUser, neo4jPassword)
 );
+
+driver.verifyConnectivity()
+  .then(() => {
+    console.info(`[Neo4j Database] Attempting connection to ${neo4jUri} with username: ${neo4jUser} and password: ${neo4jPassword}`);
+    console.info('[Neo4j Database] Connection SUCCESSFUL.');
+  })
+  .catch((err) => {
+    console.error(`[Neo4j Database] Attempting connection to ${neo4jUri} with username: ${neo4jUser} and password: ${neo4jPassword}`);
+    console.error(`[Neo4j Database] xx Connection FAILED: ${err.message}`);
+  });
 
 // Standard CRUD routes for basic queries (legacy and global system mappings)
 
