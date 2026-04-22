@@ -28,10 +28,7 @@ import AssignmentTab from './components/AssignmentTab';
 import EmployeeTab from './components/EmployeeTab';
 import EquipmentTab from './components/EquipmentTab';
 import SyncTab from './components/SyncTab';
-<<<<<<< HEAD
-=======
 import AuditTab from './components/AuditTab';
->>>>>>> 1fca21eec85fdf517cd854dac04831ae2b5e97b6
 import { logout } from './store/authSlice';
 import { logAction } from './store/auditSlice';
 
