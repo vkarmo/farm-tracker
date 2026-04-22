@@ -57,12 +57,11 @@ export const flushQueue = (forceSync = false) => async (dispatch, getState) => {
   dispatch(setSyncing(true));
 
   try {
+    // Use VITE_API_URL if set, else fall back to relative URL.
+    // - In dev: relative /api/sync hits Vite proxy → backend (localhost:3001)
+    // - In static prod: relative /api/sync 404s → triggers backoff (silent after 3 failures)
+    // - In full-stack prod: set VITE_API_URL to your backend URL
     const API_URL = import.meta.env.VITE_API_URL || '';
-    if (!API_URL) {
-      // No backend configured — stay silent and cache locally
-      dispatch(setSyncing(false));
-      return;
-    }
 
     const response = await fetch(`${API_URL}/api/sync`, {
       method: 'POST',
