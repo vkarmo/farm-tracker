@@ -63,9 +63,8 @@ channel = "stable-25_05"
 packages = ["vim-full"]
 
 [deployment]
-deploymentTarget = "static"
-build = ["sh", "-c", "cd client && npm install --legacy-peer-deps && npm run build"]
-publicDir = "client/dist"
+build = ["sh", "-c", "cd client && npm install --legacy-peer-deps && npm run build && cd ../server && npm install"]
+run = ["sh", "-c", "cd server && NODE_ENV=production node index.js"]
 
 [userenv]
 
