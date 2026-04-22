@@ -60,8 +60,14 @@ expertMode = true
 
 [nix]
 channel = "stable-25_05"
+packages = ["vim-full"]
 
 [deployment]
 deploymentTarget = "static"
 build = ["sh", "-c", "cd client && npm install --legacy-peer-deps && npm run build"]
 publicDir = "client/dist"
+
+[userenv]
+
+[userenv.shared]
+NEO4J_PASSWORD = "86pHNuUi5baXVA7X05y_0gVQAHyZ72L3uCM1PQ3frUo"
