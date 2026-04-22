@@ -28,7 +28,9 @@ import AssignmentTab from './components/AssignmentTab';
 import EmployeeTab from './components/EmployeeTab';
 import EquipmentTab from './components/EquipmentTab';
 import SyncTab from './components/SyncTab';
+import AuditTab from './components/AuditTab';
 import { logout } from './store/authSlice';
+import { logAction } from './store/auditSlice';
 
 export default function App() {
   const dispatch = useDispatch();
@@ -65,6 +67,18 @@ export default function App() {
       window.removeEventListener('offline', handleOffline);
     }
   }, [dispatch]);
+
+  useEffect(() => {
+    if (activeTab && currentUser) {
+      dispatch(logAction({
+        id: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(),
+        timestamp: new Date().toISOString(),
+        userEmail: currentUser.email || currentUser.name || 'Unknown User',
+        actionType: 'OPEN_PAGE',
+        details: `Navigated to ${activeTab} tab`
+      }));
+    }
+  }, [activeTab, currentUser, dispatch]);
 
   const handleAddUnit = (e) => { e.preventDefault(); if (newUnit) { dispatch(addUnit(newUnit.toLowerCase())); setNewUnit(''); } };
   const handleAddKml = (e) => { e.preventDefault(); if (newKml) { dispatch(addKmlUrl(newKml)); setNewKml(''); } };
@@ -155,6 +169,9 @@ export default function App() {
             <button onClick={() => setActiveTab('access')} className={`btn ${activeTab === 'access' ? 'btn-primary' : ''}`} style={{ background: activeTab === 'access' ? '#c62828' : 'white', color: activeTab === 'access' ? 'white' : '#c62828', borderColor: '#c62828' }}>
               Access Roles
             </button>
+            <button onClick={() => setActiveTab('audit')} className={`btn ${activeTab === 'audit' ? 'btn-primary' : ''}`} style={{ background: activeTab === 'audit' ? '#c62828' : 'white', color: activeTab === 'audit' ? 'white' : '#c62828', borderColor: '#c62828' }}>
+              Audit Logs
+            </button>
           </>
         )}
         <button onClick={() => setActiveTab('settings')} className={`btn ${activeTab === 'settings' ? 'btn-primary' : ''}`}><Settings size={16} style={{ marginRight: 6 }} /> Settings</button>
@@ -187,6 +204,7 @@ export default function App() {
         {activeTab === 'budget' && <BudgetTab />}
         {activeTab === 'admin' && <AdminTab />}
         {activeTab === 'access' && <AccessControlTab />}
+        {activeTab === 'audit' && <AuditTab />}
 
         {activeTab === 'settings' && (
           <div className="card">
