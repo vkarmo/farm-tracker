@@ -9,6 +9,13 @@ const port = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
+// Essential headers to allow Google OAuth popups to function correctly when embedded in iframes like Replit
+app.use((req, res, next) => {
+  res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
+  res.setHeader('Cross-Origin-Embedder-Policy', 'unsafe-none');
+  next();
+});
+
 // Initialize Neo4j Driver
 const neo4jUri = process.env.NEO4J_URI || 'bolt://localhost:7687';
 const neo4jUser = process.env.NEO4J_USER || 'neo4j';
