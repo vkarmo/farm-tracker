@@ -2,12 +2,15 @@ import React, { useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import Select from 'react-select';
 import { saveAssignment, removeAssignment } from '../store/assignmentSlice';
+import { Edit2, Trash2 } from 'lucide-react';
 
 export default function AssignmentTab() {
   const dispatch = useDispatch();
   const assignments = useSelector(state => state.assignments?.list) || [];
   const fields = useSelector(state => state.fields?.data) || [];
   const employeesList = useSelector(state => state.employees?.list) || [];
+  const nurseries = useSelector(state => state.nurseries?.beds) || [];
+  const crops = useSelector(state => state.assets?.crops) || [];
 
   const [editingId, setEditingId] = useState(null);
   const [fieldId, setFieldId] = useState('');
@@ -92,9 +95,14 @@ export default function AssignmentTab() {
     }
   };
 
-  const getFieldName = (id) => {
+  const getTargetName = (id) => {
+    const crop = crops.find(c => c.id === id);
+    if (crop) return `Crop: ${crop.name}`;
     const field = fields.find(f => f.id === id);
-    return field ? field.name : id;
+    if (field) return `Field: ${field.name}`;
+    const bed = nurseries.find(n => n.id === id);
+    if (bed) return `Nursery: ${bed.name}`;
+    return id;
   };
 
   const renderWorkerNames = (assignment) => {
@@ -119,12 +127,18 @@ export default function AssignmentTab() {
         <form onSubmit={handleSubmit}>
           <div className="form-grid">
             <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-              <label>Target Field *</label>
+              <label>Target Asset (Where is this passing?) *</label>
               <select value={fieldId} onChange={e => setFieldId(e.target.value)} required>
-                <option value="">Select Field...</option>
-                {fields.map(f => (
-                  <option key={f.id} value={f.id}>{f.name} ({f.size} acres)</option>
-                ))}
+                <option value="">Select Target...</option>
+                <optgroup label="Crops & Seedlings">
+                  {crops.map(c => <option key={c.id} value={c.id}>{c.name} ({c.variety})</option>)}
+                </optgroup>
+                <optgroup label="Physical Fields">
+                  {fields.map(f => <option key={f.id} value={f.id}>{f.name} ({f.size} acres)</option>)}
+                </optgroup>
+                <optgroup label="Nursery Beds">
+                  {nurseries.map(n => <option key={n.id} value={n.id}>{n.name}</option>)}
+                </optgroup>
               </select>
             </div>
             
@@ -223,15 +237,14 @@ export default function AssignmentTab() {
 
       {activeAssignments.length > 0 && (
         <div className="card">
-          <h2>Active Assignments</h2>
+          <h2>Saved Assignments</h2>
           <div style={{ overflowX: 'auto' }}>
             <table className="crud-table">
               <thead>
                 <tr>
                   <th>Date</th>
-                  <th>Workers Attached</th>
                   <th>Headcount</th>
-                  <th>Field</th>
+                  <th>Target Asset</th>
                   <th>Task</th>
                   <th>Hours</th>
                   <th>Actions</th>
@@ -241,19 +254,28 @@ export default function AssignmentTab() {
                 {[...activeAssignments].sort((a,b) => (b.assignmentDate || '').localeCompare(a.assignmentDate || '')).map(a => (
                   <tr key={a.id}>
                     <td>{a.assignmentDate}</td>
-                    <td style={{ fontWeight: 500 }}>{renderWorkerNames(a)}</td>
                     <td style={{ textAlign: 'center' }}>
                       <span className="status-indicator" style={{ background: '#e3f2fd', color: '#1565c0' }}>
                         {a.workerCount !== undefined ? a.workerCount : (a.workerIds?.length || 1)}
                       </span>
                     </td>
-                    <td>{getFieldName(a.fieldId)}</td>
+                    <td>{getTargetName(a.fieldId)}</td>
                     <td>{a.task}</td>
                     <td>{a.hours > 0 ? `${a.hours} hrs` : '-'}</td>
                     <td>
                       <div style={{ display: 'flex', gap: '8px' }}>
-                        <button className="btn" style={{ padding: '4px 8px', fontSize: '0.8rem' }} onClick={() => handleEdit(a)}>Edit</button>
-                        <button className="btn" style={{ padding: '4px 8px', fontSize: '0.8rem', background: '#ffebee', color: '#c62828' }} onClick={() => handleDelete(a.id)}>Delete</button>
+                        <button 
+                          title="Edit Assignment"
+                          style={{ padding: '6px', background: '#e3f2fd', color: '#1565c0', border: 'none', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} 
+                          onClick={() => handleEdit(a)}>
+                          <Edit2 size={16} />
+                        </button>
+                        <button 
+                          title="Delete Assignment"
+                          style={{ padding: '6px', background: '#ffebee', color: '#c62828', border: 'none', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} 
+                          onClick={() => handleDelete(a.id)}>
+                          <Trash2 size={16} />
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -272,9 +294,8 @@ export default function AssignmentTab() {
               <thead>
                 <tr>
                   <th>Completed On</th>
-                  <th>Workers Attached</th>
                   <th>Headcount</th>
-                  <th>Field</th>
+                  <th>Target Asset</th>
                   <th>Task</th>
                   <th>Hours</th>
                   <th>Actions</th>
@@ -284,19 +305,28 @@ export default function AssignmentTab() {
                 {[...completedAssignments].sort((a,b) => (b.completedDate || '').localeCompare(a.completedDate || '')).map(a => (
                   <tr key={a.id}>
                     <td>{a.completedDate}</td>
-                    <td style={{ fontWeight: 500, color: '#2e7d32' }}>{renderWorkerNames(a)}</td>
                     <td style={{ textAlign: 'center' }}>
                       <span className="status-indicator" style={{ background: '#e3f2fd', color: '#1565c0' }}>
                         {a.workerCount !== undefined ? a.workerCount : (a.workerIds?.length || 1)}
                       </span>
                     </td>
-                    <td>{getFieldName(a.fieldId)}</td>
+                    <td>{getTargetName(a.fieldId)}</td>
                     <td><del>{a.task}</del></td>
                     <td>{a.hours > 0 ? `${a.hours} hrs` : '-'}</td>
                     <td>
                       <div style={{ display: 'flex', gap: '8px' }}>
-                        <button className="btn" style={{ padding: '4px 8px', fontSize: '0.8rem' }} onClick={() => handleEdit(a)}>Edit</button>
-                        <button className="btn" style={{ padding: '4px 8px', fontSize: '0.8rem', background: '#ffebee', color: '#c62828' }} onClick={() => handleDelete(a.id)}>Delete</button>
+                        <button 
+                          title="Edit Assignment"
+                          style={{ padding: '6px', background: '#e3f2fd', color: '#1565c0', border: 'none', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} 
+                          onClick={() => handleEdit(a)}>
+                          <Edit2 size={16} />
+                        </button>
+                        <button 
+                          title="Delete Assignment"
+                          style={{ padding: '6px', background: '#ffebee', color: '#c62828', border: 'none', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} 
+                          onClick={() => handleDelete(a.id)}>
+                          <Trash2 size={16} />
+                        </button>
                       </div>
                     </td>
                   </tr>

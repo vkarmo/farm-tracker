@@ -242,6 +242,20 @@ app.post('/api/sync', async (req, res) => {
         await session.run('MATCH (n {id: $id}) SET n += $properties RETURN n', { id, properties });
         results.push({ actionId: action.meta?.id, status: 'success' });
       }
+      else if (action.type === 'gps/addLocation') {
+        const { id, lat, lng, timestamp, userEmail } = action.payload;
+        await session.run(`
+          MERGE (g:GpsLog {id: $id})
+          SET g.lat = $lat, g.lng = $lng, g.timestamp = $timestamp, g.userEmail = $userEmail
+          WITH g
+          OPTIONAL MATCH (u:User {email: $userEmail})
+          FOREACH (ignoreMe IN CASE WHEN u IS NOT NULL THEN [1] ELSE [] END |
+            MERGE (u)-[:LOGGED_LOCATION]->(g)
+          )
+          RETURN g
+        `, { id, lat, lng, timestamp, userEmail });
+        results.push({ actionId: action.meta?.id, status: 'success' });
+      }
       else {
         console.warn('Unknown sync action:', action.type);
         results.push({ actionId: action.meta?.id, status: 'ignored' });

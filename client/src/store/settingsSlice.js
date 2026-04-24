@@ -8,6 +8,7 @@ export const settingsSlice = createSlice({
     logo: null,
     polygonColor: '#2e7d32',
     mapCenter: [0, 0],
+    gpsDistanceThreshold: 10,
   },
   reducers: {
     addUnit: (state, action) => {
@@ -37,8 +38,11 @@ export const settingsSlice = createSlice({
     setMapCenter: (state, action) => {
       state.mapCenter = action.payload;
     },
+    setGpsDistanceThreshold: (state, action) => {
+      state.gpsDistanceThreshold = action.payload;
+    },
   }
 });
 
-export const { addUnit, removeUnit, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter } = settingsSlice.actions;
+export const { addUnit, removeUnit, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setGpsDistanceThreshold } = settingsSlice.actions;
 export default settingsSlice.reducer;
