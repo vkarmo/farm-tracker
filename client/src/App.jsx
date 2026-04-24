@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { fetchFields } from './store/fieldsSlice';
-import { addUnit, removeUnit, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setGpsDistanceThreshold } from './store/settingsSlice';
+import { addUnit, removeUnit, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold } from './store/settingsSlice';
 import { addLocation } from './store/gpsSlice';
 import { queueAction } from './store/syncSlice';
+import { MapSearchBox, MapFlyTo } from './components/MapSearchBox';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -46,6 +47,7 @@ export default function App() {
   const logo = useSelector(state => state.settings?.logo);
   const polygonColor = useSelector(state => state.settings?.polygonColor) || '#ffffff';
   const mapCenter = useSelector(state => state.settings?.mapCenter) || [51.505, -0.09];
+  const mapZoom = useSelector(state => state.settings?.mapZoom) || 13;
   const gpsDistanceThreshold = useSelector(state => state.settings?.gpsDistanceThreshold) || 10;
   const lastGpsLocation = useSelector(state => {
     const locs = state.gps?.locations || [];
@@ -164,7 +166,11 @@ export default function App() {
       click(e) {
         dispatch(setMapCenter([e.latlng.lat, e.latlng.lng]));
       },
+      zoomend(e) {
+        dispatch(setMapZoom(e.target.getZoom()));
+      }
     });
+    return null;
   };
 
   if (!currentUser) {
@@ -344,10 +350,14 @@ export default function App() {
                 <input type="color" value={polygonColor} onChange={(e) => dispatch(setPolygonColor(e.target.value))} style={{ display: 'block', marginTop: 8 }} />
               </div>
               <div>
-                <label>Default Map Tab Location (Drop Pin by clicking on map)</label>
+                <label>Default Map Tab Location (Search or Drop Pin by clicking on map, Zoom to save default zoom)</label>
+                <div style={{ marginTop: 8 }}>
+                  <MapSearchBox onLocationFound={(loc) => dispatch(setMapCenter(loc))} />
+                </div>
                 <div style={{ height: '300px', width: '100%', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--color-border)', marginTop: 8 }}>
-                  <MapContainer center={mapCenter} zoom={13} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
+                  <MapContainer center={mapCenter} zoom={mapZoom} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
                     <TileLayer attribution="Google Maps" url="http://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}&s=Ga" />
+                    <MapFlyTo center={mapCenter} />
                     <LocationMarker />
                   </MapContainer>
                 </div>

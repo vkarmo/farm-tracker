@@ -28,6 +28,7 @@ export default function NurseryTab() {
   const crops = useSelector(state => state.assets.crops) || [];
   const polygonColor = useSelector(state => state.settings?.polygonColor) || '#ffffff';
   const mapCenter = useSelector(state => state.settings?.mapCenter) || [51.505, -0.09];
+  const mapZoom = useSelector(state => state.settings?.mapZoom) || 13;
   const fields = useSelector(state => state.fields.data) || [];
 
   const [bedData, setBedData] = useState(INIT_BED);
@@ -125,7 +126,7 @@ export default function NurseryTab() {
               <MapSearchBox onLocationFound={handleLocationFound} />
             </div>
             <div style={{ height: '300px', width: '100%', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--color-border)' }}>
-              <MapContainer center={mapCenter} zoom={13} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
+              <MapContainer center={mapCenter} zoom={mapZoom} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
                 <MapFlyTo center={searchResultCenter} />
                 <TileLayer
                   attribution="Google Maps"

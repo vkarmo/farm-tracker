@@ -27,6 +27,8 @@ export default function GpsLogTab() {
   const dispatch = useDispatch();
   const logs = useSelector(state => state.gps?.locations) || [];
   const currentUser = useSelector(state => state.auth?.currentUser);
+  const mapCenter = useSelector(state => state.settings?.mapCenter) || [51.505, -0.09];
+  const mapZoom = useSelector(state => state.settings?.mapZoom) || 13;
   
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUser, setSelectedUser] = useState('All');
@@ -125,33 +127,27 @@ export default function GpsLogTab() {
         
         {mapExpanded && (
           <div style={{ height: '400px', width: '100%' }}>
-            {filteredLogs.length > 0 ? (
-              <MapContainer 
-                center={[filteredLogs[0].lat, filteredLogs[0].lng]} 
-                zoom={14} 
-                style={{ height: '100%', width: '100%' }}
-              >
-                <TileLayer attribution="Google Maps" url="http://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}&s=Ga" />
-                {filteredLogs.map(log => {
-                  const d = new Date(log.timestamp);
-                  const dateStr = `${(d.getMonth()+1).toString().padStart(2, '0')}/${d.getDate().toString().padStart(2, '0')}/${d.getFullYear()}`;
-                  
-                  return (
-                    <Marker key={log.id} position={[log.lat, log.lng]} icon={redIcon}>
-                      <Popup>
-                        <strong>{log.userEmail}</strong><br/>
-                        Date: {dateStr}<br/>
-                        Time: {d.toLocaleTimeString()}
-                      </Popup>
-                    </Marker>
-                  );
-                })}
-              </MapContainer>
-            ) : (
-              <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#e0e0e0', color: '#666' }}>
-                No coordinates to display on map.
-              </div>
-            )}
+            <MapContainer 
+              center={filteredLogs.length > 0 ? [filteredLogs[0].lat, filteredLogs[0].lng] : mapCenter} 
+              zoom={mapZoom} 
+              style={{ height: '100%', width: '100%' }}
+            >
+              <TileLayer attribution="Google Maps" url="http://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}&s=Ga" />
+              {filteredLogs.map(log => {
+                const d = new Date(log.timestamp);
+                const dateStr = `${(d.getMonth()+1).toString().padStart(2, '0')}/${d.getDate().toString().padStart(2, '0')}/${d.getFullYear()}`;
+                
+                return (
+                  <Marker key={log.id} position={[log.lat, log.lng]} icon={redIcon}>
+                    <Popup>
+                      <strong>{log.userEmail}</strong><br/>
+                      Date: {dateStr}<br/>
+                      Time: {d.toLocaleTimeString()}
+                    </Popup>
+                  </Marker>
+                );
+              })}
+            </MapContainer>
           </div>
         )}
       </div>
