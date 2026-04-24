@@ -118,10 +118,13 @@ export default function App() {
         
         let shouldSave = false;
         if (!lastLoc) {
-          shouldSave = true;
+          // Only capture the initial point if the network is available
+          if (navigator.onLine) {
+            shouldSave = true;
+          }
         } else {
-          const distance = getDistanceFromLatLonInM(latitude, longitude, lastLoc.lat, lastLoc.lng);
-          if (distance >= gpsDistanceThreshold) {
+          const distance = getDistanceFromLatLonInM(latitude, longitude, Number(lastLoc.lat), Number(lastLoc.lng));
+          if (distance >= Number(gpsDistanceThreshold)) {
             shouldSave = true;
           }
         }
