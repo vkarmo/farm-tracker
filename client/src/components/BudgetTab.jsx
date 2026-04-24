@@ -13,7 +13,7 @@ export default function BudgetTab() {
   const budgets = useSelector(state => state.budgets?.list) || [];
   const assignments = useSelector(state => state.assignments?.list) || [];
   const employeesList = useSelector(state => state.employees?.list) || [];
-  
+
   const [activeBudgetId, setActiveBudgetId] = useState(null);
   const [budgetForm, setBudgetForm] = useState(INIT_BUDGET);
   const [itemForm, setItemForm] = useState(INIT_ITEM);
@@ -29,18 +29,18 @@ export default function BudgetTab() {
     e.preventDefault();
     if (!budgetForm.name) return alert("Budget Name required.");
     const newRate = parseFloat(budgetForm.exchangeRate) || 1;
-    
-    const newBudget = { 
-      id: `b_${Date.now()}`, 
-      name: budgetForm.name, 
-      description: budgetForm.description, 
+
+    const newBudget = {
+      id: `b_${Date.now()}`,
+      name: budgetForm.name,
+      description: budgetForm.description,
       exchangeRate: newRate,
-      items: [] 
+      items: []
     };
-    
+
     dispatch(addBudget(newBudget));
     dispatch(queueAction({ type: 'budgets/upsertBudget', payload: newBudget, meta: { id: Date.now() } }));
-    
+
     setBudgetForm(INIT_BUDGET);
     setActiveBudgetId(newBudget.id);
   };
@@ -65,12 +65,12 @@ export default function BudgetTab() {
     };
 
     dispatch(addBudgetItem({ budgetId: activeBudget.id, item: finalItem }));
-    
+
     // Graph sync: We sync the item creation and linkage
-    dispatch(queueAction({ 
-      type: 'budgets/upsertBudgetItem', 
-      payload: { budgetId: activeBudget.id, item: finalItem }, 
-      meta: { id: Date.now() } 
+    dispatch(queueAction({
+      type: 'budgets/upsertBudgetItem',
+      payload: { budgetId: activeBudget.id, item: finalItem },
+      meta: { id: Date.now() }
     }));
 
     setItemForm(INIT_ITEM);
@@ -80,8 +80,8 @@ export default function BudgetTab() {
   const handleGeneratePayroll = () => {
     if (!activeBudget) return;
     if (!budgetFromDate || !budgetToDate) return alert("Select From and To dates.");
-    
-    const rangeAssignments = assignments.filter(a => 
+
+    const rangeAssignments = assignments.filter(a =>
       a.assignmentDate >= budgetFromDate && a.assignmentDate <= budgetToDate
     );
 
@@ -152,10 +152,10 @@ export default function BudgetTab() {
     newItems.forEach((item, index) => {
       const finalItem = { ...item, id: `${item.id}_${index}` };
       dispatch(addBudgetItem({ budgetId: activeBudget.id, item: finalItem }));
-      dispatch(queueAction({ 
-        type: 'budgets/upsertBudgetItem', 
-        payload: { budgetId: activeBudget.id, item: finalItem }, 
-        meta: { id: Date.now() + index } 
+      dispatch(queueAction({
+        type: 'budgets/upsertBudgetItem',
+        payload: { budgetId: activeBudget.id, item: finalItem },
+        meta: { id: Date.now() + index }
       }));
     });
 
@@ -165,7 +165,7 @@ export default function BudgetTab() {
   const calculateTotals = () => {
     if (!activeBudget || !activeBudget.items) return { totalUSD: 0, totalLRD: 0 };
     const rate = parseFloat(activeBudget.exchangeRate) || 1;
-    
+
     let usd = 0;
     let lrd = 0;
 
@@ -189,48 +189,48 @@ export default function BudgetTab() {
     { key: 'category', header: 'Category' },
     { key: 'description', header: 'Description' },
     { key: 'amount', header: 'Entered Amount', render: r => `${r.currency === 'USD' ? '$' : 'L$'}${parseFloat(r.amount).toLocaleString()}` },
-    { 
-      key: 'converted', 
-      header: 'Converted', 
+    {
+      key: 'converted',
+      header: 'Converted',
       render: r => {
         const amt = parseFloat(r.amount) || 0;
         const rate = activeBudget?.exchangeRate || 1;
         if (r.currency === 'USD') return `L$${(amt * rate).toLocaleString()}`;
         return `$${(amt / rate).toFixed(2)}`;
-      } 
+      }
     },
-    { key: 'status', header: 'Approval Status', render: r => r.status === 'Approved' ? <strong style={{color:'#2e7d32'}}>Approved</strong> : r.status }
+    { key: 'status', header: 'Approval Status', render: r => r.status === 'Approved' ? <strong style={{ color: '#2e7d32' }}>Approved</strong> : r.status }
   ];
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      
+
       {/* 1. Global Budget Selector */}
       <div className="card" style={{ marginBottom: 0 }}>
         <h2>Budget Management Portfolios</h2>
         <div style={{ display: 'flex', gap: '10px', overflowX: 'auto', paddingBottom: 10, marginTop: 15 }}>
           {budgets.map(b => (
-            <button 
-              key={b.id} 
-              onClick={() => setActiveBudgetId(b.id)} 
+            <button
+              key={b.id}
+              onClick={() => setActiveBudgetId(b.id)}
               className={`btn ${activeBudgetId === b.id ? 'btn-primary' : ''}`}
               style={{ padding: '8px 16px', whiteSpace: 'nowrap', borderRadius: 20 }}
             >
-              <FileText size={14} style={{ marginRight: 6, display: 'inline-block' }} /> 
+              <FileText size={14} style={{ marginRight: 6, display: 'inline-block' }} />
               {b.name}
             </button>
           ))}
         </div>
-        
-        <hr style={{border: 'none', borderTop: '1px solid var(--color-border)', margin: '20px 0'}} />
-        
+
+        <hr style={{ border: 'none', borderTop: '1px solid var(--color-border)', margin: '20px 0' }} />
+
         <h4>Create New Budget Pipeline</h4>
         <form onSubmit={handleCreateBudget} style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', flexWrap: 'wrap', marginTop: 10 }}>
-          <input type="text" placeholder="e.g. Q3 Harvest Plan" value={budgetForm.name} onChange={e => setBudgetForm({...budgetForm, name: e.target.value})} style={{flex: 1, minWidth: 200}}/>
-          <input type="text" placeholder="Short Description..." value={budgetForm.description} onChange={e => setBudgetForm({...budgetForm, description: e.target.value})} style={{flex: 1, minWidth: 200}}/>
+          <input type="text" placeholder="e.g. Q3 Harvest Plan" value={budgetForm.name} onChange={e => setBudgetForm({ ...budgetForm, name: e.target.value })} style={{ flex: 1, minWidth: 200 }} />
+          <input type="text" placeholder="Short Description..." value={budgetForm.description} onChange={e => setBudgetForm({ ...budgetForm, description: e.target.value })} style={{ flex: 1, minWidth: 200 }} />
           <div style={{ display: 'flex', alignItems: 'center', background: '#f5f5f5', padding: '0 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)' }}>
             <span style={{ fontSize: '0.85rem', color: '#666', marginRight: 8, whiteSpace: 'nowrap' }}>L$ to 1 USD:</span>
-            <input type="number" value={budgetForm.exchangeRate} onChange={e => setBudgetForm({...budgetForm, exchangeRate: e.target.value})} style={{ border: 'none', background: 'transparent', width: 70, padding: '10px 0' }}/>
+            <input type="number" value={budgetForm.exchangeRate} onChange={e => setBudgetForm({ ...budgetForm, exchangeRate: e.target.value })} style={{ border: 'none', background: 'transparent', width: 70, padding: '10px 0' }} />
           </div>
           <button type="submit" className="btn btn-primary" style={{ padding: '10px 20px' }}>Initiate</button>
         </form>
@@ -244,16 +244,16 @@ export default function BudgetTab() {
               <h2 style={{ color: 'var(--color-primary-dark)', display: 'flex', alignItems: 'center' }}>
                 {activeBudget.name}
                 <button onClick={() => {
-                  if(window.confirm('Delete this entire budget permanently?')) {
+                  if (window.confirm('Delete this entire budget permanently?')) {
                     dispatch(deleteBudget(activeBudget.id));
                     dispatch(queueAction({ type: 'core/deleteNode', payload: { id: activeBudget.id }, meta: { id: Date.now() } }));
                     setActiveBudgetId(null);
                   }
-                }} style={{ border: 'none', background: 'transparent', color: '#d32f2f', marginLeft: 16, cursor: 'pointer' }}><Trash2 size={18}/></button>
+                }} style={{ border: 'none', background: 'transparent', color: '#d32f2f', marginLeft: 16, cursor: 'pointer' }}><Trash2 size={18} /></button>
               </h2>
               <p style={{ color: '#555', marginTop: 4 }}>{activeBudget.description}</p>
             </div>
-            
+
             <div style={{ display: 'flex', gap: 10 }}>
               <div style={{ background: '#e8f5e9', padding: '10px 16px', borderRadius: 8, border: '1px solid #c8e6c9', textAlign: 'right' }}>
                 <div style={{ fontSize: '0.75rem', color: '#2e7d32', fontWeight: 600 }}>AGGREGATED LIABILITIES</div>
@@ -262,43 +262,43 @@ export default function BudgetTab() {
               </div>
 
               <div style={{ background: '#f5f5f5', padding: '10px 16px', borderRadius: 8, border: '1px solid #e0e0e0', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
-                 <div style={{ fontSize: '0.75rem', color: '#555', fontWeight: 600, marginBottom: 4 }}>EXCHANGE RATE</div>
-                 <div style={{ display: 'flex', alignItems: 'center' }}>
-                   <span style={{ marginRight: 6, fontWeight: 'bold' }}>L$</span>
-                   <input type="number" value={activeBudget.exchangeRate} onChange={handleUpdateExchangeRate} style={{ width: 80, padding: 4 }} />
-                   <span style={{ marginLeft: 6 }}>/ USD</span>
-                 </div>
+                <div style={{ fontSize: '0.75rem', color: '#555', fontWeight: 600, marginBottom: 4 }}>EXCHANGE RATE</div>
+                <div style={{ display: 'flex', alignItems: 'center' }}>
+                  <span style={{ marginRight: 6, fontWeight: 'bold' }}>L$</span>
+                  <input type="number" value={activeBudget.exchangeRate} onChange={handleUpdateExchangeRate} style={{ width: 80, padding: 4 }} />
+                  <span style={{ marginLeft: 6 }}>/ USD</span>
+                </div>
               </div>
             </div>
           </div>
 
-          <hr style={{border: 'none', borderTop: '1px solid var(--color-border)', margin: '20px 0'}} />
-          
+          <hr style={{ border: 'none', borderTop: '1px solid var(--color-border)', margin: '20px 0' }} />
+
           {/* Payroll Generator Block */}
           <div style={{ background: '#f0f4c3', padding: 15, borderRadius: 8, marginBottom: 20, border: '1px solid #cddc39' }}>
             <label style={{ fontWeight: 'bold', display: 'flex', alignItems: 'center', cursor: 'pointer', color: '#558b2f' }}>
-              <input type="checkbox" checked={isNmkBudget} onChange={e => setIsNmkBudget(e.target.checked)} style={{ marginRight: 8 }} />
+              <input type="checkbox" checked={isNmkBudget} onChange={e => setIsNmkBudget(e.target.checked)} style={{ marginRight: 8, width: 30, height: 30 }} />
               NMK 2-Week Budget Auto-Payroll
             </label>
-            
+
             {isNmkBudget && (
               <div style={{ marginTop: 15, display: 'flex', gap: 15, flexWrap: 'wrap', alignItems: 'flex-end' }}>
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <label style={{ color: '#558b2f' }}>From Date</label>
-                  <input type="date" value={budgetFromDate} onChange={e => setBudgetFromDate(e.target.value)} style={{ border: '1px solid #cddc39' }}/>
+                  <input type="date" value={budgetFromDate} onChange={e => setBudgetFromDate(e.target.value)} style={{ border: '1px solid #cddc39' }} />
                 </div>
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <label style={{ color: '#558b2f' }}>To Date</label>
-                  <input type="date" value={budgetToDate} onChange={e => setBudgetToDate(e.target.value)} style={{ border: '1px solid #cddc39' }}/>
+                  <input type="date" value={budgetToDate} onChange={e => setBudgetToDate(e.target.value)} style={{ border: '1px solid #cddc39' }} />
                 </div>
-                <button 
+                <button
                   type="button"
                   onClick={handleGeneratePayroll}
-                  className="btn btn-primary" 
+                  className="btn btn-primary"
                   disabled={!budgetFromDate || !budgetToDate}
                   style={{ padding: '10px 16px', background: '#827717', color: 'white', border: 'none' }}
                 >
-                  <Calculator size={16} style={{ marginRight: 6, display: 'inline-block', verticalAlign: 'text-bottom' }}/>
+                  <Calculator size={16} style={{ marginRight: 6, display: 'inline-block', verticalAlign: 'text-bottom' }} />
                   Generate Payroll Items
                 </button>
               </div>
@@ -306,12 +306,12 @@ export default function BudgetTab() {
           </div>
 
           <h3 style={{ marginBottom: 15, display: 'flex', alignItems: 'center' }}>
-            <Calculator size={18} style={{marginRight: 8}}/> {editingItemId ? 'Edit Line Item' : 'Add New Line Item'}
+            <Calculator size={18} style={{ marginRight: 8 }} /> {editingItemId ? 'Edit Line Item' : 'Add New Line Item'}
           </h3>
           <form onSubmit={handleSaveItem} className="form-grid" style={{ marginBottom: 30, background: '#fafafa', padding: 15, borderRadius: 8, border: '1px dashed #ccc' }}>
             <div className="form-group">
               <label>Category</label>
-              <select value={itemForm.category} onChange={e => setItemForm({...itemForm, category: e.target.value})}>
+              <select value={itemForm.category} onChange={e => setItemForm({ ...itemForm, category: e.target.value })}>
                 <option value="">Select...</option>
                 <option value="Labor">Labor</option>
                 <option value="Materials">Materials & Seeds</option>
@@ -323,16 +323,16 @@ export default function BudgetTab() {
             </div>
             <div className="form-group">
               <label>Resource Description</label>
-              <input type="text" value={itemForm.description} onChange={e => setItemForm({...itemForm, description: e.target.value})} placeholder="e.g. 50 bags of NPK fertilizer"/>
+              <input type="text" value={itemForm.description} onChange={e => setItemForm({ ...itemForm, description: e.target.value })} placeholder="e.g. 50 bags of NPK fertilizer" />
             </div>
             <div className="form-group" style={{ display: 'flex', gap: 10 }}>
               <div style={{ flex: 2 }}>
                 <label>Nominal Amount</label>
-                <input type="number" step="0.01" value={itemForm.amount} onChange={e => setItemForm({...itemForm, amount: e.target.value})}/>
+                <input type="number" step="0.01" value={itemForm.amount} onChange={e => setItemForm({ ...itemForm, amount: e.target.value })} />
               </div>
               <div style={{ flex: 1 }}>
                 <label>Currency</label>
-                <select value={itemForm.currency} onChange={e => setItemForm({...itemForm, currency: e.target.value})}>
+                <select value={itemForm.currency} onChange={e => setItemForm({ ...itemForm, currency: e.target.value })}>
                   <option value="USD">USD</option>
                   <option value="LRD">LRD</option>
                 </select>
@@ -340,16 +340,16 @@ export default function BudgetTab() {
             </div>
             <div className="form-group" style={{ display: 'flex', gap: 10 }}>
               <div style={{ flex: 1 }}>
-                 <label>Approval Status</label>
-                 <select value={itemForm.status} onChange={e => setItemForm({...itemForm, status: e.target.value})}>
-                   <option value="Pending">Pending Review</option>
-                   <option value="Approved">Approved</option>
-                   <option value="Rejected">Rejected</option>
-                 </select>
+                <label>Approval Status</label>
+                <select value={itemForm.status} onChange={e => setItemForm({ ...itemForm, status: e.target.value })}>
+                  <option value="Pending">Pending Review</option>
+                  <option value="Approved">Approved</option>
+                  <option value="Rejected">Rejected</option>
+                </select>
               </div>
               <div style={{ display: 'flex', alignItems: 'flex-end', paddingBottom: 4 }}>
                 <button type="submit" className="btn btn-primary" style={{ padding: '10px 16px', display: 'flex', gap: 6 }}>
-                  {editingItemId ? <Check size={16}/> : <Plus size={16}/>} {editingItemId ? 'Update' : 'Add Item'}
+                  {editingItemId ? <Check size={16} /> : <Plus size={16} />} {editingItemId ? 'Update' : 'Add Item'}
                 </button>
                 {editingItemId && (
                   <button type="button" onClick={() => { setEditingItemId(null); setItemForm(INIT_ITEM); }} className="btn" style={{ marginLeft: 8, background: '#efefef', color: '#333' }}>
@@ -360,15 +360,15 @@ export default function BudgetTab() {
             </div>
           </form>
 
-          <CrudTable 
-            data={activeBudget.items || []} 
-            columns={itemCols} 
-            onEdit={(row) => { setItemForm(row); setEditingItemId(row.id); }} 
+          <CrudTable
+            data={activeBudget.items || []}
+            columns={itemCols}
+            onEdit={(row) => { setItemForm(row); setEditingItemId(row.id); }}
             onDelete={(id) => {
               dispatch(deleteBudgetItem({ budgetId: activeBudget.id, itemId: id }));
               dispatch(queueAction({ type: 'core/deleteNode', payload: { id }, meta: { id: Date.now() } }));
-            }} 
-            itemLabel="Budget Item" 
+            }}
+            itemLabel="Budget Item"
           />
         </div>
       )}
