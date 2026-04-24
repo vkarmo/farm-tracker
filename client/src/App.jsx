@@ -1,7 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { fetchFields } from './store/fieldsSlice';
-import { addUnit, removeUnit, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter } from './store/settingsSlice';
+import { addUnit, removeUnit, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setGpsDistanceThreshold } from './store/settingsSlice';
+import { addLocation } from './store/gpsSlice';
+import { queueAction } from './store/syncSlice';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -29,6 +31,7 @@ import EmployeeTab from './components/EmployeeTab';
 import EquipmentTab from './components/EquipmentTab';
 import SyncTab from './components/SyncTab';
 import AuditTab from './components/AuditTab';
+import GpsLogTab from './components/GpsLogTab';
 import { logout } from './store/authSlice';
 import { logAction } from './store/auditSlice';
 
@@ -43,6 +46,11 @@ export default function App() {
   const logo = useSelector(state => state.settings?.logo);
   const polygonColor = useSelector(state => state.settings?.polygonColor) || '#ffffff';
   const mapCenter = useSelector(state => state.settings?.mapCenter) || [51.505, -0.09];
+  const gpsDistanceThreshold = useSelector(state => state.settings?.gpsDistanceThreshold) || 10;
+  const lastGpsLocation = useSelector(state => {
+    const locs = state.gps?.locations || [];
+    return locs.length > 0 ? locs[locs.length - 1] : null;
+  });
   const syncQueue = useSelector(state => state.sync.offlineActionQueue) || [];
   const isSyncing = useSelector(state => state.sync.isSyncing);
 
@@ -79,6 +87,62 @@ export default function App() {
       }));
     }
   }, [activeTab, currentUser, dispatch]);
+
+  const lastSavedLocRef = React.useRef(null);
+  useEffect(() => {
+    lastSavedLocRef.current = lastGpsLocation;
+  }, [lastGpsLocation]);
+
+  useEffect(() => {
+    if (!currentUser || !navigator.geolocation) return;
+
+    // Haversine formula
+    const getDistanceFromLatLonInM = (lat1, lon1, lat2, lon2) => {
+      const R = 6371e3; // Radius of the earth in m
+      const dLat = (lat2 - lat1) * (Math.PI / 180);
+      const dLon = (lon2 - lon1) * (Math.PI / 180);
+      const a = 
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * 
+        Math.sin(dLon / 2) * Math.sin(dLon / 2); 
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)); 
+      return R * c; 
+    };
+
+    const watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        const { latitude, longitude } = position.coords;
+        const lastLoc = lastSavedLocRef.current;
+        
+        let shouldSave = false;
+        if (!lastLoc) {
+          shouldSave = true;
+        } else {
+          const distance = getDistanceFromLatLonInM(latitude, longitude, lastLoc.lat, lastLoc.lng);
+          if (distance >= gpsDistanceThreshold) {
+            shouldSave = true;
+          }
+        }
+
+        if (shouldSave) {
+          const newLoc = {
+            id: `gps_${Date.now()}`,
+            lat: latitude,
+            lng: longitude,
+            timestamp: new Date().toISOString(),
+            userEmail: currentUser.email || currentUser.name || 'Unknown User'
+          };
+          
+          dispatch(addLocation(newLoc));
+          dispatch(queueAction({ type: 'gps/addLocation', payload: newLoc, meta: { id: Date.now() } }));
+        }
+      },
+      (error) => console.warn('GPS tracking error:', error),
+      { enableHighAccuracy: true, maximumAge: 10000, timeout: 5000 }
+    );
+
+    return () => navigator.geolocation.clearWatch(watchId);
+  }, [currentUser, dispatch, gpsDistanceThreshold]);
 
   const handleAddUnit = (e) => { e.preventDefault(); if (newUnit) { dispatch(addUnit(newUnit.toLowerCase())); setNewUnit(''); } };
   const handleAddKml = (e) => { e.preventDefault(); if (newKml) { dispatch(addKmlUrl(newKml)); setNewKml(''); } };
@@ -172,6 +236,9 @@ export default function App() {
             <button onClick={() => setActiveTab('audit')} className={`btn ${activeTab === 'audit' ? 'btn-primary' : ''}`} style={{ background: activeTab === 'audit' ? '#c62828' : 'white', color: activeTab === 'audit' ? 'white' : '#c62828', borderColor: '#c62828' }}>
               Audit Logs
             </button>
+            <button onClick={() => setActiveTab('gps')} className={`btn ${activeTab === 'gps' ? 'btn-primary' : ''}`} style={{ background: activeTab === 'gps' ? '#c62828' : 'white', color: activeTab === 'gps' ? 'white' : '#c62828', borderColor: '#c62828' }}>
+              <MapPin size={16} style={{ marginRight: 6 }} /> GPS Logs
+            </button>
           </>
         )}
         <button onClick={() => setActiveTab('settings')} className={`btn ${activeTab === 'settings' ? 'btn-primary' : ''}`}><Settings size={16} style={{ marginRight: 6 }} /> Settings</button>
@@ -205,6 +272,7 @@ export default function App() {
         {activeTab === 'admin' && <AdminTab />}
         {activeTab === 'access' && <AccessControlTab />}
         {activeTab === 'audit' && <AuditTab />}
+        {activeTab === 'gps' && <GpsLogTab />}
 
         {activeTab === 'settings' && (
           <div className="card">
@@ -258,6 +326,19 @@ export default function App() {
 
             <div style={{ marginBottom: 20 }}>
               <h3>Map Preferences</h3>
+              <div style={{ marginBottom: 16 }}>
+                <label>GPS Distance Threshold (meters)</label>
+                <input 
+                  type="number" 
+                  min="0.001" 
+                  step="0.001"
+                  value={gpsDistanceThreshold} 
+                  onChange={(e) => dispatch(setGpsDistanceThreshold(Number(e.target.value)))} 
+                  className="btn" 
+                  style={{ display: 'block', marginTop: 8, padding: '8px', minWidth: '200px', cursor: 'text' }} 
+                />
+                <span style={{ fontSize: '0.8rem', color: '#666' }}>Controls how many meters you must move before a new breadcrumb is captured.</span>
+              </div>
               <div style={{ marginBottom: 16 }}>
                 <label>Polygon Draw Color</label>
                 <input type="color" value={polygonColor} onChange={(e) => dispatch(setPolygonColor(e.target.value))} style={{ display: 'block', marginTop: 8 }} />

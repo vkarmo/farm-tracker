@@ -7,6 +7,13 @@ export default function AuditTab() {
   const dispatch = useDispatch();
   const logs = useSelector(state => state.audit?.logs) || [];
   const [searchTerm, setSearchTerm] = useState('');
+  const [filterDate, setFilterDate] = useState('All');
+  const [filterUser, setFilterUser] = useState('All');
+  const [filterAction, setFilterAction] = useState('All');
+
+  const uniqueDates = Array.from(new Set(logs.map(l => new Date(l.timestamp).toLocaleDateString())));
+  const uniqueUsers = Array.from(new Set(logs.map(l => l.userEmail)));
+  const uniqueActions = Array.from(new Set(logs.map(l => l.actionType)));
 
   const handleClear = () => {
     if (window.confirm('Are you sure you want to clear all audit logs?')) {
@@ -14,11 +21,16 @@ export default function AuditTab() {
     }
   };
 
-  const filteredLogs = logs.filter(log => 
-    log.userEmail?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    log.actionType?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    log.details?.toLowerCase().includes(searchTerm.toLowerCase())
-  ).reverse(); // Show newest first
+  const filteredLogs = logs.filter(log => {
+    const logDate = new Date(log.timestamp).toLocaleDateString();
+    const dateMatch = filterDate === 'All' || logDate === filterDate;
+    const userMatch = filterUser === 'All' || log.userEmail === filterUser;
+    const actionMatch = filterAction === 'All' || log.actionType === filterAction;
+    
+    const searchMatch = !searchTerm || log.details?.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    return dateMatch && userMatch && actionMatch && searchMatch;
+  }).reverse(); // Show newest first
 
   return (
     <div className="card">
@@ -29,12 +41,34 @@ export default function AuditTab() {
         </button>
       </div>
 
-      <div style={{ marginBottom: '16px', display: 'flex', gap: '10px' }}>
-        <div style={{ position: 'relative', flex: 1 }}>
+      <div style={{ marginBottom: '16px', display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <label style={{ fontSize: '0.85rem', fontWeight: 600 }}>Date:</label>
+          <select value={filterDate} onChange={e => setFilterDate(e.target.value)} className="btn" style={{ padding: '6px' }}>
+            <option value="All">All</option>
+            {uniqueDates.map(d => <option key={d} value={d}>{d}</option>)}
+          </select>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <label style={{ fontSize: '0.85rem', fontWeight: 600 }}>User:</label>
+          <select value={filterUser} onChange={e => setFilterUser(e.target.value)} className="btn" style={{ padding: '6px' }}>
+            <option value="All">All</option>
+            {uniqueUsers.map(u => <option key={u} value={u}>{u}</option>)}
+          </select>
+        </div>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <label style={{ fontSize: '0.85rem', fontWeight: 600 }}>Action:</label>
+          <select value={filterAction} onChange={e => setFilterAction(e.target.value)} className="btn" style={{ padding: '6px' }}>
+            <option value="All">All</option>
+            {uniqueActions.map(a => <option key={a} value={a}>{a}</option>)}
+          </select>
+        </div>
+
+        <div style={{ position: 'relative', flex: '1 1 200px' }}>
           <Search size={18} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-light)' }} />
           <input 
             type="text" 
-            placeholder="Search logs by user, action, or details..." 
+            placeholder="Search details..." 
             value={searchTerm} 
             onChange={(e) => setSearchTerm(e.target.value)}
             style={{ width: '100%', paddingLeft: '36px' }}
