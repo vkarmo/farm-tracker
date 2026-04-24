@@ -114,7 +114,7 @@ export default function BudgetTab() {
       newItems.push({
         id: `bli_${Date.now()}_daily`,
         category: 'Labor',
-        description: 'Labor Pay (Daily Workers)',
+        description: 'Labor Pay (Daily Farm Workers)',
         amount: parseFloat(totalDailyUSD.toFixed(2)),
         currency: 'USD',
         status: 'Approved'
