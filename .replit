@@ -69,5 +69,3 @@ run = ["sh", "-c", "cd server && NODE_ENV=production node index.js"]
 [userenv]
 
 [userenv.shared]
-NEO4J_USER = "3fa11aa8"
-NEO4J_URI = "bolt+s://3fa11aa8.databases.neo4j.io:7687"
