@@ -8,6 +8,7 @@ const MapLayer = ({ fields }) => {
   const kmlUrls = useSelector(state => state.settings.kmlUrls);
   const polygonColor = useSelector(state => state.settings?.polygonColor) || '#ffffff';
   const mapCenter = useSelector(state => state.settings?.mapCenter) || [51.505, -0.09];
+  const mapZoom = useSelector(state => state.settings?.mapZoom) || 13;
   const [geoJsonLayers, setGeoJsonLayers] = useState([]);
   const [errors, setErrors] = useState([]);
 
@@ -59,8 +60,6 @@ const MapLayer = ({ fields }) => {
     fetchKMLs();
   }, [kmlUrls]);
 
-  const zoom = 13;
-
   return (
     <div style={{ flex: 1, minHeight: 0, width: '100%', borderRadius: 'var(--radius-md)', overflow: 'hidden', zIndex: 0, position: 'relative' }}>
       
@@ -70,7 +69,7 @@ const MapLayer = ({ fields }) => {
         </div>
       )}
 
-      <MapContainer center={mapCenter} zoom={zoom} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
+      <MapContainer center={mapCenter} zoom={mapZoom} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
         <TileLayer
           attribution="Google Maps"
           url="http://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}&s=Ga"
@@ -98,8 +97,8 @@ const MapLayer = ({ fields }) => {
           
           if (positions.length === 0) {
             // fallback generic dummy polygon
-            const lat = 51.505;
-            const lng = -0.09;
+            const lat = mapCenter[0];
+            const lng = mapCenter[1];
             positions = [
               [lat + (Math.random() * 0.01), lng + (Math.random() * 0.01)],
               [lat - (Math.random() * 0.01), lng + (Math.random() * 0.01)],
