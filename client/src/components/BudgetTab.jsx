@@ -10,12 +10,18 @@ const INIT_ITEM = { category: '', description: '', amount: '', currency: 'USD', 
 
 export default function BudgetTab() {
   const dispatch = useDispatch();
-  const budgets = useSelector(state => state.budgets.list) || [];
+  const budgets = useSelector(state => state.budgets?.list) || [];
+  const assignments = useSelector(state => state.assignments?.list) || [];
+  const employeesList = useSelector(state => state.employees?.list) || [];
   
   const [activeBudgetId, setActiveBudgetId] = useState(null);
   const [budgetForm, setBudgetForm] = useState(INIT_BUDGET);
   const [itemForm, setItemForm] = useState(INIT_ITEM);
   const [editingItemId, setEditingItemId] = useState(null);
+
+  const [isNmkBudget, setIsNmkBudget] = useState(false);
+  const [budgetFromDate, setBudgetFromDate] = useState('');
+  const [budgetToDate, setBudgetToDate] = useState('');
 
   const activeBudget = budgets.find(b => b.id === activeBudgetId);
 
@@ -69,6 +75,91 @@ export default function BudgetTab() {
 
     setItemForm(INIT_ITEM);
     setEditingItemId(null);
+  };
+
+  const handleGeneratePayroll = () => {
+    if (!activeBudget) return;
+    if (!budgetFromDate || !budgetToDate) return alert("Select From and To dates.");
+    
+    const rangeAssignments = assignments.filter(a => 
+      a.assignmentDate >= budgetFromDate && a.assignmentDate <= budgetToDate
+    );
+
+    const dailyWorkerDays = {}; // employeeId -> Set of dates
+    rangeAssignments.forEach(a => {
+      if (a.workerIds) {
+        a.workerIds.forEach(id => {
+          if (!dailyWorkerDays[id]) dailyWorkerDays[id] = new Set();
+          dailyWorkerDays[id].add(a.assignmentDate);
+        });
+      }
+    });
+
+    let totalDailyLD = 0;
+    Object.keys(dailyWorkerDays).forEach(empId => {
+      const emp = employeesList.find(e => e.id === empId);
+      if (emp && emp.type === 'Daily') {
+        const daysWorked = dailyWorkerDays[empId].size;
+        const rate = parseFloat(emp.dailyRateLD) || 0;
+        totalDailyLD += (daysWorked * rate);
+      }
+    });
+
+    const exRate = parseFloat(activeBudget.exchangeRate) || 1;
+    const totalDailyUSD = exRate > 0 ? (totalDailyLD / exRate) : 0;
+
+    const newItems = [];
+
+    if (totalDailyUSD > 0) {
+      newItems.push({
+        id: `bli_${Date.now()}_daily`,
+        category: 'Labor',
+        description: 'Labor Pay (Daily Workers)',
+        amount: parseFloat(totalDailyUSD.toFixed(2)),
+        currency: 'USD',
+        status: 'Approved'
+      });
+    }
+
+    const nonDailyWorkers = employeesList.filter(e => e.type !== 'Daily' && !e.isTerminated);
+    const nonDailyByTitle = {};
+    nonDailyWorkers.forEach(emp => {
+      const title = emp.jobTitle || 'Uncategorized Staff';
+      // Group security guards into one bucket as specified
+      const groupedTitle = title.toLowerCase().includes('security') ? 'NMK Security' : title;
+      if (!nonDailyByTitle[groupedTitle]) nonDailyByTitle[groupedTitle] = 0;
+      nonDailyByTitle[groupedTitle] += (parseFloat(emp.twoWeekPayUSD) || 0);
+    });
+
+    Object.keys(nonDailyByTitle).forEach((title, idx) => {
+      if (nonDailyByTitle[title] > 0) {
+        newItems.push({
+          id: `bli_${Date.now()}_nd_${idx}`,
+          category: 'Labor',
+          description: title,
+          amount: parseFloat(nonDailyByTitle[title].toFixed(2)),
+          currency: 'USD',
+          status: 'Approved'
+        });
+      }
+    });
+
+    if (newItems.length === 0) {
+      alert("No payroll data calculated for this period.");
+      return;
+    }
+
+    newItems.forEach((item, index) => {
+      const finalItem = { ...item, id: `${item.id}_${index}` };
+      dispatch(addBudgetItem({ budgetId: activeBudget.id, item: finalItem }));
+      dispatch(queueAction({ 
+        type: 'budgets/upsertBudgetItem', 
+        payload: { budgetId: activeBudget.id, item: finalItem }, 
+        meta: { id: Date.now() + index } 
+      }));
+    });
+
+    alert(`Successfully generated and inserted ${newItems.length} payroll budget item(s).`);
   };
 
   const calculateTotals = () => {
@@ -183,6 +274,37 @@ export default function BudgetTab() {
 
           <hr style={{border: 'none', borderTop: '1px solid var(--color-border)', margin: '20px 0'}} />
           
+          {/* Payroll Generator Block */}
+          <div style={{ background: '#f0f4c3', padding: 15, borderRadius: 8, marginBottom: 20, border: '1px solid #cddc39' }}>
+            <label style={{ fontWeight: 'bold', display: 'flex', alignItems: 'center', cursor: 'pointer', color: '#558b2f' }}>
+              <input type="checkbox" checked={isNmkBudget} onChange={e => setIsNmkBudget(e.target.checked)} style={{ marginRight: 8 }} />
+              NMK 2-Week Budget Auto-Payroll
+            </label>
+            
+            {isNmkBudget && (
+              <div style={{ marginTop: 15, display: 'flex', gap: 15, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label style={{ color: '#558b2f' }}>From Date</label>
+                  <input type="date" value={budgetFromDate} onChange={e => setBudgetFromDate(e.target.value)} style={{ border: '1px solid #cddc39' }}/>
+                </div>
+                <div className="form-group" style={{ marginBottom: 0 }}>
+                  <label style={{ color: '#558b2f' }}>To Date</label>
+                  <input type="date" value={budgetToDate} onChange={e => setBudgetToDate(e.target.value)} style={{ border: '1px solid #cddc39' }}/>
+                </div>
+                <button 
+                  type="button"
+                  onClick={handleGeneratePayroll}
+                  className="btn btn-primary" 
+                  disabled={!budgetFromDate || !budgetToDate}
+                  style={{ padding: '10px 16px', background: '#827717', color: 'white', border: 'none' }}
+                >
+                  <Calculator size={16} style={{ marginRight: 6, display: 'inline-block', verticalAlign: 'text-bottom' }}/>
+                  Generate Payroll Items
+                </button>
+              </div>
+            )}
+          </div>
+
           <h3 style={{ marginBottom: 15, display: 'flex', alignItems: 'center' }}>
             <Calculator size={18} style={{marginRight: 8}}/> {editingItemId ? 'Edit Line Item' : 'Add New Line Item'}
           </h3>

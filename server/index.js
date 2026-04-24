@@ -239,6 +239,18 @@ app.post('/api/sync', async (req, res) => {
         `, { id, email, name, role, profilePic });
         results.push({ actionId: action.meta?.id, status: 'success' });
       }
+      else if (action.type === 'employees/upsertEmployee') {
+        const { id, firstName, lastName, address, phone, jobTitle, type, skills, startDate, endDate, isTerminated, terminationReason, dailyRateLD, twoWeekPayUSD } = action.payload;
+        await session.run(`
+          MERGE (e:Employee {id: $id})
+          SET e.firstName = $firstName, e.lastName = $lastName, e.address = $address, e.phone = $phone, 
+              e.jobTitle = $jobTitle, e.type = $type, e.skills = $skills, e.startDate = $startDate, 
+              e.endDate = $endDate, e.isTerminated = $isTerminated, e.terminationReason = $terminationReason, 
+              e.dailyRateLD = toFloat($dailyRateLD), e.twoWeekPayUSD = toFloat($twoWeekPayUSD)
+          RETURN e
+        `, { id, firstName, lastName, address, phone, jobTitle, type, skills, startDate, endDate, isTerminated, terminationReason, dailyRateLD: dailyRateLD || 0, twoWeekPayUSD: twoWeekPayUSD || 0 });
+        results.push({ actionId: action.meta?.id, status: 'success' });
+      }
       else if (action.type === 'core/deleteNode') {
         const { id } = action.payload;
         await session.run('MATCH (n {id: $id}) DETACH DELETE n', { id });
