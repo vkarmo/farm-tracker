@@ -5,7 +5,7 @@ import { addField, updateField, deleteField } from '../store/fieldsSlice';
 import { CheckCircle2, Target, X } from 'lucide-react';
 import CrudTable from './CrudTable';
 import { MapContainer, TileLayer, Polygon, Marker, useMapEvents } from 'react-leaflet';
-import { MapSearchBox, MapFlyTo } from './MapSearchBox';
+import { MapSearchBox, MapFlyTo, CurrentLocationControl } from './MapSearchBox';
 import area from '@turf/area';
 import { polygon } from '@turf/helpers';
 import 'leaflet/dist/leaflet.css';
@@ -140,6 +140,7 @@ export default function FieldTab() {
                   attribution="Google Maps"
                   url="http://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}&s=Ga"
                 />
+                <CurrentLocationControl onLocationFound={handleLocationFound} />
                 <ClickToDrawComponent polygon={polygonPositions} setPolygon={setPolygonPositions} />
                 {polygonPositions.map((pos, idx) => (
                   <Marker key={`pin_${idx}`} position={pos} />

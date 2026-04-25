@@ -20,6 +20,8 @@ app.use((req, res, next) => {
 const neo4jUri = process.env.NEO4J_URI || 'bolt://localhost:7687';
 const neo4jUser = process.env.NEO4J_USER || 'neo4j';
 const neo4jPassword = process.env.NEO4J_PASSWORD || 'password';
+const neo4jDatabase = process.env.NEO4J_DATABASE || 'neo4j';
+
 const driver = neo4j.driver(
   neo4jUri,
   neo4j.auth.basic(neo4jUser, neo4jPassword)
@@ -38,7 +40,7 @@ driver.verifyConnectivity()
 // Standard CRUD routes for basic queries (legacy and global system mappings)
 
 app.get('/api/users', async (req, res) => {
-  const session = driver.session();
+  const session = driver.session({ database: neo4jDatabase });
   try {
     const result = await session.run('MATCH (u:User) RETURN u');
     const users = result.records.map(record => record.get('u').properties);
@@ -53,7 +55,7 @@ app.get('/api/users', async (req, res) => {
 
 // Get all fields
 app.get('/api/fields', async (req, res) => {
-  const session = driver.session();
+  const session = driver.session({ database: neo4jDatabase });
   try {
     const result = await session.run('MATCH (f:Field) RETURN f');
     const fields = result.records.map(r => r.get('f').properties);
@@ -67,7 +69,7 @@ app.get('/api/fields', async (req, res) => {
 
 // Create a field
 app.post('/api/fields', async (req, res) => {
-  const session = driver.session();
+  const session = driver.session({ database: neo4jDatabase });
   try {
     const { id, name, area, soil_type, irrigation, status, year, polygon } = req.body;
     const result = await session.run(
@@ -90,7 +92,7 @@ app.post('/api/sync', async (req, res) => {
     return res.status(400).json({ error: 'Invalid queue format' });
   }
 
-  const session = driver.session();
+  const session = driver.session({ database: neo4jDatabase });
   try {
     const results = [];
     // Run all actions sequentially to maintain order and data integrity
@@ -237,6 +239,33 @@ app.post('/api/sync', async (req, res) => {
           SET u.name = $name, u.role = $role, u.profile_pic = $profilePic
           RETURN u
         `, { id, email, name, role, profilePic });
+        results.push({ actionId: action.meta?.id, status: 'success' });
+      }
+      else if (action.type === 'employees/upsertEmployee') {
+        const { id, firstName, lastName, address, phone, jobTitle, type, skills, startDate, endDate, isTerminated, terminationReason, dailyRateLD, twoWeekPayUSD } = action.payload;
+        await session.run(`
+          MERGE (e:Employee {id: $id})
+          SET e.firstName = $firstName, e.lastName = $lastName, e.address = $address, e.phone = $phone, 
+              e.jobTitle = $jobTitle, e.type = $type, e.skills = $skills, e.startDate = $startDate, 
+              e.endDate = $endDate, e.isTerminated = $isTerminated, e.terminationReason = $terminationReason, 
+              e.dailyRateLD = toFloat($dailyRateLD), e.twoWeekPayUSD = toFloat($twoWeekPayUSD)
+          RETURN e
+        `, { 
+          id, 
+          firstName: firstName || null, 
+          lastName: lastName || null, 
+          address: address || null, 
+          phone: phone || null, 
+          jobTitle: jobTitle || null, 
+          type: type || null, 
+          skills: skills || null, 
+          startDate: startDate || null, 
+          endDate: endDate || null, 
+          isTerminated: isTerminated || false, 
+          terminationReason: terminationReason || null, 
+          dailyRateLD: dailyRateLD || 0, 
+          twoWeekPayUSD: twoWeekPayUSD || 0 
+        });
         results.push({ actionId: action.meta?.id, status: 'success' });
       }
       else if (action.type === 'core/deleteNode') {

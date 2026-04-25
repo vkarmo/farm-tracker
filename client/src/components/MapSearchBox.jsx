@@ -1,5 +1,47 @@
 import React, { useState, useEffect } from 'react';
 import { useMap } from 'react-leaflet';
+import { LocateFixed } from 'lucide-react';
+
+export const CurrentLocationControl = ({ onLocationFound }) => {
+  const map = useMap();
+  const [isLocating, setIsLocating] = useState(false);
+
+  const locateUser = () => {
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setIsLocating(false);
+        const { latitude, longitude } = pos.coords;
+        map.flyTo([latitude, longitude], 16);
+        if (onLocationFound) onLocationFound([latitude, longitude]);
+      },
+      (err) => {
+        setIsLocating(false);
+        alert('Could not find your location. Please check browser permissions.');
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  };
+
+  return (
+    <div className="leaflet-top leaflet-right" style={{ pointerEvents: 'auto', marginTop: '10px', marginRight: '10px' }}>
+      <div className="leaflet-control leaflet-bar">
+        <button
+          type="button"
+          onClick={(e) => { e.preventDefault(); e.stopPropagation(); locateUser(); }}
+          style={{
+            width: '34px', height: '34px', background: 'white', border: 'none', borderRadius: '4px',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+            color: isLocating ? '#1976d2' : '#666', padding: 0
+          }}
+          title="Go to Current Location"
+        >
+          <LocateFixed size={20} className={isLocating ? 'spin' : ''} />
+        </button>
+      </div>
+    </div>
+  );
+};
 
 export const MapSearchBox = ({ onLocationFound }) => {
   const [query, setQuery] = useState('');

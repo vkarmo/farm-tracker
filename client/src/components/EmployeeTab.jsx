@@ -13,6 +13,8 @@ export default function EmployeeTab() {
   const [phone, setPhone] = useState('');
   const [jobTitle, setJobTitle] = useState('');
   const [type, setType] = useState('Permanent');
+  const [dailyRateLD, setDailyRateLD] = useState('');
+  const [twoWeekPayUSD, setTwoWeekPayUSD] = useState('');
   
   // Advanced HR Fields
   const [skills, setSkills] = useState('');
@@ -32,6 +34,8 @@ export default function EmployeeTab() {
     setPhone('');
     setJobTitle('');
     setType('Permanent');
+    setDailyRateLD('');
+    setTwoWeekPayUSD('');
     setSkills('');
     setStartDate('');
     setEndDate('');
@@ -47,6 +51,8 @@ export default function EmployeeTab() {
     setPhone(emp.phone || '');
     setJobTitle(emp.jobTitle || '');
     setType(emp.type || 'Permanent');
+    setDailyRateLD(emp.dailyRateLD || '');
+    setTwoWeekPayUSD(emp.twoWeekPayUSD || '');
     setSkills(emp.skills || '');
     setStartDate(emp.startDate || '');
     setEndDate(emp.endDate || '');
@@ -70,6 +76,8 @@ export default function EmployeeTab() {
       phone,
       jobTitle,
       type,
+      dailyRateLD: type === 'Daily' ? (parseFloat(dailyRateLD) || 0) : 0,
+      twoWeekPayUSD: type !== 'Daily' ? (parseFloat(twoWeekPayUSD) || 0) : 0,
       skills,
       startDate,
       endDate,
@@ -125,10 +133,28 @@ export default function EmployeeTab() {
               <label>Employment Type *</label>
               <select value={type} onChange={e => setType(e.target.value)} required>
                 <option value="Permanent">Permanent</option>
-                <option value="Daily">Daily</option>
+                <option value="Daily">Daily Farm Worker</option>
                 <option value="Contract">Contract</option>
               </select>
             </div>
+
+            {type === 'Daily' ? (
+              <div className="form-group">
+                <label>Daily Farm Worker Pay Rate (LD)</label>
+                <div style={{ display: 'flex', alignItems: 'center' }}>
+                  <span style={{ padding: '8px', background: '#e0e0e0', border: '1px solid #ccc', borderRight: 'none', borderRadius: '4px 0 0 4px' }}>L$</span>
+                  <input type="number" step="0.01" value={dailyRateLD} onChange={e => setDailyRateLD(e.target.value)} style={{ borderRadius: '0 4px 4px 0' }} placeholder="0.00" />
+                </div>
+              </div>
+            ) : (
+              <div className="form-group">
+                <label>2-Week Salary (USD)</label>
+                <div style={{ display: 'flex', alignItems: 'center' }}>
+                  <span style={{ padding: '8px', background: '#e0e0e0', border: '1px solid #ccc', borderRight: 'none', borderRadius: '4px 0 0 4px' }}>$</span>
+                  <input type="number" step="0.01" value={twoWeekPayUSD} onChange={e => setTwoWeekPayUSD(e.target.value)} style={{ borderRadius: '0 4px 4px 0' }} placeholder="0.00" />
+                </div>
+              </div>
+            )}
 
             <div className="form-group">
               <label>Phone Number</label>
@@ -143,7 +169,7 @@ export default function EmployeeTab() {
             <div className="form-group">
               <label>Expected End Date</label>
               <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} />
-              <span style={{ fontSize: '0.8rem', color: '#666', marginTop: '4px', display: 'block' }}>Usually applicable for Contract or Daily labor.</span>
+              <span style={{ fontSize: '0.8rem', color: '#666', marginTop: '4px', display: 'block' }}>Usually applicable for Contract or Daily Farm Worker labor.</span>
             </div>
 
             {/* Termination field moved up alongside the date grids */}

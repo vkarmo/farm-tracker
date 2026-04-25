@@ -70,12 +70,12 @@ export default function CropTab() {
         <div className="form-group" style={{ background: '#f1f8e9', padding: '10px', borderRadius: '4px', border: '1px solid #c5e1a5', marginBottom: 15 }}>
           <label style={{ marginBottom: 8, display: 'block', fontWeight: 'bold' }}>Sowing Strategy</label>
           <div style={{ display: 'flex', flexDirection: 'row', gap: '10px', alignItems: 'left', width: 'auto' }}>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 'normal', fontSize: '14px' }}>
-              <input type="radio" value="Direct" checked={cropData.sowType === 'Direct'} onChange={() => setCropData({ ...cropData, sowType: 'Direct', fieldId: '' })} />
+            <label style={{ display: 'flex', alignItems: 'center', gap: 9, fontWeight: 'bold', fontSize: '20px', width: 'auto', height: '35px' }}>
+              <input style={{ width: 'auto' }} type="radio" value="Direct" checked={cropData.sowType === 'Direct'} onChange={() => setCropData({ ...cropData, sowType: 'Direct', fieldId: '' })} />
               <label style={{ marginBottom: '0px', width: 'auto', display: 'flex', alignItems: 'center' }}>Direct Field Sow</label>
             </label>
-            <label style={{ display: 'flex', alignItems: 'center', gap: 6, fontWeight: 'normal' }}>
-              <input type="radio" value="Nursery" checked={cropData.sowType === 'Nursery'} onChange={() => setCropData({ ...cropData, sowType: 'Nursery', fieldId: '' })} />
+            <label style={{ display: 'flex', alignItems: 'center', gap: 9, fontWeight: 'bold', fontSize: '20px', width: 'auto', height: '35px' }}>
+              <input style={{ width: 'auto' }} type="radio" value="Nursery" checked={cropData.sowType === 'Nursery'} onChange={() => setCropData({ ...cropData, sowType: 'Nursery', fieldId: '' })} />
               <label style={{ marginBottom: '0px', width: 'auto', display: 'flex', alignItems: 'center' }}>Nursery/Greenhouse Start</label>
             </label>
           </div>
