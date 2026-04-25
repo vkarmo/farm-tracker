@@ -17,7 +17,11 @@ app.use((req, res, next) => {
 });
 
 // Initialize Neo4j Driver
-const neo4jUri = process.env.NEO4J_URI || 'bolt://localhost:7687';
+let neo4jUri = process.env.NEO4J_URI || 'bolt://localhost:7687';
+// Automatically upgrade bolt+s to neo4j+s for AuraDB routing compatibility
+if (neo4jUri.includes('.databases.neo4j.io') && neo4jUri.startsWith('bolt+s://')) {
+  neo4jUri = neo4jUri.replace('bolt+s://', 'neo4j+s://');
+}
 const neo4jUser = process.env.NEO4J_USER || 'neo4j';
 const neo4jPassword = process.env.NEO4J_PASSWORD || 'password';
 const neo4jDatabase = process.env.NEO4J_DATABASE || undefined;
