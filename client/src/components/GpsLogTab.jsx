@@ -89,20 +89,20 @@ export default function GpsLogTab() {
         <table className="data-table">
           <thead>
             <tr>
-              <th>Timestamp</th>
-              <th>User</th>
-              <th>Latitude</th>
-              <th>Longitude</th>
+              <th style={{ width: '200px', marginRight: '4px', fontFamily: 'monospace', whiteSpace: 'nowrap', textAlign: 'left' }}>TIMESTAMP</th>
+              <th style={{ width: '200px', marginRight: '4px', fontFamily: 'monospace', whiteSpace: 'nowrap', textAlign: 'left' }}>USER</th>
+              <th style={{ width: '150px', marginRight: '4px', fontFamily: 'monospace', whiteSpace: 'nowrap', textAlign: 'left' }}>LATITUDE</th>
+              <th style={{ width: '150px', marginRight: '4px', fontFamily: 'monospace', whiteSpace: 'nowrap', textAlign: 'left' }}>LONGITUDE</th>
             </tr>
           </thead>
           <tbody>
             {filteredLogs.length > 0 ? (
               filteredLogs.map(log => (
                 <tr key={log.id}>
-                  <td style={{ whiteSpace: 'nowrap' }}>{new Date(log.timestamp).toLocaleString()}</td>
-                  <td style={{ fontFamily: 'monospace' }}>{log.userEmail}</td>
-                  <td style={{ fontFamily: 'monospace' }}>{log.lat.toFixed(6)}</td>
-                  <td style={{ fontFamily: 'monospace' }}>{log.lng.toFixed(6)}</td>
+                  <td style={{ width: '200px', marginRight: '4px', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{new Date(log.timestamp).toLocaleString()}</td>
+                  <td style={{ width: '200px', marginRight: '4px', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{log.userEmail}</td>
+                  <td style={{ width: '150px', marginRight: '4px', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{log.lat.toFixed(6)}</td>
+                  <td style={{ width: '150px', marginRight: '4px', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{log.lng.toFixed(6)}</td>
                 </tr>
               ))
             ) : (
