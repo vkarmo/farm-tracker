@@ -20,7 +20,7 @@ app.use((req, res, next) => {
 const neo4jUri = process.env.NEO4J_URI || 'bolt://localhost:7687';
 const neo4jUser = process.env.NEO4J_USER || 'neo4j';
 const neo4jPassword = process.env.NEO4J_PASSWORD || 'password';
-const neo4jDatabase = process.env.NEO4J_DATABASE || 'neo4j';
+const neo4jDatabase = process.env.NEO4J_DATABASE || undefined;
 
 const driver = neo4j.driver(
   neo4jUri,
@@ -40,7 +40,7 @@ driver.verifyConnectivity()
 // Standard CRUD routes for basic queries (legacy and global system mappings)
 
 app.get('/api/users', async (req, res) => {
-  const session = driver.session({ database: neo4jDatabase });
+  const session = driver.session();
   try {
     const result = await session.run('MATCH (u:User) RETURN u');
     const users = result.records.map(record => record.get('u').properties);
@@ -55,7 +55,7 @@ app.get('/api/users', async (req, res) => {
 
 // Get all fields
 app.get('/api/fields', async (req, res) => {
-  const session = driver.session({ database: neo4jDatabase });
+  const session = driver.session();
   try {
     const result = await session.run('MATCH (f:Field) RETURN f');
     const fields = result.records.map(r => r.get('f').properties);
@@ -69,7 +69,7 @@ app.get('/api/fields', async (req, res) => {
 
 // Create a field
 app.post('/api/fields', async (req, res) => {
-  const session = driver.session({ database: neo4jDatabase });
+  const session = driver.session();
   try {
     const { id, name, area, soil_type, irrigation, status, year, polygon } = req.body;
     const result = await session.run(
@@ -92,7 +92,7 @@ app.post('/api/sync', async (req, res) => {
     return res.status(400).json({ error: 'Invalid queue format' });
   }
 
-  const session = driver.session({ database: neo4jDatabase });
+  const session = driver.session();
   try {
     const results = [];
     // Run all actions sequentially to maintain order and data integrity

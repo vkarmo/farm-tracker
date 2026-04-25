@@ -1,7 +1,7 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
-import { TrendingUp, Layers, Rabbit, DollarSign } from 'lucide-react';
+import { TrendingUp, Layers, Rabbit, DollarSign, Sun, CloudRain, Cloud, CloudLightning, Snowflake, CloudFog, MapPin, Droplets, Wind, ThermometerSun, CloudSun } from 'lucide-react';
 
 const CollapsibleCard = ({ title, children, defaultOpen = true, forceFullGrid = false }) => {
   const [isOpen, setIsOpen] = useState(defaultOpen);
@@ -33,6 +33,68 @@ export default function DashboardTab() {
   const activities = useSelector(state => state.activities?.log) || [];
   const deadlines = useSelector(state => state.deadlines?.list) || [];
   const incidents = useSelector(state => state.incidents?.list) || [];
+
+  const mapCenter = useSelector(state => state.settings?.mapCenter) || [51.505, -0.09];
+
+  const [selectedLocIndex, setSelectedLocIndex] = useState(0);
+  const [weatherData, setWeatherData] = useState(null);
+  const [weatherLoading, setWeatherLoading] = useState(true);
+
+  const weatherLocations = useMemo(() => [
+    { label: 'Default Farm Location', coords: mapCenter },
+    { label: 'Bomi County, Liberia', coords: [6.7319579, -10.8700117] }
+  ], [mapCenter]);
+
+  // Fetch Weather Data
+  useEffect(() => {
+    let isMounted = true;
+    const fetchWeather = async () => {
+      setWeatherLoading(true);
+      try {
+        const [lat, lng] = weatherLocations[selectedLocIndex].coords;
+        // Open-Meteo free API
+        const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto&temperature_unit=fahrenheit`);
+        const data = await res.json();
+        if (isMounted) {
+          setWeatherData(data);
+          setWeatherLoading(false);
+        }
+      } catch (err) {
+        console.error("Failed to fetch weather", err);
+        if (isMounted) setWeatherLoading(false);
+      }
+    };
+    fetchWeather();
+    return () => { isMounted = false; };
+  }, [weatherLocations, selectedLocIndex]);
+
+  // Weather Code to Icon Mapper
+  const getWeatherIcon = (code, temp, size = 24) => {
+    if (code === 0) {
+      if (temp && temp >= 90) return <ThermometerSun size={size} color="#d32f2f" />;
+      return <Sun size={size} color="#f57c00" />;
+    }
+    if (code >= 1 && code <= 2) return <CloudSun size={size} color="#fbc02d" />;
+    if (code === 3) return <Cloud size={size} color="#90a4ae" />;
+    if (code >= 45 && code <= 48) return <CloudFog size={size} color="#78909c" />;
+    if (code >= 51 && code <= 67) return <CloudRain size={size} color="#1e88e5" />;
+    if (code >= 71 && code <= 82) return <CloudRain size={size} color="#1565c0" />; // Replaces snow with heavy tropical rain
+    if (code >= 95 && code <= 99) return <CloudLightning size={size} color="#5e35b1" />;
+    return <Sun size={size} color="#f57c00" />;
+  };
+
+  const getWeatherDescription = (code) => {
+    if (code === 0) return 'Clear sky';
+    if (code === 1) return 'Mainly clear';
+    if (code === 2) return 'Partly cloudy';
+    if (code === 3) return 'Overcast';
+    if (code >= 45 && code <= 48) return 'Foggy';
+    if (code >= 51 && code <= 55) return 'Drizzle';
+    if (code >= 61 && code <= 67) return 'Rain';
+    if (code >= 71 && code <= 82) return 'Snow';
+    if (code >= 95 && code <= 99) return 'Thunderstorm';
+    return 'Unknown';
+  };
 
   // Top-Level Metric Calculations
   const totalAcres = fields.reduce((sum, f) => sum + (parseFloat(f.size) || 0), 0);
@@ -150,6 +212,63 @@ export default function DashboardTab() {
           <div><div style={{ fontSize: '0.85rem', color: '#666' }}>CROPS</div><div style={{ fontSize: '1.5rem', fontWeight: 700 }}>{activeCrops.length}</div></div>
         </div>
       </div>
+
+      {/* Weather Forecast Widget */}
+      <CollapsibleCard title="Current Weather & Forecast">
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '15px' }}>
+          <select 
+            value={selectedLocIndex} 
+            onChange={(e) => setSelectedLocIndex(Number(e.target.value))}
+            style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #ccc', background: 'white', fontWeight: 600, color: 'var(--color-primary-dark)', cursor: 'pointer' }}
+          >
+            {weatherLocations.map((loc, idx) => (
+              <option key={idx} value={idx}>{loc.label}</option>
+            ))}
+          </select>
+        </div>
+        
+        {weatherLoading ? (
+          <div style={{ textAlign: 'center', padding: '20px', color: '#888' }}>Loading weather data...</div>
+        ) : weatherData && weatherData.current ? (
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px' }}>
+            <div style={{ flex: '1 1 200px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#f5f7fa', padding: '20px', borderRadius: '12px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                {getWeatherIcon(weatherData.current.weather_code, weatherData.current.temperature_2m, 48)}
+                <div style={{ fontSize: '3rem', fontWeight: 700, color: 'var(--color-primary-dark)' }}>
+                  {Math.round(weatherData.current.temperature_2m)}°F
+                </div>
+              </div>
+              <div style={{ fontSize: '1.2rem', fontWeight: 600, color: '#555', marginTop: '10px' }}>
+                {getWeatherDescription(weatherData.current.weather_code)}
+              </div>
+              <div style={{ display: 'flex', gap: '15px', marginTop: '15px', fontSize: '0.9rem', color: '#666' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Droplets size={16} color="#1e88e5" /> {weatherData.current.relative_humidity_2m}% Humidity</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}><Wind size={16} color="#78909c" /> {weatherData.current.wind_speed_10m} km/h</div>
+              </div>
+            </div>
+            <div style={{ flex: '2 1 400px', display: 'flex', flexDirection: 'column', gap: '10px', justifyContent: 'center' }}>
+              <h4 style={{ margin: '0 0 10px 0', color: '#666', borderBottom: '1px solid #eee', paddingBottom: '5px' }}>7-Day Forecast</h4>
+              <div style={{ display: 'flex', justifyContent: 'space-between', overflowX: 'auto', gap: '10px', paddingBottom: '10px' }}>
+                {weatherData.daily?.time?.map((time, idx) => {
+                  if (idx === 0) return null; // Skip today since we show it large
+                  const date = new Date(time);
+                  const dayName = date.toLocaleDateString('en-US', { weekday: 'short' });
+                  return (
+                    <div key={time} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '60px' }}>
+                      <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#555' }}>{dayName}</div>
+                      <div style={{ margin: '8px 0' }}>{getWeatherIcon(weatherData.daily.weather_code[idx], weatherData.daily.temperature_2m_max[idx], 24)}</div>
+                      <div style={{ fontSize: '0.9rem', fontWeight: 700 }}>{Math.round(weatherData.daily.temperature_2m_max[idx])}°</div>
+                      <div style={{ fontSize: '0.8rem', color: '#888' }}>{Math.round(weatherData.daily.temperature_2m_min[idx])}°</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div style={{ textAlign: 'center', padding: '20px', color: '#f44336' }}>Failed to load weather data.</div>
+        )}
+      </CollapsibleCard>
 
       {/* Incidents Feed Table */}
       <CollapsibleCard title="Active Incidents & Issues" forceFullGrid>
