@@ -39,6 +39,16 @@ driver.verifyConnectivity()
 
 // Standard CRUD routes for basic queries (legacy and global system mappings)
 
+// SECURITY WARNING: This endpoint exposes the database credentials in plaintext.
+// It is intended for admin debugging only. In production, this must be secured with strict authentication middleware!
+app.get('/api/admin/db-config', (req, res) => {
+  res.json({
+    NEO4J_URI: process.env.NEO4J_URI || 'bolt://localhost:7687',
+    NEO4J_USER: process.env.NEO4J_USER || 'neo4j',
+    NEO4J_PASSWORD: process.env.NEO4J_PASSWORD || 'password',
+  });
+});
+
 app.get('/api/users', async (req, res) => {
   const session = driver.session();
   try {
