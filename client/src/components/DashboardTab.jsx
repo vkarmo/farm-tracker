@@ -7,8 +7,8 @@ const CollapsibleCard = ({ title, children, defaultOpen = true, forceFullGrid = 
   const [isOpen, setIsOpen] = useState(defaultOpen);
   return (
     <div className={`card ${forceFullGrid ? 'form-grid-full' : ''}`} style={{ marginBottom: 0 }}>
-      <div 
-        onClick={() => setIsOpen(!isOpen)} 
+      <div
+        onClick={() => setIsOpen(!isOpen)}
         style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', marginBottom: isOpen ? '20px' : '0', borderBottom: isOpen ? '2px solid #efefef' : 'none', paddingBottom: isOpen ? '10px' : '0' }}
       >
         <h3 style={{ fontSize: '1.05rem', margin: 0, color: '#333' }}>
@@ -37,7 +37,7 @@ export default function DashboardTab() {
   // Top-Level Metric Calculations
   const totalAcres = fields.reduce((sum, f) => sum + (parseFloat(f.size) || 0), 0);
   const activeCrops = crops.filter(c => c.status !== 'Harvested/Completed');
-  
+
   const netGross = transactions.reduce((sum, tx) => {
     const val = parseFloat(tx.amount) || 0;
     return tx.txType === 'Sale' ? sum + val : sum - val;
@@ -48,10 +48,10 @@ export default function DashboardTab() {
     const map = {};
     harvests.forEach(h => {
       const d = h.date || 'Unknown';
-      if(!map[d]) map[d] = { date: d, yield: 0 };
+      if (!map[d]) map[d] = { date: d, yield: 0 };
       map[d].yield += parseFloat(h.amount) || 0;
     });
-    return Object.values(map).sort((a,b) => a.date.localeCompare(b.date));
+    return Object.values(map).sort((a, b) => a.date.localeCompare(b.date));
   }, [harvests]);
 
   // Financial Grouping Function (By 2 weeks)
@@ -91,8 +91,8 @@ export default function DashboardTab() {
     });
 
     return {
-      fortnightData: Object.values(fortnightMap).sort((a,b) => a.time.localeCompare(b.time)),
-      monthData: Object.values(monthMap).sort((a,b) => a.time.localeCompare(b.time)),
+      fortnightData: Object.values(fortnightMap).sort((a, b) => a.time.localeCompare(b.time)),
+      monthData: Object.values(monthMap).sort((a, b) => a.time.localeCompare(b.time)),
       revPieData: Object.entries(revCategoryMap).map(([name, value]) => ({ name, value })),
       expPieData: Object.entries(expCategoryMap).map(([name, value]) => ({ name, value }))
     };
@@ -130,23 +130,23 @@ export default function DashboardTab() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      
+
       {/* 1. Global Metric Cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '16px' }}>
         <div style={{ background: 'white', borderRadius: '12px', padding: '20px', border: '1px solid #efefef', display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <div style={{ padding: 12, borderRadius: '50%', background: netGross >= 0 ? '#2e7d32' : '#d32f2f', color: 'white' }}><DollarSign/></div>
+          <div style={{ padding: 12, borderRadius: '50%', background: netGross >= 0 ? '#2e7d32' : '#d32f2f', color: 'white' }}><DollarSign /></div>
           <div><div style={{ fontSize: '0.85rem', color: '#666' }}>NET BALANCE</div><div style={{ fontSize: '1.5rem', fontWeight: 700 }}>${netGross.toFixed(2)}</div></div>
         </div>
         <div style={{ background: 'white', borderRadius: '12px', padding: '20px', border: '1px solid #efefef', display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <div style={{ padding: 12, borderRadius: '50%', background: '#1565c0', color: 'white' }}><Layers/></div>
+          <div style={{ padding: 12, borderRadius: '50%', background: '#1565c0', color: 'white' }}><Layers /></div>
           <div><div style={{ fontSize: '0.85rem', color: '#666' }}>ACREAGE</div><div style={{ fontSize: '1.5rem', fontWeight: 700 }}>{totalAcres.toFixed(1)} ac</div></div>
         </div>
         <div style={{ background: 'white', borderRadius: '12px', padding: '20px', border: '1px solid #efefef', display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <div style={{ padding: 12, borderRadius: '50%', background: '#f57c00', color: 'white' }}><Rabbit/></div>
+          <div style={{ padding: 12, borderRadius: '50%', background: '#f57c00', color: 'white' }}><Rabbit /></div>
           <div><div style={{ fontSize: '0.85rem', color: '#666' }}>LIVESTOCK</div><div style={{ fontSize: '1.5rem', fontWeight: 700 }}>{livestock.length}</div></div>
         </div>
         <div style={{ background: 'white', borderRadius: '12px', padding: '20px', border: '1px solid #efefef', display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <div style={{ padding: 12, borderRadius: '50%', background: '#6a1b9a', color: 'white' }}><TrendingUp/></div>
+          <div style={{ padding: 12, borderRadius: '50%', background: '#6a1b9a', color: 'white' }}><TrendingUp /></div>
           <div><div style={{ fontSize: '0.85rem', color: '#666' }}>CROPS</div><div style={{ fontSize: '1.5rem', fontWeight: 700 }}>{activeCrops.length}</div></div>
         </div>
       </div>
@@ -166,17 +166,17 @@ export default function DashboardTab() {
             </thead>
             <tbody>
               {incidents.length === 0 ? (
-                <tr><td colSpan="5" style={{textAlign: 'center', padding: '20px', color: '#888'}}>No incidents reported.</td></tr>
+                <tr><td colSpan="5" style={{ textAlign: 'center', padding: '20px', color: '#888' }}>No incidents reported.</td></tr>
               ) : (
-                incidents.slice().sort((a,b) => b.date.localeCompare(a.date)).map(i => (
+                incidents.slice().sort((a, b) => b.date.localeCompare(a.date)).map(i => (
                   <tr key={i.id}>
                     <td>{i.date}</td>
                     <td>{i.title}</td>
                     <td>{i.associatedAsset || '-'}</td>
                     <td>
-                      <span style={{ 
+                      <span style={{
                         color: i.severity === 'High' ? '#c62828' : i.severity === 'Medium' ? '#f57c00' : '#4caf50',
-                        fontWeight: 'bold' 
+                        fontWeight: 'bold'
                       }}>{i.severity}</span>
                     </td>
                     <td>{i.resolutionStatus}</td>
@@ -203,9 +203,9 @@ export default function DashboardTab() {
             </thead>
             <tbody>
               {deadlines.length === 0 ? (
-                <tr><td colSpan="5" style={{textAlign: 'center', padding: '20px', color: '#888'}}>No upcoming deadlines.</td></tr>
+                <tr><td colSpan="5" style={{ textAlign: 'center', padding: '20px', color: '#888' }}>No upcoming deadlines.</td></tr>
               ) : (
-                deadlines.slice().sort((a,b) => a.dueDate.localeCompare(b.dueDate)).map(d => (
+                deadlines.slice().sort((a, b) => a.dueDate.localeCompare(b.dueDate)).map(d => (
                   <tr key={d.id} style={{ opacity: d.status === 'Resolved' ? 0.6 : 1 }}>
                     <td>{d.dueDate}</td>
                     <td>{d.title}</td>
@@ -224,58 +224,17 @@ export default function DashboardTab() {
         </div>
       </CollapsibleCard>
 
-      {/* Activities Feed Table */}
-      <CollapsibleCard title="Recent & Upcoming Activities" forceFullGrid>
-        <div style={{ overflowX: 'auto' }}>
-          <table className="crud-table">
-            <thead>
-              <tr>
-                <th>Sev</th>
-                <th>Task</th>
-                <th>Target Asset</th>
-                <th>Planned</th>
-                <th>Executed</th>
-                <th>Responsible</th>
-                <th>Notes</th>
-              </tr>
-            </thead>
-            <tbody>
-              {sortedActivities.length === 0 ? (
-                <tr><td colSpan="7" style={{textAlign: 'center', padding: '20px', color: '#888'}}>No activities logged yet.</td></tr>
-              ) : (
-                sortedActivities.map(a => {
-                  const sev = getSeverity(a);
-                  return (
-                    <tr key={a.id}>
-                      <td style={{ textAlign: 'center' }}>
-                        <div style={{ width: 16, height: 16, borderRadius: '50%', background: sev.color, margin: '0 auto' }} title={sev.title}></div>
-                      </td>
-                      <td>{a.type}</td>
-                      <td>{getTargetName(a.targetId)}</td>
-                      <td>{a.plannedDate || '-'}</td>
-                      <td>{a.date || '-'}</td>
-                      <td>{a.personResponsible || '-'}</td>
-                      <td style={{ maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={a.notes}>{a.notes}</td>
-                    </tr>
-                  )
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </CollapsibleCard>
-
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '20px' }}>
-        
+
         {/* Harvest by Day */}
         <CollapsibleCard title="Harvest by Day">
           <div style={{ width: '100%', height: 300 }}>
             <ResponsiveContainer width="99%" height={300} minWidth={1} minHeight={1}>
               <BarChart data={harvestByDay} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="date" tick={{fontSize: 12}} />
-                <YAxis tick={{fontSize: 12}} />
-                <Tooltip cursor={{fill: '#f5f5f5'}} />
+                <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                <YAxis tick={{ fontSize: 12 }} />
+                <Tooltip cursor={{ fill: '#f5f5f5' }} />
                 <Bar dataKey="yield" fill="#4caf50" radius={[4, 4, 0, 0]} barSize={32} name="Total Yield" />
               </BarChart>
             </ResponsiveContainer>
@@ -288,10 +247,10 @@ export default function DashboardTab() {
             <ResponsiveContainer width="99%" height={300} minWidth={1} minHeight={1}>
               <BarChart data={fortnightData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="time" tick={{fontSize: 12}} />
-                <YAxis tick={{fontSize: 12}} />
-                <Tooltip cursor={{fill: '#f5f5f5'}} />
-                <Legend wrapperStyle={{fontSize: 12}} />
+                <XAxis dataKey="time" tick={{ fontSize: 12 }} />
+                <YAxis tick={{ fontSize: 12 }} />
+                <Tooltip cursor={{ fill: '#f5f5f5' }} />
+                <Legend wrapperStyle={{ fontSize: 12 }} />
                 <Bar dataKey="Revenue" fill="#2196f3" radius={[4, 4, 0, 0]} />
                 <Bar dataKey="Expenses" fill="#f44336" radius={[4, 4, 0, 0]} />
               </BarChart>
@@ -304,7 +263,7 @@ export default function DashboardTab() {
           <div style={{ width: '100%', height: 300, display: 'flex', justifyContent: 'center' }}>
             <ResponsiveContainer width="99%" height={300} minWidth={1} minHeight={1}>
               <PieChart>
-                <Pie data={revPieData} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={5} dataKey="value" label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`}>
+                <Pie data={revPieData} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={5} dataKey="value" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
                   {revPieData.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
                 </Pie>
                 <Tooltip formatter={(val) => `$${val}`} />
@@ -318,7 +277,7 @@ export default function DashboardTab() {
           <div style={{ width: '100%', height: 300, display: 'flex', justifyContent: 'center' }}>
             <ResponsiveContainer width="99%" height={300} minWidth={1} minHeight={1}>
               <PieChart>
-                <Pie data={expPieData} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={5} dataKey="value" label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`}>
+                <Pie data={expPieData} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={5} dataKey="value" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
                   {expPieData.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
                 </Pie>
                 <Tooltip formatter={(val) => `$${val}`} />
