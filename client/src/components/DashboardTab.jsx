@@ -53,7 +53,7 @@ export default function DashboardTab() {
       try {
         const [lat, lng] = weatherLocations[selectedLocIndex].coords;
         // Open-Meteo free API
-        const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto`);
+        const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto&temperature_unit=fahrenheit`);
         const data = await res.json();
         if (isMounted) {
           setWeatherData(data);
@@ -231,7 +231,7 @@ export default function DashboardTab() {
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 {getWeatherIcon(weatherData.current.weather_code, 48)}
                 <div style={{ fontSize: '3rem', fontWeight: 700, color: 'var(--color-primary-dark)' }}>
-                  {Math.round(weatherData.current.temperature_2m)}°C
+                  {Math.round(weatherData.current.temperature_2m)}°F
                 </div>
               </div>
               <div style={{ fontSize: '1.2rem', fontWeight: 600, color: '#555', marginTop: '10px' }}>
