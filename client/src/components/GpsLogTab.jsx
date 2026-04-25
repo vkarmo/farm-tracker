@@ -29,7 +29,7 @@ export default function GpsLogTab() {
   const currentUser = useSelector(state => state.auth?.currentUser);
   const mapCenter = useSelector(state => state.settings?.mapCenter) || [51.505, -0.09];
   const mapZoom = useSelector(state => state.settings?.mapZoom) || 13;
-  
+
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedUser, setSelectedUser] = useState('All');
   const [mapExpanded, setMapExpanded] = useState(false);
@@ -50,8 +50,8 @@ export default function GpsLogTab() {
   const filteredLogs = logs.filter(log => {
     const matchesUser = selectedUser === 'All' || log.userEmail === selectedUser;
     const matchesSearch = log.userEmail?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                          log.lat?.toString().includes(searchTerm) ||
-                          log.lng?.toString().includes(searchTerm);
+      log.lat?.toString().includes(searchTerm) ||
+      log.lng?.toString().includes(searchTerm);
     return matchesUser && matchesSearch;
   }).reverse(); // Newest first
 
@@ -67,15 +67,15 @@ export default function GpsLogTab() {
       <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
         <div style={{ position: 'relative', flex: '1 1 300px' }}>
           <Search size={18} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-light)' }} />
-          <input 
-            type="text" 
-            placeholder="Search coordinates or users..." 
-            value={searchTerm} 
+          <input
+            type="text"
+            placeholder="Search coordinates or users..."
+            value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             style={{ width: '100%', paddingLeft: '36px' }}
           />
         </div>
-        
+
         <div style={{ flex: '1 1 200px', display: 'flex', alignItems: 'center', gap: '10px' }}>
           <label style={{ whiteSpace: 'nowrap', fontWeight: 600 }}>Filter User:</label>
           <select value={selectedUser} onChange={e => setSelectedUser(e.target.value)} style={{ width: '100%', padding: '8px' }}>
@@ -100,7 +100,7 @@ export default function GpsLogTab() {
               filteredLogs.map(log => (
                 <tr key={log.id}>
                   <td style={{ whiteSpace: 'nowrap' }}>{new Date(log.timestamp).toLocaleString()}</td>
-                  <td style={{ fontWeight: 500 }}>{log.userEmail}</td>
+                  <td style={{ fontFamily: 'monospace' }}>{log.userEmail}</td>
                   <td style={{ fontFamily: 'monospace' }}>{log.lat.toFixed(6)}</td>
                   <td style={{ fontFamily: 'monospace' }}>{log.lng.toFixed(6)}</td>
                 </tr>
@@ -117,31 +117,31 @@ export default function GpsLogTab() {
       </div>
 
       <div style={{ border: '1px solid var(--color-border)', borderRadius: '8px', overflow: 'hidden' }}>
-        <button 
-          onClick={() => setMapExpanded(!mapExpanded)} 
+        <button
+          onClick={() => setMapExpanded(!mapExpanded)}
           style={{ width: '100%', padding: '15px', background: '#f5f7fa', border: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', fontWeight: 600, color: 'var(--color-primary-dark)' }}
         >
           <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Map size={18} /> Map Visualization</span>
           {mapExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
         </button>
-        
+
         {mapExpanded && (
           <div style={{ height: '400px', width: '100%' }}>
-            <MapContainer 
-              center={filteredLogs.length > 0 ? [filteredLogs[0].lat, filteredLogs[0].lng] : mapCenter} 
-              zoom={mapZoom} 
+            <MapContainer
+              center={filteredLogs.length > 0 ? [filteredLogs[0].lat, filteredLogs[0].lng] : mapCenter}
+              zoom={mapZoom}
               style={{ height: '100%', width: '100%' }}
             >
               <TileLayer attribution="Google Maps" url="http://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}&s=Ga" />
               {filteredLogs.map(log => {
                 const d = new Date(log.timestamp);
-                const dateStr = `${(d.getMonth()+1).toString().padStart(2, '0')}/${d.getDate().toString().padStart(2, '0')}/${d.getFullYear()}`;
-                
+                const dateStr = `${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getDate().toString().padStart(2, '0')}/${d.getFullYear()}`;
+
                 return (
                   <Marker key={log.id} position={[log.lat, log.lng]} icon={redIcon}>
                     <Popup>
-                      <strong>{log.userEmail}</strong><br/>
-                      Date: {dateStr}<br/>
+                      <strong>{log.userEmail}</strong><br />
+                      Date: {dateStr}<br />
                       Time: {d.toLocaleTimeString()}
                     </Popup>
                   </Marker>
