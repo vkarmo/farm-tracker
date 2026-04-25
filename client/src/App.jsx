@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { fetchFields } from './store/fieldsSlice';
-import { addUnit, removeUnit, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold } from './store/settingsSlice';
+import { addUnit, removeUnit, addJobTitle, removeJobTitle, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold } from './store/settingsSlice';
 import { addLocation } from './store/gpsSlice';
 import { queueAction } from './store/syncSlice';
 import { MapSearchBox, MapFlyTo, CurrentLocationControl } from './components/MapSearchBox';
@@ -35,7 +35,6 @@ import AuditTab from './components/AuditTab';
 import GpsLogTab from './components/GpsLogTab';
 import { logout } from './store/authSlice';
 import { logAction } from './store/auditSlice';
-import { addUnit, removeUnit, addJobTitle, removeJobTitle, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold } from './store/settingsSlice';
 
 export default function App() {
   const dispatch = useDispatch();
