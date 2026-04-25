@@ -18,7 +18,7 @@ const SyncController = ({ children }) => {
     };
 
     window.addEventListener('online', handleOnline);
-    
+
     // Auto-sync every 3 seconds if there are items in the queue and we're online
     const syncInterval = setInterval(() => {
       if (navigator.onLine) dispatch(flushQueue());
