@@ -36,8 +36,14 @@ export default function DashboardTab() {
 
   const mapCenter = useSelector(state => state.settings?.mapCenter) || [51.505, -0.09];
 
+  const [selectedLocIndex, setSelectedLocIndex] = useState(0);
   const [weatherData, setWeatherData] = useState(null);
   const [weatherLoading, setWeatherLoading] = useState(true);
+
+  const weatherLocations = useMemo(() => [
+    { label: 'Default Farm Location', coords: mapCenter },
+    { label: 'Bomi County, Liberia', coords: [6.7319579, -10.8700117] }
+  ], [mapCenter]);
 
   // Fetch Weather Data
   useEffect(() => {
@@ -45,7 +51,7 @@ export default function DashboardTab() {
     const fetchWeather = async () => {
       setWeatherLoading(true);
       try {
-        const [lat, lng] = mapCenter;
+        const [lat, lng] = weatherLocations[selectedLocIndex].coords;
         // Open-Meteo free API
         const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto`);
         const data = await res.json();
@@ -60,7 +66,7 @@ export default function DashboardTab() {
     };
     fetchWeather();
     return () => { isMounted = false; };
-  }, [mapCenter]);
+  }, [weatherLocations, selectedLocIndex]);
 
   // Weather Code to Icon Mapper
   const getWeatherIcon = (code, size = 24) => {
@@ -205,6 +211,18 @@ export default function DashboardTab() {
 
       {/* Weather Forecast Widget */}
       <CollapsibleCard title="Current Weather & Forecast">
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '15px' }}>
+          <select 
+            value={selectedLocIndex} 
+            onChange={(e) => setSelectedLocIndex(Number(e.target.value))}
+            style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #ccc', background: 'white', fontWeight: 600, color: 'var(--color-primary-dark)', cursor: 'pointer' }}
+          >
+            {weatherLocations.map((loc, idx) => (
+              <option key={idx} value={idx}>{loc.label}</option>
+            ))}
+          </select>
+        </div>
+        
         {weatherLoading ? (
           <div style={{ textAlign: 'center', padding: '20px', color: '#888' }}>Loading weather data...</div>
         ) : weatherData && weatherData.current ? (
