@@ -285,7 +285,7 @@ export default function App() {
 
         {activeTab === 'settings' && (
           <div className="card">
-            <h2>Configuration</h2>
+            <h2>App Settings</h2>
             <div style={{ marginBottom: 20 }}>
               <h3>Company Logo</h3>
               <div style={{ marginBottom: 16 }}>
@@ -315,24 +315,6 @@ export default function App() {
               </form>
             </div>
             <hr style={{ border: 'none', borderTop: '1px solid var(--color-border)', margin: '20px 0' }} />
-            <div>
-              <h3><Layers size={16} style={{ marginRight: 6, display: 'inline' }} /> Map Configuration (KML Layers)</h3>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: 16 }}>
-                {kmlUrls.map(url => (
-                  <div key={url} className="list-item" style={{ display: 'flex', justifyContent: 'space-between', flexDirection: 'row' }}>
-                    <span style={{ wordBreak: 'break-all' }}>{url}</span>
-                    <button onClick={() => dispatch(removeKmlUrl(url))} className="btn" style={{ background: '#ffebee', color: '#c62828', padding: '4px 8px' }}>Remove</button>
-                  </div>
-                ))}
-              </div>
-              <form onSubmit={handleAddKml} style={{ display: 'flex', gap: '10px' }}>
-                <input type="url" value={newKml} onChange={e => setNewKml(e.target.value)} placeholder="https://example.com/farm.kml" style={{ flex: 1 }} />
-                <button type="submit" className="btn btn-primary">Add Layer</button>
-              </form>
-            </div>
-
-            <hr style={{ border: 'none', borderTop: '1px solid var(--color-border)', margin: '20px 0' }} />
-
             <div style={{ marginBottom: 20 }}>
               <h3>Map Preferences</h3>
               <div style={{ marginBottom: 16 }}>
