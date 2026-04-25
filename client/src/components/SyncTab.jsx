@@ -14,8 +14,7 @@ export default function SyncTab() {
 
   useEffect(() => {
     if (currentUser?.role === 'admin') {
-      const API_URL = import.meta.env.VITE_API_URL || '';
-      fetch(`${API_URL}/api/admin/db-config`)
+      fetch('/api/admin/db-config')
         .then(res => res.json())
         .then(data => setDbConfig(data))
         .catch(err => console.error("Failed to fetch DB config", err));
