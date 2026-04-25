@@ -1,0 +1,1 @@
+curl -X POST http://localhost:3001/api/sync -H "Content-Type: application/json" -d '{"queue":[{"type":"fields/addField", "payload": {"id":"test","name":"test","area":1,"soil_type":"clay","irrigation":"none","status":"active","year":2026,"polygon":null}}]}'

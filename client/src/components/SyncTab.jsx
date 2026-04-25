@@ -6,8 +6,21 @@ import { RefreshCw, Database } from 'lucide-react';
 export default function SyncTab() {
   const dispatch = useDispatch();
   const fullState = useSelector(state => state);
+  const currentUser = fullState.auth?.currentUser;
   const syncModule = fullState.sync || {};
   const { offlineActionQueue = [], isSyncing = false, lastSynced, backendAvailable = true, backendFailures = 0 } = syncModule;
+
+  const [dbConfig, setDbConfig] = React.useState(null);
+
+  useEffect(() => {
+    if (currentUser?.role === 'admin') {
+      const API_URL = import.meta.env.VITE_API_URL || '';
+      fetch(`${API_URL}/api/admin/db-config`)
+        .then(res => res.json())
+        .then(data => setDbConfig(data))
+        .catch(err => console.error("Failed to fetch DB config", err));
+    }
+  }, [currentUser]);
 
   const handleForceSync = () => {
     dispatch(flushQueue(true));
@@ -65,6 +78,20 @@ export default function SyncTab() {
           <strong>Neo4j Connect Node:</strong> {backendAvailable ? 'Reachable' : 'Unreachable'}
         </div>
       </div>
+
+      {currentUser?.role === 'admin' && dbConfig && (
+        <details style={{ marginBottom: '20px', background: '#f5f7fa', border: '1px solid var(--color-border)', padding: '15px', borderRadius: '8px' }}>
+          <summary style={{ cursor: 'pointer', fontWeight: 600, color: 'var(--color-primary-dark)', fontSize: '1.05rem', outline: 'none' }}>
+            <Database size={16} style={{ display: 'inline', verticalAlign: 'text-bottom', marginRight: '6px' }} />
+            Admin: Redux-to-Neo4j Connection Bridge Config
+          </summary>
+          <div style={{ marginTop: '15px', fontFamily: 'monospace', fontSize: '0.9rem', background: '#1e1e1e', color: '#a6e22e', padding: '15px', borderRadius: '4px', overflowX: 'auto' }}>
+            <div style={{ marginBottom: '8px' }}><strong style={{ color: '#66d9ef' }}>NEO4J_URI:</strong> {dbConfig.NEO4J_URI}</div>
+            <div style={{ marginBottom: '8px' }}><strong style={{ color: '#66d9ef' }}>NEO4J_USER:</strong> {dbConfig.NEO4J_USER}</div>
+            <div><strong style={{ color: '#66d9ef' }}>NEO4J_PASSWORD:</strong> {dbConfig.NEO4J_PASSWORD}</div>
+          </div>
+        </details>
+      )}
 
       <hr style={{ border: 'none', borderTop: '1px solid var(--color-border)', margin: '20px 0' }} />
 

@@ -17,7 +17,11 @@ app.use((req, res, next) => {
 });
 
 // Initialize Neo4j Driver
-const neo4jUri = process.env.NEO4J_URI || 'bolt://localhost:7687';
+let neo4jUri = process.env.NEO4J_URI || 'bolt://localhost:7687';
+// Automatically upgrade bolt+s to neo4j+s for AuraDB routing compatibility
+if (neo4jUri.includes('.databases.neo4j.io') && neo4jUri.startsWith('bolt+s://')) {
+  neo4jUri = neo4jUri.replace('bolt+s://', 'neo4j+s://');
+}
 const neo4jUser = process.env.NEO4J_USER || 'neo4j';
 const neo4jPassword = process.env.NEO4J_PASSWORD || 'password';
 const neo4jDatabase = process.env.NEO4J_DATABASE || undefined;
@@ -38,6 +42,16 @@ driver.verifyConnectivity()
   });
 
 // Standard CRUD routes for basic queries (legacy and global system mappings)
+
+// SECURITY WARNING: This endpoint exposes the database credentials in plaintext.
+// It is intended for admin debugging only. In production, this must be secured with strict authentication middleware!
+app.get('/api/admin/db-config', (req, res) => {
+  res.json({
+    NEO4J_URI: process.env.NEO4J_URI || 'bolt://localhost:7687',
+    NEO4J_USER: process.env.NEO4J_USER || 'neo4j',
+    NEO4J_PASSWORD: process.env.NEO4J_PASSWORD || 'password',
+  });
+});
 
 app.get('/api/users', async (req, res) => {
   const session = driver.session();
