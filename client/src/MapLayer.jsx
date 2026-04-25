@@ -3,6 +3,7 @@ import { useSelector } from 'react-redux';
 import { MapContainer, TileLayer, Polygon, Popup, GeoJSON } from 'react-leaflet';
 import { kml } from '@tmcw/togeojson';
 import 'leaflet/dist/leaflet.css';
+import { CurrentLocationControl } from './components/MapSearchBox';
 
 const MapLayer = ({ fields }) => {
   const kmlUrls = useSelector(state => state.settings.kmlUrls);
@@ -74,6 +75,7 @@ const MapLayer = ({ fields }) => {
           attribution="Google Maps"
           url="http://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}&s=Ga"
         />
+        <CurrentLocationControl />
         
         {/* Render successfully parsed remote KML Layers */}
         {geoJsonLayers.map((layer) => (

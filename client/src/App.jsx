@@ -4,7 +4,7 @@ import { fetchFields } from './store/fieldsSlice';
 import { addUnit, removeUnit, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold } from './store/settingsSlice';
 import { addLocation } from './store/gpsSlice';
 import { queueAction } from './store/syncSlice';
-import { MapSearchBox, MapFlyTo } from './components/MapSearchBox';
+import { MapSearchBox, MapFlyTo, CurrentLocationControl } from './components/MapSearchBox';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 
@@ -20,7 +20,7 @@ import HarvestTab from './components/HarvestTab';
 import LivestockTab from './components/LivestockTab';
 import FinanceTab from './components/FinanceTab';
 import BudgetTab from './components/BudgetTab';
-import ActivityTab from './components/ActivityTab';
+// import ActivityTab from './components/ActivityTab';
 import DeadlineTab from './components/DeadlineTab';
 import IncidentTab from './components/IncidentTab';
 import LoginScreen from './components/LoginScreen';
@@ -103,19 +103,19 @@ export default function App() {
       const R = 6371e3; // Radius of the earth in m
       const dLat = (lat2 - lat1) * (Math.PI / 180);
       const dLon = (lon2 - lon1) * (Math.PI / 180);
-      const a = 
+      const a =
         Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-        Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) * 
-        Math.sin(dLon / 2) * Math.sin(dLon / 2); 
-      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a)); 
-      return R * c; 
+        Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
     };
 
     const watchId = navigator.geolocation.watchPosition(
       (position) => {
         const { latitude, longitude } = position.coords;
         const lastLoc = lastSavedLocRef.current;
-        
+
         let shouldSave = false;
         if (!lastLoc) {
           // Only capture the initial point if the network is available
@@ -137,7 +137,7 @@ export default function App() {
             timestamp: new Date().toISOString(),
             userEmail: currentUser.email || currentUser.name || 'Unknown User'
           };
-          
+
           dispatch(addLocation(newLoc));
           dispatch(queueAction({ type: 'gps/addLocation', payload: newLoc, meta: { id: Date.now() } }));
         }
@@ -185,7 +185,7 @@ export default function App() {
       <header>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           {logo ? (
-            <img src={logo} alt="Company Logo" style={{ maxHeight: '40px', maxWidth: '150px', objectFit: 'contain' }} />
+            <img src={logo} alt="Company Logo" style={{ maxHeight: '70px', maxWidth: '185px', objectFit: 'contain' }} />
           ) : (
             <NmkLogo size={32} color="transparent" textColor="white" />
           )}
@@ -228,7 +228,7 @@ export default function App() {
         {hasAccess('assignment') && <button onClick={() => setActiveTab('assignment')} className={`btn ${activeTab === 'assignment' ? 'btn-primary' : ''}`}><Users size={16} style={{ marginRight: 6 }} /> Assignments</button>}
         {hasAccess('employee') && <button onClick={() => setActiveTab('employee')} className={`btn ${activeTab === 'employee' ? 'btn-primary' : ''}`}><Contact size={16} style={{ marginRight: 6 }} /> Employees</button>}
         {hasAccess('equipment') && <button onClick={() => setActiveTab('equipment')} className={`btn ${activeTab === 'equipment' ? 'btn-primary' : ''}`}><Briefcase size={16} style={{ marginRight: 6 }} /> Hard Assets</button>}
-        {hasAccess('finance') && <button onClick={() => setActiveTab('finance')} className={`btn ${activeTab === 'finance' ? 'btn-primary' : ''}`}><DollarSign size={16} style={{ marginRight: 6 }} /> Financials</button>}
+        {hasAccess('finance') && <button onClick={() => setActiveTab('finance')} className={`btn ${activeTab === 'finance' ? 'btn-primary' : ''}`}><DollarSign size={16} style={{ marginRight: 6 }} /> Ledger</button>}
         {hasAccess('budget') && <button onClick={() => setActiveTab('budget')} className={`btn ${activeTab === 'budget' ? 'btn-primary' : ''}`}><Calculator size={16} style={{ marginRight: 6 }} /> Budgets</button>}
         <button onClick={() => setActiveTab('sync')} className={`btn ${activeTab === 'sync' ? 'btn-primary' : ''}`} style={{ background: activeTab === 'sync' ? '#1565c0' : 'white', color: activeTab === 'sync' ? 'white' : '#1565c0', borderColor: '#1565c0' }}>
           <RefreshCw size={16} style={{ marginRight: 6 }} className={isSyncing ? "spin" : ""} /> {isSyncing ? "Syncing API..." : "System Sync"}
@@ -267,7 +267,7 @@ export default function App() {
         {activeTab === 'field' && <FieldTab />}
         {activeTab === 'nursery' && <NurseryTab />}
         {activeTab === 'crop' && <CropTab />}
-        {activeTab === 'activity' && <ActivityTab />}
+        {/* {activeTab === 'activity' && <ActivityTab />} */}
         {activeTab === 'deadline' && <DeadlineTab />}
         {activeTab === 'incident' && <IncidentTab />}
         {activeTab === 'harvest' && <HarvestTab />}
@@ -337,14 +337,14 @@ export default function App() {
               <h3>Map Preferences</h3>
               <div style={{ marginBottom: 16 }}>
                 <label>GPS Distance Threshold (meters)</label>
-                <input 
-                  type="number" 
-                  min="0.001" 
+                <input
+                  type="number"
+                  min="0.001"
                   step="0.001"
-                  value={gpsDistanceThreshold} 
-                  onChange={(e) => dispatch(setGpsDistanceThreshold(Number(e.target.value)))} 
-                  className="btn" 
-                  style={{ display: 'block', marginTop: 8, padding: '8px', minWidth: '200px', cursor: 'text' }} 
+                  value={gpsDistanceThreshold}
+                  onChange={(e) => dispatch(setGpsDistanceThreshold(Number(e.target.value)))}
+                  className="btn"
+                  style={{ display: 'block', marginTop: 8, padding: '8px', minWidth: '200px', cursor: 'text' }}
                 />
                 <span style={{ fontSize: '0.8rem', color: '#666' }}>Controls how many meters you must move before a new breadcrumb is captured.</span>
               </div>
@@ -362,6 +362,7 @@ export default function App() {
                     <TileLayer attribution="Google Maps" url="http://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}&s=Ga" />
                     <MapFlyTo center={mapCenter} />
                     <LocationMarker />
+                    <CurrentLocationControl onLocationFound={(loc) => dispatch(setMapCenter(loc))} />
                   </MapContainer>
                 </div>
               </div>
