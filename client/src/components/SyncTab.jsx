@@ -83,7 +83,7 @@ export default function SyncTab() {
           const isArray = Array.isArray(value);
           const isObject = value !== null && typeof value === 'object' && !isArray;
           const itemCount = isArray ? value.length : (isObject ? Object.keys(value).length : 0);
-          
+
           return (
             <div key={key} style={{
               background: 'white',
@@ -95,14 +95,14 @@ export default function SyncTab() {
               flexDirection: 'column',
               transition: 'transform 0.2s ease, box-shadow 0.2s ease'
             }}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.transform = 'translateY(-2px)';
-              e.currentTarget.style.boxShadow = '0 6px 16px rgba(0,0,0,0.08)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.transform = 'translateY(0)';
-              e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.03)';
-            }}
+              onMouseEnter={(e) => {
+                e.currentTarget.style.transform = 'translateY(-2px)';
+                e.currentTarget.style.boxShadow = '0 6px 16px rgba(0,0,0,0.08)';
+              }}
+              onMouseLeave={(e) => {
+                e.currentTarget.style.transform = 'translateY(0)';
+                e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.03)';
+              }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', borderBottom: '2px solid #f0f0f0', paddingBottom: '10px' }}>
                 <h4 style={{ margin: 0, color: 'var(--color-primary)', textTransform: 'capitalize', fontSize: '1.1rem', fontWeight: 600 }}>
@@ -119,16 +119,16 @@ export default function SyncTab() {
                   {itemCount} {itemCount === 1 ? 'Entry' : 'Entries'}
                 </span>
               </div>
-              
-              <div style={{ 
-                background: '#1e1e1e', 
-                color: '#a6e22e', 
-                padding: '12px', 
-                borderRadius: '8px', 
-                overflowX: 'auto', 
+
+              <div style={{
+                background: '#1e1e1e',
+                color: '#a6e22e',
+                padding: '12px',
+                borderRadius: '8px',
+                overflowX: 'auto',
                 overflowY: 'auto',
-                height: '150px', 
-                fontSize: '0.8rem', 
+                height: '150px',
+                fontSize: '0.8rem',
                 fontFamily: 'monospace',
                 boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.2)'
               }}>
