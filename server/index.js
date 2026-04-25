@@ -250,21 +250,21 @@ app.post('/api/sync', async (req, res) => {
               e.endDate = $endDate, e.isTerminated = $isTerminated, e.terminationReason = $terminationReason, 
               e.dailyRateLD = toFloat($dailyRateLD), e.twoWeekPayUSD = toFloat($twoWeekPayUSD)
           RETURN e
-        `, { 
-          id, 
-          firstName: firstName || null, 
-          lastName: lastName || null, 
-          address: address || null, 
-          phone: phone || null, 
-          jobTitle: jobTitle || null, 
-          type: type || null, 
-          skills: skills || null, 
-          startDate: startDate || null, 
-          endDate: endDate || null, 
-          isTerminated: isTerminated || false, 
-          terminationReason: terminationReason || null, 
-          dailyRateLD: dailyRateLD || 0, 
-          twoWeekPayUSD: twoWeekPayUSD || 0 
+        `, {
+          id,
+          firstName: firstName || null,
+          lastName: lastName || null,
+          address: address || null,
+          phone: phone || null,
+          jobTitle: jobTitle || null,
+          type: type || null,
+          skills: skills || null,
+          startDate: startDate || null,
+          endDate: endDate || null,
+          isTerminated: isTerminated || false,
+          terminationReason: terminationReason || null,
+          dailyRateLD: dailyRateLD || 0,
+          twoWeekPayUSD: twoWeekPayUSD || 0
         });
         results.push({ actionId: action.meta?.id, status: 'success' });
       }
