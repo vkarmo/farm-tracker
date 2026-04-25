@@ -10,6 +10,7 @@ export const settingsSlice = createSlice({
     mapCenter: [51.505, -0.09],
     mapZoom: 13,
     gpsDistanceThreshold: 10,
+    jobTitles: ['Foreman', 'Harvester', 'Tractor Operator', 'Security', 'Manager'],
   },
   reducers: {
     addUnit: (state, action) => {
@@ -19,6 +20,16 @@ export const settingsSlice = createSlice({
     },
     removeUnit: (state, action) => {
       state.units = state.units.filter(u => u !== action.payload);
+    },
+    addJobTitle: (state, action) => {
+      if (!state.jobTitles) state.jobTitles = [];
+      if (!state.jobTitles.includes(action.payload)) {
+        state.jobTitles.push(action.payload);
+      }
+    },
+    removeJobTitle: (state, action) => {
+      if (!state.jobTitles) state.jobTitles = [];
+      state.jobTitles = state.jobTitles.filter(t => t !== action.payload);
     },
     addKmlUrl: (state, action) => {
       if (!state.kmlUrls) state.kmlUrls = [];
@@ -48,5 +59,5 @@ export const settingsSlice = createSlice({
   }
 });
 
-export const { addUnit, removeUnit, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold } = settingsSlice.actions;
+export const { addUnit, removeUnit, addJobTitle, removeJobTitle, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold } = settingsSlice.actions;
 export default settingsSlice.reducer;

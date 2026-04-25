@@ -5,6 +5,7 @@ import { saveEmployee, removeEmployee } from '../store/employeeSlice';
 export default function EmployeeTab() {
   const dispatch = useDispatch();
   const employees = useSelector(state => state.employees?.list) || [];
+  const jobTitles = useSelector(state => state.settings?.jobTitles) || ['Foreman', 'Harvester', 'Tractor Operator', 'Security', 'Manager'];
 
   const [editingId, setEditingId] = useState(null);
   const [firstName, setFirstName] = useState('');
@@ -120,7 +121,10 @@ export default function EmployeeTab() {
 
             <div className="form-group">
               <label>Job Title *</label>
-              <input type="text" value={jobTitle} onChange={e => setJobTitle(e.target.value)} placeholder="e.g. Harvester, Foreman" required />
+              <select value={jobTitle} onChange={e => setJobTitle(e.target.value)} required>
+                <option value="" disabled>Select Job Title</option>
+                {jobTitles.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
             </div>
 
             <div className="form-group">

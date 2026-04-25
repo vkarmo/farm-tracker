@@ -35,6 +35,7 @@ import AuditTab from './components/AuditTab';
 import GpsLogTab from './components/GpsLogTab';
 import { logout } from './store/authSlice';
 import { logAction } from './store/auditSlice';
+import { addUnit, removeUnit, addJobTitle, removeJobTitle, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold } from './store/settingsSlice';
 
 export default function App() {
   const dispatch = useDispatch();
@@ -43,6 +44,7 @@ export default function App() {
 
   const fields = useSelector(state => state.fields.data) || [];
   const units = useSelector(state => state.settings?.units) || ['lbs'];
+  const jobTitles = useSelector(state => state.settings?.jobTitles) || [];
   const kmlUrls = useSelector(state => state.settings?.kmlUrls) || [];
   const logo = useSelector(state => state.settings?.logo);
   const polygonColor = useSelector(state => state.settings?.polygonColor) || '#ffffff';
@@ -58,6 +60,7 @@ export default function App() {
 
   const [activeTab, setActiveTab] = useState('dashboard');
   const [newUnit, setNewUnit] = useState('');
+  const [newJobTitle, setNewJobTitle] = useState('');
   const [newKml, setNewKml] = useState('');
 
   const hasAccess = (tabId) => {
@@ -150,6 +153,7 @@ export default function App() {
   }, [currentUser, dispatch, gpsDistanceThreshold]);
 
   const handleAddUnit = (e) => { e.preventDefault(); if (newUnit) { dispatch(addUnit(newUnit.toLowerCase())); setNewUnit(''); } };
+  const handleAddJobTitle = (e) => { e.preventDefault(); if (newJobTitle) { dispatch(addJobTitle(newJobTitle)); setNewJobTitle(''); } };
   const handleAddKml = (e) => { e.preventDefault(); if (newKml) { dispatch(addKmlUrl(newKml)); setNewKml(''); } };
 
   const handleLogoUpload = (e) => {
@@ -312,6 +316,21 @@ export default function App() {
               <form onSubmit={handleAddUnit} style={{ display: 'flex', gap: '10px' }}>
                 <input type="text" value={newUnit} onChange={e => setNewUnit(e.target.value)} placeholder="e.g. pallets, boxes" style={{ flex: 1 }} />
                 <button type="submit" className="btn btn-primary">Add Unit</button>
+              </form>
+            </div>
+            <hr style={{ border: 'none', borderTop: '1px solid var(--color-border)', margin: '20px 0' }} />
+            <div style={{ marginBottom: 20 }}>
+              <h3>Job Titles</h3>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: 16 }}>
+                {jobTitles.map(t => (
+                  <span key={t} className="status-indicator" style={{ background: '#e3f2fd', color: '#1565c0' }}>
+                    {t} <button onClick={() => dispatch(removeJobTitle(t))} style={{ border: 'none', background: 'transparent', cursor: 'pointer', marginLeft: 4, color: '#1565c0' }}>x</button>
+                  </span>
+                ))}
+              </div>
+              <form onSubmit={handleAddJobTitle} style={{ display: 'flex', gap: '10px' }}>
+                <input type="text" value={newJobTitle} onChange={e => setNewJobTitle(e.target.value)} placeholder="e.g. Foreman, Agronomist" style={{ flex: 1 }} />
+                <button type="submit" className="btn btn-primary">Add Job Title</button>
               </form>
             </div>
             <hr style={{ border: 'none', borderTop: '1px solid var(--color-border)', margin: '20px 0' }} />
