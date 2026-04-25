@@ -1,7 +1,7 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
-import { TrendingUp, Layers, Rabbit, DollarSign, Sun, CloudRain, Cloud, CloudLightning, Snowflake, CloudFog, MapPin, Droplets, Wind } from 'lucide-react';
+import { TrendingUp, Layers, Rabbit, DollarSign, Sun, CloudRain, Cloud, CloudLightning, Snowflake, CloudFog, MapPin, Droplets, Wind, ThermometerSun, CloudSun } from 'lucide-react';
 
 const CollapsibleCard = ({ title, children, defaultOpen = true, forceFullGrid = false }) => {
   const [isOpen, setIsOpen] = useState(defaultOpen);
@@ -69,12 +69,16 @@ export default function DashboardTab() {
   }, [weatherLocations, selectedLocIndex]);
 
   // Weather Code to Icon Mapper
-  const getWeatherIcon = (code, size = 24) => {
-    if (code === 0) return <Sun size={size} color="#f57c00" />;
-    if (code >= 1 && code <= 3) return <Cloud size={size} color="#90a4ae" />;
+  const getWeatherIcon = (code, temp, size = 24) => {
+    if (code === 0) {
+      if (temp && temp >= 90) return <ThermometerSun size={size} color="#d32f2f" />;
+      return <Sun size={size} color="#f57c00" />;
+    }
+    if (code >= 1 && code <= 2) return <CloudSun size={size} color="#fbc02d" />;
+    if (code === 3) return <Cloud size={size} color="#90a4ae" />;
     if (code >= 45 && code <= 48) return <CloudFog size={size} color="#78909c" />;
     if (code >= 51 && code <= 67) return <CloudRain size={size} color="#1e88e5" />;
-    if (code >= 71 && code <= 82) return <Snowflake size={size} color="#00bcd4" />;
+    if (code >= 71 && code <= 82) return <CloudRain size={size} color="#1565c0" />; // Replaces snow with heavy tropical rain
     if (code >= 95 && code <= 99) return <CloudLightning size={size} color="#5e35b1" />;
     return <Sun size={size} color="#f57c00" />;
   };
@@ -229,7 +233,7 @@ export default function DashboardTab() {
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px' }}>
             <div style={{ flex: '1 1 200px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: '#f5f7fa', padding: '20px', borderRadius: '12px' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                {getWeatherIcon(weatherData.current.weather_code, 48)}
+                {getWeatherIcon(weatherData.current.weather_code, weatherData.current.temperature_2m, 48)}
                 <div style={{ fontSize: '3rem', fontWeight: 700, color: 'var(--color-primary-dark)' }}>
                   {Math.round(weatherData.current.temperature_2m)}°F
                 </div>
@@ -252,7 +256,7 @@ export default function DashboardTab() {
                   return (
                     <div key={time} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', minWidth: '60px' }}>
                       <div style={{ fontSize: '0.85rem', fontWeight: 600, color: '#555' }}>{dayName}</div>
-                      <div style={{ margin: '8px 0' }}>{getWeatherIcon(weatherData.daily.weather_code[idx], 24)}</div>
+                      <div style={{ margin: '8px 0' }}>{getWeatherIcon(weatherData.daily.weather_code[idx], weatherData.daily.temperature_2m_max[idx], 24)}</div>
                       <div style={{ fontSize: '0.9rem', fontWeight: 700 }}>{Math.round(weatherData.daily.temperature_2m_max[idx])}°</div>
                       <div style={{ fontSize: '0.8rem', color: '#888' }}>{Math.round(weatherData.daily.temperature_2m_min[idx])}°</div>
                     </div>
