@@ -61,6 +61,8 @@ export default function App() {
   const [newUnit, setNewUnit] = useState('');
   const [newJobTitle, setNewJobTitle] = useState('');
   const [newKml, setNewKml] = useState('');
+  const [showManualPin, setShowManualPin] = useState(false);
+  const [manualCoords, setManualCoords] = useState('6.7319579, -10.8700117');
 
   const hasAccess = (tabId) => {
     if (currentUser?.role === 'Admin') return true;
@@ -353,7 +355,41 @@ export default function App() {
                 <input type="color" value={polygonColor} onChange={(e) => dispatch(setPolygonColor(e.target.value))} style={{ display: 'block', marginTop: 8 }} />
               </div>
               <div>
-                <label>Default Map Tab Location (Search or Drop Pin by clicking on map, Zoom to save default zoom)</label>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
+                  <label style={{ margin: 0 }}>Default Map Tab Location (Search or Drop Pin by clicking on map, Zoom to save default zoom)</label>
+                  <button onClick={() => setShowManualPin(!showManualPin)} className="btn" style={{ padding: '4px 10px', fontSize: '0.85rem' }}>+ Manual Coordinates</button>
+                </div>
+                {showManualPin && (
+                  <div style={{ display: 'flex', gap: '10px', marginTop: '10px', background: '#f5f7fa', padding: '10px', borderRadius: '4px', border: '1px solid var(--color-border)' }}>
+                    <input 
+                      type="text" 
+                      value={manualCoords} 
+                      onChange={(e) => setManualCoords(e.target.value)} 
+                      placeholder="e.g. 6.7319579, -10.8700117" 
+                      style={{ flex: 1, padding: '8px' }} 
+                    />
+                    <button 
+                      onClick={() => {
+                        const parts = manualCoords.split(',');
+                        if (parts.length === 2) {
+                          const lat = parseFloat(parts[0].trim());
+                          const lng = parseFloat(parts[1].trim());
+                          if (!isNaN(lat) && !isNaN(lng)) {
+                            dispatch(setMapCenter([lat, lng]));
+                            setShowManualPin(false); // Auto collapse on success
+                          } else {
+                            alert("Invalid coordinates. Please enter Lat, Lng.");
+                          }
+                        } else {
+                          alert("Invalid format. Please enter as: Latitude, Longitude");
+                        }
+                      }} 
+                      className="btn btn-primary"
+                    >
+                      Drop Pin
+                    </button>
+                  </div>
+                )}
                 <div style={{ marginTop: 8 }}>
                   <MapSearchBox onLocationFound={(loc) => dispatch(setMapCenter(loc))} />
                 </div>
