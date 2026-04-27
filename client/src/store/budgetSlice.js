@@ -6,6 +6,9 @@ export const budgetSlice = createSlice({
     list: []
   },
   reducers: {
+    setBudgets: (state, action) => {
+      state.list = action.payload;
+    },
     addBudget: (state, action) => {
       const existing = state.list.findIndex(b => b.id === action.payload.id);
       if (existing >= 0) state.list[existing] = action.payload;
@@ -34,5 +37,5 @@ export const budgetSlice = createSlice({
   }
 });
 
-export const { addBudget, deleteBudget, addBudgetItem, deleteBudgetItem } = budgetSlice.actions;
+export const { setBudgets, addBudget, deleteBudget, addBudgetItem, deleteBudgetItem } = budgetSlice.actions;
 export default budgetSlice.reducer;

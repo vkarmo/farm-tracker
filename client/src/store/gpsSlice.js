@@ -6,6 +6,9 @@ export const gpsSlice = createSlice({
     locations: []
   },
   reducers: {
+    setLocations: (state, action) => {
+      state.locations = action.payload;
+    },
     addLocation: (state, action) => {
       // payload expects { lat, lng, timestamp, userEmail }
       state.locations.push(action.payload);
@@ -16,5 +19,5 @@ export const gpsSlice = createSlice({
   }
 });
 
-export const { addLocation, clearLocations } = gpsSlice.actions;
+export const { setLocations, addLocation, clearLocations } = gpsSlice.actions;
 export default gpsSlice.reducer;
