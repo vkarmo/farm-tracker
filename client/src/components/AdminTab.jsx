@@ -69,15 +69,15 @@ export default function AdminTab() {
         // Also fast-update the local sync array
         dispatch({ type: 'auth/setUsersList', payload: [...usersList, seedPayload] });
         setNewEmail('');
-      }} style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+      }} style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
         <input
           type="email"
           placeholder="New user gmail address (e.g., worker@gmail.com)"
           value={newEmail}
           onChange={e => setNewEmail(e.target.value)}
-          style={{ flex: 1 }}
+          style={{ flex: 2 }}
         />
-        <button type="submit" className="btn btn-primary">Whitelist User</button>
+        <button type="submit" style={{ whiteSpace: 'nowrap', flex: 1 }} className="btn btn-primary">Whitelist User</button>
       </form>
 
       <hr style={{ border: 'none', borderTop: '1px solid var(--color-border)', margin: '30px 0' }} />

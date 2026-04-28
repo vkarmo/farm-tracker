@@ -1,7 +1,7 @@
 import { precacheAndRoute } from 'workbox-precaching';
+import { CACHE_NAME } from './config/cache';
 
-// Update this name manually to invalidate caches
-const CACHE_NAME = 'farm-tracker-v1';
+// Update CACHE_NAME in src/config/cache.js to invalidate caches
 
 // Precaches all assets compiled by Vite
 precacheAndRoute(self.__WB_MANIFEST || []);
