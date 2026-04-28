@@ -100,7 +100,13 @@ export const fetchInitialData = () => async (dispatch, getState) => {
   if (!navigator.onLine || offlineActionQueue.length > 0) return;
 
   try {
-    const response = await fetch('/api/all-data');
+    const response = await fetch('/api/all-data', {
+      headers: {
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
+    });
     if (!response.ok) throw new Error('Failed to fetch initial data');
     const data = await response.json();
     
