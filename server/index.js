@@ -374,7 +374,13 @@ app.post('/api/sync', async (req, res) => {
 // Serve client dist conditionally in production
 const path = require('path');
 if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, '../client/dist')));
+  app.use(express.static(path.join(__dirname, '../client/dist'), {
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith('sw.js') || filePath.endsWith('registerSW.js')) {
+        res.setHeader('Cache-Control', 'max-age=0, no-cache, no-store, must-revalidate');
+      }
+    }
+  }));
   app.get(/(.*)/, (req, res) => {
     res.sendFile(path.join(__dirname, '../client/dist/index.html'));
   });
