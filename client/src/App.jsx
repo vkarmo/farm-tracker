@@ -7,6 +7,7 @@ import { queueAction, fetchInitialData } from './store/syncSlice';
 import { MapSearchBox, MapFlyTo, CurrentLocationControl } from './components/MapSearchBox';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
+import { CACHE_NAME } from './config/cache';
 
 import { Wifi, WifiOff, CloudOff, Target, Tractor, Leaf, DollarSign, MapPin, Rabbit, Settings, BarChart, Layers, Box, ClipboardList, ShieldAlert, Calculator, CalendarClock, AlertTriangle, LogOut, Database, Users, Contact, Briefcase, RefreshCw } from 'lucide-react';
 import NmkLogo from './components/NmkLogo';
@@ -56,21 +57,6 @@ export default function App() {
   });
   const syncQueue = useSelector(state => state.sync.offlineActionQueue) || [];
   const isSyncing = useSelector(state => state.sync.isSyncing);
-
-  const [appVersion, setAppVersion] = useState('Checking...');
-
-  useEffect(() => {
-    if ('caches' in window) {
-      caches.keys().then(keys => {
-        const ftCache = keys.find(k => k.startsWith('farm-tracker-'));
-        if (ftCache) {
-          setAppVersion(ftCache);
-        } else {
-          setAppVersion('Uncached / Dev');
-        }
-      });
-    }
-  }, []);
 
   const [activeTab, setActiveTab] = useState('dashboard');
   const [newUnit, setNewUnit] = useState('');
@@ -211,7 +197,7 @@ export default function App() {
           )}
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             <h1 style={{ margin: 0, padding: 0 }}>NMK Farm Tracker</h1>
-            <span style={{ fontSize: '0.75rem', opacity: 0.8, marginTop: '2px' }}>Cache: {appVersion}</span>
+            <span style={{ fontSize: '0.75rem', opacity: 0.8, marginTop: '2px' }}>Cache: {CACHE_NAME}</span>
           </div>
         </div>
 
