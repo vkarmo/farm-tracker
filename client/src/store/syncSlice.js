@@ -1,4 +1,15 @@
 import { createSlice } from '@reduxjs/toolkit';
+import { setFields } from './fieldsSlice';
+import { setBeds as setNurseries } from './nurserySlice';
+import { setCrops, setLivestock, setEquipment } from './assetsSlice';
+import { setEmployees } from './employeeSlice';
+import { setAssignments } from './assignmentSlice';
+import { setTransactions as setFinancials } from './financialsSlice';
+import { setBudgets } from './budgetSlice';
+import { setIncidents } from './incidentsSlice';
+import { setDeadlines } from './deadlinesSlice';
+import { setLocations } from './gpsSlice';
+import { setLogs } from './auditSlice';
 
 export const syncSlice = createSlice({
   name: 'sync',
@@ -80,6 +91,35 @@ export const flushQueue = (forceSync = false) => async (dispatch, getState) => {
     }
   } finally {
     dispatch(setSyncing(false));
+  }
+};
+
+export const fetchInitialData = () => async (dispatch, getState) => {
+  const { offlineActionQueue } = getState().sync;
+  // Conflict Resolution: Only pull if online and no pending offline actions
+  if (!navigator.onLine || offlineActionQueue.length > 0) return;
+
+  try {
+    const response = await fetch('/api/all-data');
+    if (!response.ok) throw new Error('Failed to fetch initial data');
+    const data = await response.json();
+    
+    if (data.fields) dispatch(setFields(data.fields));
+    if (data.nurseries) dispatch(setNurseries(data.nurseries));
+    if (data.crops) dispatch(setCrops(data.crops));
+    if (data.livestock) dispatch(setLivestock(data.livestock));
+    if (data.equipment) dispatch(setEquipment(data.equipment));
+    if (data.employees) dispatch(setEmployees(data.employees));
+    if (data.assignments) dispatch(setAssignments(data.assignments));
+    if (data.financials) dispatch(setFinancials(data.financials));
+    if (data.budgets) dispatch(setBudgets(data.budgets));
+    if (data.incidents) dispatch(setIncidents(data.incidents));
+    if (data.deadlines) dispatch(setDeadlines(data.deadlines));
+    if (data.gps) dispatch(setLocations(data.gps));
+    if (data.audit) dispatch(setLogs(data.audit));
+
+  } catch (err) {
+    console.error('Failed to load initial data from backend', err);
   }
 };
 

@@ -6,6 +6,9 @@ export const incidentsSlice = createSlice({
     list: []
   },
   reducers: {
+    setIncidents: (state, action) => {
+      state.list = action.payload;
+    },
     addIncident: (state, action) => {
       const idx = state.list.findIndex(i => i.id === action.payload.id);
       if (idx !== -1) state.list[idx] = action.payload;
@@ -17,5 +20,5 @@ export const incidentsSlice = createSlice({
   }
 });
 
-export const { addIncident, deleteIncident } = incidentsSlice.actions;
+export const { setIncidents, addIncident, deleteIncident } = incidentsSlice.actions;
 export default incidentsSlice.reducer;

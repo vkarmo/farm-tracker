@@ -6,6 +6,9 @@ export const deadlinesSlice = createSlice({
     list: []
   },
   reducers: {
+    setDeadlines: (state, action) => {
+      state.list = action.payload;
+    },
     addDeadline: (state, action) => {
       const idx = state.list.findIndex(d => d.id === action.payload.id);
       if (idx !== -1) state.list[idx] = action.payload;
@@ -17,5 +20,5 @@ export const deadlinesSlice = createSlice({
   }
 });
 
-export const { addDeadline, deleteDeadline } = deadlinesSlice.actions;
+export const { setDeadlines, addDeadline, deleteDeadline } = deadlinesSlice.actions;
 export default deadlinesSlice.reducer;

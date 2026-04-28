@@ -6,6 +6,9 @@ export const auditSlice = createSlice({
     logs: [] // { id, timestamp, userEmail, actionType, details, tab }
   },
   reducers: {
+    setLogs: (state, action) => {
+      state.logs = action.payload;
+    },
     logAction: (state, action) => {
       // Limit to last 500 actions to avoid massive state bloat over time
       if (state.logs.length >= 500) {
@@ -19,7 +22,7 @@ export const auditSlice = createSlice({
   }
 });
 
-export const { logAction, clearLogs } = auditSlice.actions;
+export const { setLogs, logAction, clearLogs } = auditSlice.actions;
 
 // Redux Middleware to automatically capture CRUD operations
 export const auditMiddleware = storeAPI => next => action => {

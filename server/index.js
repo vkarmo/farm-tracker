@@ -99,6 +99,57 @@ app.post('/api/fields', async (req, res) => {
   }
 });
 
+// Global Data Hydration
+app.get('/api/all-data', async (req, res) => {
+  const session = driver.session();
+  try {
+    const collections = {
+       fields: 'MATCH (n:Field) RETURN n',
+       nurseries: 'MATCH (n:NurseryBed) RETURN n',
+       crops: 'MATCH (n:Crop) RETURN n',
+       livestock: 'MATCH (n:Livestock) RETURN n',
+       equipment: 'MATCH (n:Equipment) RETURN n',
+       assignments: 'MATCH (n:TaskAssignment) RETURN n',
+       employees: 'MATCH (n:Employee) RETURN n',
+       financials: 'MATCH (n:FinancialRecord) RETURN n',
+       budgets: 'MATCH (n:BudgetRecord) RETURN n',
+       incidents: 'MATCH (n:Incident) RETURN n',
+       deadlines: 'MATCH (n:Deadline) RETURN n',
+       gps: 'MATCH (n:GpsLocation) RETURN n',
+       audit: 'MATCH (n:AuditLog) RETURN n'
+    };
+
+    const data = {};
+    for (const [key, query] of Object.entries(collections)) {
+       const result = await session.run(query);
+       data[key] = result.records.map(r => {
+           const props = r.get('n').properties;
+           // Parse JSON strings back to objects (e.g. polygon)
+           if (props.polygon) {
+               try { props.polygon = JSON.parse(props.polygon); } catch(e){}
+           }
+           if (props.boundary) {
+               try { props.boundary = JSON.parse(props.boundary); } catch(e){}
+           }
+           if (props.tags) {
+               try { props.tags = JSON.parse(props.tags); } catch(e){}
+           }
+           if (props.metadata) {
+               try { props.metadata = JSON.parse(props.metadata); } catch(e){}
+           }
+           return props;
+       });
+    }
+
+    res.json(data);
+  } catch (err) {
+    console.error('Failed to fetch all data:', err);
+    res.status(500).json({ error: err.message });
+  } finally {
+    await session.close();
+  }
+});
+
 // Process Offline Actions Sync Queue
 app.post('/api/sync', async (req, res) => {
   const { queue } = req.body;
@@ -323,7 +374,13 @@ app.post('/api/sync', async (req, res) => {
 // Serve client dist conditionally in production
 const path = require('path');
 if (process.env.NODE_ENV === 'production') {
-  app.use(express.static(path.join(__dirname, '../client/dist')));
+  app.use(express.static(path.join(__dirname, '../client/dist'), {
+    setHeaders: (res, filePath) => {
+      if (filePath.endsWith('sw.js') || filePath.endsWith('registerSW.js')) {
+        res.setHeader('Cache-Control', 'max-age=0, no-cache, no-store, must-revalidate');
+      }
+    }
+  }));
   app.get(/(.*)/, (req, res) => {
     res.sendFile(path.join(__dirname, '../client/dist/index.html'));
   });

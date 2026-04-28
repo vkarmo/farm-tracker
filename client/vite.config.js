@@ -12,16 +12,15 @@ export default defineConfig(() => {
     plugins: [
       react(),
       VitePWA({
-        registerType: 'autoUpdate',
-        devOptions: {
-          enabled: true
+        strategies: 'injectManifest',
+        srcDir: 'src',
+        filename: 'sw.js',
+        injectManifest: {
+          maximumFileSizeToCacheInBytes: 5000000,
         },
-        workbox: {
-          skipWaiting: true,
-          clientsClaim: true,
-          additionalManifestEntries: [
-            { url: '/', revision: String(buildTime) }
-          ]
+        devOptions: {
+          enabled: true,
+          type: 'module'
         },
         manifest: {
           name: 'Farm Tracker PWA',

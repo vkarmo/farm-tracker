@@ -3,7 +3,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import { fetchFields } from './store/fieldsSlice';
 import { addUnit, removeUnit, addJobTitle, removeJobTitle, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold } from './store/settingsSlice';
 import { addLocation } from './store/gpsSlice';
-import { queueAction } from './store/syncSlice';
+import { queueAction, fetchInitialData } from './store/syncSlice';
 import { MapSearchBox, MapFlyTo, CurrentLocationControl } from './components/MapSearchBox';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
@@ -57,6 +57,21 @@ export default function App() {
   const syncQueue = useSelector(state => state.sync.offlineActionQueue) || [];
   const isSyncing = useSelector(state => state.sync.isSyncing);
 
+  const [appVersion, setAppVersion] = useState('Checking...');
+
+  useEffect(() => {
+    if ('caches' in window) {
+      caches.keys().then(keys => {
+        const ftCache = keys.find(k => k.startsWith('farm-tracker-'));
+        if (ftCache) {
+          setAppVersion(ftCache);
+        } else {
+          setAppVersion('Uncached / Dev');
+        }
+      });
+    }
+  }, []);
+
   const [activeTab, setActiveTab] = useState('dashboard');
   const [newUnit, setNewUnit] = useState('');
   const [newJobTitle, setNewJobTitle] = useState('');
@@ -75,7 +90,7 @@ export default function App() {
     const handleOffline = () => setIsOnline(false);
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
-    dispatch(fetchFields());
+    dispatch(fetchInitialData());
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
@@ -194,7 +209,10 @@ export default function App() {
           ) : (
             <NmkLogo size={32} color="transparent" textColor="white" />
           )}
-          <h1>NMK Farm Tracker</h1>
+          <div style={{ display: 'flex', flexDirection: 'column' }}>
+            <h1 style={{ margin: 0, padding: 0 }}>NMK Farm Tracker</h1>
+            <span style={{ fontSize: '0.75rem', opacity: 0.8, marginTop: '2px' }}>Cache: {appVersion}</span>
+          </div>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '20px' }}>
