@@ -197,7 +197,7 @@ export default function App() {
           )}
           <div style={{ display: 'flex', flexDirection: 'column' }}>
             <h1 style={{ margin: 0, padding: 0 }}>NMK Farm Tracker</h1>
-            <span style={{ fontSize: '0.75rem', opacity: 0.8, marginTop: '2px' }}>Cache: {CACHE_NAME}</span>
+            <span style={{ fontSize: '0.75rem', opacity: 0.8, marginTop: '2px' }}>Version: {CACHE_NAME}</span>
           </div>
         </div>
 
@@ -365,14 +365,14 @@ export default function App() {
                 </div>
                 {showManualPin && (
                   <div style={{ display: 'flex', gap: '10px', marginTop: '10px', background: '#f5f7fa', padding: '10px', borderRadius: '4px', border: '1px solid var(--color-border)' }}>
-                    <input 
-                      type="text" 
-                      value={manualCoords} 
-                      onChange={(e) => setManualCoords(e.target.value)} 
-                      placeholder="e.g. 6.7319579, -10.8700117" 
-                      style={{ flex: 1, padding: '8px' }} 
+                    <input
+                      type="text"
+                      value={manualCoords}
+                      onChange={(e) => setManualCoords(e.target.value)}
+                      placeholder="e.g. 6.7319579, -10.8700117"
+                      style={{ flex: 1, padding: '8px' }}
                     />
-                    <button 
+                    <button
                       onClick={() => {
                         const parts = manualCoords.split(',');
                         if (parts.length === 2) {
@@ -387,7 +387,7 @@ export default function App() {
                         } else {
                           alert("Invalid format. Please enter as: Latitude, Longitude");
                         }
-                      }} 
+                      }}
                       className="btn btn-primary"
                     >
                       Drop Pin

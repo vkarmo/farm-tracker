@@ -55,22 +55,22 @@ export default function AccessControlTab() {
 
   return (
     <div className="card">
-      <h2>Module Access Gateway</h2>
+      <h2>User Access Roles</h2>
       <p style={{ color: '#555', marginBottom: '20px' }}>
         Selectively enable or disable specific operational tabs for your staff. Root administrators naturally bypass these limits. By default, users inherit access to all tabs until customized.
       </p>
 
       {staffUsers.length === 0 ? (
-        <p style={{fontStyle: 'italic', color: '#888'}}>No non-admin staff accounts registered offline yet.</p>
+        <p style={{ fontStyle: 'italic', color: '#888' }}>No non-admin staff accounts registered offline yet.</p>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
           {staffUsers.map(user => {
             const userAllowed = user.allowedTabs || AVAILABLE_TABS.map(t => t.id);
             return (
-              <div key={user.email} style={{ border: '1px solid #efefef', borderRadius: 8, padding: 15, background: '#fafafa' }}>
+              <div key={user.email} style={{ border: '1px solid #efefef', borderRadius: 8, padding: 7.5, background: '#fafafa' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15, flexWrap: 'wrap', gap: 10 }}>
-                  <h3 style={{ margin: 0, display:'flex', alignItems: 'center', gap: 8 }}>
-                    <img src={user.profilePic || user.profile_pic} alt="" width="24" height="24" style={{borderRadius: '50%'}} />
+                  <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 4 }}>
+                    <img src={user.profilePic || user.profile_pic} alt="" width="24" height="24" style={{ borderRadius: '50%' }} />
                     {user.name} <span style={{ fontSize: '0.8rem', color: '#888', fontWeight: 'normal' }}>({user.email})</span>
                   </h3>
                   <div>
@@ -83,10 +83,10 @@ export default function AccessControlTab() {
                     const isAllowed = userAllowed.includes(tab.id);
                     return (
                       <label key={tab.id} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', padding: '6px 12px', background: isAllowed ? '#e8f5e9' : '#ffebee', border: `1px solid ${isAllowed ? '#c8e6c9' : '#ffcdd2'}`, borderRadius: 20, fontSize: '0.85rem', transition: 'all 0.2s' }}>
-                        <input 
-                          type="checkbox" 
-                          checked={isAllowed} 
-                          onChange={() => handleToggleTab(user.email, userAllowed, tab.id)} 
+                        <input
+                          type="checkbox"
+                          checked={isAllowed}
+                          onChange={() => handleToggleTab(user.email, userAllowed, tab.id)}
                           style={{ margin: 0 }}
                         />
                         {tab.label}
