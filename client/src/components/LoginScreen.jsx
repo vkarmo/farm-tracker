@@ -5,6 +5,7 @@ import { queueAction } from '../store/syncSlice';
 import { ShieldCheck } from 'lucide-react';
 import { useGoogleLogin } from '@react-oauth/google';
 import NmkLogo from './NmkLogo';
+import packageJson from '../../package.json';
 
 export default function LoginScreen() {
   const dispatch = useDispatch();
@@ -12,6 +13,8 @@ export default function LoginScreen() {
 
   const usersList = useSelector(state => state.auth?.usersList) || [];
   const logo = useSelector(state => state.settings?.logo);
+  const appName = useSelector(state => state.settings?.appName);
+  const displayAppName = appName || packageJson.name;
 
   // Fetch online users immediately upon attempting login if possible
   React.useEffect(() => {
@@ -78,7 +81,7 @@ export default function LoginScreen() {
           </div>
         )}
 
-        <h1 style={{ fontSize: '1.5rem', marginBottom: '10px', color: '#2e7d32' }}>Farm Tracker Pro</h1>
+        <h1 style={{ fontSize: '1.5rem', marginBottom: '10px', color: '#2e7d32' }}>{displayAppName}</h1>
         <p style={{ color: '#666', fontSize: '0.9rem', marginBottom: '30px' }}>
           Restricted offline management cluster. Please authenticate to sync local telemetry.
         </p>

@@ -4,6 +4,7 @@ import { queueAction } from './syncSlice';
 export const settingsSlice = createSlice({
   name: 'settings',
   initialState: {
+    appName: '',
     units: ['lbs', 'kg', 'bushels', 'crates', 'tons'],
     kmlUrls: [],
     logo: null,
@@ -57,13 +58,16 @@ export const settingsSlice = createSlice({
     setGpsDistanceThreshold: (state, action) => {
       state.gpsDistanceThreshold = action.payload;
     },
+    setAppName: (state, action) => {
+      state.appName = action.payload;
+    },
     setAllSettings: (state, action) => {
       return { ...state, ...action.payload };
     }
   }
 });
 
-export const { addUnit, removeUnit, addJobTitle, removeJobTitle, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold, setAllSettings } = settingsSlice.actions;
+export const { addUnit, removeUnit, addJobTitle, removeJobTitle, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold, setAppName, setAllSettings } = settingsSlice.actions;
 
 export const saveSettings = () => (dispatch, getState) => {
   const settings = getState().settings;
