@@ -211,42 +211,39 @@ export default function App() {
         </div>
 
         <div className="header-right">
-          <div className="header-actions" style={{ alignItems: 'flex-start' }}>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div className="db-info" title="neo4j+s://3fa11aa8.databases.neo4j.io | User: 3fa11aa8">
-                <Database size={14} style={{ flexShrink: 0 }} /> <span>neo4j+s://3fa11aa8.databases.neo4j.io | User: 3fa11aa8</span>
-              </div>
-              <button onClick={() => { setShowAdminNav(false); setActiveTab('sync'); }} className={`btn ${activeTab === 'sync' ? 'btn-primary' : ''}`} style={{ padding: '4px 8px', fontSize: '0.8rem', background: activeTab === 'sync' ? '#1565c0' : 'white', color: activeTab === 'sync' ? 'white' : '#1565c0', borderColor: '#1565c0', width: 'fit-content' }}>
-                <RefreshCw size={14} style={{ marginRight: '6px' }} className={isSyncing ? "spin" : ""} /> System Sync
-              </button>
+          <div style={{ display: 'flex', gap: '16px', width: '100%', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className="db-info" title="neo4j+s://3fa11aa8.databases.neo4j.io | User: 3fa11aa8">
+              <Database size={14} style={{ flexShrink: 0 }} /> <span>neo4j+s://3fa11aa8.databases.neo4j.io | User: 3fa11aa8</span>
             </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end' }}>
-              {isSyncing ? (
-                <div className="status-indicator status-syncing"><RefreshCw size={16} className="spin" /> Pushing to DB...</div>
-              ) : isOnline ? (
-                <div className="status-indicator status-online"><Wifi size={16} /> Online</div>
-              ) : (
-                <div className="status-indicator status-offline">
-                  <WifiOff size={16} /> Offline Cache Active
-                  {syncQueue.length > 0 && <span style={{ marginLeft: '4px' }}>({syncQueue.length} pending writes)</span>}
-                </div>
-              )}
-              <button onClick={() => { if (window.confirm('Sign out and lock offline data?')) dispatch(logout()) }} style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'transparent', border: '1px solid rgba(255,255,255,0.5)', color: 'var(--color-primary-dark)', padding: '4px 12px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.85rem', fontWeight: 500, width: 'fit-content' }}>
-                <LogOut size={14} /> Logout
-              </button>
-            </div>
-
-            {currentUser?.role === 'Admin' && (
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button onClick={() => { setShowAdminNav(false); setActiveTab(activeTab === 'sync' ? 'dashboard' : activeTab); }} className={`btn ${!showAdminNav && activeTab !== 'sync' ? 'btn-primary' : ''}`} style={{ padding: '10px 14px' }} title="Home View">
-                  <Home size={22} />
-                </button>
-                <button onClick={() => { setShowAdminNav(true); setActiveTab('admin'); }} className={`btn ${showAdminNav ? 'btn-primary' : ''}`} style={{ padding: '10px 14px', background: showAdminNav ? '#c62828' : 'white', color: showAdminNav ? 'white' : '#c62828', borderColor: '#c62828' }} title="Admin View">
-                  <Settings size={22} />
-                </button>
+            {isSyncing ? (
+              <div className="status-indicator status-syncing"><RefreshCw size={16} className="spin" /> Pushing to DB...</div>
+            ) : isOnline ? (
+              <div className="status-indicator status-online"><Wifi size={16} /> Online</div>
+            ) : (
+              <div className="status-indicator status-offline">
+                <WifiOff size={16} /> Offline Cache Active
+                {syncQueue.length > 0 && <span style={{ marginLeft: '4px' }}>({syncQueue.length} pending writes)</span>}
               </div>
             )}
+          </div>
+
+          <div style={{ display: 'flex', gap: '4px', background: '#f0f2f5', padding: '6px', borderRadius: '0', alignSelf: 'flex-end' }}>
+            {currentUser?.role === 'Admin' && (
+              <button onClick={() => { setShowAdminNav(false); setActiveTab(activeTab === 'sync' ? 'dashboard' : activeTab); }} className={`btn ${!showAdminNav && activeTab !== 'sync' ? 'btn-primary' : ''}`} style={{ padding: '8px 12px', background: !showAdminNav && activeTab !== 'sync' ? '' : 'transparent', borderColor: !showAdminNav && activeTab !== 'sync' ? '' : 'transparent' }} title="Home View">
+                <Home size={22} />
+              </button>
+            )}
+            <button onClick={() => { setShowAdminNav(false); setActiveTab('sync'); }} className={`btn ${activeTab === 'sync' ? 'btn-primary' : ''}`} style={{ padding: '8px 12px', background: activeTab === 'sync' ? '#1565c0' : 'transparent', color: activeTab === 'sync' ? 'white' : '#1565c0', borderColor: activeTab === 'sync' ? '#1565c0' : 'transparent' }} title="System Sync">
+              <RefreshCw size={22} className={isSyncing ? "spin" : ""} />
+            </button>
+            {currentUser?.role === 'Admin' && (
+              <button onClick={() => { setShowAdminNav(true); setActiveTab('admin'); }} className={`btn ${showAdminNav ? 'btn-primary' : ''}`} style={{ padding: '8px 12px', background: showAdminNav ? '#c62828' : 'transparent', color: showAdminNav ? 'white' : '#c62828', borderColor: showAdminNav ? '#c62828' : 'transparent' }} title="Admin View">
+                <Settings size={22} />
+              </button>
+            )}
+            <button onClick={() => { if (window.confirm('Sign out and lock offline data?')) dispatch(logout()) }} className="btn" style={{ padding: '8px 12px', background: 'transparent', color: 'var(--color-primary-dark)', borderColor: 'transparent' }} title="Logout">
+              <LogOut size={22} />
+            </button>
           </div>
         </div>
       </header>
