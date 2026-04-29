@@ -187,6 +187,7 @@ export default function LivestockTab() {
           dispatch(queueAction({ type: 'core/deleteNode', payload: { id }, meta: { id: Date.now() } }));
         }} 
         itemLabel="Livestock Tag" 
+        defaultSort={{ key: 'tagNumber', direction: 'asc' }}
         rowStyle={(row) => row.healthStatus === 'Deceased' ? { opacity: 0.6, background: '#fafafa' } : {}}
       />
     </div>

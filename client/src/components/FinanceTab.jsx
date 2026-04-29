@@ -191,6 +191,7 @@ export default function FinanceTab() {
           dispatch(queueAction({ type: 'core/deleteNode', payload: { id }, meta: { id: Date.now() } }));
         }} 
         itemLabel="Transaction" 
+        defaultSort={{ key: 'date', direction: 'desc' }}
       />
     </div>
   );

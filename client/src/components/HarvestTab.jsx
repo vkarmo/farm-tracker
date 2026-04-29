@@ -116,7 +116,8 @@ export default function HarvestTab() {
           dispatch(deleteHarvest(id));
           dispatch(queueAction({ type: 'core/deleteNode', payload: { id }, meta: { id: Date.now() } }));
         }} 
-        itemLabel="Harvest Pull" 
+        itemLabel="Harvest Record" 
+        defaultSort={{ key: 'date', direction: 'asc' }}
       />
     </div>
   );

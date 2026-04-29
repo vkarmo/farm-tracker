@@ -294,12 +294,13 @@ export default function AssignmentTab() {
       {activeAssignments.length > 0 && (
         <div className="card">
           <CrudTable 
-            data={[...activeAssignments].sort((a,b) => (b.assignmentDate || '').localeCompare(a.assignmentDate || ''))}
+            data={activeAssignments}
             columns={activeColumns}
             onEdit={handleEdit}
             onDelete={handleDelete}
             itemLabel="Assignment"
             customTitle="Saved Assignments"
+            defaultSort={{ key: 'assignmentDate', direction: 'desc' }}
           />
         </div>
       )}
@@ -307,12 +308,13 @@ export default function AssignmentTab() {
       {completedAssignments.length > 0 && (
         <div className="card" style={{ opacity: 0.85 }}>
           <CrudTable 
-            data={[...completedAssignments].sort((a,b) => (b.completedDate || '').localeCompare(a.completedDate || ''))}
+            data={completedAssignments}
             columns={completedColumns}
             onEdit={handleEdit}
             onDelete={handleDelete}
             itemLabel="Assignment"
             customTitle="Completed Assignments"
+            defaultSort={{ key: 'completedDate', direction: 'desc' }}
           />
         </div>
       )}

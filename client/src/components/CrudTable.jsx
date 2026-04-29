@@ -1,15 +1,54 @@
-import React, { useState } from 'react';
-import { Search, Edit2, Trash2 } from 'lucide-react';
+import React, { useState, useMemo } from 'react';
+import { Search, Edit2, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
 
-export default function CrudTable({ data, columns, onEdit, onDelete, itemLabel = 'Item', customTitle, rowStyle }) {
+export default function CrudTable({ data, columns, onEdit, onDelete, itemLabel = 'Item', customTitle, rowStyle, defaultSort }) {
   const [searchTerm, setSearchTerm] = useState('');
+  const [sortConfig, setSortConfig] = useState(defaultSort || { key: null, direction: 'asc' });
+
+  const handleSort = (key) => {
+    let direction = 'asc';
+    if (sortConfig.key === key && sortConfig.direction === 'asc') {
+      direction = 'desc';
+    }
+    setSortConfig({ key, direction });
+  };
+
+  const sortedData = useMemo(() => {
+    let sortableItems = [...data];
+    if (sortConfig.key !== null) {
+      sortableItems.sort((a, b) => {
+        let valA = a[sortConfig.key];
+        let valB = b[sortConfig.key];
+        
+        if (valA === undefined || valA === null) valA = '';
+        if (valB === undefined || valB === null) valB = '';
+        
+        if (typeof valA === 'string') valA = valA.toLowerCase();
+        if (typeof valB === 'string') valB = valB.toLowerCase();
+        
+        const numA = Number(valA);
+        const numB = Number(valB);
+        if (!isNaN(numA) && !isNaN(numB) && valA !== '' && valB !== '') {
+           valA = numA;
+           valB = numB;
+        }
+
+        if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
+        if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
+        return 0;
+      });
+    }
+    return sortableItems;
+  }, [data, sortConfig]);
 
   // Filter data across all string/number columns
-  const filteredData = data.filter(row => 
-    Object.values(row).some(val => 
+  const filteredData = sortedData.filter(row => {
+    // Global search term
+    const matchesGlobal = Object.values(row).some(val => 
       String(val).toLowerCase().includes(searchTerm.toLowerCase())
-    )
-  );
+    );
+    return matchesGlobal;
+  });
 
   return (
     <div style={{ marginTop: '20px' }}>
@@ -33,8 +72,13 @@ export default function CrudTable({ data, columns, onEdit, onDelete, itemLabel =
           <thead>
             <tr style={{ background: '#f5f7fa', borderBottom: '2px solid var(--color-border)' }}>
               {columns.map((col, i) => (
-                <th key={i} style={{ padding: '12px 15px', color: '#555', fontSize: '0.85rem', textTransform: 'uppercase' }}>
-                  {col.header}
+                <th key={i} onClick={() => handleSort(col.key)} style={{ padding: '12px 15px', color: '#555', fontSize: '0.85rem', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    {col.header}
+                    {sortConfig.key === col.key && (
+                      sortConfig.direction === 'asc' ? <ArrowUp size={14} color="#1565c0" /> : <ArrowDown size={14} color="#1565c0" />
+                    )}
+                  </div>
                 </th>
               ))}
               {(onEdit || onDelete) && (
