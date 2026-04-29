@@ -73,7 +73,7 @@ export default function HarvestTab() {
             <label>Source Crop Batch</label>
             <select value={harvestData.cropId} onChange={e => setHarvestData({...harvestData, cropId: e.target.value})}>
               <option value="">Select an active crop...</option>
-              {crops.map(c => {
+              {[...crops].sort((a,b) => a.name.localeCompare(b.name)).map(c => {
                 let locationStr = 'Unassigned';
                 if (c.fieldId) {
                   if (c.sowType === 'Nursery') {
@@ -97,7 +97,7 @@ export default function HarvestTab() {
           <div className="form-group">
             <label>Unit of Measurement</label>
             <select value={harvestData.unit} onChange={e => setHarvestData({...harvestData, unit: e.target.value})}>
-              {units.map(u => <option key={u} value={u}>{u}</option>)}
+              {[...units].sort((a,b) => a.localeCompare(b)).map(u => <option key={u} value={u}>{u}</option>)}
             </select>
           </div>
         </div>

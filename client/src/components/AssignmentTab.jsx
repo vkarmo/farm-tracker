@@ -67,7 +67,7 @@ export default function AssignmentTab() {
 
   const activeSelectedOptions = employeeOptions.filter(opt => workerIds.includes(opt.value));
 
-  const uniqueJobTitles = Array.from(new Set(employeesList.map(e => e.jobTitle).filter(Boolean)));
+  const uniqueJobTitles = Array.from(new Set(employeesList.map(e => e.jobTitle).filter(Boolean))).sort((a, b) => a.localeCompare(b));
 
   const handleAddGroup = () => {
     let toAdd = employeesList;
@@ -175,13 +175,13 @@ export default function AssignmentTab() {
               <select value={fieldId} onChange={e => setFieldId(e.target.value)} required>
                 <option value="">Select Target...</option>
                 <optgroup label="Crops & Seedlings">
-                  {crops.map(c => <option key={c.id} value={c.id}>{c.name} ({c.variety})</option>)}
+                  {[...crops].sort((a,b) => a.name.localeCompare(b.name)).map(c => <option key={c.id} value={c.id}>{c.name} ({c.variety})</option>)}
                 </optgroup>
                 <optgroup label="Physical Fields">
-                  {fields.map(f => <option key={f.id} value={f.id}>{f.name} ({f.size} acres)</option>)}
+                  {[...fields].sort((a,b) => a.name.localeCompare(b.name)).map(f => <option key={f.id} value={f.id}>{f.name} ({f.size} acres)</option>)}
                 </optgroup>
                 <optgroup label="Nursery Beds">
-                  {nurseries.map(n => <option key={n.id} value={n.id}>{n.name}</option>)}
+                  {[...nurseries].sort((a,b) => a.name.localeCompare(b.name)).map(n => <option key={n.id} value={n.id}>{n.name}</option>)}
                 </optgroup>
               </select>
             </div>
@@ -195,8 +195,8 @@ export default function AssignmentTab() {
                 </select>
                 <select value={filterGender} onChange={e => setFilterGender(e.target.value)} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #ccc' }}>
                   <option value="">Any Gender</option>
-                  <option value="Male">Male</option>
                   <option value="Female">Female</option>
+                  <option value="Male">Male</option>
                 </select>
                 <button type="button" onClick={handleAddGroup} className="btn" style={{ padding: '6px 12px', background: '#e0e0e0', color: '#333' }}>+ Add Group</button>
               </div>

@@ -91,13 +91,14 @@ export default function LivestockTab() {
             <label>Assigned Pasture / Field (Optional)</label>
             <select value={liveData.fieldId} onChange={e => setLiveData({...liveData, fieldId: e.target.value})}>
               <option value="">No specific field assignment...</option>
-              {fields.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+              {[...fields].sort((a,b) => a.name.localeCompare(b.name)).map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
             </select>
           </div>
           <div className="form-group">
             <label>Animal Type</label>
             <select value={liveData.type} onChange={e => setLiveData({...liveData, type: e.target.value})}>
-              <option value="">Pick...</option><option>Cattle</option><option>Sheep</option><option>Poultry</option><option>Swine</option><option>Goat</option>
+              <option value="">Pick...</option>
+              {['Cattle', 'Goat', 'Poultry', 'Sheep', 'Swine'].map(t => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
           <div className="form-group">
@@ -121,12 +122,12 @@ export default function LivestockTab() {
                      setLiveData(prev => ({...prev, causeOfDeath: ''}));
                  }
              }}>
+               <option value="Deceased">Deceased</option>
                <option>Healthy</option>
+               <option>Ill/Injured</option>
+               <option>Quarantined</option>
                <option>Requires Vet</option>
                <option>Under Medication</option>
-               <option>Quarantined</option>
-               <option>Ill/Injured</option>
-               <option value="Deceased">Deceased</option>
              </select>
           </div>
 

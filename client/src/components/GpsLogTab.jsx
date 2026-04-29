@@ -45,7 +45,7 @@ export default function GpsLogTab() {
     }
   };
 
-  const uniqueUsers = Array.from(new Set(logs.map(log => log.userEmail)));
+  const uniqueUsers = Array.from(new Set(logs.map(log => log.userEmail))).sort((a, b) => a.localeCompare(b));
 
   const filteredLogs = logs.filter(log => {
     return selectedUser === 'All' || log.userEmail === selectedUser;

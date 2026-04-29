@@ -11,9 +11,9 @@ export default function AuditTab() {
   const [filterUser, setFilterUser] = useState('All');
   const [filterAction, setFilterAction] = useState('All');
 
-  const uniqueDates = Array.from(new Set(logs.map(l => new Date(l.timestamp).toLocaleDateString())));
-  const uniqueUsers = Array.from(new Set(logs.map(l => l.userEmail)));
-  const uniqueActions = Array.from(new Set(logs.map(l => l.actionType)));
+  const uniqueDates = Array.from(new Set(logs.map(l => new Date(l.timestamp).toLocaleDateString()))).sort((a, b) => a.localeCompare(b));
+  const uniqueUsers = Array.from(new Set(logs.map(l => l.userEmail))).sort((a, b) => a.localeCompare(b));
+  const uniqueActions = Array.from(new Set(logs.map(l => l.actionType))).sort((a, b) => a.localeCompare(b));
 
   const handleClear = () => {
     if (window.confirm('Are you sure you want to clear all audit logs?')) {

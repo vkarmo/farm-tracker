@@ -9,7 +9,7 @@ const INIT_DEADLINE = { title: '', type: 'Insurance Registration', dueDate: '', 
 const DEADLINE_TYPES = [
   'Insurance Registration', 'Business Registration', 'Truck/Vehicle License',
   'Repair Deadline', 'Utility/Wifi Bill', 'Loan/Lease Payment', 'Contract Renewal', 'Other'
-];
+].sort();
 
 export default function DeadlineTab() {
   const dispatch = useDispatch();
@@ -67,8 +67,8 @@ export default function DeadlineTab() {
           <div className="form-group">
             <label>Status</label>
             <select value={formData.status} onChange={e => setFormData({ ...formData, status: e.target.value })}>
-              <option value="Pending">Pending</option>
               <option value="Overdue">Overdue</option>
+              <option value="Pending">Pending</option>
               <option value="Resolved">Resolved</option>
             </select>
           </div>

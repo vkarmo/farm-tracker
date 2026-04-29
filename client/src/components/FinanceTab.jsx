@@ -90,16 +90,16 @@ export default function FinanceTab() {
             <select value={txData.assetId} onChange={e => setTxData({...txData, assetId: e.target.value})}>
               <option value="">General ledger...</option>
               <optgroup label="Crops">
-                {crops.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </optgroup>
-              <optgroup label="Harvest Pulls">
-                {harvests.map(h => <option key={h.id} value={h.id}>{h.amount} {h.unit} pulled on {h.date}</option>)}
-              </optgroup>
-              <optgroup label="Livestock">
-                {livestock.map(l => <option key={l.id} value={l.id}>{l.type} - {l.tagNumber}</option>)}
+                {[...crops].sort((a,b) => a.name.localeCompare(b.name)).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </optgroup>
               <optgroup label="Fields">
-                {fields.map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+                {[...fields].sort((a,b) => a.name.localeCompare(b.name)).map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+              </optgroup>
+              <optgroup label="Harvest Pulls">
+                {[...harvests].sort((a,b) => a.date.localeCompare(b.date)).map(h => <option key={h.id} value={h.id}>{h.amount} {h.unit} pulled on {h.date}</option>)}
+              </optgroup>
+              <optgroup label="Livestock">
+                {[...livestock].sort((a,b) => a.type.localeCompare(b.type)).map(l => <option key={l.id} value={l.id}>{l.type} - {l.tagNumber}</option>)}
               </optgroup>
             </select>
             </div>
@@ -115,7 +115,7 @@ export default function FinanceTab() {
             <label>Category</label>
             <select value={txData.category} onChange={e => setTxData({...txData, category: e.target.value})}>
               {txData.txType === 'Expense' ? (
-                <><option>Fertilizer</option><option>Seed</option><option>Fuel</option><option>Labor</option><option>Equipment Maintenance</option></>
+                <><option>Equipment Maintenance</option><option>Fertilizer</option><option>Fuel</option><option>Labor</option><option>Seed</option></>
               ) : (
                 <><option>Crop Sale</option><option>Livestock Sale</option><option>Subsidy</option></>
               )}
