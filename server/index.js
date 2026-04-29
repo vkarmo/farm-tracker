@@ -7,7 +7,8 @@ const app = express();
 const port = process.env.PORT || 3001;
 
 app.use(cors());
-app.use(express.json());
+// Increase body limit so large sync queues (with GeoJSON polygons) don't get rejected
+app.use(express.json({ limit: '50mb' }));
 
 // Essential headers to allow Google OAuth popups to function correctly when embedded in iframes like Replit
 app.use((req, res, next) => {
