@@ -10,6 +10,8 @@ import { setIncidents } from './incidentsSlice';
 import { setDeadlines } from './deadlinesSlice';
 import { setLocations } from './gpsSlice';
 import { setLogs } from './auditSlice';
+import { setUsersList } from './authSlice';
+import { setAllSettings } from './settingsSlice';
 
 export const syncSlice = createSlice({
   name: 'sync',
@@ -123,6 +125,8 @@ export const fetchInitialData = () => async (dispatch, getState) => {
     if (data.deadlines) dispatch(setDeadlines(data.deadlines));
     if (data.gps) dispatch(setLocations(data.gps));
     if (data.audit) dispatch(setLogs(data.audit));
+    if (data.users) dispatch(setUsersList(data.users));
+    if (data.settings && data.settings.length > 0) dispatch(setAllSettings(data.settings[0]));
 
   } catch (err) {
     console.error('Failed to load initial data from backend', err);

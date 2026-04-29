@@ -32,9 +32,16 @@ export const { login, logout, setUsersList, removeUserOffline, updateUserAccess 
 
 // Thunk to fetch users list for Admin
 export const fetchAllUsers = () => async (dispatch) => {
-  // PWA Standalone Mode: Backend dismantled. 
-  // All user data is preserved and managed exclusively via IndexedDB.
-  return;
+  if (!navigator.onLine) return;
+  try {
+    const res = await fetch('/api/users');
+    if (res.ok) {
+      const users = await res.json();
+      dispatch(setUsersList(users));
+    }
+  } catch (err) {
+    console.error('Failed to fetch users from backend', err);
+  }
 };
 
 export default authSlice.reducer;

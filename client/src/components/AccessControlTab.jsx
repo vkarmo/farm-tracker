@@ -1,6 +1,7 @@
 import React from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { updateUserAccess } from '../store/authSlice';
+import { queueAction } from '../store/syncSlice';
 import { ShieldAlert } from 'lucide-react';
 
 const AVAILABLE_TABS = [
@@ -41,14 +42,18 @@ export default function AccessControlTab() {
       newTabs = [...newTabs, tabId];
     }
     dispatch(updateUserAccess({ email, allowedTabs: newTabs }));
+    dispatch(queueAction({ type: 'users/updateUserAccess', payload: { email, allowedTabs: newTabs }, meta: { id: Date.now() } }));
   };
 
   const handleEnableAll = (email) => {
-    dispatch(updateUserAccess({ email, allowedTabs: AVAILABLE_TABS.map(t => t.id) }));
+    const allowedTabs = AVAILABLE_TABS.map(t => t.id);
+    dispatch(updateUserAccess({ email, allowedTabs }));
+    dispatch(queueAction({ type: 'users/updateUserAccess', payload: { email, allowedTabs }, meta: { id: Date.now() } }));
   };
 
   const handleDisableAll = (email) => {
     dispatch(updateUserAccess({ email, allowedTabs: [] }));
+    dispatch(queueAction({ type: 'users/updateUserAccess', payload: { email, allowedTabs: [] }, meta: { id: Date.now() } }));
   };
 
   const staffUsers = usersList.filter(u => u.role !== 'Admin');
