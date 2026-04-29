@@ -210,40 +210,45 @@ export default function App() {
           </div>
         </div>
 
-        <div className="header-actions">
-
-          <div className="db-info" title="neo4j+s://3fa11aa8.databases.neo4j.io | User: 3fa11aa8">
-            <Database size={14} style={{ flexShrink: 0 }} /> <span>neo4j+s://3fa11aa8.databases.neo4j.io | User: 3fa11aa8</span>
-          </div>
-          {isSyncing ? (
-            <div className="status-indicator status-syncing"><RefreshCw size={16} className="spin" /> Pushing to DB...</div>
-          ) : isOnline ? (
-            <div className="status-indicator status-online"><Wifi size={16} /> Online</div>
-          ) : (
-            <div className="status-indicator status-offline">
-              <WifiOff size={16} /> Offline Cache Active
-              {syncQueue.length > 0 && <span style={{ marginLeft: '4px' }}>({syncQueue.length} pending writes)</span>}
+        <div className="header-right">
+          <div className="header-actions">
+            <div className="db-info" title="neo4j+s://3fa11aa8.databases.neo4j.io | User: 3fa11aa8">
+              <Database size={14} style={{ flexShrink: 0 }} /> <span>neo4j+s://3fa11aa8.databases.neo4j.io | User: 3fa11aa8</span>
             </div>
-          )}
+            {isSyncing ? (
+              <div className="status-indicator status-syncing"><RefreshCw size={16} className="spin" /> Pushing to DB...</div>
+            ) : isOnline ? (
+              <div className="status-indicator status-online"><Wifi size={16} /> Online</div>
+            ) : (
+              <div className="status-indicator status-offline">
+                <WifiOff size={16} /> Offline Cache Active
+                {syncQueue.length > 0 && <span style={{ marginLeft: '4px' }}>({syncQueue.length} pending writes)</span>}
+              </div>
+            )}
 
-          <button onClick={() => { if (window.confirm('Sign out and lock offline data?')) dispatch(logout()) }} style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'transparent', border: '1px solid rgba(255,255,255,0.5)', color: 'var(--color-primary-dark)', padding: '6px 14px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 500 }}>
-            <LogOut size={16} /> Logout
-          </button>
+            <button onClick={() => { if (window.confirm('Sign out and lock offline data?')) dispatch(logout()) }} style={{ display: 'flex', alignItems: 'center', gap: '6px', background: 'transparent', border: '1px solid rgba(255,255,255,0.5)', color: 'var(--color-primary-dark)', padding: '6px 14px', borderRadius: '6px', cursor: 'pointer', fontSize: '0.9rem', fontWeight: 500 }}>
+              <LogOut size={16} /> Logout
+            </button>
+          </div>
+          <div style={{ display: 'flex', gap: '8px', alignSelf: 'flex-end', flexWrap: 'wrap' }}>
+            <button onClick={() => { setShowAdminNav(false); setActiveTab('sync'); }} className={`btn ${activeTab === 'sync' ? 'btn-primary' : ''}`} style={{ padding: '6px 12px', fontSize: '0.85rem', background: activeTab === 'sync' ? '#1565c0' : 'white', color: activeTab === 'sync' ? 'white' : '#1565c0', borderColor: '#1565c0' }}>
+              <RefreshCw size={14} style={{ marginRight: '6px' }} className={isSyncing ? "spin" : ""} /> System Sync
+            </button>
+            {currentUser?.role === 'Admin' && (
+              <>
+                <button onClick={() => { setShowAdminNav(false); setActiveTab(activeTab === 'sync' ? 'dashboard' : activeTab); }} className={`btn ${!showAdminNav && activeTab !== 'sync' ? 'btn-primary' : ''}`} style={{ padding: '6px 12px', fontSize: '0.85rem' }} title="Home Mode">
+                  <Home size={14} style={{ marginRight: '6px' }} /> Home View
+                </button>
+                <button onClick={() => { setShowAdminNav(true); setActiveTab('admin'); }} className={`btn ${showAdminNav ? 'btn-primary' : ''}`} style={{ padding: '6px 12px', fontSize: '0.85rem', background: showAdminNav ? '#c62828' : 'white', color: showAdminNav ? 'white' : '#c62828', borderColor: '#c62828' }} title="Admin Mode">
+                  <Settings size={14} style={{ marginRight: '6px' }} /> Admin View
+                </button>
+              </>
+            )}
+          </div>
         </div>
       </header>
 
-      <nav style={{ display: 'flex', background: 'var(--color-surface)', padding: '10px 16px', borderBottom: '1px solid var(--color-border)', gap: '10px', overflowX: 'auto', whiteSpace: 'nowrap' }}>
-        {currentUser?.role === 'Admin' && (
-          <div style={{ display: 'flex', gap: '8px', borderRight: '2px solid var(--color-border)', paddingRight: '12px', marginRight: '4px' }}>
-            <button onClick={() => { setShowAdminNav(false); setActiveTab('dashboard'); }} className={`btn ${!showAdminNav ? 'btn-primary' : ''}`} style={{ padding: '8px' }} title="Home Mode">
-              <Home size={18} />
-            </button>
-            <button onClick={() => { setShowAdminNav(true); setActiveTab('admin'); }} className={`btn ${showAdminNav ? 'btn-primary' : ''}`} style={{ padding: '8px', background: showAdminNav ? '#c62828' : 'white', color: showAdminNav ? 'white' : '#c62828', borderColor: '#c62828' }} title="Admin Mode">
-              <Settings size={18} />
-            </button>
-          </div>
-        )}
-
+      <nav className="tab-nav" style={{ display: activeTab === 'sync' ? 'none' : 'flex' }}>
         {!showAdminNav ? (
           <>
             {hasAccess('dashboard') && <button onClick={() => setActiveTab('dashboard')} className={`btn ${activeTab === 'dashboard' ? 'btn-primary' : ''}`}><BarChart size={16} style={{ marginRight: 6 }} /> Dashboard</button>}
@@ -260,9 +265,6 @@ export default function App() {
             {hasAccess('equipment') && <button onClick={() => setActiveTab('equipment')} className={`btn ${activeTab === 'equipment' ? 'btn-primary' : ''}`}><Briefcase size={16} style={{ marginRight: 6 }} /> Hard Assets</button>}
             {hasAccess('finance') && <button onClick={() => setActiveTab('finance')} className={`btn ${activeTab === 'finance' ? 'btn-primary' : ''}`}><DollarSign size={16} style={{ marginRight: 6 }} /> Ledger</button>}
             {hasAccess('budget') && <button onClick={() => setActiveTab('budget')} className={`btn ${activeTab === 'budget' ? 'btn-primary' : ''}`}><Calculator size={16} style={{ marginRight: 6 }} /> Budgets</button>}
-            <button onClick={() => setActiveTab('sync')} className={`btn ${activeTab === 'sync' ? 'btn-primary' : ''}`} style={{ background: activeTab === 'sync' ? '#1565c0' : 'white', color: activeTab === 'sync' ? 'white' : '#1565c0', borderColor: '#1565c0' }}>
-              <RefreshCw size={16} style={{ marginRight: 6 }} className={isSyncing ? "spin" : ""} /> {isSyncing ? "Syncing API..." : "System Sync"}
-            </button>
           </>
         ) : (
           <>
