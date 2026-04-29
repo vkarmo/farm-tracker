@@ -1,13 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { fetchFields } from './store/fieldsSlice';
-import { addUnit, removeUnit, addJobTitle, removeJobTitle, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold, saveSettings } from './store/settingsSlice';
+import { addUnit, removeUnit, addJobTitle, removeJobTitle, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold, setAppName, saveSettings } from './store/settingsSlice';
 import { addLocation } from './store/gpsSlice';
 import { queueAction, fetchInitialData } from './store/syncSlice';
 import { MapSearchBox, MapFlyTo, CurrentLocationControl } from './components/MapSearchBox';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { CACHE_NAME } from './config/cache';
+import packageJson from '../package.json';
 
 import { Wifi, WifiOff, CloudOff, Target, Tractor, Leaf, DollarSign, MapPin, Rabbit, Settings, BarChart, Layers, Box, ClipboardList, ShieldAlert, Calculator, CalendarClock, AlertTriangle, LogOut, Database, Users, Contact, Briefcase, RefreshCw, Home } from 'lucide-react';
 import NmkLogo from './components/NmkLogo';
@@ -48,6 +49,8 @@ export default function App() {
   const units = useSelector(state => state.settings?.units) || ['lbs'];
   const jobTitles = useSelector(state => state.settings?.jobTitles) || [];
   const kmlUrls = useSelector(state => state.settings?.kmlUrls) || [];
+  const appName = useSelector(state => state.settings?.appName);
+  const displayAppName = appName || packageJson.name;
   const logo = useSelector(state => state.settings?.logo);
   const polygonColor = useSelector(state => state.settings?.polygonColor) || '#ffffff';
   const mapCenter = useSelector(state => state.settings?.mapCenter) || [51.505, -0.09];
@@ -74,6 +77,10 @@ export default function App() {
     if (!currentUser?.allowedTabs) return true; // Default to all if admin hasn't customized
     return currentUser.allowedTabs.includes(tabId);
   };
+
+  useEffect(() => {
+    document.title = displayAppName;
+  }, [displayAppName]);
 
   useEffect(() => {
     const handleOnline = () => {
@@ -125,7 +132,7 @@ export default function App() {
 
     const watchId = navigator.geolocation.watchPosition(
       (position) => {
-        const { latitude, longitude } = position.coords;
+        const { latitude, longitude, altitude } = position.coords;
         const lastLoc = lastSavedLocRef.current;
 
         let shouldSave = false;
@@ -146,6 +153,7 @@ export default function App() {
             id: `gps_${Date.now()}`,
             lat: latitude,
             lng: longitude,
+            altitude: altitude || null,
             timestamp: new Date().toISOString(),
             userEmail: currentUser.email || currentUser.name || 'Unknown User'
           };
@@ -208,7 +216,7 @@ export default function App() {
       {isUpdating && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
           <RefreshCw size={54} className="spin" style={{ marginBottom: '24px', color: 'var(--color-accent)' }} />
-          <h2 style={{ color: 'white', marginBottom: '8px' }}>Updating Farm Tracker...</h2>
+          <h2 style={{ color: 'white', marginBottom: '8px' }}>Updating {displayAppName}...</h2>
           <p style={{ color: '#ccc' }}>Downloading the latest version. The app will reload automatically.</p>
         </div>
       )}
@@ -220,7 +228,7 @@ export default function App() {
             <NmkLogo size={32} color="transparent" textColor="white" />
           )}
           <div style={{ display: 'flex', flexDirection: 'column' }}>
-            <h1 style={{ margin: 0, padding: 0 }}>NMK Farm Tracker</h1>
+            <h1 style={{ margin: 0, padding: 0 }}>{displayAppName}</h1>
             <span style={{ fontSize: '0.75rem', opacity: 0.8, marginTop: '2px' }}>Version: {CACHE_NAME}</span>
           </div>
         </div>
@@ -339,6 +347,22 @@ export default function App() {
         {activeTab === 'settings' && currentUser?.role === 'Admin' && (
           <div className="card">
             <h2>App Settings</h2>
+            <div style={{ marginBottom: 20 }}>
+              <h3>App Identity</h3>
+              <div style={{ marginBottom: 16 }}>
+                <label>App Name</label>
+                <input 
+                  type="text" 
+                  value={appName || ''} 
+                  onChange={(e) => { dispatch(setAppName(e.target.value)); dispatch(saveSettings()); }} 
+                  placeholder={packageJson.name} 
+                  className="btn" 
+                  style={{ display: 'block', marginTop: 8, padding: '8px', minWidth: '200px', cursor: 'text', background: '#fff', border: '1px solid #ccc' }} 
+                />
+                <span style={{ fontSize: '0.8rem', color: '#666', display: 'block', marginTop: 4 }}>Custom name for your application instance. Leave blank to use default.</span>
+              </div>
+            </div>
+            <hr style={{ border: 'none', borderTop: '1px solid var(--color-border)', margin: '20px 0' }} />
             <div style={{ marginBottom: 20 }}>
               <h3>Company Logo</h3>
               <div style={{ marginBottom: 16 }}>

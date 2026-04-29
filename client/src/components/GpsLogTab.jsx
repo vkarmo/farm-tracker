@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { clearLocations } from '../store/gpsSlice';
-import { Trash2, Map, ChevronDown, ChevronUp } from 'lucide-react';
+import { Trash2, Map, ChevronDown, ChevronUp, TrendingUp } from 'lucide-react';
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
 import CrudTable from './CrudTable';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
@@ -33,6 +34,7 @@ export default function GpsLogTab() {
 
   const [selectedUser, setSelectedUser] = useState('All');
   const [mapExpanded, setMapExpanded] = useState(false);
+  const [elevationExpanded, setElevationExpanded] = useState(false);
 
   // Authorization check
   if (currentUser?.role !== 'Admin') {
@@ -55,8 +57,16 @@ export default function GpsLogTab() {
     { key: 'timestamp', header: 'Timestamp', render: (r) => <span style={{ fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{new Date(r.timestamp).toLocaleString()}</span> },
     { key: 'userEmail', header: 'User', render: (r) => <span style={{ fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{r.userEmail}</span> },
     { key: 'lat', header: 'Latitude', render: (r) => <span style={{ fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{r.lat.toFixed(6)}</span> },
-    { key: 'lng', header: 'Longitude', render: (r) => <span style={{ fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{r.lng.toFixed(6)}</span> }
+    { key: 'lng', header: 'Longitude', render: (r) => <span style={{ fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{r.lng.toFixed(6)}</span> },
+    { key: 'altitude', header: 'Elevation', render: (r) => <span style={{ fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{r.altitude !== undefined && r.altitude !== null ? `${r.altitude.toFixed(1)}m` : 'N/A'}</span> }
   ];
+
+  const chartData = [...filteredLogs].reverse().map(log => ({
+    time: new Date(log.timestamp).toLocaleTimeString(),
+    date: new Date(log.timestamp).toLocaleDateString(),
+    elevation: log.altitude !== undefined && log.altitude !== null ? parseFloat(log.altitude.toFixed(1)) : null,
+    user: log.userEmail
+  })).filter(d => d.elevation !== null);
 
   return (
     <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -116,6 +126,37 @@ export default function GpsLogTab() {
                 );
               })}
             </MapContainer>
+          </div>
+        )}
+      </div>
+
+      <div style={{ border: '1px solid var(--color-border)', borderRadius: '8px', overflow: 'hidden' }}>
+        <button
+          onClick={() => setElevationExpanded(!elevationExpanded)}
+          style={{ width: '100%', padding: '15px', background: '#f5f7fa', border: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', fontWeight: 600, color: 'var(--color-primary-dark)' }}
+        >
+          <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><TrendingUp size={18} /> Elevation Changes Over Time</span>
+          {elevationExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+        </button>
+
+        {elevationExpanded && (
+          <div style={{ height: '350px', width: '100%', padding: '20px', background: 'white' }}>
+            {chartData.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" />
+                  <XAxis dataKey="time" tick={{fontSize: 12}} />
+                  <YAxis tick={{fontSize: 12}} label={{ value: 'Elevation (m)', angle: -90, position: 'insideLeft' }} />
+                  <Tooltip formatter={(value) => [`${value} m`, 'Elevation']} labelFormatter={(label) => `Time: ${label}`} />
+                  <Legend />
+                  <Line type="monotone" dataKey="elevation" stroke="#f57c00" activeDot={{ r: 8 }} strokeWidth={2} name="Elevation (m)" connectNulls />
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', color: '#888' }}>
+                No elevation data available for the selected filters.
+              </div>
+            )}
           </div>
         )}
       </div>
