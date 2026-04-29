@@ -174,6 +174,7 @@ export default function NurseryTab() {
           dispatch(queueAction({ type: 'core/deleteNode', payload: { id }, meta: { id: Date.now() } }));
         }} 
         itemLabel="Bed" 
+        defaultSort={{ key: 'name', direction: 'asc' }}
       />
 
       <hr style={{border: 'none', borderTop: '1px solid var(--color-border)', margin: '40px 0 20px 0'}} />

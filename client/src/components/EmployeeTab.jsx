@@ -255,6 +255,7 @@ export default function EmployeeTab() {
           onEdit={handleEdit}
           onDelete={handleDelete}
           itemLabel="Employee"
+          defaultSort={{ key: 'name', direction: 'asc' }}
           customTitle={
             <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap' }}>
               <span>Employee Roster ({filteredEmployees.length})</span>

@@ -369,6 +369,7 @@ export default function BudgetTab() {
               dispatch(queueAction({ type: 'core/deleteNode', payload: { id }, meta: { id: Date.now() } }));
             }}
             itemLabel="Budget Item"
+            defaultSort={{ key: 'category', direction: 'asc' }}
           />
         </div>
       )}

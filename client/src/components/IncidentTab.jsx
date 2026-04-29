@@ -97,11 +97,12 @@ export default function IncidentTab() {
       <hr style={{ border: 'none', borderTop: '1px solid var(--color-border)', margin: '30px 0' }} />
 
       <CrudTable
-        data={incidents.slice().sort((a, b) => b.date.localeCompare(a.date))}
+        data={incidents}
         columns={columns}
         onEdit={(row) => { setFormData(row); setEditingId(row.id); }}
         onDelete={(id) => dispatch(deleteIncident(id))}
         itemLabel="Incident"
+        defaultSort={{ key: 'date', direction: 'desc' }}
       />
     </div>
   );

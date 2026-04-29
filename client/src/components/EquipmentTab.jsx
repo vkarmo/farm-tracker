@@ -189,6 +189,7 @@ export default function EquipmentTab() {
         onEdit={handleEdit} 
         onDelete={handleDelete} 
         itemLabel="Asset" 
+        defaultSort={{ key: 'name', direction: 'asc' }}
       />
     </div>
   );

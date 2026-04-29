@@ -89,11 +89,12 @@ export default function DeadlineTab() {
       <hr style={{ border: 'none', borderTop: '1px solid var(--color-border)', margin: '30px 0' }} />
 
       <CrudTable
-        data={deadlines.slice().sort((a, b) => a.dueDate.localeCompare(b.dueDate))}
+        data={deadlines}
         columns={columns}
         onEdit={(row) => { setFormData(row); setEditingId(row.id); }}
         onDelete={(id) => dispatch(deleteDeadline(id))}
         itemLabel="Deadline"
+        defaultSort={{ key: 'title', direction: 'asc' }}
       />
     </div>
   );

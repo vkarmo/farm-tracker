@@ -133,6 +133,7 @@ export default function CropTab() {
           dispatch(queueAction({ type: 'core/deleteNode', payload: { id }, meta: { id: Date.now() } }));
         }}
         itemLabel="Crop"
+        defaultSort={{ key: 'name', direction: 'asc' }}
       />
     </div>
   );
