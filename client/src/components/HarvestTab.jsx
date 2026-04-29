@@ -13,7 +13,7 @@ export default function HarvestTab() {
   const harvests = useSelector(state => state.assets.harvests) || [];
   const units = useSelector(state => state.settings?.units) || ['lbs'];
 
-  const INIT_HARVEST = { cropId: '', amount: '', unit: units[0] || 'lbs' };
+  const INIT_HARVEST = { cropId: '', amount: '', unit: units[0] || 'lbs', date: new Date().toISOString().split('T')[0] };
   const [harvestData, setHarvestData] = useState(INIT_HARVEST);
   const [editingId, setEditingId] = useState(null);
 
@@ -22,19 +22,19 @@ export default function HarvestTab() {
     if (!harvestData.cropId) return alert("Validation Error: Source Crop Batch is strictly required.");
     const parsedAmt = parseFloat(harvestData.amount);
     if (!harvestData.amount || isNaN(parsedAmt) || parsedAmt < 0) return alert("Validation Error: Harvest amount must be a valid positive number.");
-    if (!harvestData.amount || !harvestData.cropId) return;
+    if (!harvestData.amount || !harvestData.cropId || !harvestData.date) return;
 
     if (editingId) {
       const updatedHarvest = { ...harvestData, id: editingId };
       dispatch(addHarvest(updatedHarvest)); // addHarvest acts as merge
       dispatch(queueAction({ type: 'core/updateNode', payload: { id: editingId, properties: updatedHarvest }, meta: { id: Date.now() } }));
     } else {
-      const newHarvest = { id: `h_${Date.now()}`, ...harvestData, date: new Date().toISOString().split('T')[0] };
+      const newHarvest = { id: `h_${Date.now()}`, ...harvestData };
       dispatch(addHarvest(newHarvest));
       dispatch(queueAction({ type: 'assets/addHarvest', payload: newHarvest, meta: { id: Date.now() } }));
     }
     
-    setHarvestData({...INIT_HARVEST, unit: units[0] || 'lbs'});
+    setHarvestData({...INIT_HARVEST, unit: units[0] || 'lbs', date: new Date().toISOString().split('T')[0]});
     setEditingId(null);
   };
 
@@ -65,7 +65,11 @@ export default function HarvestTab() {
 
       <form onSubmit={handleSubmit}>
         <div className="form-grid">
-          <div className="form-group form-grid-full">
+          <div className="form-group">
+            <label>Date Harvested</label>
+            <input type="date" value={harvestData.date} onChange={e => setHarvestData({...harvestData, date: e.target.value})} required />
+          </div>
+          <div className="form-group">
             <label>Source Crop Batch</label>
             <select value={harvestData.cropId} onChange={e => setHarvestData({...harvestData, cropId: e.target.value})}>
               <option value="">Select an active crop...</option>
