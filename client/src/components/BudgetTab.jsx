@@ -313,12 +313,12 @@ export default function BudgetTab() {
               <label>Category</label>
               <select value={itemForm.category} onChange={e => setItemForm({ ...itemForm, category: e.target.value })}>
                 <option value="">Select...</option>
-                <option value="Labor">Labor</option>
-                <option value="Materials">Materials & Seeds</option>
-                <option value="Logistics">Logistics & Transport</option>
                 <option value="Equipment">Equipment Leasing/Repair</option>
-                <option value="Operating Expenses">Operating Expenses</option>
+                <option value="Labor">Labor</option>
+                <option value="Logistics">Logistics & Transport</option>
+                <option value="Materials">Materials & Seeds</option>
                 <option value="Miscellaneous">Miscellaneous</option>
+                <option value="Operating Expenses">Operating Expenses</option>
               </select>
             </div>
             <div className="form-group">
@@ -333,8 +333,8 @@ export default function BudgetTab() {
               <div style={{ flex: 1 }}>
                 <label>Currency</label>
                 <select value={itemForm.currency} onChange={e => setItemForm({ ...itemForm, currency: e.target.value })}>
-                  <option value="USD">USD</option>
                   <option value="LRD">LRD</option>
+                  <option value="USD">USD</option>
                 </select>
               </div>
             </div>
@@ -342,8 +342,8 @@ export default function BudgetTab() {
               <div style={{ flex: 1 }}>
                 <label>Approval Status</label>
                 <select value={itemForm.status} onChange={e => setItemForm({ ...itemForm, status: e.target.value })}>
-                  <option value="Pending">Pending Review</option>
                   <option value="Approved">Approved</option>
+                  <option value="Pending">Pending Review</option>
                   <option value="Rejected">Rejected</option>
                 </select>
               </div>

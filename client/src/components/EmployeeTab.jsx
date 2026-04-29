@@ -6,7 +6,7 @@ import CrudTable from './CrudTable';
 export default function EmployeeTab() {
   const dispatch = useDispatch();
   const employees = useSelector(state => state.employees?.list) || [];
-  const jobTitles = useSelector(state => state.settings?.jobTitles) || ['Foreman', 'Harvester', 'Tractor Operator', 'Security', 'Manager'];
+  const jobTitles = [...(useSelector(state => state.settings?.jobTitles) || ['Foreman', 'Harvester', 'Tractor Operator', 'Security', 'Manager'])].sort((a, b) => a.localeCompare(b));
 
   const [editingId, setEditingId] = useState(null);
   const [firstName, setFirstName] = useState('');
@@ -168,9 +168,9 @@ export default function EmployeeTab() {
             <div className="form-group">
               <label>Employment Type *</label>
               <select value={type} onChange={e => setType(e.target.value)} required>
-                <option value="Permanent">Permanent</option>
-                <option value="Daily">Daily Farm Worker</option>
                 <option value="Contract">Contract</option>
+                <option value="Daily">Daily Farm Worker</option>
+                <option value="Permanent">Permanent</option>
               </select>
             </div>
 

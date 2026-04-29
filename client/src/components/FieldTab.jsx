@@ -166,19 +166,19 @@ export default function FieldTab() {
           <div className="form-group">
             <label>Soil Type</label>
             <select value={formData.soil_type} onChange={e => setFormData({ ...formData, soil_type: e.target.value })}>
-              <option>Loam</option><option>Clay</option><option>Sandy</option><option>Silt</option>
+              <option>Clay</option><option>Loam</option><option>Sandy</option><option>Silt</option>
             </select>
           </div>
           <div className="form-group">
             <label>Irrigation Type</label>
             <select value={formData.irrigation} onChange={e => setFormData({ ...formData, irrigation: e.target.value })}>
-              <option>None</option><option>Drip</option><option>Sprinkler</option><option>Flood</option><option>Creek</option><option>Well</option><option>Rain</option>
+              <option>Creek</option><option>Drip</option><option>Flood</option><option>None</option><option>Rain</option><option>Sprinkler</option><option>Well</option>
             </select>
           </div>
           <div className="form-group">
             <label>Current Status</label>
             <select value={formData.status} onChange={e => setFormData({ ...formData, status: e.target.value })}>
-              <option>Fallow</option><option>Cover Crop</option><option>Prepared</option><option>Planted</option>
+              <option>Cover Crop</option><option>Fallow</option><option>Planted</option><option>Prepared</option>
             </select>
           </div>
         </div>

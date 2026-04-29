@@ -44,7 +44,7 @@ export default function DashboardTab() {
   const weatherLocations = useMemo(() => [
     { label: 'Default Farm Location', coords: mapCenter },
     { label: 'Bomi County, Liberia', coords: [6.7319579, -10.8700117] }
-  ], [mapCenter]);
+  ].sort((a,b) => a.label.localeCompare(b.label)), [mapCenter]);
 
   // Fetch Weather Data
   useEffect(() => {

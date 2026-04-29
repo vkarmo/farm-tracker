@@ -7,8 +7,8 @@ import CrudTable from './CrudTable';
 const INIT_INCIDENT = { title: '', type: 'Asset Breakdown', date: '', severity: 'Medium', associatedAsset: '', resolutionStatus: 'Open', notes: '' };
 
 const INCIDENT_TYPES = [
-  'Asset Breakdown', 'Hardware/Vehicle Repair', 'Weather Event', 'Theft/Loss', 'Livestock Health Issue', 'Other'
-];
+  'Asset Breakdown', 'Hardware/Vehicle Repair', 'Livestock Health Issue', 'Other', 'Theft/Loss', 'Weather Event'
+].sort();
 
 export default function IncidentTab() {
   const dispatch = useDispatch();
@@ -67,16 +67,16 @@ export default function IncidentTab() {
           <div className="form-group">
             <label>Severity</label>
             <select value={formData.severity} onChange={e => setFormData({ ...formData, severity: e.target.value })}>
+              <option value="High">High (Critical Stop)</option>
               <option value="Low">Low (No Immediate Impact)</option>
               <option value="Medium">Medium (Operational Delay)</option>
-              <option value="High">High (Critical Stop)</option>
             </select>
           </div>
           <div className="form-group">
             <label>Resolution Status</label>
             <select value={formData.resolutionStatus} onChange={e => setFormData({ ...formData, resolutionStatus: e.target.value })}>
-              <option value="Open">Open</option>
               <option value="In Progress">In Progress (Repairing)</option>
+              <option value="Open">Open</option>
               <option value="Resolved">Resolved</option>
             </select>
           </div>

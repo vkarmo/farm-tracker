@@ -146,11 +146,11 @@ export default function EquipmentTab() {
           <div className="form-group">
             <label>Asset Classification</label>
             <select value={formData.type} onChange={e => setFormData({...formData, type: e.target.value})}>
-              <option>Machinery</option>
-              <option>Vehicle</option>
               <option>Infrastructure</option>
+              <option>Machinery</option>
               <option>Security</option>
               <option>Tools</option>
+              <option>Vehicle</option>
             </select>
           </div>
 
@@ -163,10 +163,10 @@ export default function EquipmentTab() {
             <label>Hardware Status</label>
             <select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})}>
               <option>Active</option>
-              <option>Maintenance</option>
               <option>Broken</option>
-              <option>Missing</option>
               <option>Decommissioned</option>
+              <option>Maintenance</option>
+              <option>Missing</option>
             </select>
           </div>
           

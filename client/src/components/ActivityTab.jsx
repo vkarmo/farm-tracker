@@ -11,7 +11,7 @@ const ACTIVITY_TYPES = [
   'Brushing', 'Burning', 'Felling', 'Preparing for Planting', 
   'Planting', 'Fertilization', 'Pesticide Application', 'Harvesting', 
   'Other Crop Maintenance'
-];
+].sort();
 
 export default function ActivityTab() {
   const dispatch = useDispatch();
@@ -82,13 +82,13 @@ export default function ActivityTab() {
             <select value={actData.targetId} onChange={e => setActData({...actData, targetId: e.target.value})}>
               <option value="">Select Target...</option>
               <optgroup label="Crops & Seedlings">
-                {crops.map(c => <option key={c.id} value={c.id}>{c.name} ({c.variety})</option>)}
+                {[...crops].sort((a,b) => a.name.localeCompare(b.name)).map(c => <option key={c.id} value={c.id}>{c.name} ({c.variety})</option>)}
               </optgroup>
               <optgroup label="Physical Fields">
-                {fields.map(f => <option key={f.id} value={f.id}>{f.name} ({f.year})</option>)}
+                {[...fields].sort((a,b) => a.name.localeCompare(b.name)).map(f => <option key={f.id} value={f.id}>{f.name} ({f.year})</option>)}
               </optgroup>
               <optgroup label="Nursery Beds">
-                {nurseries.map(n => <option key={n.id} value={n.id}>{n.name}</option>)}
+                {[...nurseries].sort((a,b) => a.name.localeCompare(b.name)).map(n => <option key={n.id} value={n.id}>{n.name}</option>)}
               </optgroup>
             </select>
           </div>
