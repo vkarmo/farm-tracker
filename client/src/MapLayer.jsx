@@ -1,11 +1,22 @@
 import React, { useEffect, useState } from 'react';
 import { useSelector } from 'react-redux';
-import { MapContainer, TileLayer, Polygon, Popup, GeoJSON } from 'react-leaflet';
+import { MapContainer, TileLayer, Polygon, Popup, GeoJSON, Marker } from 'react-leaflet';
 import { kml } from '@tmcw/togeojson';
+import L from 'leaflet';
+
+// Create a custom orange icon for Hard Assets
+const orangeIcon = new L.Icon({
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-orange.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41]
+});
 import 'leaflet/dist/leaflet.css';
 import { CurrentLocationControl } from './components/MapSearchBox';
 
-const MapLayer = ({ fields }) => {
+const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
   const kmlUrls = useSelector(state => state.settings.kmlUrls);
   const polygonColor = useSelector(state => state.settings?.polygonColor) || '#ffffff';
   const mapCenter = useSelector(state => state.settings?.mapCenter) || [51.505, -0.09];
@@ -86,6 +97,41 @@ const MapLayer = ({ fields }) => {
           />
         ))}
 
+        {/* Render Equipment (Hard Assets) as Markers */}
+        {equipment.map(item => {
+          let pos = null;
+          if (item.gpsLocation) {
+            try { pos = JSON.parse(item.gpsLocation); } catch(e) {}
+          }
+          if (!pos || pos.length !== 2) return null;
+          
+          return (
+            <Marker key={item.id} position={pos} icon={orangeIcon}>
+              <Popup>
+                <strong>{item.name}</strong> ({item.type})<br/>
+                Status: {item.status}
+              </Popup>
+            </Marker>
+          );
+        })}
+
+        {/* Render Nurseries as green Polygons */}
+        {nurseries.map(bed => {
+          let positions = [];
+          if (bed.polygon) {
+            try { positions = JSON.parse(bed.polygon); } catch(e) {}
+          }
+          if (positions.length === 0) return null;
+          return (
+            <Polygon key={bed.id} pathOptions={{ color: '#4caf50', weight: 2, fillOpacity: 0.4 }} positions={positions}>
+              <Popup>
+                <strong>Nursery: {bed.name}</strong><br/>
+                Capacity: {bed.capacity} plugs
+              </Popup>
+            </Polygon>
+          );
+        })}
+
         {/* Existing logic to render simulated drawn polygons for the red Fields array */}
         {fields.map(field => {
           let positions = [];
@@ -97,17 +143,7 @@ const MapLayer = ({ fields }) => {
             }
           }
           
-          if (positions.length === 0) {
-            // fallback generic dummy polygon
-            const lat = mapCenter[0];
-            const lng = mapCenter[1];
-            positions = [
-              [lat + (Math.random() * 0.01), lng + (Math.random() * 0.01)],
-              [lat - (Math.random() * 0.01), lng + (Math.random() * 0.01)],
-              [lat - (Math.random() * 0.01), lng - (Math.random() * 0.01)],
-              [lat + (Math.random() * 0.01), lng - (Math.random() * 0.01)],
-            ];
-          }
+          if (positions.length === 0) return null;
           
           return (
             <Polygon key={field.id} pathOptions={{ color: polygonColor }} positions={positions}>

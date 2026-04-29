@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { clearLocations } from '../store/gpsSlice';
-import { Search, Trash2, Map, ChevronDown, ChevronUp } from 'lucide-react';
+import { Trash2, Map, ChevronDown, ChevronUp } from 'lucide-react';
+import CrudTable from './CrudTable';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
 
@@ -30,7 +31,6 @@ export default function GpsLogTab() {
   const mapCenter = useSelector(state => state.settings?.mapCenter) || [51.505, -0.09];
   const mapZoom = useSelector(state => state.settings?.mapZoom) || 13;
 
-  const [searchTerm, setSearchTerm] = useState('');
   const [selectedUser, setSelectedUser] = useState('All');
   const [mapExpanded, setMapExpanded] = useState(false);
 
@@ -48,12 +48,15 @@ export default function GpsLogTab() {
   const uniqueUsers = Array.from(new Set(logs.map(log => log.userEmail)));
 
   const filteredLogs = logs.filter(log => {
-    const matchesUser = selectedUser === 'All' || log.userEmail === selectedUser;
-    const matchesSearch = log.userEmail?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      log.lat?.toString().includes(searchTerm) ||
-      log.lng?.toString().includes(searchTerm);
-    return matchesUser && matchesSearch;
+    return selectedUser === 'All' || log.userEmail === selectedUser;
   }).reverse(); // Newest first
+
+  const gpsColumns = [
+    { key: 'timestamp', header: 'Timestamp', render: (r) => <span style={{ fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{new Date(r.timestamp).toLocaleString()}</span> },
+    { key: 'userEmail', header: 'User', render: (r) => <span style={{ fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{r.userEmail}</span> },
+    { key: 'lat', header: 'Latitude', render: (r) => <span style={{ fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{r.lat.toFixed(6)}</span> },
+    { key: 'lng', header: 'Longitude', render: (r) => <span style={{ fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{r.lng.toFixed(6)}</span> }
+  ];
 
   return (
     <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -65,17 +68,6 @@ export default function GpsLogTab() {
       </div>
 
       <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
-        <div style={{ position: 'relative', flex: '1 1 300px' }}>
-          <Search size={18} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-light)' }} />
-          <input
-            type="text"
-            placeholder="Search coordinates or users..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={{ width: '100%', paddingLeft: '36px' }}
-          />
-        </div>
-
         <div style={{ flex: '1 1 200px', display: 'flex', alignItems: 'center', gap: '10px' }}>
           <label style={{ whiteSpace: 'nowrap', fontWeight: 600 }}>Filter User:</label>
           <select value={selectedUser} onChange={e => setSelectedUser(e.target.value)} style={{ width: '100%', padding: '8px' }}>
@@ -85,36 +77,12 @@ export default function GpsLogTab() {
         </div>
       </div>
 
-      <div style={{ overflowX: 'auto', maxHeight: '400px' }}>
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th style={{ width: '200px', marginRight: '4px', fontFamily: 'monospace', whiteSpace: 'nowrap', textAlign: 'left' }}>TIMESTAMP</th>
-              <th style={{ width: '200px', marginRight: '4px', fontFamily: 'monospace', whiteSpace: 'nowrap', textAlign: 'left' }}>USER</th>
-              <th style={{ width: '150px', marginRight: '4px', fontFamily: 'monospace', whiteSpace: 'nowrap', textAlign: 'left' }}>LATITUDE</th>
-              <th style={{ width: '150px', marginRight: '4px', fontFamily: 'monospace', whiteSpace: 'nowrap', textAlign: 'left' }}>LONGITUDE</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredLogs.length > 0 ? (
-              filteredLogs.map(log => (
-                <tr key={log.id}>
-                  <td style={{ width: '200px', marginRight: '4px', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{new Date(log.timestamp).toLocaleString()}</td>
-                  <td style={{ width: '200px', marginRight: '4px', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{log.userEmail}</td>
-                  <td style={{ width: '150px', marginRight: '4px', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{log.lat.toFixed(6)}</td>
-                  <td style={{ width: '150px', marginRight: '4px', fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{log.lng.toFixed(6)}</td>
-                </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan="4" style={{ textAlign: 'center', padding: '20px', color: 'var(--color-text-light)' }}>
-                  No GPS coordinates recorded matching criteria.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <CrudTable 
+        data={filteredLogs}
+        columns={gpsColumns}
+        itemLabel="Coordinate"
+        customTitle="GPS Breadcrumbs"
+      />
 
       <div style={{ border: '1px solid var(--color-border)', borderRadius: '8px', overflow: 'hidden' }}>
         <button

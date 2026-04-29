@@ -67,11 +67,11 @@ export default function AccessControlTab() {
           {staffUsers.map(user => {
             const userAllowed = user.allowedTabs || AVAILABLE_TABS.map(t => t.id);
             return (
-              <div key={user.email} style={{ border: '1px solid #efefef', borderRadius: 8, padding: 7.5, background: '#fafafa' }}>
+              <div key={user.email} style={{ border: '1px solid #efefef', borderRadius: 8, padding: '15px', background: '#fafafa', marginBottom: '10px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15, flexWrap: 'wrap', gap: 10 }}>
-                  <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: 4 }}>
+                  <h3 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                     <img src={user.profilePic || user.profile_pic} alt="" width="24" height="24" style={{ borderRadius: '50%' }} />
-                    {user.name} <span style={{ fontSize: '0.8rem', color: '#888', fontWeight: 'normal' }}>({user.email})</span>
+                    <span style={{ wordBreak: 'break-word' }}>{user.name}</span> <span style={{ fontSize: '0.8rem', color: '#888', fontWeight: 'normal', wordBreak: 'break-all' }}>({user.email})</span>
                   </h3>
                   <div>
                     <button onClick={() => handleEnableAll(user.email)} className="btn" style={{ fontSize: '0.75rem', padding: '4px 8px', marginRight: 6 }}>Enable All</button>
@@ -82,7 +82,7 @@ export default function AccessControlTab() {
                   {AVAILABLE_TABS.map(tab => {
                     const isAllowed = userAllowed.includes(tab.id);
                     return (
-                      <label key={tab.id} style={{ display: 'flex', alignItems: 'center', gap: 6, cursor: 'pointer', padding: '6px 12px', background: isAllowed ? '#e8f5e9' : '#ffebee', border: `1px solid ${isAllowed ? '#c8e6c9' : '#ffcdd2'}`, borderRadius: 20, fontSize: '0.85rem', transition: 'all 0.2s' }}>
+                      <label key={tab.id} style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', padding: '8px 14px', background: isAllowed ? '#e8f5e9' : '#ffebee', border: `1px solid ${isAllowed ? '#c8e6c9' : '#ffcdd2'}`, borderRadius: '20px', fontSize: '0.85rem', transition: 'all 0.2s', whiteSpace: 'nowrap' }}>
                         <input
                           type="checkbox"
                           checked={isAllowed}

@@ -43,6 +43,8 @@ export default function App() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   const fields = useSelector(state => state.fields.data) || [];
+  const nurseries = useSelector(state => state.nurseries?.beds) || [];
+  const equipment = useSelector(state => state.assets?.equipment) || [];
   const units = useSelector(state => state.settings?.units) || ['lbs'];
   const jobTitles = useSelector(state => state.settings?.jobTitles) || [];
   const kmlUrls = useSelector(state => state.settings?.kmlUrls) || [];
@@ -271,7 +273,7 @@ export default function App() {
         {activeTab === 'map' && (
           <div className="card" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 180px)' }}>
             <h2>GIS Field Map</h2>
-            <MapLayer fields={fields} />
+            <MapLayer fields={fields} nurseries={nurseries} equipment={equipment} />
           </div>
         )}
 

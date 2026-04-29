@@ -27,7 +27,7 @@ export default function FieldTab() {
   const polygonColor = useSelector(state => state.settings?.polygonColor) || '#ffffff';
   const mapCenter = useSelector(state => state.settings?.mapCenter) || [51.505, -0.09];
   const mapZoom = useSelector(state => state.settings?.mapZoom) || 13;
-  
+
   const [formData, setFormData] = useState(INIT_STATE);
   const [editingId, setEditingId] = useState(null);
   const [polygonPositions, setPolygonPositions] = useState([]);
@@ -77,7 +77,7 @@ export default function FieldTab() {
       // fields/addField logic on server uses MERGE and sets all props, so it acts like an update/create.
       dispatch(queueAction({ type: 'fields/addField', payload: newField, meta: { id: Date.now() } }));
     }
-    
+
     setFormData(INIT_STATE);
     setEditingId(null);
     setPolygonPositions([]);
@@ -89,7 +89,7 @@ export default function FieldTab() {
     if (row.polygon) {
       try {
         setPolygonPositions(JSON.parse(row.polygon));
-      } catch(e) { setPolygonPositions([]); }
+      } catch (e) { setPolygonPositions([]); }
     } else {
       setPolygonPositions([]);
     }
@@ -134,7 +134,7 @@ export default function FieldTab() {
               <MapSearchBox onLocationFound={handleLocationFound} />
             </div>
             <div style={{ height: '300px', width: '100%', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--color-border)' }}>
-              <MapContainer center={mapCenter} zoom={mapZoom} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
+              <MapContainer key={editingId || 'new'} center={polygonPositions.length > 0 ? polygonPositions[0] : mapCenter} zoom={polygonPositions.length > 0 ? 16 : mapZoom} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
                 <MapFlyTo center={searchResultCenter} />
                 <TileLayer
                   attribution="Google Maps"
@@ -153,48 +153,48 @@ export default function FieldTab() {
           </div>
           <div className="form-group">
             <label>Field Name / Identifier</label>
-            <input type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} placeholder="e.g. North Pasture"/>
+            <input type="text" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} placeholder="e.g. North Pasture" />
           </div>
           <div className="form-group">
             <label>Harvest Year / Vintage</label>
-            <input type="number" value={formData.year} onChange={e => setFormData({...formData, year: e.target.value})} placeholder="2026"/>
+            <input type="number" value={formData.year} onChange={e => setFormData({ ...formData, year: e.target.value })} placeholder="2026" />
           </div>
           <div className="form-group">
             <label>Area Size (Acres)</label>
-            <input type="number" step="0.01" value={formData.area} onChange={e => setFormData({...formData, area: e.target.value})} placeholder="5.5"/>
+            <input type="number" step="0.01" value={formData.area} onChange={e => setFormData({ ...formData, area: e.target.value })} placeholder="5.5" />
           </div>
           <div className="form-group">
             <label>Soil Type</label>
-            <select value={formData.soil_type} onChange={e => setFormData({...formData, soil_type: e.target.value})}>
+            <select value={formData.soil_type} onChange={e => setFormData({ ...formData, soil_type: e.target.value })}>
               <option>Loam</option><option>Clay</option><option>Sandy</option><option>Silt</option>
             </select>
           </div>
           <div className="form-group">
             <label>Irrigation Type</label>
-            <select value={formData.irrigation} onChange={e => setFormData({...formData, irrigation: e.target.value})}>
+            <select value={formData.irrigation} onChange={e => setFormData({ ...formData, irrigation: e.target.value })}>
               <option>None</option><option>Drip</option><option>Sprinkler</option><option>Flood</option><option>Creek</option><option>Well</option><option>Rain</option>
             </select>
           </div>
           <div className="form-group">
             <label>Current Status</label>
-            <select value={formData.status} onChange={e => setFormData({...formData, status: e.target.value})}>
+            <select value={formData.status} onChange={e => setFormData({ ...formData, status: e.target.value })}>
               <option>Fallow</option><option>Cover Crop</option><option>Prepared</option><option>Planted</option>
             </select>
           </div>
         </div>
-        <button type="submit" className="btn btn-primary" style={{marginTop: 10}}>
-          <CheckCircle2 size={16} style={{marginRight: 6}}/> {editingId ? 'Update Field' : 'Save Field Data'}
+        <button type="submit" className="btn btn-primary" style={{ marginTop: 10 }}>
+          <CheckCircle2 size={16} style={{ marginRight: 6 }} /> {editingId ? 'Update Field' : 'Save Field Data'}
         </button>
       </form>
 
-      <hr style={{border: 'none', borderTop: '1px solid var(--color-border)', margin: '30px 0'}} />
+      <hr style={{ border: 'none', borderTop: '1px solid var(--color-border)', margin: '30px 0' }} />
 
-      <CrudTable 
-        data={fields} 
-        columns={columns} 
-        onEdit={handleEdit} 
-        onDelete={handleDelete} 
-        itemLabel="Field" 
+      <CrudTable
+        data={fields}
+        columns={columns}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
+        itemLabel="Field"
       />
     </div>
   );
