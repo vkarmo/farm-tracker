@@ -3,11 +3,11 @@
   --color-primary-light: #4caf50;
   --color-primary-dark: #1b5e20;
   --color-accent: #81c784;
-  --color-bg: #fdfbf7;
+  --color-bg: #000222;
   --color-surface: #ffffff;
   --color-text: #3e3e3e;
   --color-text-light: #6a6a6a;
-  --color-border: #e0e0e0;
+  --color-border: #0c0808;
 
   --radius-sm: 4px;
   --radius-md: 8px;
@@ -33,9 +33,10 @@ body {
 
 /* Base UI Components */
 .container {
-  max-width: 800px;
+  max-width: 1024px;
   margin: 0 auto;
   padding: 16px;
+  background-color: black;
 }
 
 header {
@@ -307,8 +308,16 @@ textarea:focus {
     border-top: 2px solid #eee;
   }
 }
-@keyframes spin { 100% { transform: rotate(360deg); } }
-.spin { animation: spin 2s linear infinite; }
+
+@keyframes spin {
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+.spin {
+  animation: spin 2s linear infinite;
+}
 
 .header-actions {
   display: flex;
@@ -343,6 +352,7 @@ textarea:focus {
   cursor: default;
 }
 
-.db-info:hover, .db-info:focus-within {
+.db-info:hover,
+.db-info:focus-within {
   max-width: 400px;
 }
