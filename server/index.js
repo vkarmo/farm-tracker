@@ -57,7 +57,13 @@ app.get('/api/users', async (req, res) => {
   const session = driver.session();
   try {
     const result = await session.run('MATCH (u:User) RETURN u');
-    const users = result.records.map(record => record.get('u').properties);
+    const users = result.records.map(record => {
+      const props = record.get('u').properties;
+      if (props.allowedTabs) {
+        try { props.allowedTabs = JSON.parse(props.allowedTabs); } catch(e){}
+      }
+      return props;
+    });
     res.json(users);
   } catch (err) {
     console.error(err);
@@ -116,7 +122,9 @@ app.get('/api/all-data', async (req, res) => {
        incidents: 'MATCH (n:Incident) RETURN n',
        deadlines: 'MATCH (n:Deadline) RETURN n',
        gps: 'MATCH (n:GpsLocation) RETURN n',
-       audit: 'MATCH (n:AuditLog) RETURN n'
+       audit: 'MATCH (n:AuditLog) RETURN n',
+       users: 'MATCH (n:User) RETURN n',
+       settings: "MATCH (n:GlobalSettings {id: 'default'}) RETURN n"
     };
 
     const data = {};
@@ -136,6 +144,16 @@ app.get('/api/all-data', async (req, res) => {
            }
            if (props.metadata) {
                try { props.metadata = JSON.parse(props.metadata); } catch(e){}
+           }
+           if (props.allowedTabs) {
+               try { props.allowedTabs = JSON.parse(props.allowedTabs); } catch(e){}
+           }
+           if (key === 'settings') {
+               ['units', 'jobTitles', 'kmlUrls', 'mapCenter'].forEach(field => {
+                   if (props[field] && typeof props[field] === 'string') {
+                       try { props[field] = JSON.parse(props[field]); } catch(e) {}
+                   }
+               });
            }
            return props;
        });
@@ -297,13 +315,23 @@ app.post('/api/sync', async (req, res) => {
         results.push({ actionId: action.meta?.id, status: 'success' });
       }
       else if (action.type === 'users/upsertUser') {
-        const { id, email, name, role, profilePic } = action.payload;
+        const { id, email, name, role, profilePic, allowedTabs } = action.payload;
         await session.run(`
           MERGE (u:User {email: $email})
           ON CREATE SET u.id = $id
           SET u.name = $name, u.role = $role, u.profile_pic = $profilePic
+          ${allowedTabs !== undefined ? ', u.allowedTabs = $allowedTabs' : ''}
           RETURN u
-        `, { id, email, name, role, profilePic });
+        `, { id, email, name, role, profilePic, allowedTabs: allowedTabs !== undefined ? JSON.stringify(allowedTabs) : null });
+        results.push({ actionId: action.meta?.id, status: 'success' });
+      }
+      else if (action.type === 'users/updateUserAccess') {
+        const { email, allowedTabs } = action.payload;
+        await session.run(`
+          MATCH (u:User {email: $email})
+          SET u.allowedTabs = $allowedTabs
+          RETURN u
+        `, { email, allowedTabs: JSON.stringify(allowedTabs) });
         results.push({ actionId: action.meta?.id, status: 'success' });
       }
       else if (action.type === 'employees/upsertEmployee') {
@@ -355,6 +383,23 @@ app.post('/api/sync', async (req, res) => {
           )
           RETURN g
         `, { id, lat, lng, timestamp, userEmail });
+        results.push({ actionId: action.meta?.id, status: 'success' });
+      }
+      else if (action.type === 'settings/updateGlobal') {
+        const payload = action.payload;
+        const properties = {};
+        for (const [k, v] of Object.entries(payload)) {
+           if (Array.isArray(v)) {
+               properties[k] = JSON.stringify(v);
+           } else {
+               properties[k] = v;
+           }
+        }
+        await session.run(`
+          MERGE (s:GlobalSettings {id: 'default'})
+          SET s += $properties
+          RETURN s
+        `, { properties });
         results.push({ actionId: action.meta?.id, status: 'success' });
       }
       else {

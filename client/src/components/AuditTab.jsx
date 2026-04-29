@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { clearLogs } from '../store/auditSlice';
-import { Search, Trash2 } from 'lucide-react';
+import { Trash2 } from 'lucide-react';
+import CrudTable from './CrudTable';
 
 export default function AuditTab() {
   const dispatch = useDispatch();
   const logs = useSelector(state => state.audit?.logs) || [];
-  const [searchTerm, setSearchTerm] = useState('');
   const [filterDate, setFilterDate] = useState('All');
   const [filterUser, setFilterUser] = useState('All');
   const [filterAction, setFilterAction] = useState('All');
@@ -27,9 +27,7 @@ export default function AuditTab() {
     const userMatch = filterUser === 'All' || log.userEmail === filterUser;
     const actionMatch = filterAction === 'All' || log.actionType === filterAction;
     
-    const searchMatch = !searchTerm || log.details?.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    return dateMatch && userMatch && actionMatch && searchMatch;
+    return dateMatch && userMatch && actionMatch;
   }).reverse(); // Show newest first
 
   return (
@@ -63,56 +61,26 @@ export default function AuditTab() {
             {uniqueActions.map(a => <option key={a} value={a}>{a}</option>)}
           </select>
         </div>
-
-        <div style={{ position: 'relative', flex: '1 1 200px' }}>
-          <Search size={18} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: 'var(--color-text-light)' }} />
-          <input 
-            type="text" 
-            placeholder="Search details..." 
-            value={searchTerm} 
-            onChange={(e) => setSearchTerm(e.target.value)}
-            style={{ width: '100%', paddingLeft: '36px' }}
-          />
-        </div>
       </div>
 
-      <div style={{ overflowX: 'auto' }}>
-        <table className="data-table">
-          <thead>
-            <tr>
-              <th>Timestamp</th>
-              <th>User</th>
-              <th>Action Type</th>
-              <th>Details</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredLogs.length > 0 ? (
-              filteredLogs.map(log => (
-                <tr key={log.id}>
-                  <td style={{ whiteSpace: 'nowrap' }}>{new Date(log.timestamp).toLocaleString()}</td>
-                  <td>{log.userEmail}</td>
-                  <td>
-                    <span className="status-indicator" style={{ 
-                      background: log.actionType === 'DELETE' ? '#ffebee' : log.actionType === 'SAVE' ? '#e8f5e9' : log.actionType === 'EDIT' ? '#fff8e1' : '#e3f2fd',
-                      color: log.actionType === 'DELETE' ? '#c62828' : log.actionType === 'SAVE' ? '#2e7d32' : log.actionType === 'EDIT' ? '#f57f17' : '#1565c0'
-                    }}>
-                      {log.actionType}
-                    </span>
-                  </td>
-                  <td>{log.details}</td>
-                </tr>
-              ))
-            ) : (
-              <tr>
-                <td colSpan="4" style={{ textAlign: 'center', padding: '20px', color: 'var(--color-text-light)' }}>
-                  No audit logs found matching your criteria.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
-      </div>
+      <CrudTable 
+        data={filteredLogs}
+        columns={[
+          { key: 'timestamp', header: 'Timestamp', render: (r) => new Date(r.timestamp).toLocaleString() },
+          { key: 'userEmail', header: 'User' },
+          { key: 'actionType', header: 'Action Type', render: (r) => (
+            <span className="status-indicator" style={{ 
+              background: r.actionType === 'DELETE' ? '#ffebee' : r.actionType === 'SAVE' ? '#e8f5e9' : r.actionType === 'EDIT' ? '#fff8e1' : '#e3f2fd',
+              color: r.actionType === 'DELETE' ? '#c62828' : r.actionType === 'SAVE' ? '#2e7d32' : r.actionType === 'EDIT' ? '#f57f17' : '#1565c0'
+            }}>
+              {r.actionType}
+            </span>
+          )},
+          { key: 'details', header: 'Details' }
+        ]}
+        itemLabel="Audit Log"
+        customTitle="Audit Logs"
+      />
     </div>
   );
 }

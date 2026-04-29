@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { saveEmployee, removeEmployee } from '../store/employeeSlice';
+import CrudTable from './CrudTable';
 
 export default function EmployeeTab() {
   const dispatch = useDispatch();
@@ -10,13 +11,14 @@ export default function EmployeeTab() {
   const [editingId, setEditingId] = useState(null);
   const [firstName, setFirstName] = useState('');
   const [lastName, setLastName] = useState('');
+  const [gender, setGender] = useState('');
   const [address, setAddress] = useState('');
   const [phone, setPhone] = useState('');
   const [jobTitle, setJobTitle] = useState('');
   const [type, setType] = useState('Permanent');
   const [dailyRateLD, setDailyRateLD] = useState('');
   const [twoWeekPayUSD, setTwoWeekPayUSD] = useState('');
-  
+
   // Advanced HR Fields
   const [skills, setSkills] = useState('');
   const [startDate, setStartDate] = useState('');
@@ -31,6 +33,7 @@ export default function EmployeeTab() {
     setEditingId(null);
     setFirstName('');
     setLastName('');
+    setGender('');
     setAddress('');
     setPhone('');
     setJobTitle('');
@@ -48,6 +51,7 @@ export default function EmployeeTab() {
     setEditingId(emp.id);
     setFirstName(emp.firstName || '');
     setLastName(emp.lastName || '');
+    setGender(emp.gender || '');
     setAddress(emp.address || '');
     setPhone(emp.phone || '');
     setJobTitle(emp.jobTitle || '');
@@ -73,6 +77,7 @@ export default function EmployeeTab() {
       id: editingId || `emp_${Date.now()}`,
       firstName,
       lastName,
+      gender,
       address,
       phone,
       jobTitle,
@@ -98,13 +103,26 @@ export default function EmployeeTab() {
   };
 
   // Derive final filtered list immediately before rendering
-  const filteredEmployees = filterActive 
-    ? employees.filter(emp => !emp.isTerminated) 
+  const filteredEmployees = filterActive
+    ? employees.filter(emp => !emp.isTerminated)
     : employees;
+
+  const employeeColumns = [
+    { key: 'name', header: 'Name', render: (r) => <span style={{ fontWeight: 600 }}>{r.lastName}, {r.firstName}</span> },
+    { key: 'jobTitle', header: 'Job Title' },
+    { key: 'status', header: 'Status', render: (r) => r.isTerminated ? (
+      <div style={{ color: '#c62828', fontWeight: 500, fontSize: '0.85rem' }}>
+        Terminated
+        <div style={{ fontSize: '0.75rem', fontWeight: 400, marginTop: '2px' }}>{r.terminationReason}</div>
+      </div>
+    ) : (
+      <span style={{ color: '#2e7d32', fontWeight: 500, fontSize: '0.85rem' }}>Active</span>
+    )}
+  ];
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      
+
       <div className="card">
         <h2>{editingId ? 'Edit Employee Profile' : 'New Employee Entry'}</h2>
         <form onSubmit={handleSubmit}>
@@ -113,10 +131,24 @@ export default function EmployeeTab() {
               <label>First Name *</label>
               <input type="text" value={firstName} onChange={e => setFirstName(e.target.value)} required />
             </div>
-            
+
             <div className="form-group">
               <label>Last Name *</label>
               <input type="text" value={lastName} onChange={e => setLastName(e.target.value)} required />
+            </div>
+
+            <div className="form-group">
+              <label>Gender</label>
+              <div style={{ display: 'flex', gap: '15px', marginTop: '8px' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
+                  <input type="radio" name="gender" value="Male" checked={gender === 'Male'} onChange={e => setGender(e.target.value)} />
+                  Male
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}>
+                  <input type="radio" name="gender" value="Female" checked={gender === 'Female'} onChange={e => setGender(e.target.value)} />
+                  Female
+                </label>
+              </div>
             </div>
 
             <div className="form-group">
@@ -202,14 +234,14 @@ export default function EmployeeTab() {
             </div>
 
           </div>
-          
+
           <div style={{ marginTop: '20px', display: 'flex', gap: '10px' }}>
             <button type="submit" className="btn btn-primary">
-              {editingId ? 'Save Configuration' : 'Register Employee'}
+              {editingId ? 'Save' : 'Register Employee'}
             </button>
             {editingId && (
               <button type="button" className="btn" onClick={resetForm}>
-                Cancel Route
+                Cancel
               </button>
             )}
           </div>
@@ -217,61 +249,35 @@ export default function EmployeeTab() {
       </div>
 
       <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '15px' }}>
-          <h2 style={{ margin: 0 }}>Employee Roster ({filteredEmployees.length})</h2>
-          <label style={{ display: 'flex', alignItems: 'center', fontSize: '0.95rem', cursor: 'pointer', background: '#f5f5f5', padding: '6px 12px', borderRadius: '4px', border: '1px solid var(--color-border)' }}>
-            <input 
-              type="checkbox" 
-              checked={filterActive} 
-              onChange={e => setFilterActive(e.target.checked)} 
-              style={{ marginRight: '8px', cursor: 'pointer' }}
-            />
-            Show Active Only
-          </label>
-        </div>
-        
-        <div style={{ overflowX: 'auto' }}>
-          <table className="crud-table">
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Job Title</th>
-                <th>Status</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredEmployees.length === 0 ? (
-                <tr>
-                  <td colSpan="4" style={{ textAlign: 'center', padding: '20px', color: '#888' }}>No employees found matching criteria.</td>
-                </tr>
-              ) : (
-                [...filteredEmployees].sort((a,b) => (a.lastName || '').localeCompare(b.lastName || '')).map(emp => (
-                  <tr key={emp.id} style={{ opacity: emp.isTerminated ? 0.6 : 1 }}>
-                    <td style={{ fontWeight: 600 }}>{emp.lastName}, {emp.firstName}</td>
-                    <td>{emp.jobTitle}</td>
-                    <td>
-                      {emp.isTerminated ? (
-                        <div style={{ color: '#c62828', fontWeight: 500, fontSize: '0.85rem' }}>
-                          Terminated
-                          <div style={{ fontSize: '0.75rem', fontWeight: 400, marginTop: '2px' }}>{emp.terminationReason}</div>
-                        </div>
-                      ) : (
-                        <span style={{ color: '#2e7d32', fontWeight: 500, fontSize: '0.85rem' }}>Active</span>
-                      )}
-                    </td>
-                    <td>
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <button className="btn" style={{ padding: '4px 8px', fontSize: '0.8rem' }} onClick={() => handleEdit(emp)}>Edit</button>
-                        <button className="btn" style={{ padding: '4px 8px', fontSize: '0.8rem', background: '#ffebee', color: '#c62828' }} onClick={() => handleDelete(emp.id)}>Delete</button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+        <CrudTable 
+          data={[...filteredEmployees].sort((a, b) => (a.lastName || '').localeCompare(b.lastName || ''))}
+          columns={employeeColumns}
+          onEdit={handleEdit}
+          onDelete={handleDelete}
+          itemLabel="Employee"
+          customTitle={
+            <div style={{ display: 'flex', alignItems: 'center', gap: '15px', flexWrap: 'wrap' }}>
+              <span>Employee Roster ({filteredEmployees.length})</span>
+              <label style={{
+                display: 'flex', alignItems: 'center',
+                cursor: 'pointer', background: '#f5f5f5',
+                padding: '4px 8px', borderRadius: '4px',
+                fontWeight: 600, fontSize: '0.85rem',
+                border: '1px solid var(--color-border)',
+                color: '#333'
+              }}>
+                <input
+                  type="checkbox"
+                  checked={filterActive}
+                  onChange={e => setFilterActive(e.target.checked)}
+                  style={{ width: 16, height: 16, marginRight: '8px', cursor: 'pointer' }}
+                />
+                Show Active Only
+              </label>
+            </div>
+          }
+          rowStyle={(row) => ({ opacity: row.isTerminated ? 0.6 : 1 })}
+        />
       </div>
 
     </div>

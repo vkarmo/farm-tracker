@@ -38,6 +38,23 @@ import { GoogleOAuthProvider } from '@react-oauth/google';
 // Injected at build time to guarantee a unique bundle hash per deploy
 console.info('Farm Tracker build:', typeof __BUILD_TIME__ !== 'undefined' ? __BUILD_TIME__ : 'dev');
 
+import { registerSW } from 'virtual:pwa-register';
+
+const updateSW = registerSW({
+  onRegistered(r) {
+    // Check for updates when the app loads and then every hour
+    if (r) {
+      r.update();
+      setInterval(() => {
+        r.update();
+      }, 60 * 60 * 1000);
+    }
+  },
+  onOfflineReady() {
+    console.log('App is ready to work offline');
+  },
+});
+
 // Force-reload when a new service worker takes control so users always get the latest build
 if ('serviceWorker' in navigator) {
   let reloading = false;

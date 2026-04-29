@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Search, Edit2, Trash2 } from 'lucide-react';
 
-export default function CrudTable({ data, columns, onEdit, onDelete, itemLabel = 'Item', rowStyle }) {
+export default function CrudTable({ data, columns, onEdit, onDelete, itemLabel = 'Item', customTitle, rowStyle }) {
   const [searchTerm, setSearchTerm] = useState('');
 
   // Filter data across all string/number columns
@@ -14,7 +14,7 @@ export default function CrudTable({ data, columns, onEdit, onDelete, itemLabel =
   return (
     <div style={{ marginTop: '20px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-        <h3 style={{ margin: 0 }}>Active {itemLabel}s</h3>
+        <h3 style={{ margin: 0 }}>{customTitle || `Active ${itemLabel}s`}</h3>
         
         <div style={{ position: 'relative', width: '250px' }}>
           <Search size={16} style={{ position: 'absolute', left: '10px', top: '10px', color: '#888' }} />
@@ -37,13 +37,15 @@ export default function CrudTable({ data, columns, onEdit, onDelete, itemLabel =
                   {col.header}
                 </th>
               ))}
-              <th style={{ padding: '12px 15px', textAlign: 'right', color: '#555', fontSize: '0.85rem', textTransform: 'uppercase' }}>Actions</th>
+              {(onEdit || onDelete) && (
+                <th style={{ padding: '12px 15px', textAlign: 'right', color: '#555', fontSize: '0.85rem', textTransform: 'uppercase' }}>Actions</th>
+              )}
             </tr>
           </thead>
           <tbody>
             {filteredData.length === 0 ? (
               <tr>
-                <td colSpan={columns.length + 1} style={{ padding: '30px', textAlign: 'center', color: '#999', fontStyle: 'italic' }}>
+                <td colSpan={(onEdit || onDelete) ? columns.length + 1 : columns.length} style={{ padding: '30px', textAlign: 'center', color: '#999', fontStyle: 'italic' }}>
                   No {itemLabel.toLowerCase()}s found matching your search.
                 </td>
               </tr>
@@ -56,26 +58,28 @@ export default function CrudTable({ data, columns, onEdit, onDelete, itemLabel =
                       {col.render ? col.render(row) : row[col.key]}
                     </td>
                   ))}
-                  <td style={{ padding: '12px 15px', textAlign: 'right' }}>
-                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
-                      {onEdit && (
-                        <button 
-                          onClick={() => onEdit(row)} 
-                          title="Edit Record"
-                          style={{ padding: '6px', background: '#e3f2fd', color: '#1565c0', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
-                          <Edit2 size={14} />
-                        </button>
-                      )}
-                      {onDelete && (
-                        <button 
-                          onClick={() => { if(window.confirm(`Permanently delete this ${itemLabel.toLowerCase()}?`)) onDelete(row.id) }} 
-                          title="Delete Record"
-                          style={{ padding: '6px', background: '#ffebee', color: '#c62828', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
-                          <Trash2 size={14} />
-                        </button>
-                      )}
-                    </div>
-                  </td>
+                  {(onEdit || onDelete) && (
+                    <td style={{ padding: '12px 15px', textAlign: 'right' }}>
+                      <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                        {onEdit && (
+                          <button 
+                            onClick={() => onEdit(row)} 
+                            title="Edit Record"
+                            style={{ padding: '6px', background: '#e3f2fd', color: '#1565c0', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+                            <Edit2 size={14} />
+                          </button>
+                        )}
+                        {onDelete && (
+                          <button 
+                            onClick={() => { if(window.confirm(`Permanently delete this ${itemLabel.toLowerCase()}?`)) onDelete(row.id) }} 
+                            title="Delete Record"
+                            style={{ padding: '6px', background: '#ffebee', color: '#c62828', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+                            <Trash2 size={14} />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  )}
                 </tr>
               ))
             )}
@@ -101,22 +105,24 @@ export default function CrudTable({ data, columns, onEdit, onDelete, itemLabel =
                 </div>
               ))}
               
-              <div className="mobile-data-actions">
-                {onEdit && (
-                  <button 
-                    onClick={() => onEdit(row)} 
-                    style={{ flex: 1, padding: '10px', background: '#e3f2fd', color: '#1565c0', border: 'none', borderRadius: '4px', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', fontSize: '1rem', fontWeight: 600 }}>
-                    <Edit2 size={16} /> Edit
-                  </button>
-                )}
-                {onDelete && (
-                  <button 
-                    onClick={() => { if(window.confirm(`Permanently delete this ${itemLabel.toLowerCase()}?`)) onDelete(row.id) }} 
-                    style={{ flex: 1, padding: '10px', background: '#ffebee', color: '#c62828', border: 'none', borderRadius: '4px', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', fontSize: '1rem', fontWeight: 600 }}>
-                    <Trash2 size={16} /> Delete
-                  </button>
-                )}
-              </div>
+              {(onEdit || onDelete) && (
+                <div className="mobile-data-actions">
+                  {onEdit && (
+                    <button 
+                      onClick={() => onEdit(row)} 
+                      style={{ flex: 1, padding: '10px', background: '#e3f2fd', color: '#1565c0', border: 'none', borderRadius: '4px', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', fontSize: '1rem', fontWeight: 600 }}>
+                      <Edit2 size={16} /> Edit
+                    </button>
+                  )}
+                  {onDelete && (
+                    <button 
+                      onClick={() => { if(window.confirm(`Permanently delete this ${itemLabel.toLowerCase()}?`)) onDelete(row.id) }} 
+                      style={{ flex: 1, padding: '10px', background: '#ffebee', color: '#c62828', border: 'none', borderRadius: '4px', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', fontSize: '1rem', fontWeight: 600 }}>
+                      <Trash2 size={16} /> Delete
+                    </button>
+                  )}
+                </div>
+              )}
             </div>
           ))
         )}

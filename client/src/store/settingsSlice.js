@@ -1,4 +1,5 @@
 import { createSlice } from '@reduxjs/toolkit';
+import { queueAction } from './syncSlice';
 
 export const settingsSlice = createSlice({
   name: 'settings',
@@ -56,8 +57,17 @@ export const settingsSlice = createSlice({
     setGpsDistanceThreshold: (state, action) => {
       state.gpsDistanceThreshold = action.payload;
     },
+    setAllSettings: (state, action) => {
+      return { ...state, ...action.payload };
+    }
   }
 });
 
-export const { addUnit, removeUnit, addJobTitle, removeJobTitle, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold } = settingsSlice.actions;
+export const { addUnit, removeUnit, addJobTitle, removeJobTitle, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold, setAllSettings } = settingsSlice.actions;
+
+export const saveSettings = () => (dispatch, getState) => {
+  const settings = getState().settings;
+  dispatch(queueAction({ type: 'settings/updateGlobal', payload: settings, meta: { id: Date.now() } }));
+};
+
 export default settingsSlice.reducer;

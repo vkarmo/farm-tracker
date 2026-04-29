@@ -126,7 +126,7 @@ export default function NurseryTab() {
               <MapSearchBox onLocationFound={handleLocationFound} />
             </div>
             <div style={{ height: '300px', width: '100%', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--color-border)' }}>
-              <MapContainer center={mapCenter} zoom={mapZoom} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
+              <MapContainer key={editingId || 'new'} center={polygonPositions.length > 0 ? polygonPositions[0] : mapCenter} zoom={polygonPositions.length > 0 ? 17 : mapZoom} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
                 <MapFlyTo center={searchResultCenter} />
                 <TileLayer
                   attribution="Google Maps"

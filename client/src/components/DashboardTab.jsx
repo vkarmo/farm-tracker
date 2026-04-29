@@ -2,6 +2,7 @@ import React, { useMemo, useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import { TrendingUp, Layers, Rabbit, DollarSign, Sun, CloudRain, Cloud, CloudLightning, Snowflake, CloudFog, MapPin, Droplets, Wind, ThermometerSun, CloudSun } from 'lucide-react';
+import CrudTable from './CrudTable';
 
 const CollapsibleCard = ({ title, children, defaultOpen = true, forceFullGrid = false }) => {
   const [isOpen, setIsOpen] = useState(defaultOpen);
@@ -190,6 +191,31 @@ export default function DashboardTab() {
     return id;
   };
 
+  const incidentColumns = [
+    { key: 'date', header: 'Date' },
+    { key: 'title', header: 'Title' },
+    { key: 'associatedAsset', header: 'Affected Asset', render: (r) => r.associatedAsset || '-' },
+    { key: 'severity', header: 'Severity', render: (r) => (
+      <span style={{
+        color: r.severity === 'High' ? '#c62828' : r.severity === 'Medium' ? '#f57c00' : '#4caf50',
+        fontWeight: 'bold'
+      }}>{r.severity}</span>
+    )},
+    { key: 'resolutionStatus', header: 'Status' }
+  ];
+
+  const deadlineColumns = [
+    { key: 'dueDate', header: 'Due Date' },
+    { key: 'title', header: 'Title' },
+    { key: 'type', header: 'Category' },
+    { key: 'personResponsible', header: 'Responsible', render: (r) => r.personResponsible || '-' },
+    { key: 'status', header: 'Status', render: (r) => (
+      <span style={{ color: r.status === 'Overdue' ? '#c62828' : r.status === 'Resolved' ? '#2e7d32' : '#f57c00' }}>
+        {r.status}
+      </span>
+    )}
+  ];
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
 
@@ -272,75 +298,23 @@ export default function DashboardTab() {
 
       {/* Incidents Feed Table */}
       <CollapsibleCard title="Active Incidents & Issues" forceFullGrid>
-        <div style={{ overflowX: 'auto' }}>
-          <table className="crud-table">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Title</th>
-                <th>Affected Asset</th>
-                <th>Severity</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {incidents.length === 0 ? (
-                <tr><td colSpan="5" style={{ textAlign: 'center', padding: '20px', color: '#888' }}>No incidents reported.</td></tr>
-              ) : (
-                incidents.slice().sort((a, b) => b.date.localeCompare(a.date)).map(i => (
-                  <tr key={i.id}>
-                    <td>{i.date}</td>
-                    <td>{i.title}</td>
-                    <td>{i.associatedAsset || '-'}</td>
-                    <td>
-                      <span style={{
-                        color: i.severity === 'High' ? '#c62828' : i.severity === 'Medium' ? '#f57c00' : '#4caf50',
-                        fontWeight: 'bold'
-                      }}>{i.severity}</span>
-                    </td>
-                    <td>{i.resolutionStatus}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+        <CrudTable 
+          data={[...incidents].sort((a, b) => b.date.localeCompare(a.date))}
+          columns={incidentColumns}
+          itemLabel="Incident"
+          customTitle="Active Incidents & Issues"
+        />
       </CollapsibleCard>
 
       {/* Deadlines Feed Table */}
       <CollapsibleCard title="Upcoming Deadlines" forceFullGrid>
-        <div style={{ overflowX: 'auto' }}>
-          <table className="crud-table">
-            <thead>
-              <tr>
-                <th>Due Date</th>
-                <th>Title</th>
-                <th>Category</th>
-                <th>Responsible</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>
-              {deadlines.length === 0 ? (
-                <tr><td colSpan="5" style={{ textAlign: 'center', padding: '20px', color: '#888' }}>No upcoming deadlines.</td></tr>
-              ) : (
-                deadlines.slice().sort((a, b) => a.dueDate.localeCompare(b.dueDate)).map(d => (
-                  <tr key={d.id} style={{ opacity: d.status === 'Resolved' ? 0.6 : 1 }}>
-                    <td>{d.dueDate}</td>
-                    <td>{d.title}</td>
-                    <td>{d.type}</td>
-                    <td>{d.personResponsible || '-'}</td>
-                    <td>
-                      <span style={{ color: d.status === 'Overdue' ? '#c62828' : d.status === 'Resolved' ? '#2e7d32' : '#f57c00' }}>
-                        {d.status}
-                      </span>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+        <CrudTable 
+          data={[...deadlines].sort((a, b) => a.dueDate.localeCompare(b.dueDate))}
+          columns={deadlineColumns}
+          itemLabel="Deadline"
+          customTitle="Upcoming Deadlines"
+          rowStyle={(row) => ({ opacity: row.status === 'Resolved' ? 0.6 : 1 })}
+        />
       </CollapsibleCard>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '20px' }}>

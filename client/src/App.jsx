@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { fetchFields } from './store/fieldsSlice';
-import { addUnit, removeUnit, addJobTitle, removeJobTitle, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold } from './store/settingsSlice';
+import { addUnit, removeUnit, addJobTitle, removeJobTitle, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold, saveSettings } from './store/settingsSlice';
 import { addLocation } from './store/gpsSlice';
 import { queueAction, fetchInitialData } from './store/syncSlice';
 import { MapSearchBox, MapFlyTo, CurrentLocationControl } from './components/MapSearchBox';
@@ -43,6 +43,8 @@ export default function App() {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   const fields = useSelector(state => state.fields.data) || [];
+  const nurseries = useSelector(state => state.nurseries?.beds) || [];
+  const equipment = useSelector(state => state.assets?.equipment) || [];
   const units = useSelector(state => state.settings?.units) || ['lbs'];
   const jobTitles = useSelector(state => state.settings?.jobTitles) || [];
   const kmlUrls = useSelector(state => state.settings?.kmlUrls) || [];
@@ -157,9 +159,9 @@ export default function App() {
     return () => navigator.geolocation.clearWatch(watchId);
   }, [currentUser, dispatch, gpsDistanceThreshold]);
 
-  const handleAddUnit = (e) => { e.preventDefault(); if (newUnit) { dispatch(addUnit(newUnit.toLowerCase())); setNewUnit(''); } };
-  const handleAddJobTitle = (e) => { e.preventDefault(); if (newJobTitle) { dispatch(addJobTitle(newJobTitle)); setNewJobTitle(''); } };
-  const handleAddKml = (e) => { e.preventDefault(); if (newKml) { dispatch(addKmlUrl(newKml)); setNewKml(''); } };
+  const handleAddUnit = (e) => { e.preventDefault(); if (newUnit) { dispatch(addUnit(newUnit.toLowerCase())); dispatch(saveSettings()); setNewUnit(''); } };
+  const handleAddJobTitle = (e) => { e.preventDefault(); if (newJobTitle) { dispatch(addJobTitle(newJobTitle)); dispatch(saveSettings()); setNewJobTitle(''); } };
+  const handleAddKml = (e) => { e.preventDefault(); if (newKml) { dispatch(addKmlUrl(newKml)); dispatch(saveSettings()); setNewKml(''); } };
 
   const handleLogoUpload = (e) => {
     const file = e.target.files[0];
@@ -167,6 +169,7 @@ export default function App() {
       const reader = new FileReader();
       reader.onloadend = () => {
         dispatch(setLogo(reader.result));
+        dispatch(saveSettings());
       };
       reader.readAsDataURL(file);
     }
@@ -177,9 +180,11 @@ export default function App() {
     useMapEvents({
       click(e) {
         dispatch(setMapCenter([e.latlng.lat, e.latlng.lng]));
+        dispatch(saveSettings());
       },
       zoomend(e) {
         dispatch(setMapZoom(e.target.getZoom()));
+        dispatch(saveSettings());
       }
     });
     return null;
@@ -260,9 +265,9 @@ export default function App() {
             <button onClick={() => setActiveTab('gps')} className={`btn ${activeTab === 'gps' ? 'btn-primary' : ''}`} style={{ background: activeTab === 'gps' ? '#c62828' : 'white', color: activeTab === 'gps' ? 'white' : '#c62828', borderColor: '#c62828' }}>
               <MapPin size={16} style={{ marginRight: 6 }} /> GPS Logs
             </button>
+            <button onClick={() => setActiveTab('settings')} className={`btn ${activeTab === 'settings' ? 'btn-primary' : ''}`}><Settings size={16} style={{ marginRight: 6 }} /> Settings</button>
           </>
         )}
-        <button onClick={() => setActiveTab('settings')} className={`btn ${activeTab === 'settings' ? 'btn-primary' : ''}`}><Settings size={16} style={{ marginRight: 6 }} /> Settings</button>
       </nav>
 
       <main className="container" style={{ marginTop: '20px' }}>
@@ -271,7 +276,7 @@ export default function App() {
         {activeTab === 'map' && (
           <div className="card" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 180px)' }}>
             <h2>GIS Field Map</h2>
-            <MapLayer fields={fields} />
+            <MapLayer fields={fields} nurseries={nurseries} equipment={equipment} />
           </div>
         )}
 
@@ -295,7 +300,7 @@ export default function App() {
         {activeTab === 'audit' && <AuditTab />}
         {activeTab === 'gps' && <GpsLogTab />}
 
-        {activeTab === 'settings' && (
+        {activeTab === 'settings' && currentUser?.role === 'Admin' && (
           <div className="card">
             <h2>App Settings</h2>
             <div style={{ marginBottom: 20 }}>
@@ -305,7 +310,7 @@ export default function App() {
                   <div style={{ marginBottom: 10 }}>
                     <img src={logo} alt="Current Logo" style={{ maxHeight: '60px', borderRadius: '4px', border: '1px solid var(--color-border)' }} />
                     <br />
-                    <button onClick={() => dispatch(setLogo(null))} className="btn" style={{ marginTop: 8, background: '#ffebee', color: '#c62828', padding: '4px 8px' }}>Remove Logo</button>
+                    <button onClick={() => { dispatch(setLogo(null)); dispatch(saveSettings()); }} className="btn" style={{ marginTop: 8, background: '#ffebee', color: '#c62828', padding: '4px 8px' }}>Remove Logo</button>
                   </div>
                 )}
                 <input type="file" accept="image/*" onChange={handleLogoUpload} className="btn" style={{ padding: '6px' }} />
@@ -317,7 +322,7 @@ export default function App() {
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: 16 }}>
                 {units.map(u => (
                   <span key={u} className="status-indicator" style={{ background: '#e0e0e0', color: '#333' }}>
-                    {u} <button onClick={() => dispatch(removeUnit(u))} style={{ border: 'none', background: 'transparent', cursor: 'pointer', marginLeft: 4 }}>x</button>
+                    {u} <button onClick={() => { dispatch(removeUnit(u)); dispatch(saveSettings()); }} style={{ border: 'none', background: 'transparent', cursor: 'pointer', marginLeft: 4 }}>x</button>
                   </span>
                 ))}
               </div>
@@ -332,7 +337,7 @@ export default function App() {
               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: 16 }}>
                 {jobTitles.map(t => (
                   <span key={t} className="status-indicator" style={{ background: '#e3f2fd', color: '#1565c0' }}>
-                    {t} <button onClick={() => dispatch(removeJobTitle(t))} style={{ border: 'none', background: 'transparent', cursor: 'pointer', marginLeft: 4, color: '#1565c0' }}>x</button>
+                    {t} <button onClick={() => { dispatch(removeJobTitle(t)); dispatch(saveSettings()); }} style={{ border: 'none', background: 'transparent', cursor: 'pointer', marginLeft: 4, color: '#1565c0' }}>x</button>
                   </span>
                 ))}
               </div>
@@ -351,7 +356,7 @@ export default function App() {
                   min="0.001"
                   step="0.001"
                   value={gpsDistanceThreshold}
-                  onChange={(e) => dispatch(setGpsDistanceThreshold(Number(e.target.value)))}
+                  onChange={(e) => { dispatch(setGpsDistanceThreshold(Number(e.target.value))); dispatch(saveSettings()); }}
                   className="btn"
                   style={{ display: 'block', marginTop: 8, padding: '8px', minWidth: '200px', cursor: 'text' }}
                 />
@@ -359,21 +364,20 @@ export default function App() {
               </div>
               <div style={{ marginBottom: 16 }}>
                 <label>Polygon Draw Color</label>
-                <input type="color" value={polygonColor} onChange={(e) => dispatch(setPolygonColor(e.target.value))} style={{ display: 'block', marginTop: 8 }} />
+                <input type="color" value={polygonColor} onChange={(e) => { dispatch(setPolygonColor(e.target.value)); dispatch(saveSettings()); }} style={{ display: 'block', marginTop: 8 }} />
               </div>
               <div>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
-                  <label style={{ margin: 0 }}>Default Map Tab Location (Search or Drop Pin by clicking on map, Zoom to save default zoom)</label>
-                  <button onClick={() => setShowManualPin(!showManualPin)} className="btn" style={{ padding: '4px 10px', fontSize: '0.85rem' }}>+ Manual Coordinates</button>
-                </div>
-                {showManualPin && (
-                  <div style={{ display: 'flex', gap: '10px', marginTop: '10px', background: '#f5f7fa', padding: '10px', borderRadius: '4px', border: '1px solid var(--color-border)' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '10px' }}>
+                  <label style={{ margin: 0, fontWeight: 'bold' }}>Default Map Tab Location</label>
+                  <span style={{ fontSize: '0.85rem', color: '#666' }}>Search below, Drop Pin by clicking on map, Zoom to save default zoom, or enter exact coordinates.</span>
+                  
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', background: '#f5f7fa', padding: '10px', borderRadius: '4px', border: '1px solid var(--color-border)' }}>
                     <input
                       type="text"
                       value={manualCoords}
                       onChange={(e) => setManualCoords(e.target.value)}
                       placeholder="e.g. 6.7319579, -10.8700117"
-                      style={{ flex: 1, padding: '8px' }}
+                      style={{ flex: 1, minWidth: '200px', padding: '8px' }}
                     />
                     <button
                       onClick={() => {
@@ -383,7 +387,7 @@ export default function App() {
                           const lng = parseFloat(parts[1].trim());
                           if (!isNaN(lat) && !isNaN(lng)) {
                             dispatch(setMapCenter([lat, lng]));
-                            setShowManualPin(false); // Auto collapse on success
+                            dispatch(saveSettings());
                           } else {
                             alert("Invalid coordinates. Please enter Lat, Lng.");
                           }
@@ -392,20 +396,21 @@ export default function App() {
                         }
                       }}
                       className="btn btn-primary"
+                      style={{ whiteSpace: 'nowrap' }}
                     >
                       Drop Pin
                     </button>
                   </div>
-                )}
+                </div>
                 <div style={{ marginTop: 8 }}>
-                  <MapSearchBox onLocationFound={(loc) => dispatch(setMapCenter(loc))} />
+                  <MapSearchBox onLocationFound={(loc) => { dispatch(setMapCenter(loc)); dispatch(saveSettings()); }} />
                 </div>
                 <div style={{ height: '300px', width: '100%', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--color-border)', marginTop: 8 }}>
                   <MapContainer center={mapCenter} zoom={mapZoom} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
                     <TileLayer attribution="Google Maps" url="http://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}&s=Ga" />
                     <MapFlyTo center={mapCenter} />
                     <LocationMarker />
-                    <CurrentLocationControl onLocationFound={(loc) => dispatch(setMapCenter(loc))} />
+                    <CurrentLocationControl onLocationFound={(loc) => { dispatch(setMapCenter(loc)); dispatch(saveSettings()); }} />
                   </MapContainer>
                 </div>
               </div>

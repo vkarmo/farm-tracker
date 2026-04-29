@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import Select from 'react-select';
 import { saveAssignment, removeAssignment } from '../store/assignmentSlice';
-import { Edit2, Trash2 } from 'lucide-react';
+import CrudTable from './CrudTable';
 
 export default function AssignmentTab() {
   const dispatch = useDispatch();
@@ -18,6 +18,8 @@ export default function AssignmentTab() {
   // New Relational Data Pointers
   const [workerIds, setWorkerIds] = useState([]);
   const [workerCount, setWorkerCount] = useState('');
+  const [filterJobTitle, setFilterJobTitle] = useState('');
+  const [filterGender, setFilterGender] = useState('');
   const [legacyWorkers, setLegacyWorkers] = useState(''); 
 
   const [hours, setHours] = useState('');
@@ -64,6 +66,24 @@ export default function AssignmentTab() {
     }));
 
   const activeSelectedOptions = employeeOptions.filter(opt => workerIds.includes(opt.value));
+
+  const uniqueJobTitles = Array.from(new Set(employeesList.map(e => e.jobTitle).filter(Boolean)));
+
+  const handleAddGroup = () => {
+    let toAdd = employeesList;
+    if (filterJobTitle) toAdd = toAdd.filter(e => e.jobTitle === filterJobTitle);
+    if (filterGender) toAdd = toAdd.filter(e => e.gender === filterGender);
+    
+    if (toAdd.length === 0) {
+      alert("No employees match this group criteria.");
+      return;
+    }
+    
+    const newIds = toAdd.map(e => e.id);
+    const merged = Array.from(new Set([...workerIds, ...newIds]));
+    setWorkerIds(merged);
+    setWorkerCount(merged.length);
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -120,6 +140,30 @@ export default function AssignmentTab() {
   const activeAssignments = assignments.filter(a => !a.completedDate);
   const completedAssignments = assignments.filter(a => a.completedDate);
 
+  const activeColumns = [
+    { key: 'assignmentDate', header: 'Date' },
+    { key: 'headcount', header: 'Headcount', render: (r) => (
+      <span className="status-indicator" style={{ background: '#e3f2fd', color: '#1565c0' }}>
+        {r.workerCount !== undefined ? r.workerCount : (r.workerIds?.length || 1)}
+      </span>
+    )},
+    { key: 'target', header: 'Target Asset', render: (r) => getTargetName(r.fieldId) },
+    { key: 'task', header: 'Task' },
+    { key: 'hours', header: 'Hours', render: (r) => r.hours > 0 ? `${r.hours} hrs` : '-' }
+  ];
+
+  const completedColumns = [
+    { key: 'completedDate', header: 'Completed On' },
+    { key: 'headcount', header: 'Headcount', render: (r) => (
+      <span className="status-indicator" style={{ background: '#e3f2fd', color: '#1565c0' }}>
+        {r.workerCount !== undefined ? r.workerCount : (r.workerIds?.length || 1)}
+      </span>
+    )},
+    { key: 'target', header: 'Target Asset', render: (r) => getTargetName(r.fieldId) },
+    { key: 'task', header: 'Task', render: (r) => <del>{r.task}</del> },
+    { key: 'hours', header: 'Hours', render: (r) => r.hours > 0 ? `${r.hours} hrs` : '-' }
+  ];
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       <div className="card">
@@ -144,6 +188,18 @@ export default function AssignmentTab() {
             
             <div className="form-group" style={{ gridColumn: 'span 1' }}>
               <label>Select Assigned Employees</label>
+              <div style={{ display: 'flex', gap: '10px', marginTop: '4px', marginBottom: '10px', flexWrap: 'wrap' }}>
+                <select value={filterJobTitle} onChange={e => setFilterJobTitle(e.target.value)} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #ccc' }}>
+                  <option value="">Any Job Title</option>
+                  {uniqueJobTitles.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+                <select value={filterGender} onChange={e => setFilterGender(e.target.value)} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #ccc' }}>
+                  <option value="">Any Gender</option>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                </select>
+                <button type="button" onClick={handleAddGroup} className="btn" style={{ padding: '6px 12px', background: '#e0e0e0', color: '#333' }}>+ Add Group</button>
+              </div>
               <div style={{ marginTop: '4px' }}>
                 <Select
                   isMulti
@@ -237,103 +293,27 @@ export default function AssignmentTab() {
 
       {activeAssignments.length > 0 && (
         <div className="card">
-          <h2>Saved Assignments</h2>
-          <div style={{ overflowX: 'auto' }}>
-            <table className="crud-table">
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Headcount</th>
-                  <th>Target Asset</th>
-                  <th>Task</th>
-                  <th>Hours</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {[...activeAssignments].sort((a,b) => (b.assignmentDate || '').localeCompare(a.assignmentDate || '')).map(a => (
-                  <tr key={a.id}>
-                    <td>{a.assignmentDate}</td>
-                    <td style={{ textAlign: 'center' }}>
-                      <span className="status-indicator" style={{ background: '#e3f2fd', color: '#1565c0' }}>
-                        {a.workerCount !== undefined ? a.workerCount : (a.workerIds?.length || 1)}
-                      </span>
-                    </td>
-                    <td>{getTargetName(a.fieldId)}</td>
-                    <td>{a.task}</td>
-                    <td>{a.hours > 0 ? `${a.hours} hrs` : '-'}</td>
-                    <td>
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <button 
-                          title="Edit Assignment"
-                          style={{ padding: '6px', background: '#e3f2fd', color: '#1565c0', border: 'none', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} 
-                          onClick={() => handleEdit(a)}>
-                          <Edit2 size={16} />
-                        </button>
-                        <button 
-                          title="Delete Assignment"
-                          style={{ padding: '6px', background: '#ffebee', color: '#c62828', border: 'none', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} 
-                          onClick={() => handleDelete(a.id)}>
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <CrudTable 
+            data={[...activeAssignments].sort((a,b) => (b.assignmentDate || '').localeCompare(a.assignmentDate || ''))}
+            columns={activeColumns}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            itemLabel="Assignment"
+            customTitle="Saved Assignments"
+          />
         </div>
       )}
 
       {completedAssignments.length > 0 && (
         <div className="card" style={{ opacity: 0.85 }}>
-          <h2>Completed Assignments</h2>
-          <div style={{ overflowX: 'auto' }}>
-            <table className="crud-table">
-              <thead>
-                <tr>
-                  <th>Completed On</th>
-                  <th>Headcount</th>
-                  <th>Target Asset</th>
-                  <th>Task</th>
-                  <th>Hours</th>
-                  <th>Actions</th>
-                </tr>
-              </thead>
-              <tbody>
-                {[...completedAssignments].sort((a,b) => (b.completedDate || '').localeCompare(a.completedDate || '')).map(a => (
-                  <tr key={a.id}>
-                    <td>{a.completedDate}</td>
-                    <td style={{ textAlign: 'center' }}>
-                      <span className="status-indicator" style={{ background: '#e3f2fd', color: '#1565c0' }}>
-                        {a.workerCount !== undefined ? a.workerCount : (a.workerIds?.length || 1)}
-                      </span>
-                    </td>
-                    <td>{getTargetName(a.fieldId)}</td>
-                    <td><del>{a.task}</del></td>
-                    <td>{a.hours > 0 ? `${a.hours} hrs` : '-'}</td>
-                    <td>
-                      <div style={{ display: 'flex', gap: '8px' }}>
-                        <button 
-                          title="Edit Assignment"
-                          style={{ padding: '6px', background: '#e3f2fd', color: '#1565c0', border: 'none', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} 
-                          onClick={() => handleEdit(a)}>
-                          <Edit2 size={16} />
-                        </button>
-                        <button 
-                          title="Delete Assignment"
-                          style={{ padding: '6px', background: '#ffebee', color: '#c62828', border: 'none', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }} 
-                          onClick={() => handleDelete(a.id)}>
-                          <Trash2 size={16} />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <CrudTable 
+            data={[...completedAssignments].sort((a,b) => (b.completedDate || '').localeCompare(a.completedDate || ''))}
+            columns={completedColumns}
+            onEdit={handleEdit}
+            onDelete={handleDelete}
+            itemLabel="Assignment"
+            customTitle="Completed Assignments"
+          />
         </div>
       )}
 
