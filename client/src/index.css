@@ -225,6 +225,16 @@ textarea:focus {
     font-size: 1.25rem;
   }
 
+  .header-actions {
+    gap: 10px;
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .db-info {
+    max-width: 120px;
+  }
+
   /* Table to Card Transition */
   .desktop-table-container {
     display: none !important;
@@ -280,3 +290,32 @@ textarea:focus {
 @keyframes spin { 100% { transform: rotate(360deg); } }
 .spin { animation: spin 2s linear infinite; }
 
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.db-info {
+  font-size: 0.75rem;
+  color: var(--color-primary-dark);
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.6);
+  padding: 4px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(46, 125, 50, 0.2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 160px;
+  transition: max-width 0.3s ease, padding 0.3s ease;
+  cursor: default;
+}
+
+.db-info:hover, .db-info:focus-within {
+  max-width: 400px;
+}
