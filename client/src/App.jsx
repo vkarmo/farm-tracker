@@ -62,6 +62,7 @@ export default function App() {
 
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showAdminNav, setShowAdminNav] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
   const [newUnit, setNewUnit] = useState('');
   const [newJobTitle, setNewJobTitle] = useState('');
   const [newKml, setNewKml] = useState('');
@@ -176,6 +177,13 @@ export default function App() {
     }
   };
 
+  // Listen for PWA updates to show an overlay
+  useEffect(() => {
+    const handleUpdate = () => setIsUpdating(true);
+    window.addEventListener('pwa-update-downloading', handleUpdate);
+    return () => window.removeEventListener('pwa-update-downloading', handleUpdate);
+  }, []);
+
   const LocationMarker = () => {
     const dispatch = useDispatch();
     useMapEvents({
@@ -197,6 +205,13 @@ export default function App() {
 
   return (
     <>
+      {isUpdating && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
+          <RefreshCw size={54} className="spin" style={{ marginBottom: '24px', color: 'var(--color-accent)' }} />
+          <h2 style={{ color: 'white', marginBottom: '8px' }}>Updating Farm Tracker...</h2>
+          <p style={{ color: '#ccc' }}>Downloading the latest version. The app will reload automatically.</p>
+        </div>
+      )}
       <header>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           {logo ? (

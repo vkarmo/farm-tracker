@@ -44,6 +44,12 @@ const updateSW = registerSW({
   onRegistered(r) {
     // Check for updates when the app loads and then every hour
     if (r) {
+      r.addEventListener('updatefound', () => {
+        const newWorker = r.installing;
+        if (newWorker) {
+           window.dispatchEvent(new Event('pwa-update-downloading'));
+        }
+      });
       r.update();
       setInterval(() => {
         r.update();
