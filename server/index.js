@@ -206,25 +206,25 @@ app.post('/api/sync', async (req, res) => {
         if (sowType === 'Nursery') {
           await session.run(`
             MERGE (c:Crop {id: $id}) 
-            SET c.name = $name, c.variety = $variety, 
-                c.sowing_date = $plantingDate, c.expected_harvest = $expectedHarvest, 
-                c.seeding_rate = $seedingRate, c.target_yield = $targetYield
+            SET c.name = $name, c.variety = $variety, c.fieldId = $fieldId, c.sowType = $sowType,
+                c.plantingDate = $plantingDate, c.expectedHarvest = $expectedHarvest, 
+                c.seedingRate = $seedingRate, c.targetYield = $targetYield
             WITH c 
             MATCH (n:NurseryBed {id: $fieldId}) 
             MERGE (c)-[:SOWN_IN]->(n)
             RETURN c
-          `, { id, name, variety, fieldId, plantingDate, expectedHarvest, seedingRate, targetYield });
+          `, { id, name, variety, fieldId, plantingDate, expectedHarvest, seedingRate, targetYield, sowType });
         } else {
           await session.run(`
             MERGE (c:Crop {id: $id}) 
-            SET c.name = $name, c.variety = $variety, 
-                c.planting_date = $plantingDate, c.expected_harvest = $expectedHarvest, 
-                c.seeding_rate = $seedingRate, c.target_yield = $targetYield
+            SET c.name = $name, c.variety = $variety, c.fieldId = $fieldId, c.sowType = $sowType,
+                c.plantingDate = $plantingDate, c.expectedHarvest = $expectedHarvest, 
+                c.seedingRate = $seedingRate, c.targetYield = $targetYield
             WITH c 
             MATCH (f:Field {id: $fieldId}) 
             MERGE (c)-[:PLANTED_IN]->(f)
             RETURN c
-          `, { id, name, variety, fieldId, plantingDate, expectedHarvest, seedingRate, targetYield });
+          `, { id, name, variety, fieldId, plantingDate, expectedHarvest, seedingRate, targetYield, sowType });
         }
 
         results.push({ actionId: action.meta?.id, status: 'success' });
@@ -241,52 +241,54 @@ app.post('/api/sync', async (req, res) => {
         results.push({ actionId: action.meta?.id, status: 'success' });
       }
       else if (action.type === 'assets/addLivestock') {
-        const { id, fieldId, type: animalType, breed, birthDate, tagNumber, healthStatus } = action.payload;
+        const { id, fieldId, type: animalType, breed, birthDate, tagNumber, healthStatus, causeOfDeath } = action.payload;
         await session.run(`
           MERGE (l:Livestock {id: $id})
-          SET l.type = $animalType, l.breed = $breed, l.birth_date = $birthDate, 
-              l.tag_number = $tagNumber, l.health_status = $healthStatus
+          SET l.type = $animalType, l.breed = $breed, l.birthDate = $birthDate, 
+              l.tagNumber = $tagNumber, l.healthStatus = $healthStatus, l.fieldId = $fieldId, l.causeOfDeath = $causeOfDeath
           WITH l
           OPTIONAL MATCH (f:Field {id: $fieldId})
           FOREACH (ignoreMe IN CASE WHEN f IS NOT NULL THEN [1] ELSE [] END |
             MERGE (l)-[:GRAZES_IN]->(f)
           )
           RETURN l
-        `, { id, animalType, breed, birthDate, tagNumber, healthStatus, fieldId });
+        `, { id, animalType, breed, birthDate, tagNumber, healthStatus, fieldId, causeOfDeath: causeOfDeath || '' });
         results.push({ actionId: action.meta?.id, status: 'success' });
       }
       else if (action.type === 'assets/addHarvest') {
         const { id, amount, unit, date, cropId } = action.payload;
         await session.run(`
           MERGE (h:Harvest {id: $id})
-          SET h.amount = toFloat($amount), h.unit = $unit, h.date = $date
+          SET h.amount = toFloat($amount), h.unit = $unit, h.date = $date, h.cropId = $cropId
           WITH h
-          MATCH (c:Crop {id: $cropId})
-          MERGE (h)-[:HARVESTED_FROM]->(c)
+          OPTIONAL MATCH (c:Crop {id: $cropId})
+          FOREACH (ignoreMe IN CASE WHEN c IS NOT NULL THEN [1] ELSE [] END |
+            MERGE (h)-[:HARVESTED_FROM]->(c)
+          )
           RETURN h
         `, { id, amount, unit, date, cropId });
         results.push({ actionId: action.meta?.id, status: 'success' });
       }
       else if (action.type === 'financials/addTransaction') {
-        const { id, txType: transactionType, category, amount, date, vendor, notes, assetId } = action.payload;
+        const { id, txType, category, amount, date, vendor, notes, assetId } = action.payload;
         await session.run(`
           MERGE (t:Transaction {id: $id})
-          SET t.type = $transactionType, t.category = $category, t.amount = $amount, 
-              t.date = $date, t.vendor = $vendor, t.notes = $notes
+          SET t.txType = $txType, t.category = $category, t.amount = $amount, 
+              t.date = $date, t.vendor = $vendor, t.notes = $notes, t.assetId = $assetId
           WITH t
           OPTIONAL MATCH (asset {id: $assetId})
           FOREACH (ignoreMe IN CASE WHEN asset IS NOT NULL THEN [1] ELSE [] END |
             MERGE (t)-[:RELATED_TO]->(asset)
           )
           RETURN t
-        `, { id, transactionType, category, amount, date, vendor, notes, assetId });
+        `, { id, txType, category, amount, date, vendor, notes, assetId: assetId || '' });
         results.push({ actionId: action.meta?.id, status: 'success' });
       }
       else if (action.type === 'activities/addActivity') {
         const { id, type: activityType, targetId, date, plannedDate, personResponsible, notes } = action.payload;
         await session.run(`
           MERGE (a:Activity {id: $id})
-          SET a.type = $activityType, a.date = $date, a.plannedDate = $plannedDate, a.personResponsible = $personResponsible, a.notes = $notes
+          SET a.type = $activityType, a.date = $date, a.plannedDate = $plannedDate, a.personResponsible = $personResponsible, a.notes = $notes, a.targetId = $targetId
           WITH a
           MATCH (target {id: $targetId})
           MERGE (a)-[:PERFORMED_ON]->(target)
