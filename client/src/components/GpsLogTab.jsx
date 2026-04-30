@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { clearLocations } from '../store/gpsSlice';
-import { Trash2, Map, ChevronDown, ChevronUp, TrendingUp } from 'lucide-react';
+import { Trash2, Map, TrendingUp, List } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
 import CrudTable from './CrudTable';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
@@ -33,8 +33,7 @@ export default function GpsLogTab() {
   const mapZoom = useSelector(state => state.settings?.mapZoom) || 13;
 
   const [selectedUser, setSelectedUser] = useState('All');
-  const [mapExpanded, setMapExpanded] = useState(false);
-  const [elevationExpanded, setElevationExpanded] = useState(false);
+  const [activeView, setActiveView] = useState('list');
 
   // Authorization check
   if (currentUser?.role !== 'Admin') {
@@ -77,7 +76,7 @@ export default function GpsLogTab() {
         </button>
       </div>
 
-      <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-end' }}>
         <div style={{ flex: '1 1 200px', display: 'flex', alignItems: 'center', gap: '10px' }}>
           <label style={{ whiteSpace: 'nowrap', fontWeight: 600 }}>Filter User:</label>
           <select value={selectedUser} onChange={e => setSelectedUser(e.target.value)} style={{ width: '100%', padding: '8px' }}>
@@ -85,26 +84,35 @@ export default function GpsLogTab() {
             {uniqueUsers.map(u => <option key={u} value={u}>{u}</option>)}
           </select>
         </div>
+        
+        <div style={{ display: 'flex', gap: '10px' }}>
+          <button onClick={() => setActiveView('list')} className={`btn ${activeView === 'list' ? 'btn-primary' : ''}`} style={{ background: activeView !== 'list' ? '#f0f0f0' : '', color: activeView !== 'list' ? '#333' : '', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <List size={16} /> List
+          </button>
+          <button onClick={() => setActiveView('map')} className={`btn ${activeView === 'map' ? 'btn-primary' : ''}`} style={{ background: activeView !== 'map' ? '#f0f0f0' : '', color: activeView !== 'map' ? '#333' : '', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <Map size={16} /> Map
+          </button>
+          <button onClick={() => setActiveView('elevation')} className={`btn ${activeView === 'elevation' ? 'btn-primary' : ''}`} style={{ background: activeView !== 'elevation' ? '#f0f0f0' : '', color: activeView !== 'elevation' ? '#333' : '', display: 'flex', alignItems: 'center', gap: 6 }}>
+            <TrendingUp size={16} /> Elevation
+          </button>
+        </div>
       </div>
 
-      <CrudTable 
-        data={filteredLogs}
-        columns={gpsColumns}
-        itemLabel="Coordinate"
-        customTitle="GPS Breadcrumbs"
-      />
+      {activeView === 'list' && (
+        <CrudTable 
+          data={filteredLogs}
+          columns={gpsColumns}
+          itemLabel="Coordinate"
+          customTitle="GPS Breadcrumbs"
+        />
+      )}
 
-      <div style={{ border: '1px solid var(--color-border)', borderRadius: '8px', overflow: 'hidden' }}>
-        <button
-          onClick={() => setMapExpanded(!mapExpanded)}
-          style={{ width: '100%', padding: '15px', background: '#f5f7fa', border: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', fontWeight: 600, color: 'var(--color-primary-dark)' }}
-        >
-          <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><Map size={18} /> Map Visualization</span>
-          {mapExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-        </button>
-
-        {mapExpanded && (
-          <div style={{ height: '400px', width: '100%' }}>
+      {activeView === 'map' && (
+        <div style={{ border: '1px solid var(--color-border)', borderRadius: '8px', overflow: 'hidden', marginTop: 20 }}>
+          <div style={{ padding: '15px', background: '#f5f7fa', fontWeight: 600, color: 'var(--color-primary-dark)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Map size={18} /> Map Visualization
+          </div>
+          <div style={{ height: '500px', width: '100%' }}>
             <MapContainer
               center={filteredLogs.length > 0 ? [filteredLogs[0].lat, filteredLogs[0].lng] : mapCenter}
               zoom={mapZoom}
@@ -127,20 +135,15 @@ export default function GpsLogTab() {
               })}
             </MapContainer>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
-      <div style={{ border: '1px solid var(--color-border)', borderRadius: '8px', overflow: 'hidden' }}>
-        <button
-          onClick={() => setElevationExpanded(!elevationExpanded)}
-          style={{ width: '100%', padding: '15px', background: '#f5f7fa', border: 'none', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', fontWeight: 600, color: 'var(--color-primary-dark)' }}
-        >
-          <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}><TrendingUp size={18} /> Elevation Changes Over Time</span>
-          {elevationExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-        </button>
-
-        {elevationExpanded && (
-          <div style={{ height: '350px', width: '100%', padding: '20px', background: 'white' }}>
+      {activeView === 'elevation' && (
+        <div style={{ border: '1px solid var(--color-border)', borderRadius: '8px', overflow: 'hidden', marginTop: 20 }}>
+          <div style={{ padding: '15px', background: '#f5f7fa', fontWeight: 600, color: 'var(--color-primary-dark)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <TrendingUp size={18} /> Elevation Changes Over Time
+          </div>
+          <div style={{ height: '400px', width: '100%', padding: '20px', background: 'white' }}>
             {chartData.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={chartData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
@@ -158,8 +161,8 @@ export default function GpsLogTab() {
               </div>
             )}
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
     </div>
   );

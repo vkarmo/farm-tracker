@@ -23,19 +23,25 @@ export default function HarvestTab() {
   const [filterFromDate, setFilterFromDate] = useState('');
   const [filterToDate, setFilterToDate] = useState('');
 
+  const filteredHarvests = useMemo(() => {
+    return harvests.filter(h => {
+      if (filterCropId && h.cropId !== filterCropId) return false;
+      return true;
+    });
+  }, [harvests, filterCropId]);
+
   const filteredHarvestByDay = useMemo(() => {
     const map = {};
-    harvests.forEach(h => {
-      if (filterCropId && h.cropId !== filterCropId) return;
+    filteredHarvests.forEach(h => {
       if (filterFromDate && h.date < filterFromDate) return;
       if (filterToDate && h.date > filterToDate) return;
-      
+
       const d = h.date || 'Unknown';
       if (!map[d]) map[d] = { date: d, yield: 0 };
       map[d].yield += parseFloat(h.amount) || 0;
     });
     return Object.values(map).sort((a, b) => a.date.localeCompare(b.date));
-  }, [harvests, filterCropId, filterFromDate, filterToDate]);
+  }, [filteredHarvests, filterFromDate, filterToDate]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -133,9 +139,27 @@ export default function HarvestTab() {
 
       <hr style={{border: 'none', borderTop: '1px solid var(--color-border)', margin: '30px 0'}} />
 
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 15 }}>
+        {showGraph ? <h3 style={{ margin: 0, color: 'var(--color-primary-dark)' }}>Harvest Yield Over Time</h3> : <div></div>}
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+          <select value={filterCropId} onChange={e => setFilterCropId(e.target.value)} style={{ padding: '6px 10px', borderRadius: 4, border: '1px solid #ccc', fontSize: '0.9rem' }}>
+            <option value="">All Source Crops...</option>
+            {[...crops].sort((a,b) => a.name.localeCompare(b.name)).map(c => (
+              <option key={c.id} value={c.id}>{c.name} ({c.variety})</option>
+            ))}
+          </select>
+          {showGraph && (
+            <>
+              <input type="date" value={filterFromDate} onChange={e => setFilterFromDate(e.target.value)} style={{ padding: '6px 10px', borderRadius: 4, border: '1px solid #ccc', fontSize: '0.9rem' }} title="From Date" />
+              <input type="date" value={filterToDate} onChange={e => setFilterToDate(e.target.value)} style={{ padding: '6px 10px', borderRadius: 4, border: '1px solid #ccc', fontSize: '0.9rem' }} title="To Date" />
+            </>
+          )}
+        </div>
+      </div>
+
       {!showGraph ? (
         <CrudTable 
-          data={harvests} 
+          data={filteredHarvests} 
           columns={columns} 
           onEdit={(row) => { setHarvestData(row); setEditingId(row.id); }} 
           onDelete={(id) => {
@@ -147,20 +171,6 @@ export default function HarvestTab() {
         />
       ) : (
         <div className="card" style={{ background: '#fafafa', border: '1px solid var(--color-border)' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 15 }}>
-            <h3 style={{ margin: 0, color: 'var(--color-primary-dark)' }}>Harvest Yield Over Time</h3>
-            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-              <select value={filterCropId} onChange={e => setFilterCropId(e.target.value)} style={{ padding: '6px 10px', borderRadius: 4, border: '1px solid #ccc', fontSize: '0.9rem' }}>
-                <option value="">All Source Crops...</option>
-                {[...crops].sort((a,b) => a.name.localeCompare(b.name)).map(c => (
-                  <option key={c.id} value={c.id}>{c.name} ({c.variety})</option>
-                ))}
-              </select>
-              <input type="date" value={filterFromDate} onChange={e => setFilterFromDate(e.target.value)} style={{ padding: '6px 10px', borderRadius: 4, border: '1px solid #ccc', fontSize: '0.9rem' }} title="From Date" />
-              <input type="date" value={filterToDate} onChange={e => setFilterToDate(e.target.value)} style={{ padding: '6px 10px', borderRadius: 4, border: '1px solid #ccc', fontSize: '0.9rem' }} title="To Date" />
-            </div>
-          </div>
-          
           <div style={{ width: '100%', height: 350 }}>
             {filteredHarvestByDay.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { fetchFields } from './store/fieldsSlice';
-import { addUnit, removeUnit, addJobTitle, removeJobTitle, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold, setAppName, saveSettings } from './store/settingsSlice';
+import { addUnit, removeUnit, addJobTitle, removeJobTitle, addExpenseCategory, removeExpenseCategory, addIncomeCategory, removeIncomeCategory, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold, setAppName, saveSettings } from './store/settingsSlice';
 import { addLocation } from './store/gpsSlice';
 import { queueAction, fetchInitialData } from './store/syncSlice';
 import { MapSearchBox, MapFlyTo, CurrentLocationControl } from './components/MapSearchBox';
@@ -48,6 +48,8 @@ export default function App() {
   const equipment = useSelector(state => state.assets?.equipment) || [];
   const units = useSelector(state => state.settings?.units) || ['lbs'];
   const jobTitles = useSelector(state => state.settings?.jobTitles) || [];
+  const expenseCategories = useSelector(state => state.settings?.expenseCategories) || ['Equipment Maintenance', 'Fertilizer', 'Fuel', 'Labor', 'Seed'];
+  const incomeCategories = useSelector(state => state.settings?.incomeCategories) || ['Crop Sale', 'Livestock Sale', 'Subsidy'];
   const kmlUrls = useSelector(state => state.settings?.kmlUrls) || [];
   const appName = useSelector(state => state.settings?.appName);
   const displayAppName = appName || packageJson.name;
@@ -68,9 +70,36 @@ export default function App() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [newUnit, setNewUnit] = useState('');
   const [newJobTitle, setNewJobTitle] = useState('');
+  const [newExpenseCategory, setNewExpenseCategory] = useState('');
+  const [newIncomeCategory, setNewIncomeCategory] = useState('');
   const [newKml, setNewKml] = useState('');
   const [showManualPin, setShowManualPin] = useState(false);
   const [manualCoords, setManualCoords] = useState('6.7319579, -10.8700117');
+  const [localGpsThreshold, setLocalGpsThreshold] = useState(gpsDistanceThreshold ? gpsDistanceThreshold.toString() : '10');
+  const [activeLedgerCategoryView, setActiveLedgerCategoryView] = useState('expense');
+  const [showGpsPrompt, setShowGpsPrompt] = useState(false);
+  const [gpsActive, setGpsActive] = useState(false);
+
+  useEffect(() => {
+    if (currentUser && navigator.geolocation) {
+      const hasPrompted = localStorage.getItem('gpsPrompted');
+      if (!hasPrompted) {
+        setShowGpsPrompt(true);
+      } else {
+        setGpsActive(true);
+      }
+    }
+  }, [currentUser]);
+
+  const handleEnableGps = () => {
+    localStorage.setItem('gpsPrompted', 'true');
+    setShowGpsPrompt(false);
+    setGpsActive(true);
+  };
+
+  useEffect(() => {
+    setLocalGpsThreshold(gpsDistanceThreshold ? gpsDistanceThreshold.toString() : '10');
+  }, [gpsDistanceThreshold]);
 
   const hasAccess = (tabId) => {
     if (currentUser?.role === 'Admin') return true;
@@ -115,7 +144,7 @@ export default function App() {
   }, [lastGpsLocation]);
 
   useEffect(() => {
-    if (!currentUser || !navigator.geolocation) return;
+    if (!currentUser || !navigator.geolocation || !gpsActive) return;
 
     // Haversine formula
     const getDistanceFromLatLonInM = (lat1, lon1, lat2, lon2) => {
@@ -167,10 +196,35 @@ export default function App() {
     );
 
     return () => navigator.geolocation.clearWatch(watchId);
-  }, [currentUser, dispatch, gpsDistanceThreshold]);
+  }, [currentUser, dispatch, gpsDistanceThreshold, gpsActive]);
 
   const handleAddUnit = (e) => { e.preventDefault(); if (newUnit) { dispatch(addUnit(newUnit.toLowerCase())); dispatch(saveSettings()); setNewUnit(''); } };
-  const handleAddJobTitle = (e) => { e.preventDefault(); if (newJobTitle) { dispatch(addJobTitle(newJobTitle)); dispatch(saveSettings()); setNewJobTitle(''); } };
+  const handleAddJobTitle = (e) => {
+    e.preventDefault();
+    if (newJobTitle.trim()) {
+      dispatch(addJobTitle(newJobTitle.trim()));
+      dispatch(saveSettings());
+      setNewJobTitle('');
+    }
+  };
+
+  const handleAddExpenseCategory = (e) => {
+    e.preventDefault();
+    if (newExpenseCategory.trim()) {
+      dispatch(addExpenseCategory(newExpenseCategory.trim()));
+      dispatch(saveSettings());
+      setNewExpenseCategory('');
+    }
+  };
+
+  const handleAddIncomeCategory = (e) => {
+    e.preventDefault();
+    if (newIncomeCategory.trim()) {
+      dispatch(addIncomeCategory(newIncomeCategory.trim()));
+      dispatch(saveSettings());
+      setNewIncomeCategory('');
+    }
+  };
   const handleAddKml = (e) => { e.preventDefault(); if (newKml) { dispatch(addKmlUrl(newKml)); dispatch(saveSettings()); setNewKml(''); } };
 
   const handleLogoUpload = (e) => {
@@ -213,6 +267,18 @@ export default function App() {
 
   return (
     <>
+      {showGpsPrompt && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'white', padding: '20px', textAlign: 'center' }}>
+          <MapPin size={64} style={{ marginBottom: '24px', color: '#4caf50' }} />
+          <h2 style={{ color: 'white', marginBottom: '16px' }}>Enable Mapping Features</h2>
+          <p style={{ color: '#ccc', marginBottom: '30px', maxWidth: '400px', lineHeight: '1.6' }}>
+            Farm Tracker uses your device's GPS to securely log your movement breadcrumbs across the farm. Please click below to grant permission when prompted.
+          </p>
+          <button onClick={handleEnableGps} className="btn btn-primary" style={{ padding: '12px 24px', fontSize: '1.1rem', background: '#2e7d32', border: 'none' }}>
+            Grant Permission
+          </button>
+        </div>
+      )}
       {isUpdating && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
           <RefreshCw size={54} className="spin" style={{ marginBottom: '24px', color: 'var(--color-accent)' }} />
@@ -281,13 +347,13 @@ export default function App() {
             {hasAccess('nursery') && <button onClick={() => setActiveTab('nursery')} className={`btn ${activeTab === 'nursery' ? 'btn-primary' : ''}`}><Box size={16} style={{ marginRight: 6 }} /> Nursery</button>}
             {hasAccess('crop') && <button onClick={() => setActiveTab('crop')} className={`btn ${activeTab === 'crop' ? 'btn-primary' : ''}`}><Leaf size={16} style={{ marginRight: 6 }} /> Crops</button>}
             {hasAccess('harvest') && <button onClick={() => setActiveTab('harvest')} className={`btn ${activeTab === 'harvest' ? 'btn-primary' : ''}`}><BarChart size={16} style={{ marginRight: 6 }} /> Harvests</button>}
-            {hasAccess('deadline') && <button onClick={() => setActiveTab('deadline')} className={`btn ${activeTab === 'deadline' ? 'btn-primary' : ''}`}><CalendarClock size={16} style={{ marginRight: 6 }} /> Deadlines</button>}
-            {hasAccess('incident') && <button onClick={() => setActiveTab('incident')} className={`btn ${activeTab === 'incident' ? 'btn-primary' : ''}`}><AlertTriangle size={16} style={{ marginRight: 6 }} /> Incidents</button>}
             {hasAccess('assignment') && <button onClick={() => setActiveTab('assignment')} className={`btn ${activeTab === 'assignment' ? 'btn-primary' : ''}`}><Users size={16} style={{ marginRight: 6 }} /> Assignments</button>}
             {hasAccess('employee') && <button onClick={() => setActiveTab('employee')} className={`btn ${activeTab === 'employee' ? 'btn-primary' : ''}`}><Contact size={16} style={{ marginRight: 6 }} /> Employees</button>}
             {hasAccess('equipment') && <button onClick={() => setActiveTab('equipment')} className={`btn ${activeTab === 'equipment' ? 'btn-primary' : ''}`}><Briefcase size={16} style={{ marginRight: 6 }} /> Hard Assets</button>}
             {hasAccess('finance') && <button onClick={() => setActiveTab('finance')} className={`btn ${activeTab === 'finance' ? 'btn-primary' : ''}`}><DollarSign size={16} style={{ marginRight: 6 }} /> Ledger</button>}
             {hasAccess('budget') && <button onClick={() => setActiveTab('budget')} className={`btn ${activeTab === 'budget' ? 'btn-primary' : ''}`}><Calculator size={16} style={{ marginRight: 6 }} /> Budgets</button>}
+            {hasAccess('deadline') && <button onClick={() => setActiveTab('deadline')} className={`btn ${activeTab === 'deadline' ? 'btn-primary' : ''}`}><CalendarClock size={16} style={{ marginRight: 6 }} /> Deadlines</button>}
+            {hasAccess('incident') && <button onClick={() => setActiveTab('incident')} className={`btn ${activeTab === 'incident' ? 'btn-primary' : ''}`}><AlertTriangle size={16} style={{ marginRight: 6 }} /> Incidents</button>}
           </>
         ) : (
           <>
@@ -408,15 +474,66 @@ export default function App() {
             </div>
             <hr style={{ border: 'none', borderTop: '1px solid var(--color-border)', margin: '20px 0' }} />
             <div style={{ marginBottom: 20 }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15, flexWrap: 'wrap', gap: 10 }}>
+                <h3 style={{ margin: 0 }}>Ledger Categories</h3>
+                <div style={{ display: 'flex', gap: '10px' }}>
+                  <button onClick={() => setActiveLedgerCategoryView('expense')} className={`btn ${activeLedgerCategoryView === 'expense' ? 'btn-primary' : ''}`} style={{ background: activeLedgerCategoryView !== 'expense' ? '#f0f0f0' : '#c62828', color: activeLedgerCategoryView !== 'expense' ? '#333' : 'white', borderColor: activeLedgerCategoryView === 'expense' ? '#b71c1c' : '' }}>Expenses</button>
+                  <button onClick={() => setActiveLedgerCategoryView('income')} className={`btn ${activeLedgerCategoryView === 'income' ? 'btn-primary' : ''}`} style={{ background: activeLedgerCategoryView !== 'income' ? '#f0f0f0' : '#2e7d32', color: activeLedgerCategoryView !== 'income' ? '#333' : 'white', borderColor: activeLedgerCategoryView === 'income' ? '#1b5e20' : '' }}>Income</button>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
+                {activeLedgerCategoryView === 'expense' && (
+                  <div style={{ flex: '1 1 300px' }}>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: 16 }}>
+                      {expenseCategories.map(c => (
+                        <span key={c} className="status-indicator" style={{ background: '#ffebee', color: '#c62828' }}>
+                          {c} <button onClick={() => { dispatch(removeExpenseCategory(c)); dispatch(saveSettings()); }} style={{ border: 'none', background: 'transparent', cursor: 'pointer', marginLeft: 4, color: '#c62828' }}>x</button>
+                        </span>
+                      ))}
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', background: '#f5f7fa', padding: '10px', borderRadius: '4px', border: '1px solid var(--color-border)' }}>
+                      <input type="text" value={newExpenseCategory} onChange={e => setNewExpenseCategory(e.target.value)} placeholder="e.g. Utilities, Insurance" style={{ flex: 1, minWidth: '150px', padding: '8px' }} onKeyDown={e => { if(e.key === 'Enter') handleAddExpenseCategory(e) }} />
+                      <button onClick={handleAddExpenseCategory} className="btn" style={{ background: '#c62828', color: 'white', whiteSpace: 'nowrap' }}>Add</button>
+                    </div>
+                  </div>
+                )}
+                {activeLedgerCategoryView === 'income' && (
+                  <div style={{ flex: '1 1 300px' }}>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: 16 }}>
+                      {incomeCategories.map(c => (
+                        <span key={c} className="status-indicator" style={{ background: '#e8f5e9', color: '#2e7d32' }}>
+                          {c} <button onClick={() => { dispatch(removeIncomeCategory(c)); dispatch(saveSettings()); }} style={{ border: 'none', background: 'transparent', cursor: 'pointer', marginLeft: 4, color: '#2e7d32' }}>x</button>
+                        </span>
+                      ))}
+                    </div>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', background: '#f5f7fa', padding: '10px', borderRadius: '4px', border: '1px solid var(--color-border)' }}>
+                      <input type="text" value={newIncomeCategory} onChange={e => setNewIncomeCategory(e.target.value)} placeholder="e.g. Contract Work" style={{ flex: 1, minWidth: '150px', padding: '8px' }} onKeyDown={e => { if(e.key === 'Enter') handleAddIncomeCategory(e) }} />
+                      <button onClick={handleAddIncomeCategory} className="btn" style={{ background: '#2e7d32', color: 'white', whiteSpace: 'nowrap' }}>Add</button>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            <hr style={{ border: 'none', borderTop: '1px solid var(--color-border)', margin: '20px 0' }} />
+            <div style={{ marginBottom: 20 }}>
               <h3>Map Preferences</h3>
               <div style={{ marginBottom: 16 }}>
                 <label>GPS Distance Threshold (meters)</label>
                 <input
                   type="number"
-                  min="0.001"
-                  step="0.001"
-                  value={gpsDistanceThreshold}
-                  onChange={(e) => { dispatch(setGpsDistanceThreshold(Number(e.target.value))); dispatch(saveSettings()); }}
+                  min="0.0001"
+                  step="0.0001"
+                  value={localGpsThreshold}
+                  onChange={(e) => setLocalGpsThreshold(e.target.value)}
+                  onBlur={(e) => {
+                    const num = Number(e.target.value);
+                    if (!isNaN(num) && num > 0) {
+                      dispatch(setGpsDistanceThreshold(num));
+                      dispatch(saveSettings());
+                    } else {
+                      setLocalGpsThreshold(gpsDistanceThreshold.toString());
+                    }
+                  }}
                   className="btn"
                   style={{ display: 'block', marginTop: 8, padding: '8px', minWidth: '200px', cursor: 'text' }}
                 />
