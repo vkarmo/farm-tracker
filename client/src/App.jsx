@@ -272,7 +272,7 @@ export default function App() {
           <MapPin size={64} style={{ marginBottom: '24px', color: '#4caf50' }} />
           <h2 style={{ color: 'white', marginBottom: '16px' }}>Enable Mapping Features</h2>
           <p style={{ color: '#ccc', marginBottom: '30px', maxWidth: '400px', lineHeight: '1.6' }}>
-            Farm Tracker uses your device's GPS to securely log your movement breadcrumbs across the farm. Please click below to grant permission when prompted.
+            Mapping features are needed to mark fields and nurseries, determine peaks and valleys, and track assets. Please click below to grant permission when prompted.
           </p>
           <button onClick={handleEnableGps} className="btn btn-primary" style={{ padding: '12px 24px', fontSize: '1.1rem', background: '#2e7d32', border: 'none' }}>
             Grant Permission
