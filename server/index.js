@@ -118,13 +118,14 @@ app.get('/api/all-data', async (req, res) => {
        equipment: 'MATCH (n:Equipment) RETURN n',
        assignments: 'MATCH (n:TaskAssignment) RETURN n',
        employees: 'MATCH (n:Employee) RETURN n',
-       financials: 'MATCH (n:FinancialRecord) RETURN n',
-       budgets: 'MATCH (n:BudgetRecord) RETURN n',
+       financials: 'MATCH (n:Transaction) RETURN n',
+       budgets: 'MATCH (n:Budget) RETURN n',
        incidents: 'MATCH (n:Incident) RETURN n',
        deadlines: 'MATCH (n:Deadline) RETURN n',
        gps: 'MATCH (n:GpsLocation) RETURN n',
        audit: 'MATCH (n:AuditLog) RETURN n',
        users: 'MATCH (n:User) RETURN n',
+       harvests: 'MATCH (n:Harvest) RETURN n',
        settings: "MATCH (n:GlobalSettings {id: 'default'}) RETURN n"
     };
 
@@ -333,6 +334,46 @@ app.post('/api/sync', async (req, res) => {
           SET u.allowedTabs = $allowedTabs
           RETURN u
         `, { email, allowedTabs: JSON.stringify(allowedTabs) });
+        results.push({ actionId: action.meta?.id, status: 'success' });
+      }
+      else if (action.type === 'assets/addEquipment') {
+        const { id, type, brand, model, purchaseDate, value, status, maintenanceDate, details } = action.payload;
+        await session.run(`
+          MERGE (e:Equipment {id: $id})
+          SET e.type = $type, e.brand = $brand, e.model = $model, e.purchaseDate = $purchaseDate,
+              e.value = toFloat($value), e.status = $status, e.maintenanceDate = $maintenanceDate, e.details = $details
+          RETURN e
+        `, { id, type, brand, model, purchaseDate, value, status, maintenanceDate, details });
+        results.push({ actionId: action.meta?.id, status: 'success' });
+      }
+      else if (action.type === 'assignments/upsertAssignment') {
+        const { id, taskName, assignedTo, priority, dueDate, status, fieldId, equipmentId } = action.payload;
+        await session.run(`
+          MERGE (a:TaskAssignment {id: $id})
+          SET a.taskName = $taskName, a.assignedTo = $assignedTo, a.priority = $priority,
+              a.dueDate = $dueDate, a.status = $status, a.fieldId = $fieldId, a.equipmentId = $equipmentId
+          RETURN a
+        `, { id, taskName, assignedTo, priority, dueDate, status, fieldId: fieldId || null, equipmentId: equipmentId || null });
+        results.push({ actionId: action.meta?.id, status: 'success' });
+      }
+      else if (action.type === 'incidents/upsertIncident') {
+        const { id, title, type, date, severity, associatedAsset, resolutionStatus, notes } = action.payload;
+        await session.run(`
+          MERGE (i:Incident {id: $id})
+          SET i.title = $title, i.type = $type, i.date = $date, i.severity = $severity,
+              i.associatedAsset = $associatedAsset, i.resolutionStatus = $resolutionStatus, i.notes = $notes
+          RETURN i
+        `, { id, title, type, date, severity, associatedAsset, resolutionStatus, notes });
+        results.push({ actionId: action.meta?.id, status: 'success' });
+      }
+      else if (action.type === 'deadlines/upsertDeadline') {
+        const { id, category, targetDate, title, status, autoAlert, notes } = action.payload;
+        await session.run(`
+          MERGE (d:Deadline {id: $id})
+          SET d.category = $category, d.targetDate = $targetDate, d.title = $title,
+              d.status = $status, d.autoAlert = $autoAlert, d.notes = $notes
+          RETURN d
+        `, { id, category, targetDate, title, status, autoAlert, notes });
         results.push({ actionId: action.meta?.id, status: 'success' });
       }
       else if (action.type === 'employees/upsertEmployee') {

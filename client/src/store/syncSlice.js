@@ -1,7 +1,7 @@
 import { createSlice } from '@reduxjs/toolkit';
 import { setFields } from './fieldsSlice';
 import { setBeds as setNurseries } from './nurserySlice';
-import { setCrops, setLivestock, setEquipment } from './assetsSlice';
+import { setCrops, setLivestock, setEquipment, setHarvests } from './assetsSlice';
 import { setEmployees } from './employeeSlice';
 import { setAssignments } from './assignmentSlice';
 import { setTransactions as setFinancials } from './financialsSlice';
@@ -116,6 +116,7 @@ export const fetchInitialData = () => async (dispatch, getState) => {
     if (data.nurseries) dispatch(setNurseries(data.nurseries));
     if (data.crops) dispatch(setCrops(data.crops));
     if (data.livestock) dispatch(setLivestock(data.livestock));
+    if (data.harvests) dispatch(setHarvests(data.harvests));
     if (data.equipment) dispatch(setEquipment(data.equipment));
     if (data.employees) dispatch(setEmployees(data.employees));
     if (data.assignments) dispatch(setAssignments(data.assignments));

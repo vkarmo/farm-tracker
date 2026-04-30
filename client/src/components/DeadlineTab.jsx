@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { addDeadline, deleteDeadline } from '../store/deadlinesSlice';
+import { queueAction } from '../store/syncSlice';
 import { Calendar, X } from 'lucide-react';
 import CrudTable from './CrudTable';
 
@@ -23,6 +24,7 @@ export default function DeadlineTab() {
 
     const newObj = { ...formData, id: editingId || `dl_${Date.now()}` };
     dispatch(addDeadline(newObj));
+    dispatch(queueAction({ type: 'deadlines/upsertDeadline', payload: newObj, meta: { id: Date.now() } }));
 
     setFormData(INIT_DEADLINE);
     setEditingId(null);
@@ -92,7 +94,10 @@ export default function DeadlineTab() {
         data={deadlines}
         columns={columns}
         onEdit={(row) => { setFormData(row); setEditingId(row.id); }}
-        onDelete={(id) => dispatch(deleteDeadline(id))}
+        onDelete={(id) => {
+          dispatch(deleteDeadline(id));
+          dispatch(queueAction({ type: 'core/deleteNode', payload: { id }, meta: { id: Date.now() } }));
+        }}
         itemLabel="Deadline"
         defaultSort={{ key: 'title', direction: 'asc' }}
       />
