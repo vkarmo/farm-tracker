@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { addIncident, deleteIncident } from '../store/incidentsSlice';
+import { queueAction } from '../store/syncSlice';
 import { AlertTriangle, X } from 'lucide-react';
 import CrudTable from './CrudTable';
 
@@ -22,6 +23,7 @@ export default function IncidentTab() {
 
     const newObj = { ...formData, id: editingId || `inc_${Date.now()}` };
     dispatch(addIncident(newObj));
+    dispatch(queueAction({ type: 'incidents/upsertIncident', payload: newObj, meta: { id: Date.now() } }));
 
     setFormData(INIT_INCIDENT);
     setEditingId(null);
@@ -100,8 +102,11 @@ export default function IncidentTab() {
         data={incidents}
         columns={columns}
         onEdit={(row) => { setFormData(row); setEditingId(row.id); }}
-        onDelete={(id) => dispatch(deleteIncident(id))}
-        itemLabel="Incident"
+        onDelete={(id) => {
+          dispatch(deleteIncident(id));
+          dispatch(queueAction({ type: 'core/deleteNode', payload: { id }, meta: { id: Date.now() } }));
+        }}
+        itemLabel="Incident Report"
         defaultSort={{ key: 'date', direction: 'desc' }}
       />
     </div>
