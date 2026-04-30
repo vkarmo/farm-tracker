@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { fetchAllUsers, removeUserOffline } from '../store/authSlice';
+import { fetchAllUsers, removeUserOffline, updateUserRole } from '../store/authSlice';
 import { queueAction } from '../store/syncSlice';
 import { ShieldAlert, Trash2, Shield, User } from 'lucide-react';
 import CrudTable from './CrudTable';
@@ -29,7 +29,29 @@ export default function AdminTab() {
     {
       key: 'role',
       header: 'System Permissions',
-      render: (r) => r.role === 'Admin' ? <><Shield size={14} color="#d32f2f" /> <strong style={{ color: '#d32f2f' }}>Admin</strong></> : <><User size={14} color="#1976d2" /> Staff</>
+      render: (r) => (
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
+          <div>
+            {r.role === 'Admin' ? <><Shield size={14} color="#d32f2f" /> <strong style={{ color: '#d32f2f' }}>Admin</strong></> : <><User size={14} color="#1976d2" /> Staff</>}
+          </div>
+          {r.email !== currentUser?.email && (
+            <button 
+              onClick={(e) => {
+                e.stopPropagation();
+                const newRole = r.role === 'Admin' ? 'Staff' : 'Admin';
+                if (window.confirm(`Are you sure you want to change ${r.name}'s role to ${newRole}?`)) {
+                  dispatch(queueAction({ type: 'core/updateNode', payload: { id: r.id, properties: { ...r, role: newRole } }, meta: { id: Date.now() } }));
+                  dispatch(updateUserRole({ email: r.email, role: newRole }));
+                }
+              }}
+              className="btn" 
+              style={{ padding: '4px 8px', fontSize: '0.8rem', background: '#f0f0f0', color: '#333' }}
+            >
+              {r.role === 'Admin' ? 'Revoke Admin' : 'Make Admin'}
+            </button>
+          )}
+        </div>
+      )
     }
   ];
 

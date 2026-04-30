@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { queueAction } from '../store/syncSlice';
 import { addHarvest, deleteHarvest } from '../store/assetsSlice';
-import { BarChart, X } from 'lucide-react';
+import { BarChart as BarChartIcon, X, LineChart } from 'lucide-react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import CrudTable from './CrudTable';
 
 export default function HarvestTab() {
@@ -16,6 +17,25 @@ export default function HarvestTab() {
   const INIT_HARVEST = { cropId: '', amount: '', unit: units[0] || 'lbs', date: new Date().toISOString().split('T')[0] };
   const [harvestData, setHarvestData] = useState(INIT_HARVEST);
   const [editingId, setEditingId] = useState(null);
+
+  const [showGraph, setShowGraph] = useState(false);
+  const [filterCropId, setFilterCropId] = useState('');
+  const [filterFromDate, setFilterFromDate] = useState('');
+  const [filterToDate, setFilterToDate] = useState('');
+
+  const filteredHarvestByDay = useMemo(() => {
+    const map = {};
+    harvests.forEach(h => {
+      if (filterCropId && h.cropId !== filterCropId) return;
+      if (filterFromDate && h.date < filterFromDate) return;
+      if (filterToDate && h.date > filterToDate) return;
+      
+      const d = h.date || 'Unknown';
+      if (!map[d]) map[d] = { date: d, yield: 0 };
+      map[d].yield += parseFloat(h.amount) || 0;
+    });
+    return Object.values(map).sort((a, b) => a.date.localeCompare(b.date));
+  }, [harvests, filterCropId, filterFromDate, filterToDate]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -101,24 +121,65 @@ export default function HarvestTab() {
             </select>
           </div>
         </div>
-        <button type="submit" className="btn btn-primary" style={{marginTop: 10}}>
-          <BarChart size={16} style={{marginRight: 6}}/> {editingId ? 'Update Harvest' : 'Save Harvest Info'}
-        </button>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
+          <button type="submit" className="btn btn-primary">
+            <BarChartIcon size={16} style={{marginRight: 6}}/> {editingId ? 'Update Harvest' : 'Save Harvest Info'}
+          </button>
+          <button type="button" onClick={() => setShowGraph(!showGraph)} className="btn" style={{ background: '#e3f2fd', color: '#1565c0', display: 'flex', alignItems: 'center' }}>
+            <LineChart size={16} style={{marginRight: 6}}/> {showGraph ? 'View Harvest Records' : 'View Harvest Graphs'}
+          </button>
+        </div>
       </form>
 
       <hr style={{border: 'none', borderTop: '1px solid var(--color-border)', margin: '30px 0'}} />
 
-      <CrudTable 
-        data={harvests} 
-        columns={columns} 
-        onEdit={(row) => { setHarvestData(row); setEditingId(row.id); }} 
-        onDelete={(id) => {
-          dispatch(deleteHarvest(id));
-          dispatch(queueAction({ type: 'core/deleteNode', payload: { id }, meta: { id: Date.now() } }));
-        }} 
-        itemLabel="Harvest Record" 
-        defaultSort={{ key: 'date', direction: 'asc' }}
-      />
+      {!showGraph ? (
+        <CrudTable 
+          data={harvests} 
+          columns={columns} 
+          onEdit={(row) => { setHarvestData(row); setEditingId(row.id); }} 
+          onDelete={(id) => {
+            dispatch(deleteHarvest(id));
+            dispatch(queueAction({ type: 'core/deleteNode', payload: { id }, meta: { id: Date.now() } }));
+          }} 
+          itemLabel="Harvest Record" 
+          defaultSort={{ key: 'date', direction: 'desc' }}
+        />
+      ) : (
+        <div className="card" style={{ background: '#fafafa', border: '1px solid var(--color-border)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 15 }}>
+            <h3 style={{ margin: 0, color: 'var(--color-primary-dark)' }}>Harvest Yield Over Time</h3>
+            <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+              <select value={filterCropId} onChange={e => setFilterCropId(e.target.value)} style={{ padding: '6px 10px', borderRadius: 4, border: '1px solid #ccc', fontSize: '0.9rem' }}>
+                <option value="">All Source Crops...</option>
+                {[...crops].sort((a,b) => a.name.localeCompare(b.name)).map(c => (
+                  <option key={c.id} value={c.id}>{c.name} ({c.variety})</option>
+                ))}
+              </select>
+              <input type="date" value={filterFromDate} onChange={e => setFilterFromDate(e.target.value)} style={{ padding: '6px 10px', borderRadius: 4, border: '1px solid #ccc', fontSize: '0.9rem' }} title="From Date" />
+              <input type="date" value={filterToDate} onChange={e => setFilterToDate(e.target.value)} style={{ padding: '6px 10px', borderRadius: 4, border: '1px solid #ccc', fontSize: '0.9rem' }} title="To Date" />
+            </div>
+          </div>
+          
+          <div style={{ width: '100%', height: 350 }}>
+            {filteredHarvestByDay.length > 0 ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={filteredHarvestByDay} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                  <YAxis tick={{ fontSize: 12 }} />
+                  <Tooltip cursor={{ fill: '#f5f5f5' }} />
+                  <Bar dataKey="yield" fill="#4caf50" radius={[4, 4, 0, 0]} barSize={32} name="Total Yield" />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#888', fontStyle: 'italic', background: '#fff', borderRadius: 8, border: '1px dashed #ccc' }}>
+                No harvest data matches your current filters.
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
