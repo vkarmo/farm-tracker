@@ -16,6 +16,9 @@ export default function FinanceTab() {
   const crops = useSelector(state => state.assets.crops) || [];
   const livestock = useSelector(state => state.assets.livestock) || [];
   const harvests = useSelector(state => state.assets.harvests) || [];
+  
+  const expenseCategories = useSelector(state => state.settings?.expenseCategories) || ['Equipment Maintenance', 'Fertilizer', 'Fuel', 'Labor', 'Seed'];
+  const incomeCategories = useSelector(state => state.settings?.incomeCategories) || ['Crop Sale', 'Livestock Sale', 'Subsidy'];
 
   const [txData, setTxData] = useState(INIT_TX);
   const [editingId, setEditingId] = useState(null);
@@ -115,9 +118,9 @@ export default function FinanceTab() {
             <label>Category</label>
             <select value={txData.category} onChange={e => setTxData({...txData, category: e.target.value})}>
               {txData.txType === 'Expense' ? (
-                <><option>Equipment Maintenance</option><option>Fertilizer</option><option>Fuel</option><option>Labor</option><option>Seed</option></>
+                expenseCategories.map(c => <option key={c}>{c}</option>)
               ) : (
-                <><option>Crop Sale</option><option>Livestock Sale</option><option>Subsidy</option></>
+                incomeCategories.map(c => <option key={c}>{c}</option>)
               )}
             </select>
           </div>

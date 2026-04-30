@@ -13,6 +13,8 @@ export const settingsSlice = createSlice({
     mapZoom: 13,
     gpsDistanceThreshold: 10,
     jobTitles: ['Foreman', 'Harvester', 'Tractor Operator', 'Security', 'Manager'],
+    expenseCategories: ['Equipment Maintenance', 'Fertilizer', 'Fuel', 'Labor', 'Seed'],
+    incomeCategories: ['Crop Sale', 'Livestock Sale', 'Subsidy'],
   },
   reducers: {
     addUnit: (state, action) => {
@@ -32,6 +34,26 @@ export const settingsSlice = createSlice({
     removeJobTitle: (state, action) => {
       if (!state.jobTitles) state.jobTitles = [];
       state.jobTitles = state.jobTitles.filter(t => t !== action.payload);
+    },
+    addExpenseCategory: (state, action) => {
+      if (!state.expenseCategories) state.expenseCategories = [];
+      if (!state.expenseCategories.includes(action.payload)) {
+        state.expenseCategories.push(action.payload);
+      }
+    },
+    removeExpenseCategory: (state, action) => {
+      if (!state.expenseCategories) state.expenseCategories = [];
+      state.expenseCategories = state.expenseCategories.filter(c => c !== action.payload);
+    },
+    addIncomeCategory: (state, action) => {
+      if (!state.incomeCategories) state.incomeCategories = [];
+      if (!state.incomeCategories.includes(action.payload)) {
+        state.incomeCategories.push(action.payload);
+      }
+    },
+    removeIncomeCategory: (state, action) => {
+      if (!state.incomeCategories) state.incomeCategories = [];
+      state.incomeCategories = state.incomeCategories.filter(c => c !== action.payload);
     },
     addKmlUrl: (state, action) => {
       if (!state.kmlUrls) state.kmlUrls = [];
@@ -67,7 +89,7 @@ export const settingsSlice = createSlice({
   }
 });
 
-export const { addUnit, removeUnit, addJobTitle, removeJobTitle, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold, setAppName, setAllSettings } = settingsSlice.actions;
+export const { addUnit, removeUnit, addJobTitle, removeJobTitle, addExpenseCategory, removeExpenseCategory, addIncomeCategory, removeIncomeCategory, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold, setAppName, setAllSettings } = settingsSlice.actions;
 
 export const saveSettings = () => (dispatch, getState) => {
   const settings = getState().settings;
