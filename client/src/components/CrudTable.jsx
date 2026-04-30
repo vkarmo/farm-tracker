@@ -95,7 +95,17 @@ export default function CrudTable({ data, columns, onEdit, onDelete, itemLabel =
               </tr>
             ) : (
               filteredData.map((row, rowIndex) => (
-                <tr key={row.id || rowIndex} style={{ borderBottom: '1px solid #eee', transition: 'background 0.2s', ...(rowStyle ? rowStyle(row) : {}), ':hover': { background: '#fcfcfc' } }}>
+                <tr 
+                  key={row.id || rowIndex} 
+                  onClick={() => onEdit && onEdit(row)}
+                  style={{ 
+                    borderBottom: '1px solid #eee', 
+                    transition: 'background 0.2s', 
+                    cursor: onEdit ? 'pointer' : 'default',
+                    ...(rowStyle ? rowStyle(row) : {}), 
+                    ':hover': { background: '#fcfcfc' } 
+                  }}
+                >
                   {columns.map((col, colIndex) => (
                     <td key={colIndex} style={{ padding: '12px 15px' }}>
                       {/* Render custom func if passed, otherwise raw key string */}
@@ -115,7 +125,10 @@ export default function CrudTable({ data, columns, onEdit, onDelete, itemLabel =
                         )}
                         {onDelete && (
                           <button 
-                            onClick={() => { if(window.confirm(`Permanently delete this ${itemLabel.toLowerCase()}?`)) onDelete(row.id) }} 
+                            onClick={(e) => { 
+                              e.stopPropagation();
+                              if(window.confirm(`Permanently delete this ${itemLabel.toLowerCase()}?`)) onDelete(row.id);
+                            }} 
                             title="Delete Record"
                             style={{ padding: '6px', background: '#ffebee', color: '#c62828', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
                             <Trash2 size={14} />
@@ -139,7 +152,15 @@ export default function CrudTable({ data, columns, onEdit, onDelete, itemLabel =
           </div>
         ) : (
           filteredData.map((row, rowIndex) => (
-            <div key={row.id || rowIndex} className="mobile-data-card" style={rowStyle ? rowStyle(row) : {}}>
+            <div 
+              key={row.id || rowIndex} 
+              className="mobile-data-card" 
+              onClick={() => onEdit && onEdit(row)}
+              style={{
+                cursor: onEdit ? 'pointer' : 'default',
+                ...(rowStyle ? rowStyle(row) : {})
+              }}
+            >
               {columns.map((col, colIndex) => (
                 <div key={colIndex} className="mobile-data-card-row">
                   <div className="mobile-data-card-label">{col.header}:</div>
@@ -160,7 +181,10 @@ export default function CrudTable({ data, columns, onEdit, onDelete, itemLabel =
                   )}
                   {onDelete && (
                     <button 
-                      onClick={() => { if(window.confirm(`Permanently delete this ${itemLabel.toLowerCase()}?`)) onDelete(row.id) }} 
+                      onClick={(e) => { 
+                        e.stopPropagation();
+                        if(window.confirm(`Permanently delete this ${itemLabel.toLowerCase()}?`)) onDelete(row.id);
+                      }} 
                       style={{ flex: 1, padding: '10px', background: '#ffebee', color: '#c62828', border: 'none', borderRadius: '4px', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', fontSize: '1rem', fontWeight: 600 }}>
                       <Trash2 size={16} /> Delete
                     </button>
