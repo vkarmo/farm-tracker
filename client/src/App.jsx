@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { fetchFields } from './store/fieldsSlice';
-import { addUnit, removeUnit, addJobTitle, removeJobTitle, addExpenseCategory, removeExpenseCategory, addIncomeCategory, removeIncomeCategory, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold, setAppName, saveSettings } from './store/settingsSlice';
+import { addUnit, removeUnit, addJobTitle, removeJobTitle, addExpenseCategory, removeExpenseCategory, addIncomeCategory, removeIncomeCategory, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold, setAppName, addAnimalType, removeAnimalType, saveSettings } from './store/settingsSlice';
 import { addLocation } from './store/gpsSlice';
 import { queueAction, fetchInitialData } from './store/syncSlice';
 import { MapSearchBox, MapFlyTo, CurrentLocationControl } from './components/MapSearchBox';
@@ -22,6 +22,7 @@ import HarvestTab from './components/HarvestTab';
 import LivestockTab from './components/LivestockTab';
 import KitsTab from './components/KitsTab';
 import BreedingTab from './components/BreedingTab';
+import LivestockDiseaseTab from './components/LivestockDiseaseTab';
 import PestTab from './components/PestTab';
 import FinanceTab from './components/FinanceTab';
 import BudgetTab from './components/BudgetTab';
@@ -45,7 +46,7 @@ import { logAction } from './store/auditSlice';
 const MODULES = {
   overview: ['dashboard', 'map'],
   agronomy: ['field', 'nursery', 'crop', 'harvest', 'pest'],
-  livestock: ['livestock', 'breeding', 'kits'],
+  livestock: ['livestock', 'breeding', 'kits', 'livestockDiseases'],
   finance: ['finance', 'budget'],
   operations: ['employee', 'assignment', 'planning', 'equipment', 'deadline', 'incident'],
   admin: ['admin', 'access', 'audit', 'gps', 'settings']
@@ -61,6 +62,7 @@ export default function App() {
   const equipment = useSelector(state => state.assets?.equipment) || [];
   const units = useSelector(state => state.settings?.units) || ['lbs'];
   const jobTitles = useSelector(state => state.settings?.jobTitles) || [];
+  const animalTypes = useSelector(state => state.settings?.animalTypes) || [];
   const expenseCategories = useSelector(state => state.settings?.expenseCategories) || ['Equipment Maintenance', 'Fertilizer', 'Fuel', 'Labor', 'Seed'];
   const incomeCategories = useSelector(state => state.settings?.incomeCategories) || ['Crop Sale', 'Livestock Sale', 'Subsidy'];
   const kmlUrls = useSelector(state => state.settings?.kmlUrls) || [];
@@ -83,6 +85,7 @@ export default function App() {
   const [isUpdating, setIsUpdating] = useState(false);
   const [newUnit, setNewUnit] = useState('');
   const [newJobTitle, setNewJobTitle] = useState('');
+  const [newAnimalType, setNewAnimalType] = useState('');
   const [newExpenseCategory, setNewExpenseCategory] = useState('');
   const [newIncomeCategory, setNewIncomeCategory] = useState('');
   const [newKml, setNewKml] = useState('');
@@ -268,6 +271,15 @@ export default function App() {
     }
   };
 
+  const handleAddAnimalType = (e) => {
+    e.preventDefault();
+    if (newAnimalType.trim()) {
+      dispatch(addAnimalType(newAnimalType.trim()));
+      dispatch(saveSettings());
+      setNewAnimalType('');
+    }
+  };
+
   const handleAddExpenseCategory = (e) => {
     e.preventDefault();
     if (newExpenseCategory.trim()) {
@@ -443,6 +455,7 @@ export default function App() {
             {hasAccess('livestock') && <button onClick={() => setActiveTab('livestock')} className={`btn ${activeTab === 'livestock' ? 'tab-btn-active' : ''}`}><Rabbit size={16} style={{ marginRight: 6 }} /> Livestock</button>}
             {hasAccess('breeding') && <button onClick={() => setActiveTab('breeding')} className={`btn ${activeTab === 'breeding' ? 'tab-btn-active' : ''}`}><Baby size={16} style={{ marginRight: 6 }} /> Breeding</button>}
             {hasAccess('kits') && <button onClick={() => setActiveTab('kits')} className={`btn ${activeTab === 'kits' ? 'tab-btn-active' : ''}`}><Layers size={16} style={{ marginRight: 6 }} /> Kits</button>}
+            {hasAccess('livestockDiseases') && <button onClick={() => setActiveTab('livestockDiseases')} className={`btn ${activeTab === 'livestockDiseases' ? 'tab-btn-active' : ''}`}><AlertTriangle size={16} style={{ marginRight: 6 }} /> Diseases</button>}
           </>
         )}
         {activeModule === 'finance' && (
@@ -504,6 +517,7 @@ export default function App() {
         {activeTab === 'livestock' && <LivestockTab />}
         {activeTab === 'kits' && <KitsTab />}
         {activeTab === 'breeding' && <BreedingTab />}
+        {activeTab === 'livestockDiseases' && <LivestockDiseaseTab />}
         {activeTab === 'employee' && <EmployeeTab />}
         {activeTab === 'equipment' && <EquipmentTab />}
         {activeTab === 'assignment' && <AssignmentTab />}
@@ -576,6 +590,21 @@ export default function App() {
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', background: '#f5f7fa', padding: '10px', borderRadius: '4px', border: '1px solid var(--color-border)' }}>
                 <input type="text" value={newJobTitle} onChange={e => setNewJobTitle(e.target.value)} placeholder="e.g. Foreman, Agronomist" style={{ flex: 1, minWidth: '200px', padding: '8px' }} onKeyDown={e => { if(e.key === 'Enter') handleAddJobTitle(e) }} />
                 <button onClick={handleAddJobTitle} className="btn btn-primary" style={{ whiteSpace: 'nowrap' }}>Add Job Title</button>
+              </div>
+            </div>
+            <hr style={{ border: 'none', borderTop: '1px solid var(--color-border)', margin: '20px 0' }} />
+            <div style={{ marginBottom: 20 }}>
+              <h3>Livestock Animal Types</h3>
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: 16 }}>
+                {animalTypes.map(t => (
+                  <span key={t} className="status-indicator" style={{ background: '#f3e5f5', color: '#6a1b9a' }}>
+                    {t} <button onClick={() => { dispatch(removeAnimalType(t)); dispatch(saveSettings()); }} style={{ border: 'none', background: 'transparent', cursor: 'pointer', marginLeft: 4, color: '#6a1b9a' }}>x</button>
+                  </span>
+                ))}
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', background: '#f5f7fa', padding: '10px', borderRadius: '4px', border: '1px solid var(--color-border)' }}>
+                <input type="text" value={newAnimalType} onChange={e => setNewAnimalType(e.target.value)} placeholder="e.g. Cattle, Poultry" style={{ flex: 1, minWidth: '200px', padding: '8px' }} onKeyDown={e => { if(e.key === 'Enter') handleAddAnimalType(e) }} />
+                <button onClick={handleAddAnimalType} className="btn btn-primary" style={{ whiteSpace: 'nowrap' }}>Add Animal Type</button>
               </div>
             </div>
             <hr style={{ border: 'none', borderTop: '1px solid var(--color-border)', margin: '20px 0' }} />

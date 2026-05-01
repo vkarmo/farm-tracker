@@ -132,7 +132,8 @@ app.get('/api/all-data', async (req, res) => {
        pests: 'MATCH (n:Pest) RETURN n',
        soilTests: 'MATCH (n:SoilTest) RETURN n',
        goals: 'MATCH (n:Goal) RETURN n',
-       objectives: 'MATCH (n:Objective) RETURN n'
+       objectives: 'MATCH (n:Objective) RETURN n',
+       livestockDiseases: 'MATCH (n:LivestockDisease) RETURN n'
     };
 
     const data = {};
@@ -162,8 +163,11 @@ app.get('/api/all-data', async (req, res) => {
            if (props.workerIds) {
                try { props.workerIds = JSON.parse(props.workerIds); } catch(e){}
            }
+           if (props.animalTypes) {
+               try { props.animalTypes = JSON.parse(props.animalTypes); } catch(e){}
+           }
            if (key === 'settings') {
-               ['units', 'jobTitles', 'kmlUrls', 'mapCenter', 'expenseCategories', 'incomeCategories'].forEach(field => {
+               ['units', 'jobTitles', 'kmlUrls', 'mapCenter', 'expenseCategories', 'incomeCategories', 'animalTypes'].forEach(field => {
                    if (props[field] && typeof props[field] === 'string') {
                        try { props[field] = JSON.parse(props[field]); } catch(e) {}
                    }
@@ -527,6 +531,15 @@ app.post('/api/sync', async (req, res) => {
           MERGE (g)-[:HAS_OBJECTIVE]->(o)
           RETURN o
         `, { id, goalId, title, fromDate, toDate, workerIds: workerIds ? JSON.stringify(workerIds) : '[]' });
+        results.push({ actionId: action.meta?.id, status: 'success' });
+      }
+      else if (action.type === 'livestockDiseases/saveDisease') {
+        const { id, name, description, treatment, animalTypes } = action.payload;
+        await session.run(`
+          MERGE (d:LivestockDisease {id: $id})
+          SET d.name = $name, d.description = $description, d.treatment = $treatment, d.animalTypes = $animalTypes
+          RETURN d
+        `, { id, name, description, treatment, animalTypes: animalTypes ? JSON.stringify(animalTypes) : '[]' });
         results.push({ actionId: action.meta?.id, status: 'success' });
       }
       else {
