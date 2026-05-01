@@ -97,13 +97,13 @@ export default function CrudTable({ data, columns, onEdit, onDelete, itemLabel =
               filteredData.map((row, rowIndex) => (
                 <tr 
                   key={row.id || rowIndex} 
+                  className={onEdit ? 'crud-table-row clickable' : 'crud-table-row'}
                   onClick={() => onEdit && onEdit(row)}
                   style={{ 
                     borderBottom: '1px solid #eee', 
-                    transition: 'background 0.2s', 
+                    transition: 'all 0.2s ease', 
                     cursor: onEdit ? 'pointer' : 'default',
-                    ...(rowStyle ? rowStyle(row) : {}), 
-                    ':hover': { background: '#fcfcfc' } 
+                    ...(rowStyle ? rowStyle(row) : {})
                   }}
                 >
                   {columns.map((col, colIndex) => (
@@ -154,9 +154,10 @@ export default function CrudTable({ data, columns, onEdit, onDelete, itemLabel =
           filteredData.map((row, rowIndex) => (
             <div 
               key={row.id || rowIndex} 
-              className="mobile-data-card" 
+              className={`mobile-data-card ${onEdit ? 'clickable' : ''}`} 
               onClick={() => onEdit && onEdit(row)}
               style={{
+                transition: 'all 0.2s ease',
                 cursor: onEdit ? 'pointer' : 'default',
                 ...(rowStyle ? rowStyle(row) : {})
               }}

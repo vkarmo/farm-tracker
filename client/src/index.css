@@ -185,6 +185,10 @@ textarea:focus {
   display: block;
 }
 
+.crud-table-row.clickable:hover {
+  background-color: rgba(46, 125, 50, 0.08) !important;
+}
+
 /* Responsive Grid Engine */
 .form-grid {
   display: grid;
@@ -271,6 +275,11 @@ textarea:focus {
     border-radius: var(--radius-md);
     padding: 16px;
     box-shadow: var(--shadow-sm);
+  }
+
+  .mobile-data-card.clickable:hover {
+    background-color: rgba(46, 125, 50, 0.08) !important;
+    border-color: var(--color-primary-light);
   }
 
   .mobile-data-card-row {
