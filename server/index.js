@@ -186,6 +186,9 @@ app.get('/api/all-data', async (req, res) => {
            if (props.workerIds) {
                try { props.workerIds = JSON.parse(props.workerIds); } catch(e){}
            }
+           if (props.workerCount !== undefined && typeof props.workerCount === 'object' && props.workerCount.low !== undefined) {
+               props.workerCount = props.workerCount.low;
+           }
            if (props.animalTypes) {
                try { props.animalTypes = JSON.parse(props.animalTypes); } catch(e){}
            }

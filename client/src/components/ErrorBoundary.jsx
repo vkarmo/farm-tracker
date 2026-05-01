@@ -3,28 +3,27 @@ import React from 'react';
 export default class ErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
-    this.state = { hasError: false, error: null };
+    this.state = { hasError: false, error: null, errorInfo: null };
   }
 
   static getDerivedStateFromError(error) {
     return { hasError: true, error };
   }
 
-  componentDidCatch(error, info) {
-    console.error('[ErrorBoundary]', error, info);
+  componentDidCatch(error, errorInfo) {
+    console.error("ErrorBoundary caught an error", error, errorInfo);
+    this.setState({ errorInfo });
   }
-
-  handleReset = () => {
-    this.setState({ hasError: false, error: null });
-  };
 
   render() {
     if (this.state.hasError) {
       return (
-        <div className="card" style={{ padding: 16, margin: 16, border: '1px solid #e57373', background: '#fff5f5' }}>
-          <h3 style={{ marginTop: 0, color: '#c62828' }}>Something went wrong in this section</h3>
-          <p style={{ color: '#555' }}>{this.state.error?.message || 'An unexpected error occurred.'}</p>
-          <button className="btn btn-primary" onClick={this.handleReset}>Try again</button>
+        <div className="card" style={{ padding: '20px', border: '2px solid red' }}>
+          <h2 style={{ color: 'red' }}>Something went wrong loading this tab.</h2>
+          <details style={{ whiteSpace: 'pre-wrap', fontFamily: 'monospace', background: '#f5f5f5', padding: '10px' }}>
+            <summary style={{ cursor: 'pointer', fontWeight: 'bold' }}>{this.state.error?.toString()}</summary>
+            {this.state.errorInfo?.componentStack}
+          </details>
         </div>
       );
     }
