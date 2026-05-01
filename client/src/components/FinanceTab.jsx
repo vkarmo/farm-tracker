@@ -6,7 +6,7 @@ import { DollarSign, X } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, PieChart, Pie, Cell } from 'recharts';
 import CrudTable from './CrudTable';
 
-const INIT_TX = { assetId: '', txType: 'Expense', category: 'Fertilizer', amount: '', vendor: '', notes: '' };
+const INIT_TX = { assetId: '', txType: 'Expense', category: 'Fertilizer', amount: '', vendor: '', notes: '', date: new Date().toISOString().split('T')[0] };
 
 export default function FinanceTab() {
   const dispatch = useDispatch();
@@ -22,6 +22,7 @@ export default function FinanceTab() {
 
   const [txData, setTxData] = useState(INIT_TX);
   const [editingId, setEditingId] = useState(null);
+  const [activeView, setActiveView] = useState('transactions');
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -33,7 +34,7 @@ export default function FinanceTab() {
       dispatch(addTransaction(updatedTx));
       dispatch(queueAction({ type: 'core/updateNode', payload: { id: editingId, properties: updatedTx }, meta: { id: Date.now() } }));
     } else {
-      const newTx = { id: `t_${Date.now()}`, ...txData, date: new Date().toISOString().split('T')[0] };
+      const newTx = { id: `t_${Date.now()}`, ...txData };
       dispatch(addTransaction(newTx));
       dispatch(queueAction({ type: 'financials/addTransaction', payload: newTx, meta: { id: Date.now() } }));
     }
@@ -78,7 +79,7 @@ export default function FinanceTab() {
   return (
     <div className="card">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h2>{editingId ? 'Edit Ledger Record' : 'Log Offline Transaction'}</h2>
+        <h2>{editingId ? 'Edit Ledger Record' : 'Update Ledger'}</h2>
         {editingId && (
           <button onClick={() => { setEditingId(null); setTxData(INIT_TX); }} className="btn" style={{ background: '#f5f5f5', color: '#333' }}>
             <X size={14} style={{ marginRight: 4 }} /> Cancel Edit
@@ -106,6 +107,10 @@ export default function FinanceTab() {
               </optgroup>
             </select>
             </div>
+          </div>
+          <div className="form-group">
+            <label>Transaction Date</label>
+            <input type="date" value={txData.date} onChange={e => setTxData({...txData, date: e.target.value})} />
           </div>
           <div className="form-group">
             <label>Transaction Type</label>
@@ -145,7 +150,12 @@ export default function FinanceTab() {
 
       <hr style={{border: 'none', borderTop: '1px solid var(--color-border)', margin: '30px 0'}} />
 
-      {transactions.length > 0 && (
+      <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', justifyContent: 'center' }}>
+        <button onClick={() => setActiveView('transactions')} className={`btn ${activeView === 'transactions' ? 'btn-primary' : ''}`} style={{ borderRadius: '20px', padding: '8px 20px', background: activeView === 'transactions' ? '#2e7d32' : '#f0f0f0', color: activeView === 'transactions' ? 'white' : '#333', border: 'none' }}>Active Transactions</button>
+        <button onClick={() => setActiveView('analytics')} className={`btn ${activeView === 'analytics' ? 'btn-primary' : ''}`} style={{ borderRadius: '20px', padding: '8px 20px', background: activeView === 'analytics' ? '#2e7d32' : '#f0f0f0', color: activeView === 'analytics' ? 'white' : '#333', border: 'none' }}>Financial Analytics</button>
+      </div>
+
+      {activeView === 'analytics' && transactions.length > 0 && (
         <div style={{ marginBottom: '30px' }}>
           <h3 style={{ marginBottom: '15px', color: '#444' }}>Financial Analytics</h3>
           <div className="form-grid">
@@ -185,17 +195,19 @@ export default function FinanceTab() {
         </div>
       )}
 
-      <CrudTable 
-        data={transactions} 
-        columns={columns} 
-        onEdit={(row) => { setTxData(row); setEditingId(row.id); }} 
-        onDelete={(id) => {
-          dispatch(deleteTransaction(id));
-          dispatch(queueAction({ type: 'core/deleteNode', payload: { id }, meta: { id: Date.now() } }));
-        }} 
-        itemLabel="Transaction" 
-        defaultSort={{ key: 'date', direction: 'desc' }}
-      />
+      {activeView === 'transactions' && (
+        <CrudTable 
+          data={transactions} 
+          columns={columns} 
+          onEdit={(row) => { setTxData(row); setEditingId(row.id); }} 
+          onDelete={(id) => {
+            dispatch(deleteTransaction(id));
+            dispatch(queueAction({ type: 'core/deleteNode', payload: { id }, meta: { id: Date.now() } }));
+          }} 
+          itemLabel="Transaction" 
+          defaultSort={{ key: 'date', direction: 'desc' }}
+        />
+      )}
     </div>
   );
 }

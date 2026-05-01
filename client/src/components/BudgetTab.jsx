@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { queueAction } from '../store/syncSlice';
 import { addBudget, deleteBudget, addBudgetItem, deleteBudgetItem } from '../store/budgetSlice';
@@ -24,6 +24,17 @@ export default function BudgetTab() {
   const [budgetToDate, setBudgetToDate] = useState('');
 
   const activeBudget = budgets.find(b => b.id === activeBudgetId);
+
+  useEffect(() => {
+    fetch('https://api.exchangerate-api.com/v4/latest/USD')
+      .then(res => res.json())
+      .then(data => {
+        if (data && data.rates && data.rates.LRD) {
+          setBudgetForm(prev => ({ ...prev, exchangeRate: data.rates.LRD.toFixed(2) }));
+        }
+      })
+      .catch(err => console.warn('Could not fetch live exchange rate, falling back to default 150.', err));
+  }, []);
 
   const handleCreateBudget = (e) => {
     e.preventDefault();
