@@ -32,6 +32,26 @@ const driver = neo4j.driver(
   neo4j.auth.basic(neo4jUser, neo4jPassword)
 );
 
+// Monkey-patch session.run to automatically sanitize 'undefined' values to 'null'
+// This prevents the Neo4j driver from throwing "Expected parameter(s)" errors when
+// optional properties are missing from the frontend synchronization payload.
+const originalSession = driver.session.bind(driver);
+driver.session = function(config) {
+  const session = originalSession(config);
+  const originalRun = session.run.bind(session);
+  session.run = function(query, parameters, runConfig) {
+    if (parameters) {
+      const sanitized = {};
+      for (const [k, v] of Object.entries(parameters)) {
+        sanitized[k] = v === undefined ? null : v;
+      }
+      return originalRun(query, sanitized, runConfig);
+    }
+    return originalRun(query, parameters, runConfig);
+  };
+  return session;
+};
+
 driver.verifyConnectivity()
   .then(() => {
     console.info(`[Neo4j Database] Attempting connection to ${neo4jUri} with username: ${neo4jUser} and password: ${neo4jPassword}`);
