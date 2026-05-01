@@ -1,104 +1,165 @@
 import React, { useState } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { saveKit, removeKit } from '../store/breedingSlice';
+import { useSelector, useDispatch } from 'react-redux';
+import { queueAction } from '../store/syncSlice';
+import { addLivestock, updateKit, deleteKit } from '../store/assetsSlice';
+import { Layers, ArrowUpCircle, X, Check } from 'lucide-react';
+import CrudTable from './CrudTable';
 
 export default function KitsTab() {
   const dispatch = useDispatch();
-  const kits = useSelector(state => state.breeding?.kits) || [];
-  const pairings = useSelector(state => state.breeding?.pairings) || [];
+  const fields = useSelector(state => state.fields?.data) || [];
+  const livestock = useSelector(state => state.assets?.livestock) || [];
+  const kits = useSelector(state => state.assets?.kits) || [];
 
   const [editingId, setEditingId] = useState(null);
-  const [pairingId, setPairingId] = useState('');
-  const [birthDate, setBirthDate] = useState('');
-  const [count, setCount] = useState('');
-  const [survivors, setSurvivors] = useState('');
-  const [weaningDate, setWeaningDate] = useState('');
-  const [notes, setNotes] = useState('');
+  const [editForm, setEditForm] = useState({ numberOfKits: '', healthStatus: '', notes: '' });
 
-  const reset = () => {
-    setEditingId(null);
-    setPairingId(''); setBirthDate(''); setCount(''); setSurvivors(''); setWeaningDate(''); setNotes('');
-  };
+  const handleUpdateKit = (e) => {
+    e.preventDefault();
+    if (!editingId) return;
 
-  const handleSave = () => {
-    if (!pairingId || !birthDate || !count) {
-      alert('Pairing, Birth Date, and Count are required');
-      return;
-    }
-    const data = {
-      id: editingId || `kit-${Date.now()}`,
-      pairingId, birthDate,
-      count: parseInt(count, 10) || 0,
-      survivors: parseInt(survivors, 10) || 0,
-      weaningDate, notes
+    const originalKit = kits.find(k => k.id === editingId);
+    if (!originalKit) return;
+
+    const updatedKit = {
+      ...originalKit,
+      numberOfKits: parseInt(editForm.numberOfKits, 10),
+      healthStatus: editForm.healthStatus,
+      notes: editForm.notes
     };
-    dispatch(saveKit(data));
-    reset();
+
+    dispatch(updateKit(updatedKit));
+    dispatch(queueAction({ type: 'core/updateNode', payload: { id: editingId, properties: updatedKit }, meta: { id: Date.now() } }));
+
+    setEditingId(null);
+    setEditForm({ numberOfKits: '', healthStatus: '', notes: '' });
   };
 
-  const handleEdit = (k) => {
-    setEditingId(k.id);
-    setPairingId(k.pairingId || ''); setBirthDate(k.birthDate || '');
-    setCount(String(k.count ?? '')); setSurvivors(String(k.survivors ?? ''));
-    setWeaningDate(k.weaningDate || ''); setNotes(k.notes || '');
+  const handlePromoteKit = (kit) => {
+    if (window.confirm(`Promote all ${kit.numberOfKits} remaining kits in this litter to individual Livestock profiles? This will archive the Kit record.`)) {
+      for (let i = 0; i < kit.numberOfKits; i++) {
+        const mother = livestock.find(l => l.id === kit.motherId);
+        const motherTag = mother ? mother.tagNumber : 'Unknown Mother';
+        
+        const newAnimal = {
+          id: `l_promoted_${Date.now()}_${i}`,
+          fieldId: kit.fieldId,
+          type: kit.type,
+          breed: kit.breed,
+          birthDate: kit.birthDate,
+          tagNumber: `Pending Tag (from ${motherTag}) - ${i+1}`,
+          healthStatus: kit.healthStatus,
+          causeOfDeath: '',
+          medicalRecords: []
+        };
+        
+        dispatch(addLivestock(newAnimal));
+        dispatch(queueAction({ type: 'assets/addLivestock', payload: newAnimal, meta: { id: Date.now() + i } }));
+      }
+      
+      // Delete the Kit record
+      dispatch(deleteKit(kit.id));
+      dispatch(queueAction({ type: 'core/deleteNode', payload: { id: kit.id }, meta: { id: Date.now() + 100 } }));
+
+      alert(`Successfully promoted ${kit.numberOfKits} animals! Visit the Livestock tab to assign permanent Tag numbers.`);
+    }
   };
 
-  const handleDelete = (id) => {
-    if (confirm('Delete this kit record?')) dispatch(removeKit(id));
-  };
+  const columns = [
+    { key: 'birthDate', header: 'Birth Date' },
+    { 
+      key: 'motherId', 
+      header: 'Mother (Tag)',
+      render: (r) => livestock.find(l => l.id === r.motherId)?.tagNumber || 'Unknown'
+    },
+    { key: 'type', header: 'Species / Breed', render: (r) => `${r.type} (${r.breed})` },
+    { key: 'numberOfKits', header: 'Surviving Count', render: (r) => <strong style={{fontSize: '1.1rem'}}>{r.numberOfKits}</strong> },
+    { 
+      key: 'healthStatus', 
+      header: 'Status',
+      render: (r) => {
+        if (r.healthStatus === 'Healthy') return <span style={{ color: '#2e7d32', fontWeight: 500 }}>{r.healthStatus}</span>;
+        if (r.healthStatus === 'Needs Vet') return <span style={{ color: '#c62828', fontWeight: 500 }}>{r.healthStatus}</span>;
+        return <span style={{ color: '#ef6c00', fontWeight: 500 }}>{r.healthStatus}</span>;
+      }
+    },
+    {
+      key: 'actions',
+      header: 'Promote',
+      render: (r) => (
+        <button 
+          onClick={(e) => { e.stopPropagation(); handlePromoteKit(r); }}
+          className="btn" 
+          style={{ padding: '6px 12px', background: '#e3f2fd', color: '#1565c0', border: '1px solid #bbdefb', fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: '4px' }}
+        >
+          <ArrowUpCircle size={14} /> Promote
+        </button>
+      )
+    }
+  ];
 
   return (
-    <div>
-      <h2>Kit Records</h2>
+    <div className="card">
+      <h2>Livestock Kits & Litters</h2>
+      <p style={{ color: '#666', marginBottom: '20px' }}>
+        Track newborn litters as a group before they mature enough to be individually tagged.
+      </p>
 
-      <div className="card" style={{ padding: 16, marginBottom: 16 }}>
-        <h3>{editingId ? 'Edit Kit Record' : 'New Kit Record'}</h3>
-        <div style={{ display: 'grid', gap: 8, gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
-          <select value={pairingId} onChange={e => setPairingId(e.target.value)}>
-            <option value="">Select Pairing</option>
-            {pairings.map(p => (
-              <option key={p.id} value={p.id}>
-                {p.doeId} × {p.buckId} ({p.pairedDate})
-              </option>
-            ))}
-          </select>
-          <input type="date" value={birthDate} onChange={e => setBirthDate(e.target.value)} placeholder="Birth Date" />
-          <input type="number" value={count} onChange={e => setCount(e.target.value)} placeholder="Total Born" />
-          <input type="number" value={survivors} onChange={e => setSurvivors(e.target.value)} placeholder="Survivors" />
-          <input type="date" value={weaningDate} onChange={e => setWeaningDate(e.target.value)} placeholder="Weaning Date" />
-          <input value={notes} onChange={e => setNotes(e.target.value)} placeholder="Notes" />
-        </div>
-        <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
-          <button className="btn btn-primary" onClick={handleSave}>{editingId ? 'Update' : 'Add'} Kit</button>
-          {editingId && <button className="btn" onClick={reset}>Cancel</button>}
-        </div>
-      </div>
+      {editingId && (
+        <div style={{ background: '#fff3e0', padding: '15px', borderRadius: '8px', border: '1px solid #ffe0b2', marginBottom: '25px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+            <h3 style={{ margin: 0, color: '#e65100' }}>Update Kit Status</h3>
+            <button onClick={() => setEditingId(null)} className="btn" style={{ background: 'transparent', color: '#333', padding: '4px' }}>
+              <X size={16} />
+            </button>
+          </div>
+          
+          <form onSubmit={handleUpdateKit} className="form-grid">
+            <div className="form-group">
+              <label>Surviving Count</label>
+              <input type="number" min="0" value={editForm.numberOfKits} onChange={e => setEditForm({...editForm, numberOfKits: e.target.value})} />
+              <span style={{ fontSize: '0.8rem', color: '#666' }}>Reduce this number if a kit is lost.</span>
+            </div>
+            
+            <div className="form-group">
+              <label>Overall Health Status</label>
+              <select value={editForm.healthStatus} onChange={e => setEditForm({...editForm, healthStatus: e.target.value})}>
+                <option value="Healthy">Healthy</option>
+                <option value="Under Observation">Under Observation</option>
+                <option value="Needs Vet">Needs Vet</option>
+              </select>
+            </div>
 
-      <table className="table">
-        <thead>
-          <tr><th>Pairing</th><th>Birth Date</th><th>Born</th><th>Survivors</th><th>Weaning</th><th>Notes</th><th>Actions</th></tr>
-        </thead>
-        <tbody>
-          {kits.length === 0 && <tr><td colSpan="7" style={{ textAlign: 'center', padding: 16 }}>No kit records yet</td></tr>}
-          {kits.map(k => {
-            const pair = pairings.find(p => p.id === k.pairingId);
-            return (
-              <tr key={k.id}>
-                <td>{pair ? `${pair.doeId} × ${pair.buckId}` : k.pairingId}</td>
-                <td>{k.birthDate}</td>
-                <td>{k.count}</td>
-                <td>{k.survivors}</td>
-                <td>{k.weaningDate || '-'}</td>
-                <td>{k.notes || '-'}</td>
-                <td>
-                  <button className="btn" onClick={() => handleEdit(k)}>Edit</button>
-                  <button className="btn" onClick={() => handleDelete(k.id)} style={{ marginLeft: 4 }}>Delete</button>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+            <div className="form-group form-grid-full">
+              <label>Notes</label>
+              <textarea rows="2" value={editForm.notes} onChange={e => setEditForm({...editForm, notes: e.target.value})} placeholder="Log deaths, treatments, or observations..."></textarea>
+            </div>
+
+            <div className="form-group form-grid-full">
+              <button type="submit" className="btn btn-primary" style={{ background: '#ef6c00' }}>
+                <Check size={16} style={{ marginRight: '6px' }} /> Save Updates
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      <CrudTable 
+        data={kits} 
+        columns={columns} 
+        onEdit={(row) => { 
+          setEditingId(row.id); 
+          setEditForm({ numberOfKits: row.numberOfKits, healthStatus: row.healthStatus, notes: row.notes || '' });
+        }} 
+        onDelete={(id) => {
+          if (window.confirm("Permanently delete this kit record?")) {
+            dispatch(deleteKit(id));
+            dispatch(queueAction({ type: 'core/deleteNode', payload: { id }, meta: { id: Date.now() } }));
+          }
+        }} 
+        itemLabel="Kit" 
+        defaultSort={{ key: 'birthDate', direction: 'desc' }}
+      />
     </div>
   );
 }
