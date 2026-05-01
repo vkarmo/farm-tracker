@@ -221,23 +221,23 @@ export default function DashboardTab() {
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
 
       {/* 1. Global Metric Cards */}
-      <div style={{ width: '75%', margin: '0 auto' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px' }}>
-          <div style={{ background: 'white', borderRadius: '12px', padding: '20px', border: '1px solid #efefef', display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <div style={{ padding: 12, borderRadius: '50%', background: netGross >= 0 ? '#2e7d32' : '#d32f2f', color: 'white' }}><DollarSign /></div>
-            <div><div style={{ fontSize: '0.85rem', color: '#666' }}>NET BALANCE</div><div style={{ fontSize: '1.5rem', fontWeight: 700 }}>${netGross.toFixed(2)}</div></div>
+      <div style={{ width: '100%' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px' }}>
+          <div style={{ background: 'white', borderRadius: '12px', padding: '12px', border: '1px solid #efefef', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ padding: 10, borderRadius: '50%', background: netGross >= 0 ? '#2e7d32' : '#d32f2f', color: 'white', display: 'flex' }}><DollarSign size={20} /></div>
+            <div><div style={{ fontSize: '0.75rem', color: '#666', whiteSpace: 'nowrap' }}>NET BALANCE</div><div style={{ fontSize: '1.25rem', fontWeight: 700 }}>${netGross.toFixed(2)}</div></div>
           </div>
-          <div style={{ background: 'white', borderRadius: '12px', padding: '20px', border: '1px solid #efefef', display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <div style={{ padding: 12, borderRadius: '50%', background: '#1565c0', color: 'white' }}><Layers /></div>
-            <div><div style={{ fontSize: '0.85rem', color: '#666' }}>ACREAGE</div><div style={{ fontSize: '1.5rem', fontWeight: 700 }}>{totalAcres.toFixed(1)} ac</div></div>
+          <div style={{ background: 'white', borderRadius: '12px', padding: '12px', border: '1px solid #efefef', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ padding: 10, borderRadius: '50%', background: '#1565c0', color: 'white', display: 'flex' }}><Layers size={20} /></div>
+            <div><div style={{ fontSize: '0.75rem', color: '#666' }}>ACREAGE</div><div style={{ fontSize: '1.25rem', fontWeight: 700 }}>{totalAcres.toFixed(1)} ac</div></div>
           </div>
-          <div style={{ background: 'white', borderRadius: '12px', padding: '20px', border: '1px solid #efefef', display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <div style={{ padding: 12, borderRadius: '50%', background: '#f57c00', color: 'white' }}><Rabbit /></div>
-            <div><div style={{ fontSize: '0.85rem', color: '#666' }}>LIVESTOCK</div><div style={{ fontSize: '1.5rem', fontWeight: 700 }}>{activeLivestock.length}</div></div>
+          <div style={{ background: 'white', borderRadius: '12px', padding: '12px', border: '1px solid #efefef', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ padding: 10, borderRadius: '50%', background: '#f57c00', color: 'white', display: 'flex' }}><Rabbit size={20} /></div>
+            <div><div style={{ fontSize: '0.75rem', color: '#666' }}>LIVESTOCK</div><div style={{ fontSize: '1.25rem', fontWeight: 700 }}>{activeLivestock.length}</div></div>
           </div>
-          <div style={{ background: 'white', borderRadius: '12px', padding: '20px', border: '1px solid #efefef', display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <div style={{ padding: 12, borderRadius: '50%', background: '#6a1b9a', color: 'white' }}><TrendingUp /></div>
-            <div><div style={{ fontSize: '0.85rem', color: '#666' }}>CROPS</div><div style={{ fontSize: '1.5rem', fontWeight: 700 }}>{activeCrops.length}</div></div>
+          <div style={{ background: 'white', borderRadius: '12px', padding: '12px', border: '1px solid #efefef', display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <div style={{ padding: 10, borderRadius: '50%', background: '#6a1b9a', color: 'white', display: 'flex' }}><TrendingUp size={20} /></div>
+            <div><div style={{ fontSize: '0.75rem', color: '#666' }}>CROPS</div><div style={{ fontSize: '1.25rem', fontWeight: 700 }}>{activeCrops.length}</div></div>
           </div>
         </div>
       </div>
