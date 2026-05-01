@@ -3,15 +3,17 @@ import { useSelector, useDispatch } from 'react-redux';
 import { queueAction } from '../store/syncSlice';
 import { addCrop, deleteCrop } from '../store/assetsSlice';
 import { Leaf, X } from 'lucide-react';
+import Select from 'react-select';
 import CrudTable from './CrudTable';
 
-const INIT_CROP = { sowType: 'Direct', fieldId: '', name: '', variety: '', plantingDate: '', expectedHarvest: '', seedingRate: '', targetYield: '' };
+const INIT_CROP = { sowType: 'Direct', fieldId: '', name: '', variety: '', plantingDate: '', expectedHarvest: '', seedingRate: '', targetYield: '', phHi: '', phLo: '', pestIds: [] };
 
 export default function CropTab() {
   const dispatch = useDispatch();
   const fields = useSelector(state => state.fields.data) || [];
   const nurseries = useSelector(state => state.nurseries?.beds) || [];
   const crops = useSelector(state => state.assets.crops) || [];
+  const pestsList = useSelector(state => state.pests?.list) || [];
 
   const [cropData, setCropData] = useState(INIT_CROP);
   const [editingId, setEditingId] = useState(null);
@@ -54,6 +56,11 @@ export default function CropTab() {
     },
     { key: 'expectedHarvest', header: 'Est. Harvest' }
   ];
+
+  const pestOptions = pestsList.map(p => ({
+    value: p.id,
+    label: `${p.name} (${p.type})`
+  }));
 
   return (
     <div className="card">
@@ -115,6 +122,24 @@ export default function CropTab() {
           <div className="form-group">
             <label>Target Yield Output</label>
             <input type="text" value={cropData.targetYield} onChange={e => setCropData({ ...cropData, targetYield: e.target.value })} placeholder="e.g. 200 bu" />
+          </div>
+          <div className="form-group">
+            <label>Optimum pH Low (PhLo)</label>
+            <input type="number" step="0.1" value={cropData.phLo} onChange={e => setCropData({ ...cropData, phLo: e.target.value })} placeholder="e.g. 5.5" />
+          </div>
+          <div className="form-group">
+            <label>Optimum pH High (PhHi)</label>
+            <input type="number" step="0.1" value={cropData.phHi} onChange={e => setCropData({ ...cropData, phHi: e.target.value })} placeholder="e.g. 6.8" />
+          </div>
+          <div className="form-group form-grid-full">
+            <label>Susceptible Pests & Diseases</label>
+            <Select
+              isMulti
+              options={pestOptions}
+              value={pestOptions.filter(opt => (cropData.pestIds || []).includes(opt.value))}
+              onChange={(opts) => setCropData({ ...cropData, pestIds: opts ? opts.map(o => o.value) : [] })}
+              placeholder="Search and attach pests..."
+            />
           </div>
         </div>
         <button type="submit" className="btn btn-primary" style={{ marginTop: 10 }}>

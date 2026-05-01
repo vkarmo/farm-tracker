@@ -128,7 +128,11 @@ app.get('/api/all-data', async (req, res) => {
        harvests: 'MATCH (n:Harvest) RETURN n',
        kits: 'MATCH (n:LivestockKit) RETURN n',
        breeding: 'MATCH (n:BreedingEvent) RETURN n',
-       settings: "MATCH (n:GlobalSettings {id: 'default'}) RETURN n"
+       settings: "MATCH (n:GlobalSettings {id: 'default'}) RETURN n",
+       pests: 'MATCH (n:Pest) RETURN n',
+       soilTests: 'MATCH (n:SoilTest) RETURN n',
+       goals: 'MATCH (n:Goal) RETURN n',
+       objectives: 'MATCH (n:Objective) RETURN n'
     };
 
     const data = {};
@@ -151,6 +155,12 @@ app.get('/api/all-data', async (req, res) => {
            }
            if (props.allowedTabs) {
                try { props.allowedTabs = JSON.parse(props.allowedTabs); } catch(e){}
+           }
+           if (props.pestIds) {
+               try { props.pestIds = JSON.parse(props.pestIds); } catch(e){}
+           }
+           if (props.workerIds) {
+               try { props.workerIds = JSON.parse(props.workerIds); } catch(e){}
            }
            if (key === 'settings') {
                ['units', 'jobTitles', 'kmlUrls', 'mapCenter', 'expenseCategories', 'incomeCategories'].forEach(field => {
@@ -203,30 +213,32 @@ app.post('/api/sync', async (req, res) => {
       }
 
       else if (action.type === 'assets/addCrop') {
-        const { id, name, variety, fieldId, plantingDate, expectedHarvest, seedingRate, targetYield, sowType } = action.payload;
+        const { id, name, variety, fieldId, plantingDate, expectedHarvest, seedingRate, targetYield, sowType, phHi, phLo, pestIds } = action.payload;
 
         if (sowType === 'Nursery') {
           await session.run(`
             MERGE (c:Crop {id: $id}) 
             SET c.name = $name, c.variety = $variety, c.fieldId = $fieldId, c.sowType = $sowType,
                 c.plantingDate = $plantingDate, c.expectedHarvest = $expectedHarvest, 
-                c.seedingRate = $seedingRate, c.targetYield = $targetYield
+                c.seedingRate = $seedingRate, c.targetYield = $targetYield,
+                c.phHi = toFloat($phHi), c.phLo = toFloat($phLo), c.pestIds = $pestIds
             WITH c 
             MATCH (n:NurseryBed {id: $fieldId}) 
             MERGE (c)-[:SOWN_IN]->(n)
             RETURN c
-          `, { id, name, variety, fieldId, plantingDate, expectedHarvest, seedingRate, targetYield, sowType });
+          `, { id, name, variety, fieldId, plantingDate, expectedHarvest, seedingRate, targetYield, sowType, phHi: phHi || null, phLo: phLo || null, pestIds: pestIds ? JSON.stringify(pestIds) : '[]' });
         } else {
           await session.run(`
             MERGE (c:Crop {id: $id}) 
             SET c.name = $name, c.variety = $variety, c.fieldId = $fieldId, c.sowType = $sowType,
                 c.plantingDate = $plantingDate, c.expectedHarvest = $expectedHarvest, 
-                c.seedingRate = $seedingRate, c.targetYield = $targetYield
+                c.seedingRate = $seedingRate, c.targetYield = $targetYield,
+                c.phHi = toFloat($phHi), c.phLo = toFloat($phLo), c.pestIds = $pestIds
             WITH c 
             MATCH (f:Field {id: $fieldId}) 
             MERGE (c)-[:PLANTED_IN]->(f)
             RETURN c
-          `, { id, name, variety, fieldId, plantingDate, expectedHarvest, seedingRate, targetYield, sowType });
+          `, { id, name, variety, fieldId, plantingDate, expectedHarvest, seedingRate, targetYield, sowType, phHi: phHi || null, phLo: phLo || null, pestIds: pestIds ? JSON.stringify(pestIds) : '[]' });
         }
 
         results.push({ actionId: action.meta?.id, status: 'success' });
@@ -374,13 +386,16 @@ app.post('/api/sync', async (req, res) => {
         results.push({ actionId: action.meta?.id, status: 'success' });
       }
       else if (action.type === 'assignments/upsertAssignment') {
-        const { id, taskName, assignedTo, priority, dueDate, status, fieldId, equipmentId } = action.payload;
+        const { id, taskName, assignedTo, priority, dueDate, status, fieldId, equipmentId, workerIds, workerCount, workers, hours, task, assignmentDate, completedDate, planningId } = action.payload;
         await session.run(`
           MERGE (a:TaskAssignment {id: $id})
           SET a.taskName = $taskName, a.assignedTo = $assignedTo, a.priority = $priority,
-              a.dueDate = $dueDate, a.status = $status, a.fieldId = $fieldId, a.equipmentId = $equipmentId
+              a.dueDate = $dueDate, a.status = $status, a.fieldId = $fieldId, a.equipmentId = $equipmentId,
+              a.workerIds = $workerIds, a.workerCount = toInteger($workerCount), a.workers = $workers,
+              a.hours = toFloat($hours), a.task = $task, a.assignmentDate = $assignmentDate, a.completedDate = $completedDate,
+              a.planningId = $planningId
           RETURN a
-        `, { id, taskName, assignedTo, priority, dueDate, status, fieldId: fieldId || null, equipmentId: equipmentId || null });
+        `, { id, taskName, assignedTo, priority, dueDate, status, fieldId: fieldId || null, equipmentId: equipmentId || null, workerIds: workerIds ? JSON.stringify(workerIds) : '[]', workerCount: workerCount || 0, workers: workers || '', hours: hours || 0, task: task || '', assignmentDate: assignmentDate || '', completedDate: completedDate || '', planningId: planningId || null });
         results.push({ actionId: action.meta?.id, status: 'success' });
       }
       else if (action.type === 'incidents/upsertIncident') {
@@ -469,6 +484,49 @@ app.post('/api/sync', async (req, res) => {
           SET s += $properties
           RETURN s
         `, { properties });
+        results.push({ actionId: action.meta?.id, status: 'success' });
+      }
+      else if (action.type === 'pests/savePest') {
+        const { id, name, type, description, treatment } = action.payload;
+        await session.run(`
+          MERGE (p:Pest {id: $id})
+          SET p.name = $name, p.type = $type, p.description = $description, p.treatment = $treatment
+          RETURN p
+        `, { id, name, type, description, treatment });
+        results.push({ actionId: action.meta?.id, status: 'success' });
+      }
+      else if (action.type === 'soilTests/saveSoilTest') {
+        const { id, fieldId, date, ph, nitrogen, phosphorus, potassium, notes } = action.payload;
+        await session.run(`
+          MERGE (s:SoilTest {id: $id})
+          SET s.fieldId = $fieldId, s.date = $date, s.ph = toFloat($ph), s.nitrogen = toFloat($nitrogen),
+              s.phosphorus = toFloat($phosphorus), s.potassium = toFloat($potassium), s.notes = $notes
+          WITH s
+          MATCH (f:Field {id: $fieldId})
+          MERGE (s)-[:TESTED_ON]->(f)
+          RETURN s
+        `, { id, fieldId, date, ph, nitrogen, phosphorus, potassium, notes: notes || '' });
+        results.push({ actionId: action.meta?.id, status: 'success' });
+      }
+      else if (action.type === 'planning/saveGoal') {
+        const { id, title, fromDate, toDate, workerIds } = action.payload;
+        await session.run(`
+          MERGE (g:Goal {id: $id})
+          SET g.title = $title, g.fromDate = $fromDate, g.toDate = $toDate, g.workerIds = $workerIds
+          RETURN g
+        `, { id, title, fromDate, toDate, workerIds: workerIds ? JSON.stringify(workerIds) : '[]' });
+        results.push({ actionId: action.meta?.id, status: 'success' });
+      }
+      else if (action.type === 'planning/saveObjective') {
+        const { id, goalId, title, fromDate, toDate, workerIds } = action.payload;
+        await session.run(`
+          MERGE (o:Objective {id: $id})
+          SET o.goalId = $goalId, o.title = $title, o.fromDate = $fromDate, o.toDate = $toDate, o.workerIds = $workerIds
+          WITH o
+          MATCH (g:Goal {id: $goalId})
+          MERGE (g)-[:HAS_OBJECTIVE]->(o)
+          RETURN o
+        `, { id, goalId, title, fromDate, toDate, workerIds: workerIds ? JSON.stringify(workerIds) : '[]' });
         results.push({ actionId: action.meta?.id, status: 'success' });
       }
       else {

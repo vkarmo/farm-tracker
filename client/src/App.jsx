@@ -22,6 +22,7 @@ import HarvestTab from './components/HarvestTab';
 import LivestockTab from './components/LivestockTab';
 import KitsTab from './components/KitsTab';
 import BreedingTab from './components/BreedingTab';
+import PestTab from './components/PestTab';
 import FinanceTab from './components/FinanceTab';
 import BudgetTab from './components/BudgetTab';
 // import ActivityTab from './components/ActivityTab';
@@ -32,6 +33,7 @@ import AdminTab from './components/AdminTab';
 import AccessControlTab from './components/AccessControlTab';
 import DashboardTab from './components/DashboardTab';
 import AssignmentTab from './components/AssignmentTab';
+import PlanningTab from './components/PlanningTab';
 import EmployeeTab from './components/EmployeeTab';
 import EquipmentTab from './components/EquipmentTab';
 import SyncTab from './components/SyncTab';
@@ -42,10 +44,10 @@ import { logAction } from './store/auditSlice';
 
 const MODULES = {
   overview: ['dashboard', 'map'],
-  agronomy: ['field', 'nursery', 'crop', 'harvest'],
+  agronomy: ['field', 'nursery', 'crop', 'harvest', 'pest'],
   livestock: ['livestock', 'breeding', 'kits'],
   finance: ['finance', 'budget'],
-  operations: ['employee', 'assignment', 'equipment', 'deadline', 'incident'],
+  operations: ['employee', 'assignment', 'planning', 'equipment', 'deadline', 'incident'],
   admin: ['admin', 'access', 'audit', 'gps', 'settings']
 };
 
@@ -433,6 +435,7 @@ export default function App() {
             {hasAccess('nursery') && <button onClick={() => setActiveTab('nursery')} className={`btn ${activeTab === 'nursery' ? 'tab-btn-active' : ''}`}><Box size={16} style={{ marginRight: 6 }} /> Nursery</button>}
             {hasAccess('crop') && <button onClick={() => setActiveTab('crop')} className={`btn ${activeTab === 'crop' ? 'tab-btn-active' : ''}`}><Leaf size={16} style={{ marginRight: 6 }} /> Crops</button>}
             {hasAccess('harvest') && <button onClick={() => setActiveTab('harvest')} className={`btn ${activeTab === 'harvest' ? 'tab-btn-active' : ''}`}><BarChart size={16} style={{ marginRight: 6 }} /> Harvests</button>}
+            {hasAccess('pest') && <button onClick={() => setActiveTab('pest')} className={`btn ${activeTab === 'pest' ? 'tab-btn-active' : ''}`}><AlertTriangle size={16} style={{ marginRight: 6 }} /> Pests</button>}
           </>
         )}
         {activeModule === 'livestock' && (
@@ -452,6 +455,7 @@ export default function App() {
           <>
             {hasAccess('employee') && <button onClick={() => setActiveTab('employee')} className={`btn ${activeTab === 'employee' ? 'tab-btn-active' : ''}`}><Contact size={16} style={{ marginRight: 6 }} /> Employees</button>}
             {hasAccess('assignment') && <button onClick={() => setActiveTab('assignment')} className={`btn ${activeTab === 'assignment' ? 'tab-btn-active' : ''}`}><Users size={16} style={{ marginRight: 6 }} /> Assignments</button>}
+            {hasAccess('planning') && <button onClick={() => setActiveTab('planning')} className={`btn ${activeTab === 'planning' ? 'tab-btn-active' : ''}`}><Target size={16} style={{ marginRight: 6 }} /> Planning</button>}
             {hasAccess('equipment') && <button onClick={() => setActiveTab('equipment')} className={`btn ${activeTab === 'equipment' ? 'tab-btn-active' : ''}`}><Briefcase size={16} style={{ marginRight: 6 }} /> Hard Assets</button>}
             {hasAccess('deadline') && <button onClick={() => setActiveTab('deadline')} className={`btn ${activeTab === 'deadline' ? 'tab-btn-active' : ''}`}><CalendarClock size={16} style={{ marginRight: 6 }} /> Deadlines</button>}
             {hasAccess('incident') && <button onClick={() => setActiveTab('incident')} className={`btn ${activeTab === 'incident' ? 'tab-btn-active' : ''}`}><AlertTriangle size={16} style={{ marginRight: 6 }} /> Incidents</button>}
@@ -492,6 +496,7 @@ export default function App() {
         {activeTab === 'field' && <FieldTab />}
         {activeTab === 'nursery' && <NurseryTab />}
         {activeTab === 'crop' && <CropTab />}
+        {activeTab === 'pest' && <PestTab />}
         {/* {activeTab === 'activity' && <ActivityTab />} */}
         {activeTab === 'deadline' && <DeadlineTab />}
         {activeTab === 'incident' && <IncidentTab />}
@@ -502,6 +507,7 @@ export default function App() {
         {activeTab === 'employee' && <EmployeeTab />}
         {activeTab === 'equipment' && <EquipmentTab />}
         {activeTab === 'assignment' && <AssignmentTab />}
+        {activeTab === 'planning' && <PlanningTab />}
         {activeTab === 'finance' && <FinanceTab />}
         {activeTab === 'sync' && <SyncTab />}
         {activeTab === 'budget' && <BudgetTab />}

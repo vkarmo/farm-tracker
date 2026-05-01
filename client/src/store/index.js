@@ -17,12 +17,15 @@ import employeeReducer from './employeeSlice';
 import auditReducer, { auditMiddleware } from './auditSlice';
 import gpsReducer from './gpsSlice';
 import breedingReducer from './breedingSlice';
+import pestsReducer from './pestsSlice';
+import planningReducer from './planningSlice';
+import soilTestsReducer from './soilTestsSlice';
 
 // Persist config that uses IndexedDB via localforage
 const persistConfig = {
   key: 'root',
   storage: localForage,
-  whitelist: ['sync', 'fields', 'assets', 'financials', 'settings', 'nurseries', 'activities', 'auth', 'budgets', 'deadlines', 'incidents', 'assignments', 'employees', 'audit', 'gps', 'breeding'] // Store all entity & settings data
+  whitelist: ['sync', 'fields', 'assets', 'financials', 'settings', 'nurseries', 'activities', 'auth', 'budgets', 'deadlines', 'incidents', 'assignments', 'employees', 'audit', 'gps', 'breeding', 'pests', 'planning', 'soilTests'] // Store all entity & settings data
 };
 
 const rootReducer = combineReducers({
@@ -41,7 +44,10 @@ const rootReducer = combineReducers({
   employees: employeeReducer,
   audit: auditReducer,
   gps: gpsReducer,
-  breeding: breedingReducer
+  breeding: breedingReducer,
+  pests: pestsReducer,
+  planning: planningReducer,
+  soilTests: soilTestsReducer
 });
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);
