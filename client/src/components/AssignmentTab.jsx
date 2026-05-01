@@ -4,7 +4,9 @@ import Select from 'react-select';
 import { saveAssignment, removeAssignment } from '../store/assignmentSlice';
 import CrudTable from './CrudTable';
 
-export default function AssignmentTab() {
+import ErrorBoundary from './ErrorBoundary';
+
+function AssignmentTabComponent() {
   const dispatch = useDispatch();
   const assignments = useSelector(state => state.assignments?.list) || [];
   const fields = useSelector(state => state.fields?.data) || [];
@@ -342,5 +344,13 @@ export default function AssignmentTab() {
       )}
 
     </div>
+  );
+}
+
+export default function AssignmentTab() {
+  return (
+    <ErrorBoundary>
+      <AssignmentTabComponent />
+    </ErrorBoundary>
   );
 }
