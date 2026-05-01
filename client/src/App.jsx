@@ -10,7 +10,7 @@ import 'leaflet/dist/leaflet.css';
 import { CACHE_NAME } from './config/cache';
 import packageJson from '../package.json';
 
-import { Wifi, WifiOff, CloudOff, Target, Tractor, Leaf, DollarSign, MapPin, Rabbit, Settings, BarChart, Layers, Box, ClipboardList, ShieldAlert, Calculator, CalendarClock, AlertTriangle, LogOut, Database, Users, Contact, Briefcase, RefreshCw, Home } from 'lucide-react';
+import { Wifi, WifiOff, CloudOff, Target, Tractor, Leaf, DollarSign, MapPin, Rabbit, Settings, BarChart, Layers, Box, ClipboardList, ShieldAlert, Calculator, CalendarClock, AlertTriangle, LogOut, Database, Users, Contact, Briefcase, RefreshCw, Home, Baby } from 'lucide-react';
 import NmkLogo from './components/NmkLogo';
 import MapLayer from './MapLayer';
 
@@ -20,6 +20,8 @@ import NurseryTab from './components/NurseryTab';
 import CropTab from './components/CropTab';
 import HarvestTab from './components/HarvestTab';
 import LivestockTab from './components/LivestockTab';
+import KitsTab from './components/KitsTab';
+import BreedingTab from './components/BreedingTab';
 import FinanceTab from './components/FinanceTab';
 import BudgetTab from './components/BudgetTab';
 // import ActivityTab from './components/ActivityTab';
@@ -376,6 +378,8 @@ export default function App() {
             {hasAccess('dashboard') && <button onClick={() => setActiveTab('dashboard')} className={`btn ${activeTab === 'dashboard' ? 'btn-primary' : ''}`}><BarChart size={16} style={{ marginRight: 6 }} /> Dashboard</button>}
             {hasAccess('map') && <button onClick={() => setActiveTab('map')} className={`btn ${activeTab === 'map' ? 'btn-primary' : ''}`}><MapPin size={16} style={{ marginRight: 6 }} /> Map</button>}
             {hasAccess('livestock') && <button onClick={() => setActiveTab('livestock')} className={`btn ${activeTab === 'livestock' ? 'btn-primary' : ''}`}><Rabbit size={16} style={{ marginRight: 6 }} /> Livestock</button>}
+            {hasAccess('breeding') && <button onClick={() => setActiveTab('breeding')} className={`btn ${activeTab === 'breeding' ? 'btn-primary' : ''}`}><Baby size={16} style={{ marginRight: 6 }} /> Breeding</button>}
+            {hasAccess('kits') && <button onClick={() => setActiveTab('kits')} className={`btn ${activeTab === 'kits' ? 'btn-primary' : ''}`}><Layers size={16} style={{ marginRight: 6 }} /> Kits</button>}
             {hasAccess('field') && <button onClick={() => setActiveTab('field')} className={`btn ${activeTab === 'field' ? 'btn-primary' : ''}`}><Target size={16} style={{ marginRight: 6 }} /> Fields</button>}
             {hasAccess('nursery') && <button onClick={() => setActiveTab('nursery')} className={`btn ${activeTab === 'nursery' ? 'btn-primary' : ''}`}><Box size={16} style={{ marginRight: 6 }} /> Nursery</button>}
             {hasAccess('crop') && <button onClick={() => setActiveTab('crop')} className={`btn ${activeTab === 'crop' ? 'btn-primary' : ''}`}><Leaf size={16} style={{ marginRight: 6 }} /> Crops</button>}
@@ -432,6 +436,8 @@ export default function App() {
         {activeTab === 'incident' && <IncidentTab />}
         {activeTab === 'harvest' && <HarvestTab />}
         {activeTab === 'livestock' && <LivestockTab />}
+        {activeTab === 'kits' && <KitsTab />}
+        {activeTab === 'breeding' && <BreedingTab />}
         {activeTab === 'employee' && <EmployeeTab />}
         {activeTab === 'equipment' && <EquipmentTab />}
         {activeTab === 'assignment' && <AssignmentTab />}

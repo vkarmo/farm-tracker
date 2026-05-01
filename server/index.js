@@ -126,6 +126,8 @@ app.get('/api/all-data', async (req, res) => {
        audit: 'MATCH (n:AuditLog) RETURN n',
        users: 'MATCH (n:User) RETURN n',
        harvests: 'MATCH (n:Harvest) RETURN n',
+       kits: 'MATCH (n:LivestockKit) RETURN n',
+       breeding: 'MATCH (n:BreedingEvent) RETURN n',
        settings: "MATCH (n:GlobalSettings {id: 'default'}) RETURN n"
     };
 
@@ -241,18 +243,41 @@ app.post('/api/sync', async (req, res) => {
         results.push({ actionId: action.meta?.id, status: 'success' });
       }
       else if (action.type === 'assets/addLivestock') {
-        const { id, fieldId, type: animalType, breed, birthDate, tagNumber, healthStatus, causeOfDeath } = action.payload;
+        const { id, fieldId, type: animalType, breed, birthDate, tagNumber, healthStatus, causeOfDeath, medicalRecords } = action.payload;
         await session.run(`
           MERGE (l:Livestock {id: $id})
           SET l.type = $animalType, l.breed = $breed, l.birthDate = $birthDate, 
-              l.tagNumber = $tagNumber, l.healthStatus = $healthStatus, l.fieldId = $fieldId, l.causeOfDeath = $causeOfDeath
+              l.tagNumber = $tagNumber, l.healthStatus = $healthStatus, l.fieldId = $fieldId, l.causeOfDeath = $causeOfDeath,
+              l.medicalRecords = $medicalRecords
           WITH l
           OPTIONAL MATCH (f:Field {id: $fieldId})
           FOREACH (ignoreMe IN CASE WHEN f IS NOT NULL THEN [1] ELSE [] END |
-            MERGE (l)-[:GRAZES_IN]->(f)
+            MERGE (l)-[:LOCATED_IN]->(f)
           )
           RETURN l
-        `, { id, animalType, breed, birthDate, tagNumber, healthStatus, fieldId, causeOfDeath: causeOfDeath || '' });
+        `, { id, animalType, breed, birthDate, tagNumber, healthStatus, fieldId, causeOfDeath: causeOfDeath || '', medicalRecords: medicalRecords ? JSON.stringify(medicalRecords) : '[]' });
+        results.push({ actionId: action.meta?.id, status: 'success' });
+      }
+      else if (action.type === 'breeding/addEvent' || action.type === 'breeding/updateEvent') {
+        const { id, motherId, fatherId, matingDate, expectedDueDate, status, offspringCount, notes } = action.payload;
+        await session.run(`
+          MERGE (b:BreedingEvent {id: $id})
+          SET b.motherId = $motherId, b.fatherId = $fatherId, b.matingDate = $matingDate,
+              b.expectedDueDate = $expectedDueDate, b.status = $status, 
+              b.offspringCount = $offspringCount, b.notes = $notes
+          RETURN b
+        `, { id, motherId, fatherId: fatherId || '', matingDate, expectedDueDate, status, offspringCount: offspringCount || 0, notes: notes || '' });
+        results.push({ actionId: action.meta?.id, status: 'success' });
+      }
+      else if (action.type === 'assets/addKit') {
+        const { id, motherId, birthDate, type, breed, fieldId, numberOfKits, healthStatus, notes } = action.payload;
+        await session.run(`
+          MERGE (k:LivestockKit {id: $id})
+          SET k.motherId = $motherId, k.birthDate = $birthDate, k.type = $type,
+              k.breed = $breed, k.fieldId = $fieldId, k.numberOfKits = $numberOfKits,
+              k.healthStatus = $healthStatus, k.notes = $notes
+          RETURN k
+        `, { id, motherId, birthDate, type, breed, fieldId, numberOfKits, healthStatus, notes: notes || '' });
         results.push({ actionId: action.meta?.id, status: 'success' });
       }
       else if (action.type === 'assets/addHarvest') {

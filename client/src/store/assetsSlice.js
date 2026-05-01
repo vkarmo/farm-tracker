@@ -6,7 +6,8 @@ export const assetsSlice = createSlice({
     crops: [], 
     livestock: [],
     harvests: [],
-    equipment: []
+    equipment: [],
+    kits: []
   },
   reducers: {
     addCrop: (state, action) => {
@@ -57,6 +58,18 @@ export const assetsSlice = createSlice({
     deleteEquipment: (state, action) => {
       state.equipment = state.equipment.filter(e => e.id !== action.payload);
     },
+    addKit: (state, action) => {
+      const idx = state.kits.findIndex(k => k.id === action.payload.id);
+      if (idx !== -1) state.kits[idx] = action.payload;
+      else state.kits.push(action.payload);
+    },
+    updateKit: (state, action) => {
+      const idx = state.kits.findIndex(k => k.id === action.payload.id);
+      if (idx !== -1) state.kits[idx] = { ...state.kits[idx], ...action.payload };
+    },
+    deleteKit: (state, action) => {
+      state.kits = state.kits.filter(k => k.id !== action.payload);
+    },
     setCrops: (state, action) => {
       state.crops = action.payload;
     },
@@ -68,6 +81,9 @@ export const assetsSlice = createSlice({
     },
     setEquipment: (state, action) => {
       state.equipment = action.payload;
+    },
+    setKits: (state, action) => {
+      state.kits = action.payload;
     },
     transplantCrop: (state, action) => {
       // payload = { id: cropId, fieldId: newFieldId, transplantDate: string }
@@ -86,6 +102,7 @@ export const {
   addLivestock, updateLivestock, deleteLivestock, 
   addHarvest, updateHarvest, deleteHarvest, 
   addEquipment, updateEquipment, deleteEquipment,
-  setCrops, setLivestock, setHarvests, setEquipment, transplantCrop 
+  addKit, updateKit, deleteKit,
+  setCrops, setLivestock, setHarvests, setEquipment, setKits, transplantCrop 
 } = assetsSlice.actions;
 export default assetsSlice.reducer;
