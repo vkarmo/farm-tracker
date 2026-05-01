@@ -4,10 +4,11 @@
   --color-primary-dark: #1b5e20;
   --color-accent: #81c784;
   --color-bg: #000222;
-  --color-surface: #ffffff;
+  --color-surface: #000000;
   --color-text: #3e3e3e;
   --color-text-light: #6a6a6a;
   --color-border: #0c0808;
+  --color-border-light: #e0e0e0;
 
   --radius-sm: 4px;
   --radius-md: 8px;
@@ -215,7 +216,7 @@ textarea:focus {
   display: flex;
   background: var(--color-surface);
   padding: 10px 16px;
-  border-bottom: 1px solid var(--color-border);
+  border-bottom: 1px solid var(--color-border-light);
   gap: 10px;
   overflow-x: auto;
   white-space: nowrap;

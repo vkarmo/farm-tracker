@@ -18,6 +18,7 @@ import MapLayer from './MapLayer';
 import FieldTab from './components/FieldTab';
 import NurseryTab from './components/NurseryTab';
 import CropTab from './components/CropTab';
+import SoilTestingTab from './components/SoilTestingTab';
 import HarvestTab from './components/HarvestTab';
 import LivestockTab from './components/LivestockTab';
 import KitsTab from './components/KitsTab';
@@ -45,7 +46,7 @@ import { logAction } from './store/auditSlice';
 
 const MODULES = {
   overview: ['dashboard', 'map'],
-  agronomy: ['field', 'nursery', 'crop', 'harvest', 'pest'],
+  agronomy: ['field', 'nursery', 'crop', 'soilTests', 'harvest', 'pest'],
   livestock: ['livestock', 'breeding', 'kits', 'livestockDiseases'],
   finance: ['finance', 'budget'],
   operations: ['employee', 'assignment', 'planning', 'equipment', 'deadline', 'incident'],
@@ -443,9 +444,10 @@ export default function App() {
         )}
         {activeModule === 'agronomy' && (
           <>
-            {hasAccess('field') && <button onClick={() => setActiveTab('field')} className={`btn ${activeTab === 'field' ? 'tab-btn-active' : ''}`}><Target size={16} style={{ marginRight: 6 }} /> Fields</button>}
+            {hasAccess('field') && <button onClick={() => setActiveTab('field')} className={`btn ${activeTab === 'field' ? 'tab-btn-active' : ''}`}><Map size={16} style={{ marginRight: 6 }} /> Fields</button>}
             {hasAccess('nursery') && <button onClick={() => setActiveTab('nursery')} className={`btn ${activeTab === 'nursery' ? 'tab-btn-active' : ''}`}><Box size={16} style={{ marginRight: 6 }} /> Nursery</button>}
             {hasAccess('crop') && <button onClick={() => setActiveTab('crop')} className={`btn ${activeTab === 'crop' ? 'tab-btn-active' : ''}`}><Leaf size={16} style={{ marginRight: 6 }} /> Crops</button>}
+            {hasAccess('soilTests') && <button onClick={() => setActiveTab('soilTests')} className={`btn ${activeTab === 'soilTests' ? 'tab-btn-active' : ''}`}><FlaskConical size={16} style={{ marginRight: 6 }} /> Soil Tests</button>}
             {hasAccess('harvest') && <button onClick={() => setActiveTab('harvest')} className={`btn ${activeTab === 'harvest' ? 'tab-btn-active' : ''}`}><BarChart size={16} style={{ marginRight: 6 }} /> Harvests</button>}
             {hasAccess('pest') && <button onClick={() => setActiveTab('pest')} className={`btn ${activeTab === 'pest' ? 'tab-btn-active' : ''}`}><AlertTriangle size={16} style={{ marginRight: 6 }} /> Pests</button>}
           </>
@@ -509,6 +511,7 @@ export default function App() {
         {activeTab === 'field' && <FieldTab />}
         {activeTab === 'nursery' && <NurseryTab />}
         {activeTab === 'crop' && <CropTab />}
+        {activeTab === 'soilTests' && <SoilTestingTab />}
         {activeTab === 'pest' && <PestTab />}
         {/* {activeTab === 'activity' && <ActivityTab />} */}
         {activeTab === 'deadline' && <DeadlineTab />}

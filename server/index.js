@@ -520,16 +520,17 @@ app.post('/api/sync', async (req, res) => {
         results.push({ actionId: action.meta?.id, status: 'success' });
       }
       else if (action.type === 'soilTests/saveSoilTest') {
-        const { id, fieldId, date, ph, nitrogen, phosphorus, potassium, notes } = action.payload;
+        const { id, fieldId, date, ph, nitrogen, phosphorus, potassium, notes, lat, lng, elevation } = action.payload;
         await session.run(`
           MERGE (s:SoilTest {id: $id})
           SET s.fieldId = $fieldId, s.date = $date, s.ph = toFloat($ph), s.nitrogen = toFloat($nitrogen),
-              s.phosphorus = toFloat($phosphorus), s.potassium = toFloat($potassium), s.notes = $notes
+              s.phosphorus = toFloat($phosphorus), s.potassium = toFloat($potassium), s.notes = $notes,
+              s.lat = toFloat($lat), s.lng = toFloat($lng), s.elevation = toFloat($elevation)
           WITH s
           MATCH (f:Field {id: $fieldId})
           MERGE (s)-[:TESTED_ON]->(f)
           RETURN s
-        `, { id, fieldId, date, ph, nitrogen, phosphorus, potassium, notes: notes || '' });
+        `, { id, fieldId, date, ph, nitrogen, phosphorus, potassium, notes: notes || '', lat, lng, elevation });
         results.push({ actionId: action.meta?.id, status: 'success' });
       }
       else if (action.type === 'planning/saveGoal') {

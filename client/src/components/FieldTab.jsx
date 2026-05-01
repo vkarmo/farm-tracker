@@ -36,9 +36,6 @@ export default function FieldTab() {
   const [polygonPositions, setPolygonPositions] = useState([]);
   const [searchResultCenter, setSearchResultCenter] = useState(null);
 
-  const [testData, setTestData] = useState(INIT_TEST_STATE);
-  const [editingTestId, setEditingTestId] = useState(null);
-
   const handleLocationFound = (loc) => {
     setSearchResultCenter(loc);
     setPolygonPositions(prev => [...prev, loc]);
@@ -157,7 +154,7 @@ export default function FieldTab() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h2>{editingId ? 'Edit Field Geometry' : 'Track New Field Geometry'}</h2>
         {editingId && (
-          <button onClick={() => { setEditingId(null); setFormData(INIT_STATE); setPolygonPositions([]); setTestData(INIT_TEST_STATE); setEditingTestId(null); }} className="btn" style={{ background: '#f5f5f5', color: '#333' }}>
+          <button onClick={() => { setEditingId(null); setFormData(INIT_STATE); setPolygonPositions([]); }} className="btn" style={{ background: '#f5f5f5', color: '#333' }}>
             <X size={14} style={{ marginRight: 4 }} /> Cancel Edit
           </button>
         )}
@@ -231,59 +228,23 @@ export default function FieldTab() {
         </button>
       </form>
 
-      {editingId && (
+      {editingId && fieldTests.length > 0 && (
         <div style={{ marginTop: '30px', background: '#f9f9f9', padding: '15px', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
-          <h3>Soil Tests for {formData.name}</h3>
-          <form onSubmit={handleTestSubmit} style={{ marginBottom: '20px' }}>
-             <div className="form-grid">
-               <div className="form-group">
-                 <label>Date</label>
-                 <input type="date" value={testData.date} onChange={e => setTestData({ ...testData, date: e.target.value })} required />
-               </div>
-               <div className="form-group">
-                 <label>pH Level</label>
-                 <input type="number" step="0.1" value={testData.ph} onChange={e => setTestData({ ...testData, ph: e.target.value })} />
-               </div>
-               <div className="form-group">
-                 <label>Nitrogen (N)</label>
-                 <input type="number" step="0.1" value={testData.nitrogen} onChange={e => setTestData({ ...testData, nitrogen: e.target.value })} />
-               </div>
-               <div className="form-group">
-                 <label>Phosphorus (P)</label>
-                 <input type="number" step="0.1" value={testData.phosphorus} onChange={e => setTestData({ ...testData, phosphorus: e.target.value })} />
-               </div>
-               <div className="form-group">
-                 <label>Potassium (K)</label>
-                 <input type="number" step="0.1" value={testData.potassium} onChange={e => setTestData({ ...testData, potassium: e.target.value })} />
-               </div>
-               <div className="form-group">
-                 <label>Notes</label>
-                 <input type="text" value={testData.notes} onChange={e => setTestData({ ...testData, notes: e.target.value })} placeholder="Additional observations..." />
-               </div>
-             </div>
-             <button type="submit" className="btn btn-primary" style={{ marginTop: 10 }}>
-                <PlusCircle size={16} style={{ marginRight: 6 }} /> {editingTestId ? 'Update Soil Test' : 'Add Soil Test'}
-             </button>
-             {editingTestId && (
-               <button type="button" onClick={() => { setTestData(INIT_TEST_STATE); setEditingTestId(null); }} className="btn" style={{ marginLeft: '10px' }}>
-                 Cancel Test Edit
-               </button>
-             )}
-          </form>
-
-          {fieldTests.length > 0 ? (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+             <h3 style={{ margin: 0 }}>Soil Tests for {formData.name}</h3>
+             <span style={{ fontSize: '0.85rem', color: '#666' }}>Add new tests in the Soil Tests tab</span>
+          </div>
+          <div style={{ marginTop: '15px' }}>
             <CrudTable
               data={fieldTests}
               columns={testColumns}
-              onEdit={(r) => { setTestData(r); setEditingTestId(r.id); }}
-              onDelete={handleTestDelete}
+              onEdit={() => alert("Please edit soil tests from the dedicated Soil Tests tab.")}
+              onDelete={() => alert("Please delete soil tests from the dedicated Soil Tests tab.")}
               itemLabel="Test"
               customTitle="Recorded Tests"
               defaultSort={{ key: 'date', direction: 'desc' }}
             />
-          ) : (
-            <p style={{ color: '#666', fontStyle: 'italic' }}>No soil tests recorded for this field yet.</p>
-          )}
+          </div>
         </div>
       )}
 
