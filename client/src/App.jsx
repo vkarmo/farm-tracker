@@ -374,47 +374,47 @@ export default function App() {
             )}
           </div>
 
-          <div style={{ display: 'flex', gap: '4px', background: '#f0f2f5', padding: '6px', borderRadius: '0', alignSelf: 'flex-end', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+          <div style={{ display: 'flex', gap: '2px', background: '#f0f2f5', padding: '4px', borderRadius: '0', alignSelf: 'flex-end', flexWrap: 'nowrap', justifyContent: 'flex-end', overflowX: 'auto', WebkitOverflowScrolling: 'touch', maxWidth: '100%' }}>
             {hasModuleAccess('overview') && (
-              <button onClick={() => handleModuleSwitch('overview')} className={`btn ${activeModule === 'overview' && activeTab !== 'sync' ? 'btn-primary' : ''}`} style={{ padding: '8px 12px', background: activeModule === 'overview' && activeTab !== 'sync' ? '#2e7d32' : 'transparent', color: activeModule === 'overview' && activeTab !== 'sync' ? 'white' : '#555', borderColor: 'transparent' }} title="Overview Module">
-                <Home size={20} />
+              <button onClick={() => handleModuleSwitch('overview')} className={`btn ${activeModule === 'overview' && activeTab !== 'sync' ? 'btn-primary' : ''}`} style={{ padding: '6px 8px', background: activeModule === 'overview' && activeTab !== 'sync' ? '#2e7d32' : 'transparent', color: activeModule === 'overview' && activeTab !== 'sync' ? 'white' : '#555', borderColor: 'transparent', flexShrink: 0 }} title="Overview Module">
+                <Home size={18} />
               </button>
             )}
             {hasModuleAccess('agronomy') && (
-              <button onClick={() => handleModuleSwitch('agronomy')} className={`btn ${activeModule === 'agronomy' && activeTab !== 'sync' ? 'btn-primary' : ''}`} style={{ padding: '8px 12px', background: activeModule === 'agronomy' && activeTab !== 'sync' ? '#2e7d32' : 'transparent', color: activeModule === 'agronomy' && activeTab !== 'sync' ? 'white' : '#555', borderColor: 'transparent' }} title="Agronomy Module">
-                <Leaf size={20} />
+              <button onClick={() => handleModuleSwitch('agronomy')} className={`btn ${activeModule === 'agronomy' && activeTab !== 'sync' ? 'btn-primary' : ''}`} style={{ padding: '6px 8px', background: activeModule === 'agronomy' && activeTab !== 'sync' ? '#2e7d32' : 'transparent', color: activeModule === 'agronomy' && activeTab !== 'sync' ? 'white' : '#555', borderColor: 'transparent', flexShrink: 0 }} title="Agronomy Module">
+                <Leaf size={18} />
               </button>
             )}
             {hasModuleAccess('livestock') && (
-              <button onClick={() => handleModuleSwitch('livestock')} className={`btn ${activeModule === 'livestock' && activeTab !== 'sync' ? 'btn-primary' : ''}`} style={{ padding: '8px 12px', background: activeModule === 'livestock' && activeTab !== 'sync' ? '#2e7d32' : 'transparent', color: activeModule === 'livestock' && activeTab !== 'sync' ? 'white' : '#555', borderColor: 'transparent' }} title="Livestock Module">
-                <Rabbit size={20} />
+              <button onClick={() => handleModuleSwitch('livestock')} className={`btn ${activeModule === 'livestock' && activeTab !== 'sync' ? 'btn-primary' : ''}`} style={{ padding: '6px 8px', background: activeModule === 'livestock' && activeTab !== 'sync' ? '#2e7d32' : 'transparent', color: activeModule === 'livestock' && activeTab !== 'sync' ? 'white' : '#555', borderColor: 'transparent', flexShrink: 0 }} title="Livestock Module">
+                <Rabbit size={18} />
               </button>
             )}
             {hasModuleAccess('finance') && (
-              <button onClick={() => handleModuleSwitch('finance')} className={`btn ${activeModule === 'finance' && activeTab !== 'sync' ? 'btn-primary' : ''}`} style={{ padding: '8px 12px', background: activeModule === 'finance' && activeTab !== 'sync' ? '#2e7d32' : 'transparent', color: activeModule === 'finance' && activeTab !== 'sync' ? 'white' : '#555', borderColor: 'transparent' }} title="Financials Module">
-                <DollarSign size={20} />
+              <button onClick={() => handleModuleSwitch('finance')} className={`btn ${activeModule === 'finance' && activeTab !== 'sync' ? 'btn-primary' : ''}`} style={{ padding: '6px 8px', background: activeModule === 'finance' && activeTab !== 'sync' ? '#2e7d32' : 'transparent', color: activeModule === 'finance' && activeTab !== 'sync' ? 'white' : '#555', borderColor: 'transparent', flexShrink: 0 }} title="Financials Module">
+                <DollarSign size={18} />
               </button>
             )}
             {hasModuleAccess('operations') && (
-              <button onClick={() => handleModuleSwitch('operations')} className={`btn ${activeModule === 'operations' && activeTab !== 'sync' ? 'btn-primary' : ''}`} style={{ padding: '8px 12px', background: activeModule === 'operations' && activeTab !== 'sync' ? '#2e7d32' : 'transparent', color: activeModule === 'operations' && activeTab !== 'sync' ? 'white' : '#555', borderColor: 'transparent' }} title="Operations Module">
-                <Users size={20} />
+              <button onClick={() => handleModuleSwitch('operations')} className={`btn ${activeModule === 'operations' && activeTab !== 'sync' ? 'btn-primary' : ''}`} style={{ padding: '6px 8px', background: activeModule === 'operations' && activeTab !== 'sync' ? '#2e7d32' : 'transparent', color: activeModule === 'operations' && activeTab !== 'sync' ? 'white' : '#555', borderColor: 'transparent', flexShrink: 0 }} title="Operations Module">
+                <Users size={18} />
               </button>
             )}
             
-            <div style={{ width: '1px', background: '#ccc', margin: '4px 6px' }}></div>
+            <div style={{ width: '1px', background: '#ccc', margin: '4px 2px', flexShrink: 0 }}></div>
 
-            <button onClick={() => setActiveTab('sync')} className={`btn ${activeTab === 'sync' ? 'btn-primary' : ''}`} style={{ padding: '8px 12px', background: activeTab === 'sync' ? '#1565c0' : 'transparent', color: activeTab === 'sync' ? 'white' : '#1565c0', borderColor: 'transparent' }} title="System Sync">
-              <RefreshCw size={20} className={isSyncing ? "spin" : ""} />
+            <button onClick={() => setActiveTab('sync')} className={`btn ${activeTab === 'sync' ? 'btn-primary' : ''}`} style={{ padding: '6px 8px', background: activeTab === 'sync' ? '#1565c0' : 'transparent', color: activeTab === 'sync' ? 'white' : '#1565c0', borderColor: 'transparent', flexShrink: 0 }} title="System Sync">
+              <RefreshCw size={18} className={isSyncing ? "spin" : ""} />
             </button>
             
             {currentUser?.role === 'Admin' && (
-              <button onClick={() => handleModuleSwitch('admin')} className={`btn ${activeModule === 'admin' && activeTab !== 'sync' ? 'btn-primary' : ''}`} style={{ padding: '8px 12px', background: activeModule === 'admin' && activeTab !== 'sync' ? '#c62828' : 'transparent', color: activeModule === 'admin' && activeTab !== 'sync' ? 'white' : '#c62828', borderColor: 'transparent' }} title="Admin Module">
-                <Settings size={20} />
+              <button onClick={() => handleModuleSwitch('admin')} className={`btn ${activeModule === 'admin' && activeTab !== 'sync' ? 'btn-primary' : ''}`} style={{ padding: '6px 8px', background: activeModule === 'admin' && activeTab !== 'sync' ? '#c62828' : 'transparent', color: activeModule === 'admin' && activeTab !== 'sync' ? 'white' : '#c62828', borderColor: 'transparent', flexShrink: 0 }} title="Admin Module">
+                <Settings size={18} />
               </button>
             )}
             
-            <button onClick={() => { if (window.confirm('Sign out and lock offline data?')) dispatch(logout()) }} className="btn" style={{ padding: '8px 12px', background: 'transparent', color: 'var(--color-primary-dark)', borderColor: 'transparent' }} title="Logout">
-              <LogOut size={20} />
+            <button onClick={() => { if (window.confirm('Sign out and lock offline data?')) dispatch(logout()) }} className="btn" style={{ padding: '6px 8px', background: 'transparent', color: 'var(--color-primary-dark)', borderColor: 'transparent', flexShrink: 0 }} title="Logout">
+              <LogOut size={18} />
             </button>
           </div>
         </div>
