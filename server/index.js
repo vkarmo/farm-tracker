@@ -180,6 +180,9 @@ app.get('/api/all-data', async (req, res) => {
            if (props.pestIds) {
                try { props.pestIds = JSON.parse(props.pestIds); } catch(e){}
            }
+           if (props.testResults) {
+               try { props.testResults = JSON.parse(props.testResults); } catch(e){}
+           }
            if (props.workerIds) {
                try { props.workerIds = JSON.parse(props.workerIds); } catch(e){}
            }
@@ -520,16 +523,16 @@ app.post('/api/sync', async (req, res) => {
         results.push({ actionId: action.meta?.id, status: 'success' });
       }
       else if (action.type === 'soilTests/saveSoilTest') {
-        const { id, fieldId, date, ph, nitrogen, phosphorus, potassium, notes } = action.payload;
+        const { id, fieldId, description, testResults } = action.payload;
         await session.run(`
           MERGE (s:SoilTest {id: $id})
-          SET s.fieldId = $fieldId, s.date = $date, s.ph = toFloat($ph), s.nitrogen = toFloat($nitrogen),
-              s.phosphorus = toFloat($phosphorus), s.potassium = toFloat($potassium), s.notes = $notes
+          SET s.fieldId = $fieldId, s.description = $description,
+              s.testResults = $testResults
           WITH s
           MATCH (f:Field {id: $fieldId})
           MERGE (s)-[:TESTED_ON]->(f)
           RETURN s
-        `, { id, fieldId, date, ph, nitrogen, phosphorus, potassium, notes: notes || '' });
+        `, { id, fieldId, description: description || '', testResults: testResults ? JSON.stringify(testResults) : '[]' });
         results.push({ actionId: action.meta?.id, status: 'success' });
       }
       else if (action.type === 'planning/saveGoal') {
