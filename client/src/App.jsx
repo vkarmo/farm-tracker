@@ -139,9 +139,41 @@ export default function App() {
   }, [activeTab, currentUser, dispatch]);
 
   const lastSavedLocRef = React.useRef(null);
+  const wakeLockRef = React.useRef(null);
+  
   useEffect(() => {
     lastSavedLocRef.current = lastGpsLocation;
   }, [lastGpsLocation]);
+
+  // Request Wake Lock to prevent screen sleep while tracking GPS
+  useEffect(() => {
+    if (!gpsActive || !('wakeLock' in navigator)) return;
+
+    const requestWakeLock = async () => {
+      try {
+        wakeLockRef.current = await navigator.wakeLock.request('screen');
+      } catch (err) {
+        console.warn('Wake Lock error:', err.name, err.message);
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && gpsActive) {
+        requestWakeLock();
+      }
+    };
+
+    requestWakeLock();
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      if (wakeLockRef.current !== null) {
+        wakeLockRef.current.release().catch(() => {});
+        wakeLockRef.current = null;
+      }
+    };
+  }, [gpsActive]);
 
   useEffect(() => {
     if (!currentUser || !navigator.geolocation || !gpsActive) return;
@@ -189,6 +221,7 @@ export default function App() {
 
           dispatch(addLocation(newLoc));
           dispatch(queueAction({ type: 'gps/addLocation', payload: newLoc, meta: { id: Date.now() } }));
+          dispatch(setMapCenter([latitude, longitude]));
         }
       },
       (error) => console.warn('GPS tracking error:', error),
