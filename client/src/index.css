@@ -128,6 +128,16 @@ textarea:focus {
   transform: translateY(1px);
 }
 
+.toolbar-btn {
+  width: 38px !important;
+  height: 38px !important;
+  padding: 0 !important;
+  flex-shrink: 0 !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+}
+
 .status-indicator {
   display: inline-flex;
   align-items: center;
