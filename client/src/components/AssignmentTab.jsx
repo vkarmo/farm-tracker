@@ -49,7 +49,7 @@ function AssignmentTabComponent() {
     setEditingId(assignment.id);
     setFieldId(assignment.fieldId || '');
     setWorkerIds(assignment.workerIds || []);
-    setWorkerCount(assignment.workerCount !== undefined ? assignment.workerCount : '');
+    setWorkerCount(assignment.workerCount !== undefined ? (typeof assignment.workerCount === 'object' ? (assignment.workerCount.low || 0) : assignment.workerCount) : '');
     setLegacyWorkers(assignment.workers || ''); // Fallback for assignments formulated prior to EmployeeTab
     setHours(assignment.hours || '');
     setTask(assignment.task || '');
@@ -152,7 +152,7 @@ function AssignmentTabComponent() {
     { key: 'assignmentDate', header: 'Date' },
     { key: 'headcount', header: 'Headcount', render: (r) => (
       <span className="status-indicator" style={{ background: '#e3f2fd', color: '#1565c0' }}>
-        {r.workerCount !== undefined ? r.workerCount : (r.workerIds?.length || 1)}
+        {r.workerCount !== undefined ? (typeof r.workerCount === 'object' ? (r.workerCount.low || 0) : r.workerCount) : (r.workerIds?.length || 1)}
       </span>
     )},
     { key: 'target', header: 'Target Asset', render: (r) => getTargetName(r.fieldId) },
@@ -164,7 +164,7 @@ function AssignmentTabComponent() {
     { key: 'completedDate', header: 'Completed On' },
     { key: 'headcount', header: 'Headcount', render: (r) => (
       <span className="status-indicator" style={{ background: '#e3f2fd', color: '#1565c0' }}>
-        {r.workerCount !== undefined ? r.workerCount : (r.workerIds?.length || 1)}
+        {r.workerCount !== undefined ? (typeof r.workerCount === 'object' ? (r.workerCount.low || 0) : r.workerCount) : (r.workerIds?.length || 1)}
       </span>
     )},
     { key: 'target', header: 'Target Asset', render: (r) => getTargetName(r.fieldId) },
