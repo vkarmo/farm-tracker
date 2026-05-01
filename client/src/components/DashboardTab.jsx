@@ -320,7 +320,7 @@ export default function DashboardTab() {
         />
       </CollapsibleCard>
 
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(400px, 1fr))', gap: '20px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
 
         {/* Harvest by Day */}
         <CollapsibleCard title="Harvest by Day">
