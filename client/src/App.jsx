@@ -40,6 +40,15 @@ import GpsLogTab from './components/GpsLogTab';
 import { logout } from './store/authSlice';
 import { logAction } from './store/auditSlice';
 
+const MODULES = {
+  overview: ['dashboard', 'map'],
+  agronomy: ['field', 'nursery', 'crop', 'harvest'],
+  livestock: ['livestock', 'breeding', 'kits'],
+  finance: ['finance', 'budget'],
+  operations: ['employee', 'assignment', 'equipment', 'deadline', 'incident'],
+  admin: ['admin', 'access', 'audit', 'gps', 'settings']
+};
+
 export default function App() {
   const dispatch = useDispatch();
   const currentUser = useSelector(state => state.auth?.currentUser);
@@ -68,7 +77,7 @@ export default function App() {
   const isSyncing = useSelector(state => state.sync.isSyncing);
 
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [showAdminNav, setShowAdminNav] = useState(false);
+  const [activeModule, setActiveModule] = useState('overview');
   const [isUpdating, setIsUpdating] = useState(false);
   const [newUnit, setNewUnit] = useState('');
   const [newJobTitle, setNewJobTitle] = useState('');
@@ -107,6 +116,20 @@ export default function App() {
     if (currentUser?.role === 'Admin') return true;
     if (!currentUser?.allowedTabs) return true; // Default to all if admin hasn't customized
     return currentUser.allowedTabs.includes(tabId);
+  };
+
+  const hasModuleAccess = (moduleId) => {
+    if (currentUser?.role === 'Admin') return true;
+    const tabs = MODULES[moduleId] || [];
+    return tabs.some(tab => hasAccess(tab));
+  };
+
+  const handleModuleSwitch = (moduleId) => {
+    setActiveModule(moduleId);
+    const firstAccessibleTab = MODULES[moduleId].find(tab => hasAccess(tab));
+    if (firstAccessibleTab) {
+      setActiveTab(firstAccessibleTab);
+    }
   };
 
   useEffect(() => {
@@ -351,68 +374,106 @@ export default function App() {
             )}
           </div>
 
-          <div style={{ display: 'flex', gap: '4px', background: '#f0f2f5', padding: '6px', borderRadius: '0', alignSelf: 'flex-end' }}>
-            {currentUser?.role === 'Admin' && (
-              <button onClick={() => { setShowAdminNav(false); setActiveTab(activeTab === 'sync' ? 'dashboard' : activeTab); }} className={`btn ${!showAdminNav && activeTab !== 'sync' ? 'btn-primary' : ''}`} style={{ padding: '8px 12px', background: !showAdminNav && activeTab !== 'sync' ? '' : 'transparent', borderColor: !showAdminNav && activeTab !== 'sync' ? '' : 'transparent' }} title="Home View">
-                <Home size={22} />
+          <div style={{ display: 'flex', gap: '4px', background: '#f0f2f5', padding: '6px', borderRadius: '0', alignSelf: 'flex-end', flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+            {hasModuleAccess('overview') && (
+              <button onClick={() => handleModuleSwitch('overview')} className={`btn ${activeModule === 'overview' && activeTab !== 'sync' ? 'btn-primary' : ''}`} style={{ padding: '8px 12px', background: activeModule === 'overview' && activeTab !== 'sync' ? '#2e7d32' : 'transparent', color: activeModule === 'overview' && activeTab !== 'sync' ? 'white' : '#555', borderColor: 'transparent' }} title="Overview Module">
+                <Home size={20} />
               </button>
             )}
-            <button onClick={() => { setShowAdminNav(false); setActiveTab('sync'); }} className={`btn ${activeTab === 'sync' ? 'btn-primary' : ''}`} style={{ padding: '8px 12px', background: activeTab === 'sync' ? '#1565c0' : 'transparent', color: activeTab === 'sync' ? 'white' : '#1565c0', borderColor: activeTab === 'sync' ? '#1565c0' : 'transparent' }} title="System Sync">
-              <RefreshCw size={22} className={isSyncing ? "spin" : ""} />
+            {hasModuleAccess('agronomy') && (
+              <button onClick={() => handleModuleSwitch('agronomy')} className={`btn ${activeModule === 'agronomy' && activeTab !== 'sync' ? 'btn-primary' : ''}`} style={{ padding: '8px 12px', background: activeModule === 'agronomy' && activeTab !== 'sync' ? '#2e7d32' : 'transparent', color: activeModule === 'agronomy' && activeTab !== 'sync' ? 'white' : '#555', borderColor: 'transparent' }} title="Agronomy Module">
+                <Leaf size={20} />
+              </button>
+            )}
+            {hasModuleAccess('livestock') && (
+              <button onClick={() => handleModuleSwitch('livestock')} className={`btn ${activeModule === 'livestock' && activeTab !== 'sync' ? 'btn-primary' : ''}`} style={{ padding: '8px 12px', background: activeModule === 'livestock' && activeTab !== 'sync' ? '#2e7d32' : 'transparent', color: activeModule === 'livestock' && activeTab !== 'sync' ? 'white' : '#555', borderColor: 'transparent' }} title="Livestock Module">
+                <Rabbit size={20} />
+              </button>
+            )}
+            {hasModuleAccess('finance') && (
+              <button onClick={() => handleModuleSwitch('finance')} className={`btn ${activeModule === 'finance' && activeTab !== 'sync' ? 'btn-primary' : ''}`} style={{ padding: '8px 12px', background: activeModule === 'finance' && activeTab !== 'sync' ? '#2e7d32' : 'transparent', color: activeModule === 'finance' && activeTab !== 'sync' ? 'white' : '#555', borderColor: 'transparent' }} title="Financials Module">
+                <DollarSign size={20} />
+              </button>
+            )}
+            {hasModuleAccess('operations') && (
+              <button onClick={() => handleModuleSwitch('operations')} className={`btn ${activeModule === 'operations' && activeTab !== 'sync' ? 'btn-primary' : ''}`} style={{ padding: '8px 12px', background: activeModule === 'operations' && activeTab !== 'sync' ? '#2e7d32' : 'transparent', color: activeModule === 'operations' && activeTab !== 'sync' ? 'white' : '#555', borderColor: 'transparent' }} title="Operations Module">
+                <Users size={20} />
+              </button>
+            )}
+            
+            <div style={{ width: '1px', background: '#ccc', margin: '4px 6px' }}></div>
+
+            <button onClick={() => setActiveTab('sync')} className={`btn ${activeTab === 'sync' ? 'btn-primary' : ''}`} style={{ padding: '8px 12px', background: activeTab === 'sync' ? '#1565c0' : 'transparent', color: activeTab === 'sync' ? 'white' : '#1565c0', borderColor: 'transparent' }} title="System Sync">
+              <RefreshCw size={20} className={isSyncing ? "spin" : ""} />
             </button>
+            
             {currentUser?.role === 'Admin' && (
-              <button onClick={() => { setShowAdminNav(true); setActiveTab('admin'); }} className={`btn ${showAdminNav ? 'btn-primary' : ''}`} style={{ padding: '8px 12px', background: showAdminNav ? '#c62828' : 'transparent', color: showAdminNav ? 'white' : '#c62828', borderColor: showAdminNav ? '#c62828' : 'transparent' }} title="Admin View">
-                <Settings size={22} />
+              <button onClick={() => handleModuleSwitch('admin')} className={`btn ${activeModule === 'admin' && activeTab !== 'sync' ? 'btn-primary' : ''}`} style={{ padding: '8px 12px', background: activeModule === 'admin' && activeTab !== 'sync' ? '#c62828' : 'transparent', color: activeModule === 'admin' && activeTab !== 'sync' ? 'white' : '#c62828', borderColor: 'transparent' }} title="Admin Module">
+                <Settings size={20} />
               </button>
             )}
+            
             <button onClick={() => { if (window.confirm('Sign out and lock offline data?')) dispatch(logout()) }} className="btn" style={{ padding: '8px 12px', background: 'transparent', color: 'var(--color-primary-dark)', borderColor: 'transparent' }} title="Logout">
-              <LogOut size={22} />
+              <LogOut size={20} />
             </button>
           </div>
         </div>
       </header>
 
       <nav className="tab-nav" style={{ display: activeTab === 'sync' ? 'none' : 'flex' }}>
-        {!showAdminNav ? (
+        {activeModule === 'overview' && (
           <>
             {hasAccess('dashboard') && <button onClick={() => setActiveTab('dashboard')} className={`btn ${activeTab === 'dashboard' ? 'btn-primary' : ''}`}><BarChart size={16} style={{ marginRight: 6 }} /> Dashboard</button>}
             {hasAccess('map') && <button onClick={() => setActiveTab('map')} className={`btn ${activeTab === 'map' ? 'btn-primary' : ''}`}><MapPin size={16} style={{ marginRight: 6 }} /> Map</button>}
-            {hasAccess('livestock') && <button onClick={() => setActiveTab('livestock')} className={`btn ${activeTab === 'livestock' ? 'btn-primary' : ''}`}><Rabbit size={16} style={{ marginRight: 6 }} /> Livestock</button>}
-            {hasAccess('breeding') && <button onClick={() => setActiveTab('breeding')} className={`btn ${activeTab === 'breeding' ? 'btn-primary' : ''}`}><Baby size={16} style={{ marginRight: 6 }} /> Breeding</button>}
-            {hasAccess('kits') && <button onClick={() => setActiveTab('kits')} className={`btn ${activeTab === 'kits' ? 'btn-primary' : ''}`}><Layers size={16} style={{ marginRight: 6 }} /> Kits</button>}
+          </>
+        )}
+        {activeModule === 'agronomy' && (
+          <>
             {hasAccess('field') && <button onClick={() => setActiveTab('field')} className={`btn ${activeTab === 'field' ? 'btn-primary' : ''}`}><Target size={16} style={{ marginRight: 6 }} /> Fields</button>}
             {hasAccess('nursery') && <button onClick={() => setActiveTab('nursery')} className={`btn ${activeTab === 'nursery' ? 'btn-primary' : ''}`}><Box size={16} style={{ marginRight: 6 }} /> Nursery</button>}
             {hasAccess('crop') && <button onClick={() => setActiveTab('crop')} className={`btn ${activeTab === 'crop' ? 'btn-primary' : ''}`}><Leaf size={16} style={{ marginRight: 6 }} /> Crops</button>}
             {hasAccess('harvest') && <button onClick={() => setActiveTab('harvest')} className={`btn ${activeTab === 'harvest' ? 'btn-primary' : ''}`}><BarChart size={16} style={{ marginRight: 6 }} /> Harvests</button>}
-            {hasAccess('assignment') && <button onClick={() => setActiveTab('assignment')} className={`btn ${activeTab === 'assignment' ? 'btn-primary' : ''}`}><Users size={16} style={{ marginRight: 6 }} /> Assignments</button>}
-            {hasAccess('employee') && <button onClick={() => setActiveTab('employee')} className={`btn ${activeTab === 'employee' ? 'btn-primary' : ''}`}><Contact size={16} style={{ marginRight: 6 }} /> Employees</button>}
-            {hasAccess('equipment') && <button onClick={() => setActiveTab('equipment')} className={`btn ${activeTab === 'equipment' ? 'btn-primary' : ''}`}><Briefcase size={16} style={{ marginRight: 6 }} /> Hard Assets</button>}
+          </>
+        )}
+        {activeModule === 'livestock' && (
+          <>
+            {hasAccess('livestock') && <button onClick={() => setActiveTab('livestock')} className={`btn ${activeTab === 'livestock' ? 'btn-primary' : ''}`}><Rabbit size={16} style={{ marginRight: 6 }} /> Livestock</button>}
+            {hasAccess('breeding') && <button onClick={() => setActiveTab('breeding')} className={`btn ${activeTab === 'breeding' ? 'btn-primary' : ''}`}><Baby size={16} style={{ marginRight: 6 }} /> Breeding</button>}
+            {hasAccess('kits') && <button onClick={() => setActiveTab('kits')} className={`btn ${activeTab === 'kits' ? 'btn-primary' : ''}`}><Layers size={16} style={{ marginRight: 6 }} /> Kits</button>}
+          </>
+        )}
+        {activeModule === 'finance' && (
+          <>
             {hasAccess('finance') && <button onClick={() => setActiveTab('finance')} className={`btn ${activeTab === 'finance' ? 'btn-primary' : ''}`}><DollarSign size={16} style={{ marginRight: 6 }} /> Ledger</button>}
             {hasAccess('budget') && <button onClick={() => setActiveTab('budget')} className={`btn ${activeTab === 'budget' ? 'btn-primary' : ''}`}><Calculator size={16} style={{ marginRight: 6 }} /> Budgets</button>}
+          </>
+        )}
+        {activeModule === 'operations' && (
+          <>
+            {hasAccess('employee') && <button onClick={() => setActiveTab('employee')} className={`btn ${activeTab === 'employee' ? 'btn-primary' : ''}`}><Contact size={16} style={{ marginRight: 6 }} /> Employees</button>}
+            {hasAccess('assignment') && <button onClick={() => setActiveTab('assignment')} className={`btn ${activeTab === 'assignment' ? 'btn-primary' : ''}`}><Users size={16} style={{ marginRight: 6 }} /> Assignments</button>}
+            {hasAccess('equipment') && <button onClick={() => setActiveTab('equipment')} className={`btn ${activeTab === 'equipment' ? 'btn-primary' : ''}`}><Briefcase size={16} style={{ marginRight: 6 }} /> Hard Assets</button>}
             {hasAccess('deadline') && <button onClick={() => setActiveTab('deadline')} className={`btn ${activeTab === 'deadline' ? 'btn-primary' : ''}`}><CalendarClock size={16} style={{ marginRight: 6 }} /> Deadlines</button>}
             {hasAccess('incident') && <button onClick={() => setActiveTab('incident')} className={`btn ${activeTab === 'incident' ? 'btn-primary' : ''}`}><AlertTriangle size={16} style={{ marginRight: 6 }} /> Incidents</button>}
           </>
-        ) : (
+        )}
+        {activeModule === 'admin' && currentUser?.role === 'Admin' && (
           <>
-            {currentUser?.role === 'Admin' && (
-              <>
-                <button onClick={() => setActiveTab('admin')} className={`btn ${activeTab === 'admin' ? 'btn-primary' : ''}`} style={{ background: activeTab === 'admin' ? '#c62828' : 'white', color: activeTab === 'admin' ? 'white' : '#c62828', borderColor: '#c62828' }}>
-                  <ShieldAlert size={16} style={{ marginRight: 6 }} /> Admin
-                </button>
-                <button onClick={() => setActiveTab('access')} className={`btn ${activeTab === 'access' ? 'btn-primary' : ''}`} style={{ background: activeTab === 'access' ? '#c62828' : 'white', color: activeTab === 'access' ? 'white' : '#c62828', borderColor: '#c62828' }}>
-                  Access Roles
-                </button>
-                <button onClick={() => setActiveTab('audit')} className={`btn ${activeTab === 'audit' ? 'btn-primary' : ''}`} style={{ background: activeTab === 'audit' ? '#c62828' : 'white', color: activeTab === 'audit' ? 'white' : '#c62828', borderColor: '#c62828' }}>
-                  Audit Logs
-                </button>
-                <button onClick={() => setActiveTab('gps')} className={`btn ${activeTab === 'gps' ? 'btn-primary' : ''}`} style={{ background: activeTab === 'gps' ? '#c62828' : 'white', color: activeTab === 'gps' ? 'white' : '#c62828', borderColor: '#c62828' }}>
-                  <MapPin size={16} style={{ marginRight: 6 }} /> GPS Logs
-                </button>
-                <button onClick={() => setActiveTab('settings')} className={`btn ${activeTab === 'settings' ? 'btn-primary' : ''}`} style={{ background: activeTab === 'settings' ? '#c62828' : 'white', color: activeTab === 'settings' ? 'white' : '#c62828', borderColor: '#c62828' }}>
-                  <Settings size={16} style={{ marginRight: 6 }} /> Settings
-                </button>
-              </>
-            )}
+            <button onClick={() => setActiveTab('admin')} className={`btn ${activeTab === 'admin' ? 'btn-primary' : ''}`} style={{ background: activeTab === 'admin' ? '#c62828' : 'white', color: activeTab === 'admin' ? 'white' : '#c62828', borderColor: '#c62828' }}>
+              <ShieldAlert size={16} style={{ marginRight: 6 }} /> Admin
+            </button>
+            <button onClick={() => setActiveTab('access')} className={`btn ${activeTab === 'access' ? 'btn-primary' : ''}`} style={{ background: activeTab === 'access' ? '#c62828' : 'white', color: activeTab === 'access' ? 'white' : '#c62828', borderColor: '#c62828' }}>
+              Access Roles
+            </button>
+            <button onClick={() => setActiveTab('audit')} className={`btn ${activeTab === 'audit' ? 'btn-primary' : ''}`} style={{ background: activeTab === 'audit' ? '#c62828' : 'white', color: activeTab === 'audit' ? 'white' : '#c62828', borderColor: '#c62828' }}>
+              Audit Logs
+            </button>
+            <button onClick={() => setActiveTab('gps')} className={`btn ${activeTab === 'gps' ? 'btn-primary' : ''}`} style={{ background: activeTab === 'gps' ? '#c62828' : 'white', color: activeTab === 'gps' ? 'white' : '#c62828', borderColor: '#c62828' }}>
+              <MapPin size={16} style={{ marginRight: 6 }} /> GPS Logs
+            </button>
+            <button onClick={() => setActiveTab('settings')} className={`btn ${activeTab === 'settings' ? 'btn-primary' : ''}`} style={{ background: activeTab === 'settings' ? '#c62828' : 'white', color: activeTab === 'settings' ? 'white' : '#c62828', borderColor: '#c62828' }}>
+              <Settings size={16} style={{ marginRight: 6 }} /> Settings
+            </button>
           </>
         )}
       </nav>
