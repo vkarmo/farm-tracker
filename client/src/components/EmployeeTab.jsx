@@ -208,8 +208,13 @@ export default function EmployeeTab() {
               <span style={{ fontSize: '0.8rem', color: '#666', marginTop: '4px', display: 'block' }}>Usually applicable for Contract or Daily Farm Worker labor.</span>
             </div>
 
-            {/* Termination field moved up alongside the date grids */}
-            <div className="form-group" style={{ background: isTerminated ? '#ffebee' : '#f5f5f5', padding: '16px', borderRadius: '6px', border: '1px solid', borderColor: isTerminated ? '#ffcdd2' : '#e0e0e0', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div className="form-group" style={{ gridColumn: '1 / -1' }}>
+              <label>Home Address</label>
+              <input type="text" value={address} onChange={e => setAddress(e.target.value)} placeholder="123 Farm Rd..." />
+            </div>
+
+            {/* Termination field moved below Home Address */}
+            <div className="form-group" style={{ background: isTerminated ? '#ffebee' : '#f5f5f5', padding: '16px', borderRadius: '6px', border: '1px solid', borderColor: isTerminated ? '#ffcdd2' : '#e0e0e0', display: 'flex', flexDirection: 'column', gap: '8px', gridColumn: '1 / -1' }}>
               <label style={{ color: isTerminated ? '#c62828' : '#333', fontWeight: 'bold' }}>Termination Status</label>
               <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                 <button type="button" className="btn" style={{ background: isTerminated ? '#c62828' : '#e0e0e0', color: isTerminated ? 'white' : '#333', fontWeight: 500 }} onClick={() => setIsTerminated(!isTerminated)}>
@@ -222,15 +227,6 @@ export default function EmployeeTab() {
                   <input type="text" value={terminationReason} onChange={e => setTerminationReason(e.target.value)} placeholder="e.g. End of seasonal contract, Resigned, Terminated for cause..." required={isTerminated} style={{ borderColor: '#ffcdd2' }} />
                 </div>
               )}
-            </div>
-
-            <div className="form-group" style={{ gridColumn: 'span 1' }}>
-              {/* Flex spacer block if needed or can just sit empty to align the bottom row */}
-            </div>
-
-            <div className="form-group" style={{ gridColumn: '1 / -1' }}>
-              <label>Home Address</label>
-              <input type="text" value={address} onChange={e => setAddress(e.target.value)} placeholder="123 Farm Rd..." />
             </div>
 
           </div>

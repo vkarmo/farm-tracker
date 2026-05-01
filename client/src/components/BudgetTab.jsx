@@ -6,7 +6,7 @@ import { FileText, Plus, Trash2, Edit2, Calculator, Check, X } from 'lucide-reac
 import CrudTable from './CrudTable';
 
 const INIT_BUDGET = { name: '', description: '', exchangeRate: 150 };
-const INIT_ITEM = { category: '', description: '', amount: '', currency: 'USD', status: 'Pending' };
+const INIT_ITEM = { category: '', description: '', amount: '', currency: 'USD', status: 'Pending Review' };
 
 export default function BudgetTab() {
   const dispatch = useDispatch();
@@ -343,7 +343,7 @@ export default function BudgetTab() {
                 <label>Approval Status</label>
                 <select value={itemForm.status} onChange={e => setItemForm({ ...itemForm, status: e.target.value })}>
                   <option value="Approved">Approved</option>
-                  <option value="Pending">Pending Review</option>
+                  <option value="Pending Review">Pending Review</option>
                   <option value="Rejected">Rejected</option>
                 </select>
               </div>
