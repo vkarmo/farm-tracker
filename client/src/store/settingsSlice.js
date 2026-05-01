@@ -15,6 +15,7 @@ export const settingsSlice = createSlice({
     jobTitles: ['Foreman', 'Harvester', 'Tractor Operator', 'Security', 'Manager'],
     expenseCategories: ['Equipment Maintenance', 'Fertilizer', 'Fuel', 'Labor', 'Seed'],
     incomeCategories: ['Crop Sale', 'Livestock Sale', 'Subsidy'],
+    animalTypes: ['Cattle', 'Goat', 'Poultry', 'Sheep', 'Swine'],
   },
   reducers: {
     addUnit: (state, action) => {
@@ -83,13 +84,23 @@ export const settingsSlice = createSlice({
     setAppName: (state, action) => {
       state.appName = action.payload;
     },
+    addAnimalType: (state, action) => {
+      if (!state.animalTypes) state.animalTypes = [];
+      if (!state.animalTypes.includes(action.payload)) {
+        state.animalTypes.push(action.payload);
+      }
+    },
+    removeAnimalType: (state, action) => {
+      if (!state.animalTypes) state.animalTypes = [];
+      state.animalTypes = state.animalTypes.filter(t => t !== action.payload);
+    },
     setAllSettings: (state, action) => {
       return { ...state, ...action.payload };
     }
   }
 });
 
-export const { addUnit, removeUnit, addJobTitle, removeJobTitle, addExpenseCategory, removeExpenseCategory, addIncomeCategory, removeIncomeCategory, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold, setAppName, setAllSettings } = settingsSlice.actions;
+export const { addUnit, removeUnit, addJobTitle, removeJobTitle, addExpenseCategory, removeExpenseCategory, addIncomeCategory, removeIncomeCategory, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold, setAppName, addAnimalType, removeAnimalType, setAllSettings } = settingsSlice.actions;
 
 export const saveSettings = () => (dispatch, getState) => {
   const settings = getState().settings;

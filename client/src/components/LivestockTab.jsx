@@ -11,6 +11,7 @@ export default function LivestockTab() {
   const dispatch = useDispatch();
   const fields = useSelector(state => state.fields.data) || [];
   const livestock = useSelector(state => state.assets.livestock) || [];
+  const animalTypes = useSelector(state => state.settings?.animalTypes) || [];
 
   const [liveData, setLiveData] = useState(INIT_LIVE);
   const [editingId, setEditingId] = useState(null);
@@ -98,7 +99,7 @@ export default function LivestockTab() {
             <label>Animal Type</label>
             <select value={liveData.type} onChange={e => setLiveData({...liveData, type: e.target.value})}>
               <option value="">Pick...</option>
-              {['Cattle', 'Goat', 'Poultry', 'Sheep', 'Swine'].map(t => <option key={t} value={t}>{t}</option>)}
+              {animalTypes.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
           <div className="form-group">

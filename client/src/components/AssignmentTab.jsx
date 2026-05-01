@@ -11,6 +11,8 @@ export default function AssignmentTab() {
   const employeesList = useSelector(state => state.employees?.list) || [];
   const nurseries = useSelector(state => state.nurseries?.beds) || [];
   const crops = useSelector(state => state.assets?.crops) || [];
+  const planningGoals = useSelector(state => state.planning?.goals) || [];
+  const planningObjectives = useSelector(state => state.planning?.objectives) || [];
 
   const [editingId, setEditingId] = useState(null);
   const [fieldId, setFieldId] = useState('');
@@ -26,6 +28,7 @@ export default function AssignmentTab() {
   const [task, setTask] = useState('');
   const [assignmentDate, setAssignmentDate] = useState(new Date().toISOString().split('T')[0]);
   const [completedDate, setCompletedDate] = useState('');
+  const [planningId, setPlanningId] = useState('');
 
   const resetForm = () => {
     setEditingId(null);
@@ -37,6 +40,7 @@ export default function AssignmentTab() {
     setTask('');
     setAssignmentDate(new Date().toISOString().split('T')[0]);
     setCompletedDate('');
+    setPlanningId('');
   };
 
   const handleEdit = (assignment) => {
@@ -49,6 +53,7 @@ export default function AssignmentTab() {
     setTask(assignment.task || '');
     setAssignmentDate(assignment.assignmentDate || '');
     setCompletedDate(assignment.completedDate || '');
+    setPlanningId(assignment.planningId || '');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -101,7 +106,8 @@ export default function AssignmentTab() {
       hours: parseFloat(hours) || 0,
       task,
       assignmentDate,
-      completedDate
+      completedDate,
+      planningId
     };
 
     dispatch(saveAssignment(payload));
@@ -182,6 +188,22 @@ export default function AssignmentTab() {
                 </optgroup>
                 <optgroup label="Nursery Beds">
                   {[...nurseries].sort((a,b) => a.name.localeCompare(b.name)).map(n => <option key={n.id} value={n.id}>{n.name}</option>)}
+                </optgroup>
+              </select>
+            </div>
+
+            <div className="form-group" style={{ gridColumn: 'span 1' }}>
+              <label>Link to Planning Goal / Objective</label>
+              <select value={planningId} onChange={e => setPlanningId(e.target.value)}>
+                <option value="">No Planning Linked</option>
+                <optgroup label="Goals">
+                  {planningGoals.map(g => <option key={g.id} value={g.id}>{g.title}</option>)}
+                </optgroup>
+                <optgroup label="Objectives">
+                  {planningObjectives.map(o => {
+                    const parent = planningGoals.find(g => g.id === o.goalId);
+                    return <option key={o.id} value={o.id}>{parent ? `${parent.title} - ` : ''}{o.title}</option>;
+                  })}
                 </optgroup>
               </select>
             </div>

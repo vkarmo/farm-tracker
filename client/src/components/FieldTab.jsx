@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { queueAction } from '../store/syncSlice';
 import { addField, updateField, deleteField } from '../store/fieldsSlice';
-import { CheckCircle2, Target, X } from 'lucide-react';
+import { saveSoilTest, removeSoilTest } from '../store/soilTestsSlice';
+import { CheckCircle2, Target, X, PlusCircle } from 'lucide-react';
 import CrudTable from './CrudTable';
 import { MapContainer, TileLayer, Polygon, Marker, useMapEvents } from 'react-leaflet';
 import { MapSearchBox, MapFlyTo, CurrentLocationControl } from './MapSearchBox';
@@ -20,10 +21,12 @@ const ClickToDrawComponent = ({ polygon, setPolygon }) => {
 };
 
 const INIT_STATE = { name: '', area: '', year: String(new Date().getFullYear()), soil_type: 'Loam', irrigation: 'None', status: 'Fallow', gps: '' };
+const INIT_TEST_STATE = { date: new Date().toISOString().split('T')[0], ph: '', nitrogen: '', phosphorus: '', potassium: '', notes: '' };
 
 export default function FieldTab() {
   const dispatch = useDispatch();
   const fields = useSelector(state => state.fields.data) || [];
+  const soilTests = useSelector(state => state.soilTests?.tests) || [];
   const polygonColor = useSelector(state => state.settings?.polygonColor) || '#ffffff';
   const mapCenter = useSelector(state => state.settings?.mapCenter) || [51.505, -0.09];
   const mapZoom = useSelector(state => state.settings?.mapZoom) || 13;
@@ -32,6 +35,9 @@ export default function FieldTab() {
   const [editingId, setEditingId] = useState(null);
   const [polygonPositions, setPolygonPositions] = useState([]);
   const [searchResultCenter, setSearchResultCenter] = useState(null);
+
+  const [testData, setTestData] = useState(INIT_TEST_STATE);
+  const [editingTestId, setEditingTestId] = useState(null);
 
   const handleLocationFound = (loc) => {
     setSearchResultCenter(loc);
@@ -108,12 +114,50 @@ export default function FieldTab() {
     { key: 'status', header: 'Status' }
   ];
 
+  const handleTestSubmit = (e) => {
+    e.preventDefault();
+    if (!editingId) return alert("You must select a field before adding a soil test.");
+
+    const payload = {
+      ...testData,
+      id: editingTestId || `st_${Date.now()}`,
+      fieldId: editingId
+    };
+
+    dispatch(saveSoilTest(payload));
+    dispatch(queueAction({ type: 'soilTests/saveSoilTest', payload, meta: { id: Date.now() } }));
+
+    setTestData(INIT_TEST_STATE);
+    setEditingTestId(null);
+  };
+
+  const handleTestDelete = (id) => {
+    if (window.confirm("Delete this soil test?")) {
+      dispatch(removeSoilTest(id));
+      dispatch(queueAction({ type: 'core/deleteNode', payload: { id }, meta: { id: Date.now() } }));
+      if (editingTestId === id) {
+         setTestData(INIT_TEST_STATE);
+         setEditingTestId(null);
+      }
+    }
+  };
+
+  const fieldTests = soilTests.filter(t => t.fieldId === editingId);
+  const testColumns = [
+    { key: 'date', header: 'Date' },
+    { key: 'ph', header: 'pH' },
+    { key: 'nitrogen', header: 'Nitrogen (N)' },
+    { key: 'phosphorus', header: 'Phosphorus (P)' },
+    { key: 'potassium', header: 'Potassium (K)' },
+    { key: 'notes', header: 'Notes' }
+  ];
+
   return (
     <div className="card">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h2>{editingId ? 'Edit Field Geometry' : 'Track New Field Geometry'}</h2>
         {editingId && (
-          <button onClick={() => { setEditingId(null); setFormData(INIT_STATE); setPolygonPositions([]); }} className="btn" style={{ background: '#f5f5f5', color: '#333' }}>
+          <button onClick={() => { setEditingId(null); setFormData(INIT_STATE); setPolygonPositions([]); setTestData(INIT_TEST_STATE); setEditingTestId(null); }} className="btn" style={{ background: '#f5f5f5', color: '#333' }}>
             <X size={14} style={{ marginRight: 4 }} /> Cancel Edit
           </button>
         )}
@@ -186,6 +230,62 @@ export default function FieldTab() {
           <CheckCircle2 size={16} style={{ marginRight: 6 }} /> {editingId ? 'Update Field' : 'Save Field Data'}
         </button>
       </form>
+
+      {editingId && (
+        <div style={{ marginTop: '30px', background: '#f9f9f9', padding: '15px', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
+          <h3>Soil Tests for {formData.name}</h3>
+          <form onSubmit={handleTestSubmit} style={{ marginBottom: '20px' }}>
+             <div className="form-grid">
+               <div className="form-group">
+                 <label>Date</label>
+                 <input type="date" value={testData.date} onChange={e => setTestData({ ...testData, date: e.target.value })} required />
+               </div>
+               <div className="form-group">
+                 <label>pH Level</label>
+                 <input type="number" step="0.1" value={testData.ph} onChange={e => setTestData({ ...testData, ph: e.target.value })} />
+               </div>
+               <div className="form-group">
+                 <label>Nitrogen (N)</label>
+                 <input type="number" step="0.1" value={testData.nitrogen} onChange={e => setTestData({ ...testData, nitrogen: e.target.value })} />
+               </div>
+               <div className="form-group">
+                 <label>Phosphorus (P)</label>
+                 <input type="number" step="0.1" value={testData.phosphorus} onChange={e => setTestData({ ...testData, phosphorus: e.target.value })} />
+               </div>
+               <div className="form-group">
+                 <label>Potassium (K)</label>
+                 <input type="number" step="0.1" value={testData.potassium} onChange={e => setTestData({ ...testData, potassium: e.target.value })} />
+               </div>
+               <div className="form-group">
+                 <label>Notes</label>
+                 <input type="text" value={testData.notes} onChange={e => setTestData({ ...testData, notes: e.target.value })} placeholder="Additional observations..." />
+               </div>
+             </div>
+             <button type="submit" className="btn btn-primary" style={{ marginTop: 10 }}>
+                <PlusCircle size={16} style={{ marginRight: 6 }} /> {editingTestId ? 'Update Soil Test' : 'Add Soil Test'}
+             </button>
+             {editingTestId && (
+               <button type="button" onClick={() => { setTestData(INIT_TEST_STATE); setEditingTestId(null); }} className="btn" style={{ marginLeft: '10px' }}>
+                 Cancel Test Edit
+               </button>
+             )}
+          </form>
+
+          {fieldTests.length > 0 ? (
+            <CrudTable
+              data={fieldTests}
+              columns={testColumns}
+              onEdit={(r) => { setTestData(r); setEditingTestId(r.id); }}
+              onDelete={handleTestDelete}
+              itemLabel="Test"
+              customTitle="Recorded Tests"
+              defaultSort={{ key: 'date', direction: 'desc' }}
+            />
+          ) : (
+            <p style={{ color: '#666', fontStyle: 'italic' }}>No soil tests recorded for this field yet.</p>
+          )}
+        </div>
+      )}
 
       <hr style={{ border: 'none', borderTop: '1px solid var(--color-border)', margin: '30px 0' }} />
 
