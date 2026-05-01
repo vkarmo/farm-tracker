@@ -67,12 +67,12 @@ export default function AssignmentTab() {
     .sort((a,b) => (a.lastName || '').localeCompare(b.lastName || ''))
     .map(emp => ({
       value: emp.id,
-      label: `${emp.lastName}, ${emp.firstName} (${emp.jobTitle})`
+      label: `${emp.lastName || 'Unknown'}, ${emp.firstName || 'Unknown'} (${emp.jobTitle || 'No Title'})`
     }));
 
   const activeSelectedOptions = employeeOptions.filter(opt => workerIds.includes(opt.value));
 
-  const uniqueJobTitles = Array.from(new Set(employeesList.map(e => e.jobTitle).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+  const uniqueJobTitles = Array.from(new Set(employeesList.map(e => e.jobTitle).filter(Boolean))).sort((a, b) => String(a).localeCompare(String(b)));
 
   const handleAddGroup = () => {
     let toAdd = employeesList;
@@ -181,13 +181,13 @@ export default function AssignmentTab() {
               <select value={fieldId} onChange={e => setFieldId(e.target.value)} required>
                 <option value="">Select Target...</option>
                 <optgroup label="Crops & Seedlings">
-                  {[...crops].sort((a,b) => a.name.localeCompare(b.name)).map(c => <option key={c.id} value={c.id}>{c.name} ({c.variety})</option>)}
+                  {[...crops].sort((a,b) => (a.name || '').localeCompare(b.name || '')).map(c => <option key={c.id} value={c.id}>{c.name || 'Unnamed'} ({c.variety || 'Unknown'})</option>)}
                 </optgroup>
                 <optgroup label="Physical Fields">
-                  {[...fields].sort((a,b) => a.name.localeCompare(b.name)).map(f => <option key={f.id} value={f.id}>{f.name} ({f.size} acres)</option>)}
+                  {[...fields].sort((a,b) => (a.name || '').localeCompare(b.name || '')).map(f => <option key={f.id} value={f.id}>{f.name || 'Unnamed'} ({f.area || 0} acres)</option>)}
                 </optgroup>
                 <optgroup label="Nursery Beds">
-                  {[...nurseries].sort((a,b) => a.name.localeCompare(b.name)).map(n => <option key={n.id} value={n.id}>{n.name}</option>)}
+                  {[...nurseries].sort((a,b) => (a.name || '').localeCompare(b.name || '')).map(n => <option key={n.id} value={n.id}>{n.name || 'Unnamed'}</option>)}
                 </optgroup>
               </select>
             </div>
