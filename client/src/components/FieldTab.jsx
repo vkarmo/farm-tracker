@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { queueAction } from '../store/syncSlice';
-import { addField, updateField, deleteField } from '../store/fieldsSlice';
-import { saveSoilTest, removeSoilTest } from '../store/soilTestsSlice';
+import { updateField, addField, deleteField } from '../store/fieldsSlice';
 import { CheckCircle2, Target, X, PlusCircle } from 'lucide-react';
 import CrudTable from './CrudTable';
 import { MapContainer, TileLayer, Polygon, Marker, useMapEvents } from 'react-leaflet';
@@ -111,42 +110,13 @@ export default function FieldTab() {
     { key: 'status', header: 'Status' }
   ];
 
-  const handleTestSubmit = (e) => {
-    e.preventDefault();
-    if (!editingId) return alert("You must select a field before adding a soil test.");
 
-    const payload = {
-      ...testData,
-      id: editingTestId || `st_${Date.now()}`,
-      fieldId: editingId
-    };
-
-    dispatch(saveSoilTest(payload));
-    dispatch(queueAction({ type: 'soilTests/saveSoilTest', payload, meta: { id: Date.now() } }));
-
-    setTestData(INIT_TEST_STATE);
-    setEditingTestId(null);
-  };
-
-  const handleTestDelete = (id) => {
-    if (window.confirm("Delete this soil test?")) {
-      dispatch(removeSoilTest(id));
-      dispatch(queueAction({ type: 'core/deleteNode', payload: { id }, meta: { id: Date.now() } }));
-      if (editingTestId === id) {
-         setTestData(INIT_TEST_STATE);
-         setEditingTestId(null);
-      }
-    }
-  };
 
   const fieldTests = soilTests.filter(t => t.fieldId === editingId);
   const testColumns = [
-    { key: 'date', header: 'Date' },
-    { key: 'ph', header: 'pH' },
-    { key: 'nitrogen', header: 'Nitrogen (N)' },
-    { key: 'phosphorus', header: 'Phosphorus (P)' },
-    { key: 'potassium', header: 'Potassium (K)' },
-    { key: 'notes', header: 'Notes' }
+    { key: 'description', header: 'Description' },
+    { key: 'gps', header: 'GPS Points', render: (r) => (r.testResults || []).some(res => res.lat && res.lng) ? 'Yes' : 'No' },
+    { key: 'results', header: 'Results', render: (r) => `${(r.testResults || []).length} Recorded` }
   ];
 
   return (
