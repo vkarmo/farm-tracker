@@ -423,55 +423,55 @@ export default function App() {
       <nav className="tab-nav" style={{ display: activeTab === 'sync' ? 'none' : 'flex' }}>
         {activeModule === 'overview' && (
           <>
-            {hasAccess('dashboard') && <button onClick={() => setActiveTab('dashboard')} className={`btn ${activeTab === 'dashboard' ? 'btn-primary' : ''}`}><BarChart size={16} style={{ marginRight: 6 }} /> Dashboard</button>}
-            {hasAccess('map') && <button onClick={() => setActiveTab('map')} className={`btn ${activeTab === 'map' ? 'btn-primary' : ''}`}><MapPin size={16} style={{ marginRight: 6 }} /> Map</button>}
+            {hasAccess('dashboard') && <button onClick={() => setActiveTab('dashboard')} className={`btn ${activeTab === 'dashboard' ? 'tab-btn-active' : ''}`}><BarChart size={16} style={{ marginRight: 6 }} /> Dashboard</button>}
+            {hasAccess('map') && <button onClick={() => setActiveTab('map')} className={`btn ${activeTab === 'map' ? 'tab-btn-active' : ''}`}><MapPin size={16} style={{ marginRight: 6 }} /> Map</button>}
           </>
         )}
         {activeModule === 'agronomy' && (
           <>
-            {hasAccess('field') && <button onClick={() => setActiveTab('field')} className={`btn ${activeTab === 'field' ? 'btn-primary' : ''}`}><Target size={16} style={{ marginRight: 6 }} /> Fields</button>}
-            {hasAccess('nursery') && <button onClick={() => setActiveTab('nursery')} className={`btn ${activeTab === 'nursery' ? 'btn-primary' : ''}`}><Box size={16} style={{ marginRight: 6 }} /> Nursery</button>}
-            {hasAccess('crop') && <button onClick={() => setActiveTab('crop')} className={`btn ${activeTab === 'crop' ? 'btn-primary' : ''}`}><Leaf size={16} style={{ marginRight: 6 }} /> Crops</button>}
-            {hasAccess('harvest') && <button onClick={() => setActiveTab('harvest')} className={`btn ${activeTab === 'harvest' ? 'btn-primary' : ''}`}><BarChart size={16} style={{ marginRight: 6 }} /> Harvests</button>}
+            {hasAccess('field') && <button onClick={() => setActiveTab('field')} className={`btn ${activeTab === 'field' ? 'tab-btn-active' : ''}`}><Target size={16} style={{ marginRight: 6 }} /> Fields</button>}
+            {hasAccess('nursery') && <button onClick={() => setActiveTab('nursery')} className={`btn ${activeTab === 'nursery' ? 'tab-btn-active' : ''}`}><Box size={16} style={{ marginRight: 6 }} /> Nursery</button>}
+            {hasAccess('crop') && <button onClick={() => setActiveTab('crop')} className={`btn ${activeTab === 'crop' ? 'tab-btn-active' : ''}`}><Leaf size={16} style={{ marginRight: 6 }} /> Crops</button>}
+            {hasAccess('harvest') && <button onClick={() => setActiveTab('harvest')} className={`btn ${activeTab === 'harvest' ? 'tab-btn-active' : ''}`}><BarChart size={16} style={{ marginRight: 6 }} /> Harvests</button>}
           </>
         )}
         {activeModule === 'livestock' && (
           <>
-            {hasAccess('livestock') && <button onClick={() => setActiveTab('livestock')} className={`btn ${activeTab === 'livestock' ? 'btn-primary' : ''}`}><Rabbit size={16} style={{ marginRight: 6 }} /> Livestock</button>}
-            {hasAccess('breeding') && <button onClick={() => setActiveTab('breeding')} className={`btn ${activeTab === 'breeding' ? 'btn-primary' : ''}`}><Baby size={16} style={{ marginRight: 6 }} /> Breeding</button>}
-            {hasAccess('kits') && <button onClick={() => setActiveTab('kits')} className={`btn ${activeTab === 'kits' ? 'btn-primary' : ''}`}><Layers size={16} style={{ marginRight: 6 }} /> Kits</button>}
+            {hasAccess('livestock') && <button onClick={() => setActiveTab('livestock')} className={`btn ${activeTab === 'livestock' ? 'tab-btn-active' : ''}`}><Rabbit size={16} style={{ marginRight: 6 }} /> Livestock</button>}
+            {hasAccess('breeding') && <button onClick={() => setActiveTab('breeding')} className={`btn ${activeTab === 'breeding' ? 'tab-btn-active' : ''}`}><Baby size={16} style={{ marginRight: 6 }} /> Breeding</button>}
+            {hasAccess('kits') && <button onClick={() => setActiveTab('kits')} className={`btn ${activeTab === 'kits' ? 'tab-btn-active' : ''}`}><Layers size={16} style={{ marginRight: 6 }} /> Kits</button>}
           </>
         )}
         {activeModule === 'finance' && (
           <>
-            {hasAccess('finance') && <button onClick={() => setActiveTab('finance')} className={`btn ${activeTab === 'finance' ? 'btn-primary' : ''}`}><DollarSign size={16} style={{ marginRight: 6 }} /> Ledger</button>}
-            {hasAccess('budget') && <button onClick={() => setActiveTab('budget')} className={`btn ${activeTab === 'budget' ? 'btn-primary' : ''}`}><Calculator size={16} style={{ marginRight: 6 }} /> Budgets</button>}
+            {hasAccess('finance') && <button onClick={() => setActiveTab('finance')} className={`btn ${activeTab === 'finance' ? 'tab-btn-active' : ''}`}><DollarSign size={16} style={{ marginRight: 6 }} /> Ledger</button>}
+            {hasAccess('budget') && <button onClick={() => setActiveTab('budget')} className={`btn ${activeTab === 'budget' ? 'tab-btn-active' : ''}`}><Calculator size={16} style={{ marginRight: 6 }} /> Budgets</button>}
           </>
         )}
         {activeModule === 'operations' && (
           <>
-            {hasAccess('employee') && <button onClick={() => setActiveTab('employee')} className={`btn ${activeTab === 'employee' ? 'btn-primary' : ''}`}><Contact size={16} style={{ marginRight: 6 }} /> Employees</button>}
-            {hasAccess('assignment') && <button onClick={() => setActiveTab('assignment')} className={`btn ${activeTab === 'assignment' ? 'btn-primary' : ''}`}><Users size={16} style={{ marginRight: 6 }} /> Assignments</button>}
-            {hasAccess('equipment') && <button onClick={() => setActiveTab('equipment')} className={`btn ${activeTab === 'equipment' ? 'btn-primary' : ''}`}><Briefcase size={16} style={{ marginRight: 6 }} /> Hard Assets</button>}
-            {hasAccess('deadline') && <button onClick={() => setActiveTab('deadline')} className={`btn ${activeTab === 'deadline' ? 'btn-primary' : ''}`}><CalendarClock size={16} style={{ marginRight: 6 }} /> Deadlines</button>}
-            {hasAccess('incident') && <button onClick={() => setActiveTab('incident')} className={`btn ${activeTab === 'incident' ? 'btn-primary' : ''}`}><AlertTriangle size={16} style={{ marginRight: 6 }} /> Incidents</button>}
+            {hasAccess('employee') && <button onClick={() => setActiveTab('employee')} className={`btn ${activeTab === 'employee' ? 'tab-btn-active' : ''}`}><Contact size={16} style={{ marginRight: 6 }} /> Employees</button>}
+            {hasAccess('assignment') && <button onClick={() => setActiveTab('assignment')} className={`btn ${activeTab === 'assignment' ? 'tab-btn-active' : ''}`}><Users size={16} style={{ marginRight: 6 }} /> Assignments</button>}
+            {hasAccess('equipment') && <button onClick={() => setActiveTab('equipment')} className={`btn ${activeTab === 'equipment' ? 'tab-btn-active' : ''}`}><Briefcase size={16} style={{ marginRight: 6 }} /> Hard Assets</button>}
+            {hasAccess('deadline') && <button onClick={() => setActiveTab('deadline')} className={`btn ${activeTab === 'deadline' ? 'tab-btn-active' : ''}`}><CalendarClock size={16} style={{ marginRight: 6 }} /> Deadlines</button>}
+            {hasAccess('incident') && <button onClick={() => setActiveTab('incident')} className={`btn ${activeTab === 'incident' ? 'tab-btn-active' : ''}`}><AlertTriangle size={16} style={{ marginRight: 6 }} /> Incidents</button>}
           </>
         )}
         {activeModule === 'admin' && currentUser?.role === 'Admin' && (
           <>
-            <button onClick={() => setActiveTab('admin')} className={`btn ${activeTab === 'admin' ? 'btn-primary' : ''}`} style={{ background: activeTab === 'admin' ? '#c62828' : 'white', color: activeTab === 'admin' ? 'white' : '#c62828', borderColor: '#c62828' }}>
+            <button onClick={() => setActiveTab('admin')} className={`btn ${activeTab === 'admin' ? 'tab-btn-active' : ''}`} style={{ background: activeTab === 'admin' ? '#c62828' : 'white', color: activeTab === 'admin' ? 'white' : '#c62828', borderColor: '#c62828' }}>
               <ShieldAlert size={16} style={{ marginRight: 6 }} /> Admin
             </button>
-            <button onClick={() => setActiveTab('access')} className={`btn ${activeTab === 'access' ? 'btn-primary' : ''}`} style={{ background: activeTab === 'access' ? '#c62828' : 'white', color: activeTab === 'access' ? 'white' : '#c62828', borderColor: '#c62828' }}>
+            <button onClick={() => setActiveTab('access')} className={`btn ${activeTab === 'access' ? 'tab-btn-active' : ''}`} style={{ background: activeTab === 'access' ? '#c62828' : 'white', color: activeTab === 'access' ? 'white' : '#c62828', borderColor: '#c62828' }}>
               Access Roles
             </button>
-            <button onClick={() => setActiveTab('audit')} className={`btn ${activeTab === 'audit' ? 'btn-primary' : ''}`} style={{ background: activeTab === 'audit' ? '#c62828' : 'white', color: activeTab === 'audit' ? 'white' : '#c62828', borderColor: '#c62828' }}>
+            <button onClick={() => setActiveTab('audit')} className={`btn ${activeTab === 'audit' ? 'tab-btn-active' : ''}`} style={{ background: activeTab === 'audit' ? '#c62828' : 'white', color: activeTab === 'audit' ? 'white' : '#c62828', borderColor: '#c62828' }}>
               Audit Logs
             </button>
-            <button onClick={() => setActiveTab('gps')} className={`btn ${activeTab === 'gps' ? 'btn-primary' : ''}`} style={{ background: activeTab === 'gps' ? '#c62828' : 'white', color: activeTab === 'gps' ? 'white' : '#c62828', borderColor: '#c62828' }}>
+            <button onClick={() => setActiveTab('gps')} className={`btn ${activeTab === 'gps' ? 'tab-btn-active' : ''}`} style={{ background: activeTab === 'gps' ? '#c62828' : 'white', color: activeTab === 'gps' ? 'white' : '#c62828', borderColor: '#c62828' }}>
               <MapPin size={16} style={{ marginRight: 6 }} /> GPS Logs
             </button>
-            <button onClick={() => setActiveTab('settings')} className={`btn ${activeTab === 'settings' ? 'btn-primary' : ''}`} style={{ background: activeTab === 'settings' ? '#c62828' : 'white', color: activeTab === 'settings' ? 'white' : '#c62828', borderColor: '#c62828' }}>
+            <button onClick={() => setActiveTab('settings')} className={`btn ${activeTab === 'settings' ? 'tab-btn-active' : ''}`} style={{ background: activeTab === 'settings' ? '#c62828' : 'white', color: activeTab === 'settings' ? 'white' : '#c62828', borderColor: '#c62828' }}>
               <Settings size={16} style={{ marginRight: 6 }} /> Settings
             </button>
           </>

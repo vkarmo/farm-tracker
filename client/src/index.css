@@ -212,6 +212,15 @@ textarea:focus {
   justify-content: center;
 }
 
+.tab-btn-active {
+  background-color: var(--color-primary) !important;
+  color: white !important;
+}
+
+.tab-btn-active svg {
+  color: #ffeb3b !important;
+}
+
 @media (max-width: 768px) {
   .form-grid {
     grid-template-columns: 1fr;
