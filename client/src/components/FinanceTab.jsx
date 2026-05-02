@@ -199,15 +199,6 @@ export default function FinanceTab() {
             </select>
           </div>
           <div className="form-group">
-            <label>Amount (USD)</label>
-            <input type="number" step="0.01" value={txData.amount} onChange={e => {
-              const val = e.target.value;
-              let newLd = txData.amountLd;
-              if (val && txData.exchangeRate) newLd = (parseFloat(val) * parseFloat(txData.exchangeRate)).toFixed(2);
-              setTxData({...txData, amount: val, amountLd: newLd});
-            }} placeholder="250.00"/>
-          </div>
-          <div className="form-group">
             <label>Exchange Rate (USD to LD)</label>
             <input type="number" step="0.01" value={txData.exchangeRate || ''} onChange={e => {
               const val = e.target.value;
@@ -215,6 +206,15 @@ export default function FinanceTab() {
               if (val && txData.amount) newLd = (parseFloat(txData.amount) * parseFloat(val)).toFixed(2);
               setTxData({...txData, exchangeRate: val, amountLd: newLd});
             }} placeholder="e.g. 195.50"/>
+          </div>
+          <div className="form-group">
+            <label>Amount (USD)</label>
+            <input type="number" step="0.01" value={txData.amount} onChange={e => {
+              const val = e.target.value;
+              let newLd = txData.amountLd;
+              if (val && txData.exchangeRate) newLd = (parseFloat(val) * parseFloat(txData.exchangeRate)).toFixed(2);
+              setTxData({...txData, amount: val, amountLd: newLd});
+            }} placeholder="250.00"/>
           </div>
           <div className="form-group">
             <label>Amount (LD)</label>
