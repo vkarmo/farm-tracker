@@ -20,9 +20,42 @@ export default function FinanceTab() {
   const expenseCategories = useSelector(state => state.settings?.expenseCategories) || ['Equipment Maintenance', 'Fertilizer', 'Fuel', 'Labor', 'Seed'];
   const incomeCategories = useSelector(state => state.settings?.incomeCategories) || ['Crop Sale', 'Livestock Sale', 'Subsidy'];
 
+  const historicalRate = React.useMemo(() => {
+    if (!transactions.length) return '';
+    const sorted = [...transactions].sort((a,b) => new Date(b.date) - new Date(a.date));
+    const recentWithRate = sorted.find(t => t.exchangeRate && String(t.exchangeRate).trim() !== '');
+    return recentWithRate ? recentWithRate.exchangeRate : '';
+  }, [transactions]);
+
+  const [liveRate, setLiveRate] = useState(null);
+
+  React.useEffect(() => {
+    let mounted = true;
+    fetch('https://open.er-api.com/v6/latest/USD')
+      .then(res => res.json())
+      .then(data => {
+        if (mounted && data?.rates?.LRD) {
+          setLiveRate(data.rates.LRD.toFixed(2));
+        }
+      })
+      .catch(err => console.warn("Failed to fetch live exchange rate (offline mode active):", err));
+    return () => { mounted = false; };
+  }, []);
+
+  const activeRate = liveRate || historicalRate;
+  const getInitTx = React.useCallback(() => ({ ...INIT_TX, exchangeRate: activeRate }), [activeRate]);
+
   const [txData, setTxData] = useState(INIT_TX);
   const [editingId, setEditingId] = useState(null);
   const [activeView, setActiveView] = useState('transactions');
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  React.useEffect(() => {
+    if (!isInitialized && activeRate && !editingId) {
+      setTxData(prev => ({ ...prev, exchangeRate: activeRate }));
+      setIsInitialized(true);
+    }
+  }, [activeRate, isInitialized, editingId]);
 
   const handleSubmit = (e) => {
     e.preventDefault();
@@ -43,7 +76,7 @@ export default function FinanceTab() {
       dispatch(queueAction({ type: 'financials/addTransaction', payload: newTx, meta: { id: Date.now() } }));
     }
     
-    setTxData(INIT_TX);
+    setTxData(getInitTx());
     setEditingId(null);
   };
 
@@ -108,7 +141,7 @@ export default function FinanceTab() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h2>{editingId ? 'Edit Ledger Record' : 'Update Ledger'}</h2>
         {editingId && (
-          <button onClick={() => { setEditingId(null); setTxData(INIT_TX); }} className="btn" style={{ background: '#f5f5f5', color: '#333' }}>
+          <button onClick={() => { setEditingId(null); setTxData(getInitTx()); }} className="btn" style={{ background: '#f5f5f5', color: '#333' }}>
             <X size={14} style={{ marginRight: 4 }} /> Cancel Edit
           </button>
         )}

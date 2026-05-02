@@ -25,16 +25,40 @@ export default function BudgetTab() {
 
   const activeBudget = budgets.find(b => b.id === activeBudgetId);
 
+  const historicalRate = React.useMemo(() => {
+    if (!budgets.length) return 150;
+    // Sort by ID descending (which contains timestamp)
+    const sorted = [...budgets].sort((a,b) => b.id.localeCompare(a.id));
+    const recentWithRate = sorted.find(b => b.exchangeRate && String(b.exchangeRate).trim() !== '');
+    return recentWithRate ? recentWithRate.exchangeRate : 150;
+  }, [budgets]);
+
+  const [liveRate, setLiveRate] = useState(null);
+
   useEffect(() => {
-    fetch('https://api.exchangerate-api.com/v4/latest/USD')
+    let mounted = true;
+    fetch('https://open.er-api.com/v6/latest/USD')
       .then(res => res.json())
       .then(data => {
-        if (data && data.rates && data.rates.LRD) {
-          setBudgetForm(prev => ({ ...prev, exchangeRate: data.rates.LRD.toFixed(2) }));
+        if (mounted && data?.rates?.LRD) {
+          setLiveRate(data.rates.LRD.toFixed(2));
         }
       })
-      .catch(err => console.warn('Could not fetch live exchange rate, falling back to default 150.', err));
+      .catch(err => console.warn('Could not fetch live exchange rate (offline mode active):', err));
+    return () => { mounted = false; };
   }, []);
+
+  const activeRate = liveRate || historicalRate;
+  const getInitBudget = React.useCallback(() => ({ ...INIT_BUDGET, exchangeRate: activeRate }), [activeRate]);
+
+  const [isInitialized, setIsInitialized] = useState(false);
+
+  useEffect(() => {
+    if (!isInitialized && activeRate) {
+      setBudgetForm(prev => ({ ...prev, exchangeRate: activeRate }));
+      setIsInitialized(true);
+    }
+  }, [activeRate, isInitialized]);
 
   const handleCreateBudget = (e) => {
     e.preventDefault();
@@ -52,7 +76,7 @@ export default function BudgetTab() {
     dispatch(addBudget(newBudget));
     dispatch(queueAction({ type: 'budgets/upsertBudget', payload: newBudget, meta: { id: Date.now() } }));
 
-    setBudgetForm(INIT_BUDGET);
+    setBudgetForm(getInitBudget());
     setActiveBudgetId(newBudget.id);
   };
 
