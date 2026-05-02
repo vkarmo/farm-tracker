@@ -50,7 +50,11 @@ export default function FinanceTab() {
     const field = fields.find(f => f.id === assetId);
     if (field) return `Field: ${field.name}`;
     const harvest = harvests.find(h => h.id === assetId);
-    if (harvest) return `Harvest: ${harvest.amount} ${harvest.unit} (${harvest.date})`;
+    if (harvest) {
+      const parentCrop = crops.find(c => c.id === harvest.cropId);
+      const cropName = parentCrop ? `${parentCrop.name} ${parentCrop.variety ? `(${parentCrop.variety})` : ''}` : 'Unknown Crop';
+      return `Harvest: ${cropName} - ${harvest.amount} ${harvest.unit} (${harvest.date})`;
+    }
     const animal = livestock.find(l => l.id === assetId);
     if (animal) return `Livestock: ${animal.type} - ${animal.tagNumber}`;
     return 'Unknown Asset';
@@ -59,7 +63,7 @@ export default function FinanceTab() {
   const columns = [
     { key: 'date', header: 'Date' },
     { key: 'txType', header: 'Type' },
-    { key: 'assetId', header: 'Livestock or Crop or Product', render: (r) => getAssetName(r.assetId) },
+    { key: 'assetId', header: 'Description', render: (r) => getAssetName(r.assetId) },
     { 
       key: 'amount', 
       header: 'Amount',
