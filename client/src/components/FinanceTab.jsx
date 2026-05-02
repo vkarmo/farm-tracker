@@ -63,6 +63,7 @@ export default function FinanceTab() {
   const columns = [
     { key: 'date', header: 'Date' },
     { key: 'txType', header: 'Type' },
+    { key: 'category', header: 'Category' },
     { key: 'assetId', header: 'Description', render: (r) => getAssetName(r.assetId) },
     { 
       key: 'amount', 
