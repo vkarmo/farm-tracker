@@ -337,10 +337,11 @@ app.post('/api/sync', async (req, res) => {
         results.push({ actionId: action.meta?.id, status: 'success' });
       }
       else if (action.type === 'financials/addTransaction') {
-        const { id, txType, category, amount, date, vendor, notes, assetId } = action.payload;
+        const { id, txType, category, amount, amountLd, exchangeRate, date, vendor, notes, assetId } = action.payload;
         await session.run(`
           MERGE (t:Transaction {id: $id})
           SET t.txType = $txType, t.category = $category, t.amount = $amount, 
+              t.amountLd = $amountLd, t.exchangeRate = $exchangeRate,
               t.date = $date, t.vendor = $vendor, t.notes = $notes, t.assetId = $assetId
           WITH t
           OPTIONAL MATCH (asset {id: $assetId})
@@ -348,7 +349,7 @@ app.post('/api/sync', async (req, res) => {
             MERGE (t)-[:RELATED_TO]->(asset)
           )
           RETURN t
-        `, { id, txType, category, amount, date, vendor, notes, assetId: assetId || '' });
+        `, { id, txType, category, amount, amountLd: amountLd || '', exchangeRate: exchangeRate || '', date, vendor, notes, assetId: assetId || '' });
         results.push({ actionId: action.meta?.id, status: 'success' });
       }
       else if (action.type === 'activities/addActivity') {
