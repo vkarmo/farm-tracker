@@ -43,15 +43,27 @@ export default function FinanceTab() {
     setEditingId(null);
   };
 
+  const getAssetName = (assetId) => {
+    if (!assetId) return '-';
+    const crop = crops.find(c => c.id === assetId);
+    if (crop) return `Crop: ${crop.name}`;
+    const field = fields.find(f => f.id === assetId);
+    if (field) return `Field: ${field.name}`;
+    const harvest = harvests.find(h => h.id === assetId);
+    if (harvest) return `Harvest: ${harvest.amount} ${harvest.unit} (${harvest.date})`;
+    const animal = livestock.find(l => l.id === assetId);
+    if (animal) return `Livestock: ${animal.type} - ${animal.tagNumber}`;
+    return 'Unknown Asset';
+  };
+
   const columns = [
     { key: 'date', header: 'Date' },
     { key: 'txType', header: 'Type' },
-    { key: 'category', header: 'Category' },
-    { key: 'vendor', header: 'Vendor' },
+    { key: 'assetId', header: 'Livestock or Crop or Product', render: (r) => getAssetName(r.assetId) },
     { 
       key: 'amount', 
       header: 'Amount',
-      render: (r) => <strong style={{color: r.txType === 'Sale' ? 'green' : 'red'}}>${r.amount}</strong>
+      render: (r) => <strong style={{color: r.txType === 'Sale' ? 'green' : 'red'}}>${parseFloat(r.amount).toFixed(2)}</strong>
     }
   ];
 
@@ -93,17 +105,21 @@ export default function FinanceTab() {
             <div style={{display: 'flex', gap: '10px', background: '#f5f5f5', padding: '4px', borderRadius: '8px'}}>
             <select value={txData.assetId} onChange={e => setTxData({...txData, assetId: e.target.value})}>
               <option value="">General ledger...</option>
-              <optgroup label="Crops">
-                {[...crops].sort((a,b) => a.name.localeCompare(b.name)).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+              <optgroup label="Harvest Pulls">
+                {[...harvests].sort((a,b) => a.date.localeCompare(b.date)).map(h => {
+                  const crop = crops.find(c => c.id === h.cropId);
+                  const cropLabel = crop ? `${crop.name} ${crop.variety ? `(${crop.variety})` : ''}` : 'Unknown';
+                  return <option key={h.id} value={h.id}>{cropLabel} - {h.amount} {h.unit} ({h.date})</option>;
+                })}
+              </optgroup>
+              <optgroup label="Livestock">
+                {[...livestock].sort((a,b) => a.type.localeCompare(b.type)).map(l => <option key={l.id} value={l.id}>Animal Type: {l.type} - Tag: {l.tagNumber}</option>)}
               </optgroup>
               <optgroup label="Fields">
                 {[...fields].sort((a,b) => a.name.localeCompare(b.name)).map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
               </optgroup>
-              <optgroup label="Harvest Pulls">
-                {[...harvests].sort((a,b) => a.date.localeCompare(b.date)).map(h => <option key={h.id} value={h.id}>{h.amount} {h.unit} pulled on {h.date}</option>)}
-              </optgroup>
-              <optgroup label="Livestock">
-                {[...livestock].sort((a,b) => a.type.localeCompare(b.type)).map(l => <option key={l.id} value={l.id}>{l.type} - {l.tagNumber}</option>)}
+              <optgroup label="Crops">
+                {[...crops].sort((a,b) => a.name.localeCompare(b.name)).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </optgroup>
             </select>
             </div>
