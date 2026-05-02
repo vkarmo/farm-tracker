@@ -6,7 +6,7 @@ import { DollarSign, X } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, PieChart, Pie, Cell } from 'recharts';
 import CrudTable from './CrudTable';
 
-const INIT_TX = { assetId: '', txType: 'Expense', category: 'Fertilizer', amount: '', vendor: '', notes: '', date: new Date().toISOString().split('T')[0] };
+const INIT_TX = { assetId: '', txType: 'Expense', category: '', amount: '', vendor: '', notes: '', date: new Date().toISOString().split('T')[0] };
 
 export default function FinanceTab() {
   const dispatch = useDispatch();
@@ -28,6 +28,7 @@ export default function FinanceTab() {
     e.preventDefault();
     const parsedAmount = parseFloat(txData.amount);
     if (!txData.amount || isNaN(parsedAmount) || parsedAmount < 0) return alert("Validation Error: Valid positive Transaction Amount is required.");
+    if (!txData.category) return alert("Validation Error: Please select a transaction category.");
 
     if (editingId) {
       const updatedTx = { ...txData, id: editingId };
@@ -135,18 +136,23 @@ export default function FinanceTab() {
           </div>
           <div className="form-group">
             <label>Transaction Type</label>
-            <select value={txData.txType} onChange={e => setTxData({...txData, txType: e.target.value})}>
-              <option>Expense</option>
-              <option>Sale</option>
+            <select value={txData.txType} onChange={e => {
+              const newType = e.target.value;
+              const newCategory = '';
+              setTxData({...txData, txType: newType, category: newCategory});
+            }}>
+              <option value="Expense">Expense</option>
+              <option value="Sale">Sale</option>
             </select>
           </div>
           <div className="form-group">
             <label>Category</label>
             <select value={txData.category} onChange={e => setTxData({...txData, category: e.target.value})}>
+              <option value="">Select a category...</option>
               {txData.txType === 'Expense' ? (
-                expenseCategories.map(c => <option key={c}>{c}</option>)
+                expenseCategories.map(c => <option key={c} value={c}>{c}</option>)
               ) : (
-                incomeCategories.map(c => <option key={c}>{c}</option>)
+                incomeCategories.map(c => <option key={c} value={c}>{c}</option>)
               )}
             </select>
           </div>
