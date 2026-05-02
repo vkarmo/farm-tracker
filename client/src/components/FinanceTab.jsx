@@ -6,7 +6,7 @@ import { DollarSign, X } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, PieChart, Pie, Cell } from 'recharts';
 import CrudTable from './CrudTable';
 
-const INIT_TX = { assetId: '', txType: 'Expense', category: '', amount: '', vendor: '', notes: '', date: new Date().toISOString().split('T')[0] };
+const INIT_TX = { assetId: '', txType: 'Expense', category: '', amount: '', amountLd: '', exchangeRate: '', vendor: '', notes: '', date: new Date().toISOString().split('T')[0] };
 
 export default function FinanceTab() {
   const dispatch = useDispatch();
@@ -26,8 +26,11 @@ export default function FinanceTab() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    const parsedAmount = parseFloat(txData.amount);
-    if (!txData.amount || isNaN(parsedAmount) || parsedAmount < 0) return alert("Validation Error: Valid positive Transaction Amount is required.");
+    const parsedUsd = parseFloat(txData.amount);
+    const parsedLd = parseFloat(txData.amountLd);
+    if ((!txData.amount || isNaN(parsedUsd) || parsedUsd < 0) && (!txData.amountLd || isNaN(parsedLd) || parsedLd < 0)) {
+      return alert("Validation Error: A valid positive Amount (USD or LD) is required.");
+    }
     if (!txData.category) return alert("Validation Error: Please select a transaction category.");
 
     if (editingId) {
@@ -69,7 +72,13 @@ export default function FinanceTab() {
     { 
       key: 'amount', 
       header: 'Amount',
-      render: (r) => <strong style={{color: r.txType === 'Sale' ? 'green' : 'red'}}>${parseFloat(r.amount).toFixed(2)}</strong>
+      render: (r) => (
+        <strong style={{color: r.txType === 'Sale' ? 'green' : 'red'}}>
+          {r.amount && `$${parseFloat(r.amount).toFixed(2)}`}
+          {r.amount && r.amountLd && ' / '}
+          {r.amountLd && `LD$${parseFloat(r.amountLd).toFixed(2)}`}
+        </strong>
+      )
     }
   ];
 
@@ -157,8 +166,31 @@ export default function FinanceTab() {
             </select>
           </div>
           <div className="form-group">
-            <label>Amount ($)</label>
-            <input type="number" step="0.01" value={txData.amount} onChange={e => setTxData({...txData, amount: e.target.value})} placeholder="250.00"/>
+            <label>Amount (USD)</label>
+            <input type="number" step="0.01" value={txData.amount} onChange={e => {
+              const val = e.target.value;
+              let newLd = txData.amountLd;
+              if (val && txData.exchangeRate) newLd = (parseFloat(val) * parseFloat(txData.exchangeRate)).toFixed(2);
+              setTxData({...txData, amount: val, amountLd: newLd});
+            }} placeholder="250.00"/>
+          </div>
+          <div className="form-group">
+            <label>Exchange Rate (USD to LD)</label>
+            <input type="number" step="0.01" value={txData.exchangeRate || ''} onChange={e => {
+              const val = e.target.value;
+              let newLd = txData.amountLd;
+              if (val && txData.amount) newLd = (parseFloat(txData.amount) * parseFloat(val)).toFixed(2);
+              setTxData({...txData, exchangeRate: val, amountLd: newLd});
+            }} placeholder="e.g. 195.50"/>
+          </div>
+          <div className="form-group">
+            <label>Amount (LD)</label>
+            <input type="number" step="0.01" value={txData.amountLd || ''} onChange={e => {
+              const val = e.target.value;
+              let newUsd = txData.amount;
+              if (val && txData.exchangeRate) newUsd = (parseFloat(val) / parseFloat(txData.exchangeRate)).toFixed(2);
+              setTxData({...txData, amountLd: val, amount: newUsd});
+            }} placeholder="e.g. 48875.00"/>
           </div>
           <div className="form-group">
             <label>Vendor / Buyer</label>
