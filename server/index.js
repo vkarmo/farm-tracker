@@ -253,8 +253,8 @@ app.post('/api/sync', async (req, res) => {
                 c.seedingRate = $seedingRate, c.targetYield = $targetYield,
                 c.phHi = toFloat($phHi), c.phLo = toFloat($phLo), c.pestIds = $pestIds
             WITH c 
-            MATCH (n:NurseryBed {id: $fieldId}) 
-            MERGE (c)-[:SOWN_IN]->(n)
+            OPTIONAL MATCH (n:NurseryBed {id: $fieldId}) 
+            FOREACH (ignore IN CASE WHEN n IS NOT NULL THEN [1] ELSE [] END | MERGE (c)-[:SOWN_IN]->(n))
             RETURN c
           `, { id, name, variety, fieldId, plantingDate, expectedHarvest, seedingRate, targetYield, sowType, phHi: phHi || null, phLo: phLo || null, pestIds: pestIds ? JSON.stringify(pestIds) : '[]' });
         } else {
@@ -265,8 +265,8 @@ app.post('/api/sync', async (req, res) => {
                 c.seedingRate = $seedingRate, c.targetYield = $targetYield,
                 c.phHi = toFloat($phHi), c.phLo = toFloat($phLo), c.pestIds = $pestIds
             WITH c 
-            MATCH (f:Field {id: $fieldId}) 
-            MERGE (c)-[:PLANTED_IN]->(f)
+            OPTIONAL MATCH (f:Field {id: $fieldId}) 
+            FOREACH (ignore IN CASE WHEN f IS NOT NULL THEN [1] ELSE [] END | MERGE (c)-[:PLANTED_IN]->(f))
             RETURN c
           `, { id, name, variety, fieldId, plantingDate, expectedHarvest, seedingRate, targetYield, sowType, phHi: phHi || null, phLo: phLo || null, pestIds: pestIds ? JSON.stringify(pestIds) : '[]' });
         }
@@ -276,10 +276,13 @@ app.post('/api/sync', async (req, res) => {
       else if (action.type === 'assets/transplantCrop') {
         const { id, fieldId, transplantDate } = action.payload;
         await session.run(`
-          MATCH (c:Crop {id: $id})
-          MATCH (f:Field {id: $fieldId})
-          MERGE (c)-[r:TRANSPLANTED_TO]->(f)
-          SET r.date = $transplantDate
+          MERGE (c:Crop {id: $id})
+          WITH c
+          OPTIONAL MATCH (f:Field {id: $fieldId})
+          FOREACH (ignore IN CASE WHEN f IS NOT NULL THEN [1] ELSE [] END |
+            MERGE (c)-[r:TRANSPLANTED_TO]->(f)
+            SET r.date = $transplantDate
+          )
           RETURN c
         `, { id, fieldId, transplantDate });
         results.push({ actionId: action.meta?.id, status: 'success' });
@@ -307,6 +310,12 @@ app.post('/api/sync', async (req, res) => {
           SET b.motherId = $motherId, b.fatherId = $fatherId, b.matingDate = $matingDate,
               b.expectedDueDate = $expectedDueDate, b.status = $status, 
               b.offspringCount = $offspringCount, b.notes = $notes
+          WITH b
+          OPTIONAL MATCH (m:Livestock {id: $motherId})
+          FOREACH (ignore IN CASE WHEN m IS NOT NULL THEN [1] ELSE [] END | MERGE (b)-[:HAS_MOTHER]->(m))
+          WITH b
+          OPTIONAL MATCH (f:Livestock {id: $fatherId})
+          FOREACH (ignore IN CASE WHEN f IS NOT NULL THEN [1] ELSE [] END | MERGE (b)-[:HAS_FATHER]->(f))
           RETURN b
         `, { id, motherId, fatherId: fatherId || '', matingDate, expectedDueDate, status, offspringCount: offspringCount || 0, notes: notes || '' });
         results.push({ actionId: action.meta?.id, status: 'success' });
@@ -318,6 +327,12 @@ app.post('/api/sync', async (req, res) => {
           SET k.motherId = $motherId, k.birthDate = $birthDate, k.type = $type,
               k.breed = $breed, k.fieldId = $fieldId, k.numberOfKits = $numberOfKits,
               k.healthStatus = $healthStatus, k.notes = $notes
+          WITH k
+          OPTIONAL MATCH (m:Livestock {id: $motherId})
+          FOREACH (ignore IN CASE WHEN m IS NOT NULL THEN [1] ELSE [] END | MERGE (k)-[:BORN_FROM]->(m))
+          WITH k
+          OPTIONAL MATCH (f:Field {id: $fieldId})
+          FOREACH (ignore IN CASE WHEN f IS NOT NULL THEN [1] ELSE [] END | MERGE (k)-[:LOCATED_IN]->(f))
           RETURN k
         `, { id, motherId, birthDate, type, breed, fieldId, numberOfKits, healthStatus, notes: notes || '' });
         results.push({ actionId: action.meta?.id, status: 'success' });
@@ -358,8 +373,8 @@ app.post('/api/sync', async (req, res) => {
           MERGE (a:Activity {id: $id})
           SET a.type = $activityType, a.date = $date, a.plannedDate = $plannedDate, a.personResponsible = $personResponsible, a.notes = $notes, a.targetId = $targetId
           WITH a
-          MATCH (target {id: $targetId})
-          MERGE (a)-[:PERFORMED_ON]->(target)
+          OPTIONAL MATCH (target {id: $targetId})
+          FOREACH (ignore IN CASE WHEN target IS NOT NULL THEN [1] ELSE [] END | MERGE (a)-[:PERFORMED_ON]->(target))
           RETURN a
         `, { id, activityType, targetId, date, plannedDate, personResponsible, notes });
         results.push({ actionId: action.meta?.id, status: 'success' });
@@ -425,8 +440,21 @@ app.post('/api/sync', async (req, res) => {
               a.workerIds = $workerIds, a.workerCount = toInteger($workerCount), a.workers = $workers,
               a.hours = toFloat($hours), a.task = $task, a.assignmentDate = $assignmentDate, a.completedDate = $completedDate,
               a.planningId = $planningId
-          RETURN a
-        `, { id, taskName, assignedTo, priority, dueDate, status, fieldId: fieldId || null, equipmentId: equipmentId || null, workerIds: workerIds ? JSON.stringify(workerIds) : '[]', workerCount: workerCount || 0, workers: workers || '', hours: hours || 0, task: task || '', assignmentDate: assignmentDate || '', completedDate: completedDate || '', planningId: planningId || null });
+          WITH a
+          OPTIONAL MATCH (f:Field {id: $fieldId})
+          FOREACH (ignore IN CASE WHEN f IS NOT NULL THEN [1] ELSE [] END | MERGE (a)-[:ON_FIELD]->(f))
+          WITH a
+          OPTIONAL MATCH (e:Equipment {id: $equipmentId})
+          FOREACH (ignore IN CASE WHEN e IS NOT NULL THEN [1] ELSE [] END | MERGE (a)-[:USES_EQUIPMENT]->(e))
+          WITH a
+          OPTIONAL MATCH (p:Objective {id: $planningId})
+          FOREACH (ignore IN CASE WHEN p IS NOT NULL THEN [1] ELSE [] END | MERGE (a)-[:PART_OF_PLAN]->(p))
+          WITH a
+          UNWIND (CASE WHEN size($workerIdList) > 0 THEN $workerIdList ELSE [null] END) AS wId
+          OPTIONAL MATCH (w:Employee {id: wId})
+          FOREACH (ignore IN CASE WHEN w IS NOT NULL THEN [1] ELSE [] END | MERGE (a)-[:ASSIGNED_TO]->(w))
+          RETURN DISTINCT a
+        `, { id, taskName, assignedTo, priority, dueDate, status, fieldId: fieldId || null, equipmentId: equipmentId || null, workerIds: workerIds ? JSON.stringify(workerIds) : '[]', workerIdList: workerIds || [], workerCount: workerCount || 0, workers: workers || '', hours: hours || 0, task: task || '', assignmentDate: assignmentDate || '', completedDate: completedDate || '', planningId: planningId || null });
         results.push({ actionId: action.meta?.id, status: 'success' });
       }
       else if (action.type === 'incidents/upsertIncident') {
@@ -533,19 +561,26 @@ app.post('/api/sync', async (req, res) => {
           SET s.fieldId = $fieldId, s.description = $description,
               s.testResults = $testResults
           WITH s
-          MATCH (f:Field {id: $fieldId})
-          MERGE (s)-[:TESTED_ON]->(f)
+          OPTIONAL MATCH (f:Field {id: $fieldId})
+          FOREACH (ignore IN CASE WHEN f IS NOT NULL THEN [1] ELSE [] END | MERGE (s)-[:TESTED_ON]->(f))
           RETURN s
         `, { id, fieldId, description: description || '', testResults: testResults ? JSON.stringify(testResults) : '[]' });
         results.push({ actionId: action.meta?.id, status: 'success' });
       }
       else if (action.type === 'planning/saveGoal') {
-        const { id, title, fromDate, toDate, workerIds } = action.payload;
+        const { id, title, fromDate, toDate, workerIds, parentGoalId } = action.payload;
         await session.run(`
           MERGE (g:Goal {id: $id})
-          SET g.title = $title, g.fromDate = $fromDate, g.toDate = $toDate, g.workerIds = $workerIds
-          RETURN g
-        `, { id, title, fromDate, toDate, workerIds: workerIds ? JSON.stringify(workerIds) : '[]' });
+          SET g.title = $title, g.fromDate = $fromDate, g.toDate = $toDate, g.workerIds = $workerIds, g.parentGoalId = $parentGoalId
+          WITH g
+          OPTIONAL MATCH (p:Goal {id: $parentGoalId})
+          FOREACH (ignore IN CASE WHEN p IS NOT NULL THEN [1] ELSE [] END | MERGE (g)-[:PARENT_GOAL]->(p))
+          WITH g
+          UNWIND (CASE WHEN size($workerIdList) > 0 THEN $workerIdList ELSE [null] END) AS wId
+          OPTIONAL MATCH (w:Employee {id: wId})
+          FOREACH (ignore IN CASE WHEN w IS NOT NULL THEN [1] ELSE [] END | MERGE (g)-[:ASSIGNED_TO]->(w))
+          RETURN DISTINCT g
+        `, { id, title, fromDate, toDate, workerIds: workerIds ? JSON.stringify(workerIds) : '[]', workerIdList: workerIds || [], parentGoalId: parentGoalId || null });
         results.push({ actionId: action.meta?.id, status: 'success' });
       }
       else if (action.type === 'planning/saveObjective') {
@@ -554,10 +589,14 @@ app.post('/api/sync', async (req, res) => {
           MERGE (o:Objective {id: $id})
           SET o.goalId = $goalId, o.title = $title, o.fromDate = $fromDate, o.toDate = $toDate, o.workerIds = $workerIds
           WITH o
-          MATCH (g:Goal {id: $goalId})
-          MERGE (g)-[:HAS_OBJECTIVE]->(o)
-          RETURN o
-        `, { id, goalId, title, fromDate, toDate, workerIds: workerIds ? JSON.stringify(workerIds) : '[]' });
+          OPTIONAL MATCH (g:Goal {id: $goalId})
+          FOREACH (ignore IN CASE WHEN g IS NOT NULL THEN [1] ELSE [] END | MERGE (g)-[:HAS_OBJECTIVE]->(o))
+          WITH o
+          UNWIND (CASE WHEN size($workerIdList) > 0 THEN $workerIdList ELSE [null] END) AS wId
+          OPTIONAL MATCH (w:Employee {id: wId})
+          FOREACH (ignore IN CASE WHEN w IS NOT NULL THEN [1] ELSE [] END | MERGE (o)-[:ASSIGNED_TO]->(w))
+          RETURN DISTINCT o
+        `, { id, goalId, title, fromDate, toDate, workerIds: workerIds ? JSON.stringify(workerIds) : '[]', workerIdList: workerIds || [] });
         results.push({ actionId: action.meta?.id, status: 'success' });
       }
       else if (action.type === 'livestockDiseases/saveDisease') {

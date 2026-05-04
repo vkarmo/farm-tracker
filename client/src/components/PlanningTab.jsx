@@ -4,18 +4,63 @@ import { saveGoal, removeGoal, saveObjective, removeObjective } from '../store/p
 import { queueAction } from '../store/syncSlice';
 import CrudTable from './CrudTable';
 import Select from 'react-select';
-import { Target, X, PlusCircle } from 'lucide-react';
+import { Target, X, PlusCircle, ChevronRight, ChevronDown, List, ClipboardList, Edit } from 'lucide-react';
 
-const INIT_GOAL = { title: '', fromDate: '', toDate: '', workerIds: [] };
+const INIT_GOAL = { title: '', fromDate: '', toDate: '', workerIds: [], parentGoalId: '' };
 const INIT_OBJECTIVE = { title: '', fromDate: '', toDate: '', workerIds: [], goalId: '' };
+
+const TreeNode = ({ label, children, icon: Icon, defaultExpanded = true, onEdit }) => {
+  const [expanded, setExpanded] = useState(defaultExpanded);
+  const hasChildren = React.Children.count(children) > 0;
+
+  return (
+    <div style={{ marginLeft: '20px', marginTop: '6px' }}>
+      <div 
+        style={{ 
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+          padding: '6px 8px', borderRadius: '4px',
+          background: expanded ? '#f5f5f5' : 'transparent',
+          border: '1px solid',
+          borderColor: expanded ? '#e0e0e0' : 'transparent',
+          color: '#333'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', cursor: hasChildren ? 'pointer' : 'default', flex: 1 }} onClick={() => setExpanded(!expanded)}>
+          <span style={{ width: '20px', display: 'inline-block' }}>
+            {hasChildren ? (expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />) : null}
+          </span>
+          {Icon && <Icon size={14} style={{ marginRight: '6px', color: '#558b2f' }} />}
+          <span style={{ fontWeight: hasChildren ? '500' : 'normal' }}>{label}</span>
+        </div>
+        {onEdit && (
+          <button 
+            onClick={(e) => { e.stopPropagation(); onEdit(); }}
+            style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center' }}
+            title="Edit"
+          >
+            <Edit size={14} color="#666" />
+          </button>
+        )}
+      </div>
+      {expanded && hasChildren && (
+        <div style={{ borderLeft: '1px solid #ddd', marginLeft: '10px', paddingLeft: '4px' }}>
+          {children}
+        </div>
+      )}
+    </div>
+  );
+};
 
 export default function PlanningTab() {
   const dispatch = useDispatch();
   const goals = useSelector(state => state.planning?.goals) || [];
   const objectives = useSelector(state => state.planning?.objectives) || [];
   const employeesList = useSelector(state => state.employees?.list) || [];
+  const assignments = useSelector(state => state.assignments?.list) || [];
 
   const [activeView, setActiveView] = useState('goals'); // goals or objectives
+  const [goalViewMode, setGoalViewMode] = useState('table'); // table or tree
+  const [objViewMode, setObjViewMode] = useState('table'); // table or tree
 
   const [goalData, setGoalData] = useState(INIT_GOAL);
   const [editingGoalId, setEditingGoalId] = useState(null);
@@ -33,6 +78,7 @@ export default function PlanningTab() {
   const handleGoalSubmit = (e) => {
     e.preventDefault();
     if (!goalData.title.trim()) return alert("Title is required.");
+    if (goalData.parentGoalId === editingGoalId) return alert("A goal cannot be its own parent.");
 
     const payload = {
       ...goalData,
@@ -93,8 +139,66 @@ export default function PlanningTab() {
     return names.join(', ');
   };
 
+  const renderGoalsTree = (parentId) => {
+    const childrenGoals = goals.filter(g => (g.parentGoalId || '') === parentId);
+    return childrenGoals.map(goal => (
+      <TreeNode 
+        key={goal.id} 
+        label={goal.title} 
+        icon={Target}
+        onEdit={() => {
+          setActiveView('goals');
+          setGoalData(goal);
+          setEditingGoalId(goal.id);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+      >
+        {renderGoalsTree(goal.id)}
+        
+        {objectives.filter(o => o.goalId === goal.id).map(obj => (
+          <TreeNode 
+            key={obj.id} 
+            label={obj.title} 
+            icon={ClipboardList}
+            onEdit={() => {
+              setActiveView('objectives');
+              setObjectiveData(obj);
+              setEditingObjId(obj.id);
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+          >
+            {assignments.filter(a => a.planningId === obj.id).map(ass => (
+               <TreeNode key={ass.id} label={`${ass.taskName} (Assigned: ${ass.workers || renderWorkerNames(ass.workerIds)})`} icon={List} />
+            ))}
+          </TreeNode>
+        ))}
+      </TreeNode>
+    ));
+  };
+
+  const renderObjectivesTree = () => {
+    return objectives.map(obj => (
+      <TreeNode 
+        key={obj.id} 
+        label={obj.title} 
+        icon={ClipboardList}
+        onEdit={() => {
+          setActiveView('objectives');
+          setObjectiveData(obj);
+          setEditingObjId(obj.id);
+          window.scrollTo({ top: 0, behavior: 'smooth' });
+        }}
+      >
+        {assignments.filter(a => a.planningId === obj.id).map(ass => (
+           <TreeNode key={ass.id} label={`${ass.taskName} (Assigned: ${ass.workers || renderWorkerNames(ass.workerIds)})`} icon={List} />
+        ))}
+      </TreeNode>
+    ));
+  };
+
   const goalColumns = [
     { key: 'title', header: 'Goal Title' },
+    { key: 'parentGoalId', header: 'Parent', render: (r) => goals.find(g => g.id === r.parentGoalId)?.title || '-' },
     { key: 'fromDate', header: 'From Date' },
     { key: 'toDate', header: 'To Date' },
     { key: 'workerIds', header: 'Responsible', render: (r) => renderWorkerNames(r.workerIds) }
@@ -130,6 +234,13 @@ export default function PlanningTab() {
             <form onSubmit={handleGoalSubmit}>
               <div className="form-grid">
                 <div className="form-group form-grid-full">
+                  <label>Parent Goal (Optional)</label>
+                  <select value={goalData.parentGoalId || ''} onChange={e => setGoalData({...goalData, parentGoalId: e.target.value})}>
+                    <option value="">None (Top-Level Goal)</option>
+                    {goals.filter(g => g.id !== editingGoalId).map(g => <option key={g.id} value={g.id}>{g.title}</option>)}
+                  </select>
+                </div>
+                <div className="form-group form-grid-full">
                   <label>Goal Title</label>
                   <input type="text" value={goalData.title} onChange={e => setGoalData({ ...goalData, title: e.target.value })} placeholder="e.g. Increase tomato yield by 20%" required />
                 </div>
@@ -157,15 +268,34 @@ export default function PlanningTab() {
               </button>
             </form>
           </div>
+          
           <div className="card">
-            <CrudTable 
-              data={goals}
-              columns={goalColumns}
-              onEdit={(r) => { setGoalData(r); setEditingGoalId(r.id); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-              onDelete={handleDeleteGoal}
-              itemLabel="Goal"
-              defaultSort={{ key: 'title', direction: 'asc' }}
-            />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+              <h3 style={{ margin: 0 }}>Active Goals</h3>
+              <div style={{ display: 'flex', gap: '5px' }}>
+                <button onClick={() => setGoalViewMode('table')} className="btn" style={{ padding: '6px 12px', background: goalViewMode === 'table' ? '#e0e0e0' : 'transparent', border: '1px solid #ccc' }}>Table</button>
+                <button onClick={() => setGoalViewMode('tree')} className="btn" style={{ padding: '6px 12px', background: goalViewMode === 'tree' ? '#e0e0e0' : 'transparent', border: '1px solid #ccc' }}>Tree</button>
+              </div>
+            </div>
+            
+            {goalViewMode === 'table' ? (
+              <CrudTable 
+                data={goals}
+                columns={goalColumns}
+                onEdit={(r) => { setGoalData(r); setEditingGoalId(r.id); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                onDelete={handleDeleteGoal}
+                itemLabel="Goal"
+                defaultSort={{ key: 'title', direction: 'asc' }}
+              />
+            ) : (
+              <div style={{ padding: '15px', background: '#fafafa', borderRadius: '8px', border: '1px solid #eee' }}>
+                {goals.filter(g => !g.parentGoalId).length === 0 ? (
+                  <p style={{ color: '#888', fontStyle: 'italic' }}>No goals have been created yet.</p>
+                ) : (
+                  renderGoalsTree('')
+                )}
+              </div>
+            )}
           </div>
         </>
       )}
@@ -218,15 +348,34 @@ export default function PlanningTab() {
               </button>
             </form>
           </div>
+          
           <div className="card">
-            <CrudTable 
-              data={objectives}
-              columns={objColumns}
-              onEdit={(r) => { setObjectiveData(r); setEditingObjId(r.id); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-              onDelete={handleDeleteObjective}
-              itemLabel="Objective"
-              defaultSort={{ key: 'title', direction: 'asc' }}
-            />
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+              <h3 style={{ margin: 0 }}>Active Objectives</h3>
+              <div style={{ display: 'flex', gap: '5px' }}>
+                <button onClick={() => setObjViewMode('table')} className="btn" style={{ padding: '6px 12px', background: objViewMode === 'table' ? '#e0e0e0' : 'transparent', border: '1px solid #ccc' }}>Table</button>
+                <button onClick={() => setObjViewMode('tree')} className="btn" style={{ padding: '6px 12px', background: objViewMode === 'tree' ? '#e0e0e0' : 'transparent', border: '1px solid #ccc' }}>Tree</button>
+              </div>
+            </div>
+            
+            {objViewMode === 'table' ? (
+              <CrudTable 
+                data={objectives}
+                columns={objColumns}
+                onEdit={(r) => { setObjectiveData(r); setEditingObjId(r.id); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
+                onDelete={handleDeleteObjective}
+                itemLabel="Objective"
+                defaultSort={{ key: 'title', direction: 'asc' }}
+              />
+            ) : (
+              <div style={{ padding: '15px', background: '#fafafa', borderRadius: '8px', border: '1px solid #eee' }}>
+                {objectives.length === 0 ? (
+                  <p style={{ color: '#888', fontStyle: 'italic' }}>No objectives have been created yet.</p>
+                ) : (
+                  renderObjectivesTree()
+                )}
+              </div>
+            )}
           </div>
         </>
       )}
