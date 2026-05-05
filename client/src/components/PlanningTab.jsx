@@ -9,7 +9,7 @@ import { Target, X, PlusCircle, ChevronRight, ChevronDown, List, ClipboardList, 
 const INIT_GOAL = { title: '', fromDate: '', toDate: '', workerIds: [], parentGoalId: '' };
 const INIT_OBJECTIVE = { title: '', fromDate: '', toDate: '', workerIds: [], goalId: '' };
 
-const TreeNode = ({ label, children, icon: Icon, defaultExpanded = true, onEdit }) => {
+const TreeNode = ({ label, children, icon: Icon, defaultExpanded = true, onEdit, isSelected }) => {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const hasChildren = React.Children.count(children) > 0;
 
@@ -19,9 +19,9 @@ const TreeNode = ({ label, children, icon: Icon, defaultExpanded = true, onEdit 
         style={{ 
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           padding: '6px 8px', borderRadius: '4px',
-          background: expanded ? '#f5f5f5' : 'transparent',
+          background: isSelected ? '#fff9c4' : (expanded ? '#f5f5f5' : 'transparent'),
           border: '1px solid',
-          borderColor: expanded ? '#e0e0e0' : 'transparent',
+          borderColor: isSelected ? '#fbc02d' : (expanded ? '#e0e0e0' : 'transparent'),
           color: '#333'
         }}
       >
@@ -146,6 +146,7 @@ export default function PlanningTab() {
         key={goal.id} 
         label={goal.title} 
         icon={Target}
+        isSelected={editingGoalId === goal.id}
         onEdit={() => {
           setActiveView('goals');
           setGoalData(goal);
@@ -160,6 +161,7 @@ export default function PlanningTab() {
             key={obj.id} 
             label={obj.title} 
             icon={ClipboardList}
+            isSelected={editingObjId === obj.id}
             onEdit={() => {
               setActiveView('objectives');
               setObjectiveData(obj);
@@ -182,6 +184,7 @@ export default function PlanningTab() {
         key={obj.id} 
         label={obj.title} 
         icon={ClipboardList}
+        isSelected={editingObjId === obj.id}
         onEdit={() => {
           setActiveView('objectives');
           setObjectiveData(obj);
