@@ -64,6 +64,18 @@ const reduxLoggingMiddleware = store => next => action => {
   return next(action);
 };
 
+const injectUserMiddleware = store => next => action => {
+  if (action.type === 'sync/queueAction') {
+    const currentUser = store.getState().auth?.currentUser;
+    if (currentUser?.email) {
+      if (action.payload && action.payload.payload) {
+        action.payload.payload.lastUpdatedBy = currentUser.email;
+      }
+    }
+  }
+  return next(action);
+};
+
 export const store = configureStore({
   reducer: persistedReducer,
   middleware: (getDefaultMiddleware) =>
@@ -72,7 +84,7 @@ export const store = configureStore({
         // Ignore redux-persist actions
         ignoredActions: ['persist/PERSIST', 'persist/REHYDRATE', 'persist/REGISTER'],
       },
-    }).concat(auditMiddleware, reduxLoggingMiddleware),
+    }).concat(auditMiddleware, injectUserMiddleware, reduxLoggingMiddleware),
 });
 
 export const persistor = persistStore(store);
