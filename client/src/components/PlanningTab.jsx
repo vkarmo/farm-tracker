@@ -9,7 +9,7 @@ import { Target, X, PlusCircle, ChevronRight, ChevronDown, List, ClipboardList, 
 const INIT_GOAL = { title: '', fromDate: '', toDate: '', workerIds: [], parentGoalId: '' };
 const INIT_OBJECTIVE = { title: '', fromDate: '', toDate: '', workerIds: [], goalId: '' };
 
-const TreeNode = ({ label, children, icon: Icon, defaultExpanded = true, onEdit, isSelected }) => {
+const TreeNode = ({ label, children, icon: Icon, defaultExpanded = true, onEdit, isSelected, onSelect }) => {
   const [expanded, setExpanded] = useState(defaultExpanded);
   const hasChildren = React.Children.count(children) > 0;
 
@@ -25,7 +25,13 @@ const TreeNode = ({ label, children, icon: Icon, defaultExpanded = true, onEdit,
           color: '#333'
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', cursor: hasChildren ? 'pointer' : 'default', flex: 1 }} onClick={() => setExpanded(!expanded)}>
+        <div 
+          style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', flex: 1 }} 
+          onClick={() => {
+            if (hasChildren) setExpanded(!expanded);
+            if (onSelect) onSelect();
+          }}
+        >
           <span style={{ width: '20px', display: 'inline-block' }}>
             {hasChildren ? (expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />) : null}
           </span>
@@ -67,6 +73,8 @@ export default function PlanningTab() {
 
   const [objectiveData, setObjectiveData] = useState(INIT_OBJECTIVE);
   const [editingObjId, setEditingObjId] = useState(null);
+
+  const [selectedNodeId, setSelectedNodeId] = useState(null);
 
   const employeeOptions = [...employeesList]
     .sort((a,b) => (a.lastName || '').localeCompare(b.lastName || ''))
@@ -146,11 +154,13 @@ export default function PlanningTab() {
         key={goal.id} 
         label={goal.title} 
         icon={Target}
-        isSelected={editingGoalId === goal.id}
+        isSelected={selectedNodeId === goal.id}
+        onSelect={() => setSelectedNodeId(goal.id)}
         onEdit={() => {
           setActiveView('goals');
           setGoalData(goal);
           setEditingGoalId(goal.id);
+          setSelectedNodeId(goal.id);
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
       >
@@ -161,16 +171,24 @@ export default function PlanningTab() {
             key={obj.id} 
             label={obj.title} 
             icon={ClipboardList}
-            isSelected={editingObjId === obj.id}
+            isSelected={selectedNodeId === obj.id}
+            onSelect={() => setSelectedNodeId(obj.id)}
             onEdit={() => {
               setActiveView('objectives');
               setObjectiveData(obj);
               setEditingObjId(obj.id);
+              setSelectedNodeId(obj.id);
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
           >
             {assignments.filter(a => a.planningId === obj.id).map(ass => (
-               <TreeNode key={ass.id} label={`${ass.taskName} (Assigned: ${ass.workers || renderWorkerNames(ass.workerIds)})`} icon={List} />
+               <TreeNode 
+                 key={ass.id} 
+                 label={`${ass.taskName} (Assigned: ${ass.workers || renderWorkerNames(ass.workerIds)})`} 
+                 icon={List} 
+                 isSelected={selectedNodeId === ass.id}
+                 onSelect={() => setSelectedNodeId(ass.id)}
+               />
             ))}
           </TreeNode>
         ))}
@@ -184,16 +202,24 @@ export default function PlanningTab() {
         key={obj.id} 
         label={obj.title} 
         icon={ClipboardList}
-        isSelected={editingObjId === obj.id}
+        isSelected={selectedNodeId === obj.id}
+        onSelect={() => setSelectedNodeId(obj.id)}
         onEdit={() => {
           setActiveView('objectives');
           setObjectiveData(obj);
           setEditingObjId(obj.id);
+          setSelectedNodeId(obj.id);
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
       >
         {assignments.filter(a => a.planningId === obj.id).map(ass => (
-           <TreeNode key={ass.id} label={`${ass.taskName} (Assigned: ${ass.workers || renderWorkerNames(ass.workerIds)})`} icon={List} />
+           <TreeNode 
+             key={ass.id} 
+             label={`${ass.taskName} (Assigned: ${ass.workers || renderWorkerNames(ass.workerIds)})`} 
+             icon={List} 
+             isSelected={selectedNodeId === ass.id}
+             onSelect={() => setSelectedNodeId(ass.id)}
+           />
         ))}
       </TreeNode>
     ));
