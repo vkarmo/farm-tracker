@@ -4,7 +4,7 @@ import { fetchFields } from './store/fieldsSlice';
 import { addUnit, removeUnit, addJobTitle, removeJobTitle, addExpenseCategory, removeExpenseCategory, addIncomeCategory, removeIncomeCategory, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold, setAppName, addAnimalType, removeAnimalType, saveSettings } from './store/settingsSlice';
 import { addLocation } from './store/gpsSlice';
 import { queueAction, fetchInitialData } from './store/syncSlice';
-import { MapSearchBox, MapFlyTo, CurrentLocationControl } from './components/MapSearchBox';
+import { MapSearchBox, MapFlyTo } from './components/MapSearchBox';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { CACHE_NAME } from './config/cache';
@@ -725,7 +725,6 @@ export default function App() {
                     <TileLayer attribution="Google Maps" url="http://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}&s=Ga" />
                     <MapFlyTo center={mapCenter} />
                     <LocationMarker />
-                    <CurrentLocationControl onLocationFound={(loc) => { dispatch(setMapCenter(loc)); dispatch(saveSettings()); }} />
                   </MapContainer>
                 </div>
               </div>

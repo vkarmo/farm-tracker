@@ -1,9 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useMap } from 'react-leaflet';
-import { LocateFixed } from 'lucide-react';
+import { LocateFixed, Map as MapIcon } from 'lucide-react';
 
-export const CurrentLocationControl = ({ onLocationFound }) => {
-  const map = useMap();
+const calculateDistance = (lat1, lon1, lat2, lon2) => {
+  const R = 6371e3; // metres
+  const φ1 = lat1 * Math.PI/180;
+  const φ2 = lat2 * Math.PI/180;
+  const Δφ = (lat2-lat1) * Math.PI/180;
+  const Δλ = (lon2-lon1) * Math.PI/180;
+
+  const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+            Math.cos(φ1) * Math.cos(φ2) *
+            Math.sin(Δλ/2) * Math.sin(Δλ/2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+  return R * c; // in metres
+};
+
+export const CurrentLocationButton = ({ onLocationFound }) => {
   const [isLocating, setIsLocating] = useState(false);
 
   const locateUser = () => {
@@ -12,8 +26,7 @@ export const CurrentLocationControl = ({ onLocationFound }) => {
       (pos) => {
         setIsLocating(false);
         const { latitude, longitude } = pos.coords;
-        map.flyTo([latitude, longitude], 16);
-        if (onLocationFound) onLocationFound([latitude, longitude]);
+        if (onLocationFound) onLocationFound([latitude, longitude, Date.now()]);
       },
       (err) => {
         setIsLocating(false);
@@ -24,27 +37,86 @@ export const CurrentLocationControl = ({ onLocationFound }) => {
   };
 
   return (
-    <div className="leaflet-top leaflet-right" style={{ pointerEvents: 'auto', marginTop: '10px', marginRight: '10px' }}>
-      <div className="leaflet-control leaflet-bar">
-        <button
-          type="button"
-          onClick={(e) => { e.preventDefault(); e.stopPropagation(); locateUser(); }}
-          style={{
-            width: '34px', height: '34px', background: 'white', border: 'none', borderRadius: '4px',
-            display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
-            color: isLocating ? '#1976d2' : '#666', padding: 0
-          }}
-          title="Go to Current Location"
-        >
-          <LocateFixed size={20} className={isLocating ? 'spin' : ''} />
-        </button>
-      </div>
-    </div>
+    <button
+      type="button"
+      onClick={locateUser}
+      className="btn"
+      style={{ padding: '6px 12px', fontSize: '0.85rem', background: '#e0e0e0', color: isLocating ? '#1976d2' : '#333', display: 'flex', alignItems: 'center', gap: '6px' }}
+      title="Go to Current Location"
+    >
+      <LocateFixed size={16} className={isLocating ? 'spin' : ''} />
+      Current Location
+    </button>
   );
 };
 
-export const MapSearchBox = ({ onLocationFound }) => {
+export const MapSearchBox = ({ onLocationFound, onClear }) => {
   const [query, setQuery] = useState('');
+  const [gpsOn, setGpsOn] = useState(false);
+  const [gpsInterval, setGpsInterval] = useState(30);
+  const [isLocating, setIsLocating] = useState(false);
+  const watchIdRef = useRef(null);
+  const lastPointRef = useRef(null);
+  const onLocationFoundRef = useRef(onLocationFound);
+
+  useEffect(() => {
+    onLocationFoundRef.current = onLocationFound;
+  }, [onLocationFound]);
+
+  useEffect(() => {
+    if (gpsOn) {
+      if ('geolocation' in navigator) {
+        watchIdRef.current = navigator.geolocation.watchPosition(
+          (pos) => {
+            const { latitude, longitude } = pos.coords;
+            const now = Date.now();
+            if (!lastPointRef.current) {
+              onLocationFoundRef.current([latitude, longitude, now]);
+              lastPointRef.current = { lat: latitude, lng: longitude };
+            } else {
+              const dist = calculateDistance(lastPointRef.current.lat, lastPointRef.current.lng, latitude, longitude);
+              if (dist >= gpsInterval) {
+                onLocationFoundRef.current([latitude, longitude, now]);
+                lastPointRef.current = { lat: latitude, lng: longitude };
+              }
+            }
+          },
+          (err) => console.error("Geolocation watch error:", err),
+          { enableHighAccuracy: true, maximumAge: 0 }
+        );
+      } else {
+        alert("Geolocation is not supported by your browser");
+        setGpsOn(false);
+      }
+    } else {
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+        watchIdRef.current = null;
+      }
+      lastPointRef.current = null;
+    }
+    return () => {
+      if (watchIdRef.current !== null) {
+        navigator.geolocation.clearWatch(watchIdRef.current);
+      }
+    };
+  }, [gpsOn, gpsInterval]);
+
+  const locateUser = () => {
+    setIsLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setIsLocating(false);
+        const { latitude, longitude } = pos.coords;
+        if (onLocationFoundRef.current) onLocationFoundRef.current([latitude, longitude, Date.now()]);
+      },
+      (err) => {
+        setIsLocating(false);
+        alert('Could not find your location. Please check browser permissions.');
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  };
 
   const handleSearch = async (e) => {
     e.preventDefault();
@@ -55,7 +127,7 @@ export const MapSearchBox = ({ onLocationFound }) => {
     if (coordsMatch) {
       const lat = parseFloat(coordsMatch[1]);
       const lng = parseFloat(coordsMatch[3]);
-      onLocationFound([lat, lng]);
+      onLocationFound([lat, lng, Date.now()]);
       return;
     }
 
@@ -64,7 +136,7 @@ export const MapSearchBox = ({ onLocationFound }) => {
       const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&limit=1&q=${encodeURIComponent(query)}`);
       const data = await res.json();
       if (data && data.length > 0) {
-        onLocationFound([parseFloat(data[0].lat), parseFloat(data[0].lon)]);
+        onLocationFound([parseFloat(data[0].lat), parseFloat(data[0].lon), Date.now()]);
       } else {
         alert("Location not found. Please try a more specific address or exact GPS coordinates.");
       }
@@ -74,18 +146,55 @@ export const MapSearchBox = ({ onLocationFound }) => {
   };
 
   return (
-    <div style={{ display: 'flex', gap: '8px', marginBottom: '8px' }}>
-      <input
-        type="text"
-        placeholder="Search address or enter coordinates (lat, lng)..."
-        value={query}
-        onChange={e => setQuery(e.target.value)}
-        onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(e); }}
-        style={{ flex: 1, padding: '6px 10px', fontSize: '0.85rem', borderRadius: '4px', border: '1px solid #ccc' }}
-      />
-      <button type="button" onClick={handleSearch} className="btn" style={{ padding: '6px 12px', fontSize: '0.85rem', background: '#e0e0e0', color: '#333' }}>
-        Add Pin
-      </button>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '8px' }}>
+      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+        <input
+          type="text"
+          placeholder="Search address or enter coordinates (lat, lng)..."
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(e); }}
+          style={{ flex: 1, minWidth: '200px', padding: '6px 10px', fontSize: '0.85rem', borderRadius: '4px', border: '1px solid #ccc' }}
+        />
+        <button type="button" onClick={handleSearch} className="btn" style={{ padding: '6px 12px', fontSize: '0.85rem', background: '#e0e0e0', color: '#333' }}>
+          Add Pin
+        </button>
+        <CurrentLocationButton onLocationFound={(loc) => { if (onLocationFoundRef.current) onLocationFoundRef.current(loc); }} />
+        <button 
+          type="button" 
+          onClick={() => setGpsOn(!gpsOn)}
+          className="btn"
+          style={{ 
+            padding: '6px 12px', fontSize: '0.85rem', 
+            background: gpsOn ? '#4caf50' : '#e0e0e0', 
+            color: gpsOn ? '#fff' : '#333', 
+            display: 'flex', alignItems: 'center', gap: '6px',
+            border: 'none', cursor: 'pointer'
+          }}
+        >
+          <MapIcon size={16} /> {gpsOn ? 'GPS ON' : 'GPS OFF'}
+        </button>
+        {onClear && (
+          <button type="button" onClick={onClear} className="btn" style={{ padding: '6px 12px', fontSize: '0.85rem', background: '#f44336', color: '#fff', display: 'flex', alignItems: 'center', gap: '6px', border: 'none', cursor: 'pointer' }}>
+             Clear Drawing
+          </button>
+        )}
+      </div>
+      {gpsOn && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.85rem' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <span>Drop pin every</span>
+            <input 
+              type="number" 
+              value={gpsInterval} 
+              onChange={e => setGpsInterval(Number(e.target.value))} 
+              style={{ width: '60px', padding: '4px', borderRadius: '4px', border: '1px solid #ccc' }} 
+              min="1"
+            />
+            <span>meters</span>
+          </label>
+        </div>
+      )}
     </div>
   );
 };

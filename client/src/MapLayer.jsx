@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
 import { MapContainer, TileLayer, Polygon, Popup, GeoJSON, Marker } from 'react-leaflet';
+import { setMapCenter } from './store/settingsSlice';
 import { kml } from '@tmcw/togeojson';
 import L from 'leaflet';
 
@@ -14,9 +15,10 @@ const orangeIcon = new L.Icon({
   shadowSize: [41, 41]
 });
 import 'leaflet/dist/leaflet.css';
-import { CurrentLocationControl } from './components/MapSearchBox';
+import { CurrentLocationButton } from './components/MapSearchBox';
 
 const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
+  const dispatch = useDispatch();
   const kmlUrls = useSelector(state => state.settings.kmlUrls);
   const polygonColor = useSelector(state => state.settings?.polygonColor) || '#ffffff';
   const mapCenter = useSelector(state => state.settings?.mapCenter) || [51.505, -0.09];
@@ -73,7 +75,11 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
   }, [kmlUrls]);
 
   return (
-    <div style={{ flex: 1, minHeight: 0, width: '100%', borderRadius: 'var(--radius-md)', overflow: 'hidden', zIndex: 0, position: 'relative' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '10px' }}>
+        <CurrentLocationButton onLocationFound={(loc) => dispatch(setMapCenter([loc[0], loc[1]]))} />
+      </div>
+      <div style={{ flex: 1, minHeight: 0, width: '100%', borderRadius: 'var(--radius-md)', overflow: 'hidden', zIndex: 0, position: 'relative' }}>
       
       {errors.length > 0 && (
         <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 1000, background: 'rgba(198, 40, 40, 0.9)', color: 'white', padding: '8px 12px', borderRadius: '4px', fontSize: '0.85rem' }}>
@@ -86,7 +92,6 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
           attribution="Google Maps"
           url="http://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}&s=Ga"
         />
-        <CurrentLocationControl />
         
         {/* Render successfully parsed remote KML Layers */}
         {geoJsonLayers.map((layer) => (
@@ -155,6 +160,7 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
           );
         })}
       </MapContainer>
+    </div>
     </div>
   );
 };

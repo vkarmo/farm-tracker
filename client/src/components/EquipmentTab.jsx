@@ -5,13 +5,14 @@ import { addEquipment, updateEquipment, deleteEquipment } from '../store/assetsS
 import { CheckCircle2, X } from 'lucide-react';
 import CrudTable from './CrudTable';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
-import { MapSearchBox, MapFlyTo, CurrentLocationControl } from './MapSearchBox';
+import { MapSearchBox, MapFlyTo } from './MapSearchBox';
 import 'leaflet/dist/leaflet.css';
 
-const ClickToMarkComponent = ({ setGpsLocation }) => {
+const ClickToMarkComponent = ({ setGpsLocation, setCenter }) => {
   useMapEvents({
     click(e) {
       setGpsLocation([e.latlng.lat, e.latlng.lng]);
+      if (setCenter) setCenter([e.latlng.lat, e.latlng.lng]);
     }
   });
   return null;
@@ -111,16 +112,12 @@ export default function EquipmentTab() {
       <form onSubmit={handleSubmit}>
         <div className="form-grid">
           <div className="form-group form-grid-full" style={{ marginBottom: '15px' }}>
-            <label style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>Drop Hardware Map Pin (Click to mark location)</span>
-              {gpsLocation && (
-                <button type="button" onClick={() => setGpsLocation(null)} className="btn" style={{ padding: '2px 8px', fontSize: '12px' }}>
-                  Clear Pin Drop
-                </button>
-              )}
-            </label>
+            <label>Drop Hardware Map Pin (Click to mark location)</label>
             <div style={{ marginBottom: '10px' }}>
-              <MapSearchBox onLocationFound={handleLocationFound} />
+              <MapSearchBox 
+                onLocationFound={handleLocationFound}
+                onClear={gpsLocation ? () => setGpsLocation(null) : null}
+              />
             </div>
             <div style={{ height: '280px', width: '100%', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--color-border)' }}>
               <MapContainer key={editingId || 'new'} center={gpsLocation || mapCenter} zoom={gpsLocation ? 16 : 14} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
@@ -129,8 +126,7 @@ export default function EquipmentTab() {
                   attribution="Google Maps"
                   url="http://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}&s=Ga"
                 />
-                <CurrentLocationControl onLocationFound={handleLocationFound} />
-                <ClickToMarkComponent setGpsLocation={setGpsLocation} />
+                <ClickToMarkComponent setGpsLocation={setGpsLocation} setCenter={setSearchResultCenter} />
                 {gpsLocation && (
                   <Marker position={gpsLocation} />
                 )}
