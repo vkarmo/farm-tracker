@@ -4,7 +4,7 @@ import { saveSoilTest, removeSoilTest } from '../store/soilTestsSlice';
 import { queueAction } from '../store/syncSlice';
 import CrudTable from './CrudTable';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
-import { MapSearchBox, MapFlyTo, CurrentLocationControl } from './MapSearchBox';
+import { MapSearchBox, MapFlyTo } from './MapSearchBox';
 import { MapPin, X, FlaskConical } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 
@@ -14,10 +14,11 @@ const INIT_TEST_STATE = {
   testResults: []
 };
 
-const ClickToPlaceMarker = ({ position, setPosition }) => {
+const ClickToPlaceMarker = ({ position, setPosition, setCenter }) => {
   useMapEvents({
     click(e) {
       setPosition([e.latlng.lat, e.latlng.lng]);
+      if (setCenter) setCenter([e.latlng.lat, e.latlng.lng]);
     }
   });
   return null;
@@ -206,16 +207,12 @@ export default function SoilTestingTab() {
             <hr style={{ borderTop: '1px solid #ddd', borderBottom: 'none', margin: '15px 0' }} />
             
             <div className="form-group form-grid-full" style={{ marginBottom: '15px' }}>
-              <label style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.85rem' }}>
-                <span>Capture GPS Location for this result (Optional)</span>
-                {markerPosition && (
-                  <button type="button" onClick={() => { setMarkerPosition(null); setNewResultLat(''); setNewResultLng(''); setNewResultElevation(''); }} className="btn" style={{ padding: '2px 8px', fontSize: '12px' }}>
-                    Clear Pin
-                  </button>
-                )}
-              </label>
+              <label style={{ fontSize: '0.85rem' }}>Capture GPS Location for this result (Optional)</label>
               <div style={{ marginBottom: '10px' }}>
-                <MapSearchBox onLocationFound={handleLocationFound} />
+                <MapSearchBox 
+                  onLocationFound={handleLocationFound}
+                  onClear={markerPosition ? () => { setMarkerPosition(null); setNewResultLat(''); setNewResultLng(''); setNewResultElevation(''); } : null}
+                />
               </div>
               <div style={{ height: '200px', width: '100%', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--color-border)' }}>
                 <MapContainer key={editingId || 'new_test'} center={markerPosition || mapCenter} zoom={markerPosition ? 16 : mapZoom} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
@@ -224,8 +221,7 @@ export default function SoilTestingTab() {
                     attribution="Google Maps"
                     url="http://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}&s=Ga"
                   />
-                  <CurrentLocationControl onLocationFound={handleLocationFound} />
-                  <ClickToPlaceMarker position={markerPosition} setPosition={setMarkerPosition} />
+                  <ClickToPlaceMarker position={markerPosition} setPosition={setMarkerPosition} setCenter={setSearchResultCenter} />
                   {markerPosition && <Marker position={markerPosition} />}
                 </MapContainer>
               </div>

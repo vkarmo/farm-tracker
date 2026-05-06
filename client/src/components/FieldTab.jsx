@@ -5,15 +5,16 @@ import { updateField, addField, deleteField } from '../store/fieldsSlice';
 import { CheckCircle2, Target, X, PlusCircle } from 'lucide-react';
 import CrudTable from './CrudTable';
 import { MapContainer, TileLayer, Polygon, Marker, useMapEvents } from 'react-leaflet';
-import { MapSearchBox, MapFlyTo, CurrentLocationControl } from './MapSearchBox';
+import { MapSearchBox, MapFlyTo } from './MapSearchBox';
 import area from '@turf/area';
 import { polygon } from '@turf/helpers';
 import 'leaflet/dist/leaflet.css';
 
-const ClickToDrawComponent = ({ polygon, setPolygon }) => {
+const ClickToDrawComponent = ({ polygon, setPolygon, setCenter }) => {
   useMapEvents({
     click(e) {
-      setPolygon([...polygon, [e.latlng.lat, e.latlng.lng]]);
+      setPolygon([...polygon, [e.latlng.lat, e.latlng.lng, Date.now()]]);
+      if (setCenter) setCenter([e.latlng.lat, e.latlng.lng]);
     }
   });
   return null;
@@ -36,8 +37,9 @@ export default function FieldTab() {
   const [searchResultCenter, setSearchResultCenter] = useState(null);
 
   const handleLocationFound = (loc) => {
-    setSearchResultCenter(loc);
-    setPolygonPositions(prev => [...prev, loc]);
+    const newLoc = loc.length === 3 ? loc : [loc[0], loc[1], Date.now()];
+    setSearchResultCenter([newLoc[0], newLoc[1]]);
+    setPolygonPositions(prev => [...prev, newLoc]);
   };
 
   useEffect(() => {
@@ -119,6 +121,16 @@ export default function FieldTab() {
     { key: 'results', header: 'Results', render: (r) => `${(r.testResults || []).length} Recorded` }
   ];
 
+  const sortedPositions = polygonPositions
+    .map((p, i) => ({ pos: p, idx: i, time: p.length > 2 ? p[2] : 0 }))
+    .sort((a, b) => {
+      if (a.time === 0 && b.time === 0) return a.idx - b.idx;
+      return a.time - b.time;
+    })
+    .map(obj => obj.pos);
+
+  const latLngs = sortedPositions.map(p => [p[0], p[1]]);
+
   return (
     <div className="card">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -133,31 +145,26 @@ export default function FieldTab() {
       <form onSubmit={handleSubmit}>
         <div className="form-grid">
           <div className="form-group form-grid-full" style={{ marginBottom: '15px' }}>
-            <label style={{ display: 'flex', justifyContent: 'space-between' }}>
-              <span>Draw Field Location on Map (Click to add points to polygon)</span>
-              {polygonPositions.length > 0 && (
-                <button type="button" onClick={() => setPolygonPositions([])} className="btn" style={{ padding: '2px 8px', fontSize: '12px' }}>
-                  Clear Drawing
-                </button>
-              )}
-            </label>
+            <label>Draw Field Location on Map (Click to add points to polygon)</label>
             <div style={{ marginBottom: '10px' }}>
-              <MapSearchBox onLocationFound={handleLocationFound} />
+              <MapSearchBox 
+                onLocationFound={handleLocationFound} 
+                onClear={polygonPositions.length > 0 ? () => setPolygonPositions([]) : null}
+              />
             </div>
             <div style={{ height: '300px', width: '100%', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--color-border)' }}>
-              <MapContainer key={editingId || 'new'} center={polygonPositions.length > 0 ? polygonPositions[0] : mapCenter} zoom={polygonPositions.length > 0 ? 16 : mapZoom} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
+              <MapContainer key={editingId || 'new'} center={latLngs.length > 0 ? latLngs[0] : mapCenter} zoom={latLngs.length > 0 ? 16 : mapZoom} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
                 <MapFlyTo center={searchResultCenter} />
                 <TileLayer
                   attribution="Google Maps"
                   url="http://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}&s=Ga"
                 />
-                <CurrentLocationControl onLocationFound={handleLocationFound} />
-                <ClickToDrawComponent polygon={polygonPositions} setPolygon={setPolygonPositions} />
-                {polygonPositions.map((pos, idx) => (
+                <ClickToDrawComponent polygon={polygonPositions} setPolygon={setPolygonPositions} setCenter={setSearchResultCenter} />
+                {latLngs.map((pos, idx) => (
                   <Marker key={`pin_${idx}`} position={pos} />
                 ))}
-                {polygonPositions.length > 0 && (
-                  <Polygon positions={polygonPositions} pathOptions={{ color: polygonColor }} />
+                {latLngs.length > 0 && (
+                  <Polygon positions={latLngs} pathOptions={{ color: polygonColor }} />
                 )}
               </MapContainer>
             </div>
