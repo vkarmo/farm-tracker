@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useMap } from 'react-leaflet';
-import { LocateFixed, Map as MapIcon, Eraser } from 'lucide-react';
+import { LocateFixed, Map as MapIcon, Eraser, Plus } from 'lucide-react';
 
 const calculateDistance = (lat1, lon1, lat2, lon2) => {
   const R = 6371e3; // metres
@@ -17,10 +17,11 @@ const calculateDistance = (lat1, lon1, lat2, lon2) => {
   return R * c; // in metres
 };
 
-export const CurrentLocationButton = ({ onLocationFound }) => {
+export const CurrentLocationButton = ({ onLocationFound, disabled }) => {
   const [isLocating, setIsLocating] = useState(false);
 
   const locateUser = () => {
+    if (disabled) return;
     setIsLocating(true);
     navigator.geolocation.getCurrentPosition(
       (pos) => {
@@ -40,12 +41,12 @@ export const CurrentLocationButton = ({ onLocationFound }) => {
     <button
       type="button"
       onClick={locateUser}
+      disabled={disabled}
       className="btn map-toolbar-btn"
-      style={{ padding: '6px 12px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px' }}
+      style={{ padding: '6px 12px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: disabled ? 0.5 : 1, cursor: disabled ? 'not-allowed' : 'pointer' }}
       title="Go to Current Location"
     >
       <LocateFixed size={16} className={isLocating ? 'spin' : ''} />
-      Current Location
     </button>
   );
 };
@@ -156,10 +157,17 @@ export const MapSearchBox = ({ onLocationFound, onClear }) => {
           onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(e); }}
           style={{ flex: 1, minWidth: '200px', padding: '6px 10px', fontSize: '0.85rem', borderRadius: '4px', border: '1px solid #ccc' }}
         />
-        <button type="button" onClick={handleSearch} className="btn map-toolbar-btn" style={{ padding: '6px 12px', fontSize: '0.85rem' }}>
-          Add Pin
+        <button 
+          type="button" 
+          onClick={handleSearch} 
+          disabled={gpsOn}
+          className="btn map-toolbar-btn" 
+          style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: gpsOn ? 0.5 : 1, cursor: gpsOn ? 'not-allowed' : 'pointer' }}
+          title="Add Pin"
+        >
+          <Plus size={16} />
         </button>
-        <CurrentLocationButton onLocationFound={(loc) => { if (onLocationFoundRef.current) onLocationFoundRef.current(loc); }} />
+        <CurrentLocationButton disabled={gpsOn} onLocationFound={(loc) => { if (onLocationFoundRef.current) onLocationFoundRef.current(loc); }} />
         <button 
           type="button" 
           onClick={() => setGpsOn(!gpsOn)}
@@ -172,12 +180,13 @@ export const MapSearchBox = ({ onLocationFound, onClear }) => {
         >
           <MapIcon size={16} /> {gpsOn ? 'GPS ON' : 'GPS OFF'}
         </button>
-        {onClear && (
+        {onClear !== undefined && (
           <button 
             type="button" 
-            onClick={onClear} 
+            onClick={onClear || (() => {})} 
+            disabled={gpsOn || !onClear}
             className="btn map-toolbar-btn" 
-            style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+            style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: (gpsOn || !onClear) ? 0.5 : 1, cursor: (gpsOn || !onClear) ? 'not-allowed' : 'pointer' }}
             title="Clear Drawing / Pin Drop"
           >
              <Eraser size={16} />
