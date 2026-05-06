@@ -149,49 +149,56 @@ export const MapSearchBox = ({ onLocationFound, onClear }) => {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '8px' }}>
       <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-        <input
-          type="text"
-          placeholder="Search address or enter coordinates (lat, lng)..."
-          value={query}
-          onChange={e => setQuery(e.target.value)}
-          onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(e); }}
-          style={{ flex: 1, minWidth: '200px', padding: '6px 10px', fontSize: '0.85rem', borderRadius: '4px', border: '1px solid #ccc' }}
-        />
-        <button 
-          type="button" 
-          onClick={handleSearch} 
-          disabled={gpsOn}
-          className="btn map-toolbar-btn" 
-          style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: gpsOn ? 0.5 : 1, cursor: gpsOn ? 'not-allowed' : 'pointer' }}
-          title="Add Pin"
-        >
-          <Plus size={16} />
-        </button>
-        <CurrentLocationButton disabled={gpsOn} onLocationFound={(loc) => { if (onLocationFoundRef.current) onLocationFoundRef.current(loc); }} />
-        <button 
-          type="button" 
-          onClick={() => setGpsOn(!gpsOn)}
-          className={`btn map-toolbar-btn ${gpsOn ? 'active' : ''}`}
-          style={{ 
-            padding: '6px 12px', fontSize: '0.85rem', 
-            display: 'flex', alignItems: 'center', gap: '6px',
-            cursor: 'pointer'
-          }}
-        >
-          <MapIcon size={16} /> {gpsOn ? 'GPS ON' : 'GPS OFF'}
-        </button>
-        {onClear !== undefined && (
+        
+        <div style={{ display: 'flex', gap: '8px', flex: '1 1 250px' }}>
+          <input
+            type="text"
+            placeholder="Search address or enter coordinates (lat, lng)..."
+            value={query}
+            onChange={e => setQuery(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(e); }}
+            style={{ flex: 1, minWidth: 0, padding: '6px 10px', fontSize: '0.85rem', borderRadius: '4px', border: '1px solid #ccc' }}
+          />
           <button 
             type="button" 
-            onClick={onClear || (() => {})} 
-            disabled={gpsOn || !onClear}
+            onClick={handleSearch} 
+            disabled={gpsOn}
             className="btn map-toolbar-btn" 
-            style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: (gpsOn || !onClear) ? 0.5 : 1, cursor: (gpsOn || !onClear) ? 'not-allowed' : 'pointer' }}
-            title="Clear Drawing / Pin Drop"
+            style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: gpsOn ? 0.5 : 1, cursor: gpsOn ? 'not-allowed' : 'pointer' }}
+            title="Add Pin"
           >
-             <Eraser size={16} />
+            <Plus size={16} />
           </button>
-        )}
+        </div>
+
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <CurrentLocationButton disabled={gpsOn} onLocationFound={(loc) => { if (onLocationFoundRef.current) onLocationFoundRef.current(loc); }} />
+          <button 
+            type="button" 
+            onClick={() => setGpsOn(!gpsOn)}
+            className={`btn map-toolbar-btn ${gpsOn ? 'active' : ''}`}
+            style={{ 
+              padding: '6px 12px', fontSize: '0.85rem', 
+              display: 'flex', alignItems: 'center', gap: '6px',
+              cursor: 'pointer'
+            }}
+          >
+            <MapIcon size={16} /> {gpsOn ? 'GPS ON' : 'GPS OFF'}
+          </button>
+          {onClear !== undefined && (
+            <button 
+              type="button" 
+              onClick={onClear || (() => {})} 
+              disabled={gpsOn || !onClear}
+              className="btn map-toolbar-btn" 
+              style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: (gpsOn || !onClear) ? 0.5 : 1, cursor: (gpsOn || !onClear) ? 'not-allowed' : 'pointer' }}
+              title="Clear Drawing / Pin Drop"
+            >
+               <Eraser size={16} />
+            </button>
+          )}
+        </div>
+
       </div>
       {gpsOn && (
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.85rem' }}>
