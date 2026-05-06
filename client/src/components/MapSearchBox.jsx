@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useMap } from 'react-leaflet';
-import { LocateFixed, Map as MapIcon } from 'lucide-react';
+import { LocateFixed, Map as MapIcon, Eraser } from 'lucide-react';
 
 const calculateDistance = (lat1, lon1, lat2, lon2) => {
   const R = 6371e3; // metres
@@ -40,8 +40,8 @@ export const CurrentLocationButton = ({ onLocationFound }) => {
     <button
       type="button"
       onClick={locateUser}
-      className="btn"
-      style={{ padding: '6px 12px', fontSize: '0.85rem', background: '#e0e0e0', color: isLocating ? '#1976d2' : '#333', display: 'flex', alignItems: 'center', gap: '6px' }}
+      className="btn map-toolbar-btn"
+      style={{ padding: '6px 12px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '6px' }}
       title="Go to Current Location"
     >
       <LocateFixed size={16} className={isLocating ? 'spin' : ''} />
@@ -156,27 +156,31 @@ export const MapSearchBox = ({ onLocationFound, onClear }) => {
           onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(e); }}
           style={{ flex: 1, minWidth: '200px', padding: '6px 10px', fontSize: '0.85rem', borderRadius: '4px', border: '1px solid #ccc' }}
         />
-        <button type="button" onClick={handleSearch} className="btn" style={{ padding: '6px 12px', fontSize: '0.85rem', background: '#e0e0e0', color: '#333' }}>
+        <button type="button" onClick={handleSearch} className="btn map-toolbar-btn" style={{ padding: '6px 12px', fontSize: '0.85rem' }}>
           Add Pin
         </button>
         <CurrentLocationButton onLocationFound={(loc) => { if (onLocationFoundRef.current) onLocationFoundRef.current(loc); }} />
         <button 
           type="button" 
           onClick={() => setGpsOn(!gpsOn)}
-          className="btn"
+          className={`btn map-toolbar-btn ${gpsOn ? 'active' : ''}`}
           style={{ 
             padding: '6px 12px', fontSize: '0.85rem', 
-            background: gpsOn ? '#4caf50' : '#e0e0e0', 
-            color: gpsOn ? '#fff' : '#333', 
             display: 'flex', alignItems: 'center', gap: '6px',
-            border: 'none', cursor: 'pointer'
+            cursor: 'pointer'
           }}
         >
           <MapIcon size={16} /> {gpsOn ? 'GPS ON' : 'GPS OFF'}
         </button>
         {onClear && (
-          <button type="button" onClick={onClear} className="btn" style={{ padding: '6px 12px', fontSize: '0.85rem', background: '#f44336', color: '#fff', display: 'flex', alignItems: 'center', gap: '6px', border: 'none', cursor: 'pointer' }}>
-             Clear Drawing
+          <button 
+            type="button" 
+            onClick={onClear} 
+            className="btn map-toolbar-btn" 
+            style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+            title="Clear Drawing / Pin Drop"
+          >
+             <Eraser size={16} />
           </button>
         )}
       </div>

@@ -139,6 +139,16 @@ textarea:focus {
   justify-content: center !important;
 }
 
+.map-toolbar-btn {
+  background-color: darkkhaki !important;
+  color: #333 !important;
+  border: none !important;
+}
+
+.map-toolbar-btn:hover, .map-toolbar-btn.active {
+  background-color: khaki !important;
+}
+
 .status-indicator {
   display: inline-flex;
   align-items: center;
