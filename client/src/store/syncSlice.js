@@ -27,7 +27,14 @@ export const syncSlice = createSlice({
   reducers: {
     queueAction: (state, action) => {
       state.offlineActionQueue.push(action.payload);
-      state.totalActionsQueued = (state.totalActionsQueued || 0) + 1;
+      
+      // Do not trigger the "Saved Successfully" UI toast for automated background actions
+      const type = action.payload?.type || '';
+      const isAutomated = type.startsWith('gps/') || type.startsWith('audit/') || type === 'core/logAction';
+      
+      if (!isAutomated) {
+        state.totalActionsQueued = (state.totalActionsQueued || 0) + 1;
+      }
     },
     clearQueue: (state) => {
       state.offlineActionQueue = [];
