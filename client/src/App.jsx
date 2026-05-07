@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { fetchFields } from './store/fieldsSlice';
 import { addUnit, removeUnit, addJobTitle, removeJobTitle, addExpenseCategory, removeExpenseCategory, addIncomeCategory, removeIncomeCategory, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold, setAppName, addAnimalType, removeAnimalType, saveSettings } from './store/settingsSlice';
@@ -88,9 +88,11 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showSaveToast, setShowSaveToast] = useState(false);
 
+  const prevTotalQueued = useRef(totalActionsQueued);
+
   // Global visual indicator for successful saves
   useEffect(() => {
-    if (totalActionsQueued > 0) {
+    if (totalActionsQueued > prevTotalQueued.current) {
       document.body.classList.add('is-saving');
       
       const timer1 = setTimeout(() => {
@@ -104,11 +106,15 @@ export default function App() {
         setShowSaveToast(false);
       }, 2000);
 
+      prevTotalQueued.current = totalActionsQueued;
+
       return () => {
         clearTimeout(timer1);
         clearTimeout(timer2);
         document.body.classList.remove('is-saving', 'is-saved');
       };
+    } else {
+      prevTotalQueued.current = totalActionsQueued;
     }
   }, [totalActionsQueued]);
   const [activeModule, setActiveModule] = useState('overview');
