@@ -395,3 +395,72 @@ textarea:focus {
 .db-info:focus-within {
   max-width: 400px;
 }
+/* Global Saving Indicator & Button States */
+body.is-saving button[type="submit"] {
+  pointer-events: none;
+  opacity: 0.8;
+  color: transparent !important;
+  position: relative;
+}
+body.is-saving button[type="submit"]::before {
+  content: "Saving...";
+  color: white;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+body.is-saved button[type="submit"] {
+  pointer-events: none;
+  background-color: #2e7d32 !important;
+  color: transparent !important;
+  position: relative;
+}
+body.is-saved button[type="submit"]::before {
+  content: "✔ Saved!";
+  color: white;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+}
+
+/* Also disable cancel buttons globally when saving */
+body.is-saving button[type="button"], body.is-saved button[type="button"] {
+  pointer-events: none;
+  opacity: 0.6;
+}
+
+/* Global Toast Indicator */
+.global-save-toast {
+  position: fixed;
+  bottom: 30px;
+  right: 30px;
+  background: #2e7d32;
+  color: white;
+  padding: 12px 24px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 600;
+  z-index: 9999;
+  transform: translateY(100px);
+  opacity: 0;
+  transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+}
+
+.global-save-toast.visible {
+  transform: translateY(0);
+  opacity: 1;
+}

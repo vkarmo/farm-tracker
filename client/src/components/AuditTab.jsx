@@ -4,7 +4,6 @@ import { clearLogs } from '../store/auditSlice';
 import { Trash2 } from 'lucide-react';
 import CrudTable from './CrudTable';
 
-let isSubmitting = false;
 
 export default function AuditTab() {
   const dispatch = useDispatch();

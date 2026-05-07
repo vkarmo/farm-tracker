@@ -5,7 +5,6 @@ import { queueAction } from '../store/syncSlice';
 import { AlertTriangle, X } from 'lucide-react';
 import CrudTable from './CrudTable';
 
-let isSubmitting = false;
 
 const INIT_INCIDENT = { title: '', type: 'Asset Breakdown', date: '', severity: 'Medium', associatedAsset: '', resolutionStatus: 'Open', notes: '' };
 
@@ -21,12 +20,6 @@ export default function IncidentTab() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (isSubmitting) return;
-    isSubmitting = true;
-    setTimeout(() => { isSubmitting = false; }, 1000);
-        if (isSubmitting) return;
-    isSubmitting = true;
-    setTimeout(() => { isSubmitting = false; }, 1000);
         if (!formData.title || !formData.date) return alert("Title and Incident Date are required.");
 
     const newObj = { ...formData, id: editingId || `inc_${Date.now()}` };

@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { saveKit, removeKit } from '../store/breedingSlice';
 
-let isSubmitting = false;
 
 export default function KitsTab() {
   const dispatch = useDispatch();
@@ -23,12 +22,6 @@ export default function KitsTab() {
   };
 
   const handleSave = () => {
-    if (isSubmitting) return;
-    isSubmitting = true;
-    setTimeout(() => { isSubmitting = false; }, 1000);
-    if (isSubmitting) return;
-    isSubmitting = true;
-    setTimeout(() => { isSubmitting = false; }, 1000);
     if (!pairingId || !birthDate || !count) {
       alert('Pairing, Birth Date, and Count are required');
       return;

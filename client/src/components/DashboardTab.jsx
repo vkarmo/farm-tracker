@@ -5,7 +5,6 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGri
 import { TrendingUp, Layers, Rabbit, DollarSign, Sun, CloudRain, Cloud, CloudLightning, Snowflake, CloudFog, MapPin, Droplets, Wind, ThermometerSun, CloudSun } from 'lucide-react';
 import CrudTable from './CrudTable';
 
-let isSubmitting = false;
 
 const CollapsibleCard = ({ title, children, defaultOpen = true, forceFullGrid = false }) => {
   const [isOpen, setIsOpen] = useState(defaultOpen);
@@ -416,7 +415,7 @@ export default function DashboardTab() {
           {harvestViewToggle === 'graph' ? (
             <div style={{ width: '100%', height: 350 }}>
               <ResponsiveContainer width="99%" height={350} minWidth={1} minHeight={1}>
-                <BarChart data={harvestByDay} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                <BarChart data={harvestByDay} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} />
                   <XAxis dataKey="date" tick={{ fontSize: 12 }} />
                   <YAxis tick={{ fontSize: 12 }} />
@@ -438,7 +437,7 @@ export default function DashboardTab() {
         <CollapsibleCard title="Finances (2 Week Segments)">
           <div style={{ width: '100%', height: 300 }}>
             <ResponsiveContainer width="99%" height={300} minWidth={1} minHeight={1}>
-              <BarChart data={fortnightData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+              <BarChart data={fortnightData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} />
                 <XAxis dataKey="time" tick={{ fontSize: 12 }} />
                 <YAxis tick={{ fontSize: 12 }} />
@@ -455,8 +454,8 @@ export default function DashboardTab() {
         <CollapsibleCard title="Revenue by Category">
           <div style={{ width: '100%', height: 300, display: 'flex', justifyContent: 'center' }}>
             <ResponsiveContainer width="99%" height={300} minWidth={1} minHeight={1}>
-              <PieChart>
-                <Pie data={revPieData} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={5} dataKey="value" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+              <PieChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+                <Pie data={revPieData} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={5} dataKey="value" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
                   {revPieData.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
                 </Pie>
                 <Tooltip formatter={(val) => `$${val}`} />
@@ -469,8 +468,8 @@ export default function DashboardTab() {
         <CollapsibleCard title="Expenses by Category">
           <div style={{ width: '100%', height: 300, display: 'flex', justifyContent: 'center' }}>
             <ResponsiveContainer width="99%" height={300} minWidth={1} minHeight={1}>
-              <PieChart>
-                <Pie data={expPieData} cx="50%" cy="50%" innerRadius={60} outerRadius={100} paddingAngle={5} dataKey="value" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
+              <PieChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+                <Pie data={expPieData} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={5} dataKey="value" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}>
                   {expPieData.map((entry, index) => <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />)}
                 </Pie>
                 <Tooltip formatter={(val) => `$${val}`} />
@@ -483,7 +482,7 @@ export default function DashboardTab() {
         <CollapsibleCard title="Monthly Financial Trend" forceFullGrid>
           <div style={{ width: '100%', height: 350 }}>
             <ResponsiveContainer width="99%" height={350} minWidth={1} minHeight={1}>
-              <LineChart data={monthData} margin={{ top: 5, right: 30, left: 20, bottom: 5 }}>
+              <LineChart data={monthData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" />
                 <XAxis dataKey="time" />
                 <YAxis />

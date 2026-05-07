@@ -72,7 +72,7 @@ export default function CrudTable({ data, columns, onEdit, onDelete, itemLabel =
           <thead>
             <tr style={{ background: '#f5f7fa', borderBottom: '2px solid var(--color-border)' }}>
               {columns.map((col, i) => (
-                <th key={i} onClick={() => handleSort(col.key)} style={{ padding: '8px 10px', color: '#555', fontSize: '0.85rem', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none' }}>
+                <th key={i} onClick={() => handleSort(col.key)} style={{ padding: '8px 10px', color: '#555', fontSize: '0.85rem', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                     {col.header}
                     {sortConfig.key === col.key && (
@@ -106,12 +106,15 @@ export default function CrudTable({ data, columns, onEdit, onDelete, itemLabel =
                     ...(rowStyle ? rowStyle(row) : {})
                   }}
                 >
-                  {columns.map((col, colIndex) => (
-                    <td key={colIndex} style={{ padding: '8px 10px' }}>
+                  {columns.map((col, colIndex) => {
+                    const isDateColumn = col.header.toLowerCase().includes('date') || col.header.toLowerCase().includes('time') || col.header.toLowerCase().includes('deadline') || col.header.toLowerCase() === 'dob' || col.key.toLowerCase().includes('date');
+                    return (
+                      <td key={colIndex} style={{ padding: '8px 10px', whiteSpace: isDateColumn ? 'nowrap' : 'normal' }}>
                       {/* Render custom func if passed, otherwise raw key string */}
                       {col.render ? col.render(row) : row[col.key]}
                     </td>
-                  ))}
+                    );
+                  })}
                   {(onEdit || onDelete) && (
                     <td style={{ padding: '8px 10px', textAlign: 'right' }}>
                       <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>

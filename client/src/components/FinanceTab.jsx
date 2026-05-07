@@ -6,7 +6,6 @@ import { DollarSign, X } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, PieChart, Pie, Cell } from 'recharts';
 import CrudTable from './CrudTable';
 
-let isSubmitting = false;
 
 const INIT_TX = { assetId: '', txType: 'Expense', category: '', amount: '', amountLd: '', exchangeRate: '', vendor: '', notes: '', date: new Date().toISOString().split('T')[0] };
 
@@ -61,12 +60,6 @@ export default function FinanceTab() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (isSubmitting) return;
-    isSubmitting = true;
-    setTimeout(() => { isSubmitting = false; }, 1000);
-        if (isSubmitting) return;
-    isSubmitting = true;
-    setTimeout(() => { isSubmitting = false; }, 1000);
         const parsedUsd = parseFloat(txData.amount);
     const parsedLd = parseFloat(txData.amountLd);
     if ((!txData.amount || isNaN(parsedUsd) || parsedUsd < 0) && (!txData.amountLd || isNaN(parsedLd) || parsedLd < 0)) {
@@ -261,9 +254,9 @@ export default function FinanceTab() {
           <div className="form-grid">
             <div className="card" style={{ padding: '10px', boxShadow: 'none', background: '#fafafa' }}>
               <h4 style={{textAlign: 'center', marginBottom: 10, fontSize: '0.9rem'}}>Monthly Revenue vs Expenses</h4>
-              <div style={{ width: '100%', height: 250 }}>
+              <div style={{ width: '100%', height: 300 }}>
                 <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={barData}>
+                  <BarChart data={barData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis dataKey="name" tick={{fontSize: 12}} />
                     <YAxis tick={{fontSize: 12}} />
@@ -278,10 +271,10 @@ export default function FinanceTab() {
 
             <div className="card" style={{ padding: '10px', boxShadow: 'none', background: '#fafafa' }}>
               <h4 style={{textAlign: 'center', marginBottom: 10, fontSize: '0.9rem'}}>Total Aggregate Flow</h4>
-              <div style={{ width: '100%', height: 250 }}>
+              <div style={{ width: '100%', height: 300 }}>
                 <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie data={pieData} cx="50%" cy="50%" innerRadius={40} outerRadius={80} paddingAngle={5} dataKey="value" label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`}>
+                  <PieChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
+                    <Pie data={pieData} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={5} dataKey="value" label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`}>
                       {pieData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}

@@ -10,7 +10,7 @@ import 'leaflet/dist/leaflet.css';
 import { CACHE_NAME } from './config/cache';
 import packageJson from '../package.json';
 
-import { Wifi, WifiOff, CloudOff, Target, Tractor, Leaf, DollarSign, MapPin, Rabbit, Settings, BarChart, Layers, Box, ClipboardList, ShieldAlert, Calculator, CalendarClock, AlertTriangle, LogOut, Database, Users, Contact, Briefcase, RefreshCw, Home, Baby, FlaskConical, Map } from 'lucide-react';
+import { Wifi, WifiOff, CloudOff, Target, Tractor, Leaf, DollarSign, MapPin, Rabbit, Settings, BarChart, Layers, Box, ClipboardList, ShieldAlert, Calculator, CalendarClock, AlertTriangle, LogOut, Database, Users, Contact, Briefcase, RefreshCw, Home, Baby, FlaskConical, Map, Check } from 'lucide-react';
 import NmkLogo from './components/NmkLogo';
 import MapLayer from './MapLayer';
 
@@ -83,7 +83,34 @@ export default function App() {
   const isSyncing = useSelector(state => state.sync.isSyncing);
   const backendAvailable = useSelector(state => state.sync.backendAvailable);
 
+  const totalActionsQueued = useSelector(state => state.sync.totalActionsQueued || 0);
+
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [showSaveToast, setShowSaveToast] = useState(false);
+
+  // Global visual indicator for successful saves
+  useEffect(() => {
+    if (totalActionsQueued > 0) {
+      document.body.classList.add('is-saving');
+      
+      const timer1 = setTimeout(() => {
+        document.body.classList.remove('is-saving');
+        document.body.classList.add('is-saved');
+        setShowSaveToast(true);
+      }, 400); // Simulate network delay slightly
+
+      const timer2 = setTimeout(() => {
+        document.body.classList.remove('is-saved');
+        setShowSaveToast(false);
+      }, 2000);
+
+      return () => {
+        clearTimeout(timer1);
+        clearTimeout(timer2);
+        document.body.classList.remove('is-saving', 'is-saved');
+      };
+    }
+  }, [totalActionsQueued]);
   const [activeModule, setActiveModule] = useState('overview');
   const [isUpdating, setIsUpdating] = useState(false);
   const [newUnit, setNewUnit] = useState('');
@@ -743,6 +770,11 @@ export default function App() {
         )}
 
       </main>
+      
+      {/* Global Save Indicator Toast */}
+      <div className={`global-save-toast ${showSaveToast ? 'visible' : ''}`}>
+        <Check size={20} /> Record Saved Successfully
+      </div>
     </>
   );
 }

@@ -208,8 +208,8 @@ app.get('/api/all-data', async (req, res) => {
 
     res.json(data);
   } catch (err) {
-    console.error('Failed to fetch all data:', err);
-    res.status(500).json({ error: err.message });
+    console.warn('Failed to fetch all data:', err.message);
+    res.status(200).json({ ok: false, error: 'DATABASE_UNAVAILABLE', details: err.message });
   } finally {
     await session.close();
   }
@@ -675,7 +675,8 @@ app.post('/api/sync', async (req, res) => {
 
     res.json({ success: true, processed: results });
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.warn('Sync queue failed:', err.message);
+    res.status(200).json({ ok: false, error: 'DATABASE_UNAVAILABLE', details: err.message });
   } finally {
     await session.close();
   }

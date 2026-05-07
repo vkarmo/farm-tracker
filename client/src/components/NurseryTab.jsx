@@ -11,7 +11,6 @@ import area from '@turf/area';
 import { polygon } from '@turf/helpers';
 import 'leaflet/dist/leaflet.css';
 
-let isSubmitting = false;
 
 const ClickToDrawComponent = ({ polygon, setPolygon, setCenter }) => {
   useMapEvents({
@@ -65,9 +64,6 @@ export default function NurseryTab() {
 
   const handleAddBed = (e) => {
     e.preventDefault();
-    if (isSubmitting) return;
-    isSubmitting = true;
-    setTimeout(() => { isSubmitting = false; }, 1000);
         if (!bedData.name.trim()) return alert("Validation Error: Bed/Tray Name is required.");
     const parsedCap = parseFloat(bedData.capacity);
     if (bedData.capacity && (isNaN(parsedCap) || parsedCap < 0)) return alert("Validation Error: Bed Capacity must be positive.");

@@ -3,10 +3,10 @@ import { useSelector, useDispatch } from 'react-redux';
 import { queueAction } from '../store/syncSlice';
 import { addBudget, deleteBudget, addBudgetItem, deleteBudgetItem } from '../store/budgetSlice';
 import { addTransaction } from '../store/financialsSlice';
+import { addExpenseCategory, saveSettings } from '../store/settingsSlice';
 import { FileText, Plus, Trash2, Edit2, Calculator, Check, X, ArrowRightCircle } from 'lucide-react';
 import CrudTable from './CrudTable';
 
-let isSubmitting = false;
 
 const INIT_BUDGET = { name: '', description: '', exchangeRate: 150 };
 const INIT_ITEM = { category: '', description: '', amount: '', currency: 'USD', status: 'Pending Review' };
@@ -16,6 +16,7 @@ export default function BudgetTab() {
   const budgets = useSelector(state => state.budgets?.list) || [];
   const assignments = useSelector(state => state.assignments?.list) || [];
   const employeesList = useSelector(state => state.employees?.list) || [];
+  const expenseCategories = useSelector(state => state.settings?.expenseCategories) || [];
 
   const [activeBudgetId, setActiveBudgetId] = useState(null);
   const [budgetForm, setBudgetForm] = useState(INIT_BUDGET);
@@ -67,11 +68,23 @@ export default function BudgetTab() {
     }
   }, [activeRate, isInitialized]);
 
+  // One-time data fix: ensure budget categories exist in settings
+  useEffect(() => {
+    const defaultBudgetCats = ['Equipment Leasing/Repair', 'Logistics & Transport', 'Materials & Seeds', 'Miscellaneous', 'Operating Expenses', 'Payroll'];
+    let changed = false;
+    defaultBudgetCats.forEach(cat => {
+      if (!expenseCategories.includes(cat)) {
+        dispatch(addExpenseCategory(cat));
+        changed = true;
+      }
+    });
+    if (changed) {
+      dispatch(saveSettings());
+    }
+  }, [expenseCategories, dispatch]);
+
   const handleCreateBudget = (e) => {
     e.preventDefault();
-    if (isSubmitting) return;
-    isSubmitting = true;
-    setTimeout(() => { isSubmitting = false; }, 1000);
         if (!budgetForm.name) return alert("Budget Name required.");
     const newRate = parseFloat(budgetForm.exchangeRate) || 1;
 
@@ -100,9 +113,6 @@ export default function BudgetTab() {
 
   const handleSaveItem = (e) => {
     e.preventDefault();
-    if (isSubmitting) return;
-    isSubmitting = true;
-    setTimeout(() => { isSubmitting = false; }, 1000);
         if (!activeBudget) return alert("Select a budget first.");
     if (!itemForm.description || !itemForm.amount) return alert("Fill out the required item data.");
 
@@ -161,7 +171,7 @@ export default function BudgetTab() {
     if (totalDailyUSD > 0) {
       newItems.push({
         id: `bli_${Date.now()}_daily`,
-        category: 'Labor',
+        category: 'Payroll',
         description: 'Labor Pay (Daily Farm Workers)',
         amount: parseFloat(totalDailyUSD.toFixed(2)),
         currency: 'USD',
@@ -183,7 +193,7 @@ export default function BudgetTab() {
       if (nonDailyByTitle[title] > 0) {
         newItems.push({
           id: `bli_${Date.now()}_nd_${idx}`,
-          category: 'Labor',
+          category: 'Payroll',
           description: title,
           amount: parseFloat(nonDailyByTitle[title].toFixed(2)),
           currency: 'USD',
@@ -477,12 +487,9 @@ export default function BudgetTab() {
               <label>Category</label>
               <select value={itemForm.category} onChange={e => setItemForm({ ...itemForm, category: e.target.value })}>
                 <option value="">Select...</option>
-                <option value="Equipment">Equipment Leasing/Repair</option>
-                <option value="Labor">Labor</option>
-                <option value="Logistics">Logistics & Transport</option>
-                <option value="Materials">Materials & Seeds</option>
-                <option value="Miscellaneous">Miscellaneous</option>
-                <option value="Operating Expenses">Operating Expenses</option>
+                {expenseCategories.map(cat => (
+                  <option key={cat} value={cat}>{cat}</option>
+                ))}
               </select>
             </div>
             <div className="form-group">
