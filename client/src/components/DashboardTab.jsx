@@ -40,6 +40,7 @@ export default function DashboardTab() {
   const [selectedLocIndex, setSelectedLocIndex] = useState(0);
   const [weatherData, setWeatherData] = useState(null);
   const [weatherLoading, setWeatherLoading] = useState(true);
+  const [selectedCropId, setSelectedCropId] = useState('');
 
   const weatherLocations = useMemo(() => [
     { label: 'Default Farm Location', coords: mapCenter },
@@ -110,13 +111,52 @@ export default function DashboardTab() {
   // 1. Harvest by Day
   const harvestByDay = useMemo(() => {
     const map = {};
-    harvests.forEach(h => {
+    const filteredHarvests = selectedCropId ? harvests.filter(h => h.cropId === selectedCropId) : harvests;
+    filteredHarvests.forEach(h => {
       const d = h.date || 'Unknown';
       if (!map[d]) map[d] = { date: d, yield: 0 };
       map[d].yield += parseFloat(h.amount) || 0;
     });
     return Object.values(map).sort((a, b) => (a.date || '').localeCompare(b.date || ''));
-  }, [harvests]);
+  }, [harvests, selectedCropId]);
+
+  const cropsWithHarvests = useMemo(() => {
+    const cropIds = new Set(harvests.map(h => h.cropId));
+    return crops.filter(c => cropIds.has(c.id)).sort((a,b) => (a.name || '').localeCompare(b.name || ''));
+  }, [harvests, crops]);
+
+  const harvestReportData = useMemo(() => {
+    let filteredHarvests = harvests;
+    if (selectedCropId) {
+       filteredHarvests = harvests.filter(h => h.cropId === selectedCropId);
+    }
+    
+    return filteredHarvests.map(h => {
+      const crop = crops.find(c => c.id === h.cropId);
+      const cropName = crop ? `${crop.name} ${crop.variety ? `(${crop.variety})` : ''}` : 'Unknown Crop';
+      const relatedSales = transactions.filter(tx => tx.txType === 'Sale' && tx.assetId === h.id);
+      const salesTotal = relatedSales.reduce((sum, tx) => sum + (parseFloat(tx.amount) || 0), 0);
+      
+      return {
+        id: h.id,
+        date: h.date || '-',
+        cropName,
+        amountText: `${h.amount || 0} ${h.unit || ''}`,
+        amountValue: parseFloat(h.amount) || 0,
+        salesTotal
+      };
+    }).sort((a,b) => (b.date || '').localeCompare(a.date || ''));
+  }, [harvests, crops, transactions, selectedCropId]);
+
+  const totalHarvestAmount = harvestReportData.reduce((sum, h) => sum + h.amountValue, 0);
+  const totalHarvestSales = harvestReportData.reduce((sum, h) => sum + h.salesTotal, 0);
+
+  const reportColumns = [
+    { key: 'date', header: 'Date' },
+    { key: 'cropName', header: 'Crop Details' },
+    { key: 'amountText', header: 'Quantity' },
+    { key: 'salesTotal', header: 'Related Sales', render: (r) => r.salesTotal > 0 ? `$${r.salesTotal.toFixed(2)}` : '-' }
+  ];
 
   // Financial Grouping Function (By 2 weeks)
   const getFortnight = (dateStr) => {
@@ -324,6 +364,18 @@ export default function DashboardTab() {
 
         {/* Harvest by Day */}
         <CollapsibleCard title="Harvest by Day">
+          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '15px' }}>
+            <select 
+              value={selectedCropId} 
+              onChange={(e) => setSelectedCropId(e.target.value)}
+              style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #ccc', background: 'white', fontWeight: 600, color: 'var(--color-primary-dark)', cursor: 'pointer' }}
+            >
+              <option value="">All Crops</option>
+              {cropsWithHarvests.map(c => (
+                <option key={c.id} value={c.id}>{c.name} {c.variety ? `(${c.variety})` : ''}</option>
+              ))}
+            </select>
+          </div>
           <div style={{ width: '100%', height: 300 }}>
             <ResponsiveContainer width="99%" height={300} minWidth={1} minHeight={1}>
               <BarChart data={harvestByDay} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
@@ -335,6 +387,20 @@ export default function DashboardTab() {
               </BarChart>
             </ResponsiveContainer>
           </div>
+        </CollapsibleCard>
+
+        {/* Harvest by Day Report */}
+        <CollapsibleCard title="Harvest by Day Report" forceFullGrid>
+          <div style={{ padding: '0 15px 15px 15px', display: 'flex', gap: '20px', background: 'transparent', borderBottom: '1px solid #eee', marginBottom: '15px' }}>
+            <div style={{ fontSize: '1.1rem', color: '#444' }}><strong style={{ color: '#2e7d32' }}>Total Harvest:</strong> {totalHarvestAmount.toFixed(2)}</div>
+            <div style={{ fontSize: '1.1rem', color: '#444' }}><strong style={{ color: '#2e7d32' }}>Total Sales:</strong> ${totalHarvestSales.toFixed(2)}</div>
+          </div>
+          <CrudTable 
+            data={harvestReportData}
+            columns={reportColumns}
+            itemLabel="Harvest Record"
+            customTitle="Harvest Records"
+          />
         </CollapsibleCard>
 
         {/* Expenses and Revenue by 2 weeks */}
