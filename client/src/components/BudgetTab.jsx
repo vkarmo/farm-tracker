@@ -212,14 +212,14 @@ export default function BudgetTab() {
 
   const handleGenerateExpenses = () => {
     if (!activeBudget) return;
-    const approvedUnlinked = activeBudget.items.filter(i => i.status === 'Approved' && !i.linkedTxId);
+    const unlinkedItems = activeBudget.items.filter(i => !i.linkedTxId);
     
-    if (approvedUnlinked.length === 0) {
-      alert("No Approved budget items are pending for Ledger generation.");
+    if (unlinkedItems.length === 0) {
+      alert("No budget items are pending for Ledger generation.");
       return;
     }
 
-    const proposedTxs = approvedUnlinked.map(item => ({
+    const proposedTxs = unlinkedItems.map(item => ({
       ...item,
       proposedTxId: `t_${Date.now()}_${item.id}`
     }));
@@ -415,6 +415,60 @@ export default function BudgetTab() {
             )}
           </div>
 
+          {/* Budget to Ledger Linkage - Moved right below Payroll */}
+          <div style={{ marginTop: 20, marginBottom: 20, background: '#e3f2fd', padding: 20, borderRadius: 8, border: '1px solid #90caf9' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h3 style={{ color: '#1565c0', margin: 0 }}>Ledger Integration</h3>
+                <p style={{ color: '#1976d2', fontSize: '0.9rem', marginTop: 5 }}>Generate official finance expenses from approved budget items.</p>
+              </div>
+              <button onClick={handleGenerateExpenses} className="btn btn-primary" style={{ background: '#1565c0', border: 'none' }}>
+                <ArrowRightCircle size={18} style={{ marginRight: 6 }} /> Generate Ledger Items
+              </button>
+            </div>
+
+            {showExpenseReview && pendingLedgerExpenses.length > 0 && (
+              <div style={{ marginTop: 20, background: '#ffffff', padding: 15, borderRadius: 8, border: '1px solid #bbdefb' }}>
+                <h4 style={{ marginBottom: 15, color: '#0d47a1' }}>Pending Review: Generated Ledger Items</h4>
+                <div style={{ maxHeight: 300, overflowY: 'auto', marginBottom: 15 }}>
+                  <table className="table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '2px solid #e0e0e0', textAlign: 'left' }}>
+                        <th style={{ padding: '8px 4px' }}>Approve</th>
+                        <th style={{ padding: '8px 4px' }}>Category</th>
+                        <th style={{ padding: '8px 4px' }}>Description</th>
+                        <th style={{ padding: '8px 4px' }}>Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pendingLedgerExpenses.map(item => (
+                        <tr key={item.id} style={{ borderBottom: '1px solid #eeeeee' }}>
+                          <td style={{ padding: '8px 4px', textAlign: 'center' }}>
+                            <input 
+                              type="checkbox" 
+                              checked={selectedExpensesToSubmit[item.id] || false} 
+                              onChange={(e) => setSelectedExpensesToSubmit(prev => ({ ...prev, [item.id]: e.target.checked }))} 
+                              style={{ width: 18, height: 18, cursor: 'pointer' }}
+                            />
+                          </td>
+                          <td style={{ padding: '8px 4px' }}>{item.category}</td>
+                          <td style={{ padding: '8px 4px' }}>{item.description}</td>
+                          <td style={{ padding: '8px 4px', fontWeight: 'bold' }}>{item.currency === 'USD' ? '$' : 'L$'}{item.amount}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+                  <button onClick={() => setShowExpenseReview(false)} className="btn" style={{ background: '#f5f5f5', color: '#333' }}>Cancel</button>
+                  <button onClick={handleSubmitExpensesToLedger} className="btn btn-primary" style={{ background: '#2e7d32', border: 'none' }}>
+                    Approve to Generate Expenses
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
           <h3 style={{ marginBottom: 15, display: 'flex', alignItems: 'center' }}>
             <Calculator size={18} style={{ marginRight: 8 }} /> {editingItemId ? 'Edit Line Item' : 'Add New Line Item'}
           </h3>
@@ -481,60 +535,6 @@ export default function BudgetTab() {
             itemLabel="Budget Item"
             defaultSort={{ key: 'category', direction: 'asc' }}
           />
-
-          {/* Budget to Ledger Linkage */}
-          <div style={{ marginTop: 30, background: '#e3f2fd', padding: 20, borderRadius: 8, border: '1px solid #90caf9' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <h3 style={{ color: '#1565c0', margin: 0 }}>Ledger Integration</h3>
-                <p style={{ color: '#1976d2', fontSize: '0.9rem', marginTop: 5 }}>Generate official finance expenses from approved budget items.</p>
-              </div>
-              <button onClick={handleGenerateExpenses} className="btn btn-primary" style={{ background: '#1565c0', border: 'none' }}>
-                <ArrowRightCircle size={18} style={{ marginRight: 6 }} /> Generate Expenses
-              </button>
-            </div>
-
-            {showExpenseReview && pendingLedgerExpenses.length > 0 && (
-              <div style={{ marginTop: 20, background: '#ffffff', padding: 15, borderRadius: 8, border: '1px solid #bbdefb' }}>
-                <h4 style={{ marginBottom: 15, color: '#0d47a1' }}>Review Pending Expenses</h4>
-                <div style={{ maxHeight: 300, overflowY: 'auto', marginBottom: 15 }}>
-                  <table className="table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
-                    <thead>
-                      <tr style={{ borderBottom: '2px solid #e0e0e0', textAlign: 'left' }}>
-                        <th style={{ padding: '8px 4px' }}>Include</th>
-                        <th style={{ padding: '8px 4px' }}>Category</th>
-                        <th style={{ padding: '8px 4px' }}>Description</th>
-                        <th style={{ padding: '8px 4px' }}>Amount</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {pendingLedgerExpenses.map(item => (
-                        <tr key={item.id} style={{ borderBottom: '1px solid #eeeeee' }}>
-                          <td style={{ padding: '8px 4px', textAlign: 'center' }}>
-                            <input 
-                              type="checkbox" 
-                              checked={selectedExpensesToSubmit[item.id] || false} 
-                              onChange={(e) => setSelectedExpensesToSubmit(prev => ({ ...prev, [item.id]: e.target.checked }))} 
-                              style={{ width: 18, height: 18, cursor: 'pointer' }}
-                            />
-                          </td>
-                          <td style={{ padding: '8px 4px' }}>{item.category}</td>
-                          <td style={{ padding: '8px 4px' }}>{item.description}</td>
-                          <td style={{ padding: '8px 4px', fontWeight: 'bold' }}>{item.currency === 'USD' ? '$' : 'L$'}{item.amount}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-                  <button onClick={() => setShowExpenseReview(false)} className="btn" style={{ background: '#f5f5f5', color: '#333' }}>Cancel</button>
-                  <button onClick={handleSubmitExpensesToLedger} className="btn btn-primary" style={{ background: '#2e7d32', border: 'none' }}>
-                    Submit to Ledger
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
         </div>
       )}
 
