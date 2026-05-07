@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { useSelector } from 'react-redux';
+import Select from 'react-select';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import { TrendingUp, Layers, Rabbit, DollarSign, Sun, CloudRain, Cloud, CloudLightning, Snowflake, CloudFog, MapPin, Droplets, Wind, ThermometerSun, CloudSun } from 'lucide-react';
 import CrudTable from './CrudTable';
@@ -40,7 +41,10 @@ export default function DashboardTab() {
   const [selectedLocIndex, setSelectedLocIndex] = useState(0);
   const [weatherData, setWeatherData] = useState(null);
   const [weatherLoading, setWeatherLoading] = useState(true);
-  const [selectedCropId, setSelectedCropId] = useState('');
+  const [selectedCropIds, setSelectedCropIds] = useState([]);
+  const [harvestFromDate, setHarvestFromDate] = useState('');
+  const [harvestToDate, setHarvestToDate] = useState('');
+  const [harvestViewToggle, setHarvestViewToggle] = useState('graph');
 
   const weatherLocations = useMemo(() => [
     { label: 'Default Farm Location', coords: mapCenter },
@@ -111,25 +115,36 @@ export default function DashboardTab() {
   // 1. Harvest by Day
   const harvestByDay = useMemo(() => {
     const map = {};
-    const filteredHarvests = selectedCropId ? harvests.filter(h => h.cropId === selectedCropId) : harvests;
+    const filteredHarvests = harvests.filter(h => {
+      if (selectedCropIds.length > 0 && !selectedCropIds.includes(h.cropId)) return false;
+      if (harvestFromDate && h.date < harvestFromDate) return false;
+      if (harvestToDate && h.date > harvestToDate) return false;
+      return true;
+    });
     filteredHarvests.forEach(h => {
       const d = h.date || 'Unknown';
       if (!map[d]) map[d] = { date: d, yield: 0 };
       map[d].yield += parseFloat(h.amount) || 0;
     });
     return Object.values(map).sort((a, b) => (a.date || '').localeCompare(b.date || ''));
-  }, [harvests, selectedCropId]);
+  }, [harvests, selectedCropIds, harvestFromDate, harvestToDate]);
 
   const cropsWithHarvests = useMemo(() => {
     const cropIds = new Set(harvests.map(h => h.cropId));
     return crops.filter(c => cropIds.has(c.id)).sort((a,b) => (a.name || '').localeCompare(b.name || ''));
   }, [harvests, crops]);
+  
+  const cropSelectOptions = useMemo(() => cropsWithHarvests.map(c => ({
+    value: c.id, label: `${c.name} ${c.variety ? `(${c.variety})` : ''}`
+  })), [cropsWithHarvests]);
 
   const harvestReportData = useMemo(() => {
-    let filteredHarvests = harvests;
-    if (selectedCropId) {
-       filteredHarvests = harvests.filter(h => h.cropId === selectedCropId);
-    }
+    const filteredHarvests = harvests.filter(h => {
+      if (selectedCropIds.length > 0 && !selectedCropIds.includes(h.cropId)) return false;
+      if (harvestFromDate && h.date < harvestFromDate) return false;
+      if (harvestToDate && h.date > harvestToDate) return false;
+      return true;
+    });
     
     return filteredHarvests.map(h => {
       const crop = crops.find(c => c.id === h.cropId);
@@ -146,7 +161,7 @@ export default function DashboardTab() {
         salesTotal
       };
     }).sort((a,b) => (b.date || '').localeCompare(a.date || ''));
-  }, [harvests, crops, transactions, selectedCropId]);
+  }, [harvests, crops, transactions, selectedCropIds, harvestFromDate, harvestToDate]);
 
   const totalHarvestAmount = harvestReportData.reduce((sum, h) => sum + h.amountValue, 0);
   const totalHarvestSales = harvestReportData.reduce((sum, h) => sum + h.salesTotal, 0);
@@ -362,45 +377,59 @@ export default function DashboardTab() {
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
 
-        {/* Harvest by Day */}
-        <CollapsibleCard title="Harvest by Day">
-          <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '15px' }}>
-            <select 
-              value={selectedCropId} 
-              onChange={(e) => setSelectedCropId(e.target.value)}
-              style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #ccc', background: 'white', fontWeight: 600, color: 'var(--color-primary-dark)', cursor: 'pointer' }}
-            >
-              <option value="">All Crops</option>
-              {cropsWithHarvests.map(c => (
-                <option key={c.id} value={c.id}>{c.name} {c.variety ? `(${c.variety})` : ''}</option>
-              ))}
-            </select>
+        {/* Harvest by Day Graph and Report */}
+        <CollapsibleCard title="Harvest Analysis" forceFullGrid>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', padding: '15px', background: '#f5f7fa', borderRadius: '8px' }}>
+            <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', alignItems: 'center' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <label style={{ fontWeight: 600, fontSize: '0.9rem', color: '#555' }}>From:</label>
+                <input type="date" value={harvestFromDate} onChange={e => setHarvestFromDate(e.target.value)} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #ccc' }} />
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <label style={{ fontWeight: 600, fontSize: '0.9rem', color: '#555' }}>To:</label>
+                <input type="date" value={harvestToDate} onChange={e => setHarvestToDate(e.target.value)} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #ccc' }} />
+              </div>
+              <div style={{ minWidth: '300px' }}>
+                <Select
+                  isMulti
+                  placeholder="Filter by specific crops..."
+                  options={cropSelectOptions}
+                  value={cropSelectOptions.filter(opt => selectedCropIds.includes(opt.value))}
+                  onChange={(opts) => setSelectedCropIds(opts ? opts.map(o => o.value) : [])}
+                  styles={{ control: (base) => ({ ...base, minHeight: '36px' }) }}
+                />
+              </div>
+            </div>
+            <div style={{ display: 'flex', gap: '8px', background: '#e0e0e0', padding: '4px', borderRadius: '6px' }}>
+              <button onClick={() => setHarvestViewToggle('graph')} style={{ padding: '6px 16px', border: 'none', borderRadius: '4px', background: harvestViewToggle === 'graph' ? 'white' : 'transparent', fontWeight: harvestViewToggle === 'graph' ? 600 : 400, boxShadow: harvestViewToggle === 'graph' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', cursor: 'pointer', color: '#333' }}>Graph</button>
+              <button onClick={() => setHarvestViewToggle('report')} style={{ padding: '6px 16px', border: 'none', borderRadius: '4px', background: harvestViewToggle === 'report' ? 'white' : 'transparent', fontWeight: harvestViewToggle === 'report' ? 600 : 400, boxShadow: harvestViewToggle === 'report' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', cursor: 'pointer', color: '#333' }}>Report</button>
+            </div>
           </div>
-          <div style={{ width: '100%', height: 300 }}>
-            <ResponsiveContainer width="99%" height={300} minWidth={1} minHeight={1}>
-              <BarChart data={harvestByDay} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="date" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} />
-                <Tooltip cursor={{ fill: '#f5f5f5' }} />
-                <Bar dataKey="yield" fill="#4caf50" radius={[4, 4, 0, 0]} barSize={32} name="Total Yield" />
-              </BarChart>
-            </ResponsiveContainer>
+          
+          <div style={{ display: 'flex', gap: '20px', marginBottom: '20px', flexWrap: 'wrap' }}>
+            <div style={{ padding: '10px 15px', background: '#e8f5e9', borderRadius: '6px', border: '1px solid #c8e6c9', color: '#2e7d32', fontSize: '1.05rem', minWidth: '200px' }}><strong style={{ color: '#1b5e20' }}>Total Harvest Yield:</strong> {totalHarvestAmount.toFixed(2)}</div>
+            <div style={{ padding: '10px 15px', background: '#e8f5e9', borderRadius: '6px', border: '1px solid #c8e6c9', color: '#2e7d32', fontSize: '1.05rem', minWidth: '200px' }}><strong style={{ color: '#1b5e20' }}>Total Generated Sales:</strong> ${totalHarvestSales.toFixed(2)}</div>
           </div>
-        </CollapsibleCard>
 
-        {/* Harvest by Day Report */}
-        <CollapsibleCard title="Harvest by Day Report" forceFullGrid>
-          <div style={{ padding: '0 15px 15px 15px', display: 'flex', gap: '20px', background: 'transparent', borderBottom: '1px solid #eee', marginBottom: '15px' }}>
-            <div style={{ fontSize: '1.1rem', color: '#444' }}><strong style={{ color: '#2e7d32' }}>Total Harvest:</strong> {totalHarvestAmount.toFixed(2)}</div>
-            <div style={{ fontSize: '1.1rem', color: '#444' }}><strong style={{ color: '#2e7d32' }}>Total Sales:</strong> ${totalHarvestSales.toFixed(2)}</div>
-          </div>
-          <CrudTable 
-            data={harvestReportData}
-            columns={reportColumns}
-            itemLabel="Harvest Record"
-            customTitle="Harvest Records"
-          />
+          {harvestViewToggle === 'graph' ? (
+            <div style={{ width: '100%', height: 350 }}>
+              <ResponsiveContainer width="99%" height={350} minWidth={1} minHeight={1}>
+                <BarChart data={harvestByDay} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                  <YAxis tick={{ fontSize: 12 }} />
+                  <Tooltip cursor={{ fill: '#f5f5f5' }} />
+                  <Bar dataKey="yield" fill="#4caf50" radius={[4, 4, 0, 0]} barSize={32} name="Total Yield" />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          ) : (
+            <CrudTable 
+              data={harvestReportData}
+              columns={reportColumns}
+              itemLabel="Harvest Record"
+            />
+          )}
         </CollapsibleCard>
 
         {/* Expenses and Revenue by 2 weeks */}
