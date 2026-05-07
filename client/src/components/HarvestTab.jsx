@@ -40,7 +40,7 @@ export default function HarvestTab() {
       if (!map[d]) map[d] = { date: d, yield: 0 };
       map[d].yield += parseFloat(h.amount) || 0;
     });
-    return Object.values(map).sort((a, b) => a.date.localeCompare(b.date));
+    return Object.values(map).sort((a, b) => (a.date || '').localeCompare(b.date || ''));
   }, [filteredHarvests, filterFromDate, filterToDate]);
 
   const handleSubmit = (e) => {
@@ -99,7 +99,7 @@ export default function HarvestTab() {
             <label>Source Crop Batch</label>
             <select value={harvestData.cropId} onChange={e => setHarvestData({...harvestData, cropId: e.target.value})}>
               <option value="">Select an active crop...</option>
-              {[...crops].sort((a,b) => a.name.localeCompare(b.name)).map(c => {
+              {[...crops].sort((a,b) => (a.name || '').localeCompare(b.name || '')).map(c => {
                 let locationStr = 'Unassigned';
                 if (c.fieldId) {
                   if (c.sowType === 'Nursery') {
@@ -123,7 +123,7 @@ export default function HarvestTab() {
           <div className="form-group">
             <label>Unit of Measurement</label>
             <select value={harvestData.unit} onChange={e => setHarvestData({...harvestData, unit: e.target.value})}>
-              {[...units].sort((a,b) => a.localeCompare(b)).map(u => <option key={u} value={u}>{u}</option>)}
+              {[...units].sort((a,b) => (a || '').localeCompare(b || '')).map(u => <option key={u} value={u}>{u}</option>)}
             </select>
           </div>
         </div>
@@ -144,7 +144,7 @@ export default function HarvestTab() {
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
           <select value={filterCropId} onChange={e => setFilterCropId(e.target.value)} style={{ padding: '6px 10px', borderRadius: 4, border: '1px solid #ccc', fontSize: '0.9rem' }}>
             <option value="">All Source Crops...</option>
-            {[...crops].sort((a,b) => a.name.localeCompare(b.name)).map(c => (
+            {[...crops].sort((a,b) => (a.name || '').localeCompare(b.name || '')).map(c => (
               <option key={c.id} value={c.id}>{c.name} ({c.variety})</option>
             ))}
           </select>

@@ -44,7 +44,7 @@ export default function DashboardTab() {
   const weatherLocations = useMemo(() => [
     { label: 'Default Farm Location', coords: mapCenter },
     { label: 'Bomi County, Liberia', coords: [6.7319579, -10.8700117] }
-  ].sort((a,b) => a.label.localeCompare(b.label)), [mapCenter]);
+  ].sort((a,b) => (a.label || '').localeCompare(b.label || '')), [mapCenter]);
 
   // Fetch Weather Data
   useEffect(() => {
@@ -115,7 +115,7 @@ export default function DashboardTab() {
       if (!map[d]) map[d] = { date: d, yield: 0 };
       map[d].yield += parseFloat(h.amount) || 0;
     });
-    return Object.values(map).sort((a, b) => a.date.localeCompare(b.date));
+    return Object.values(map).sort((a, b) => (a.date || '').localeCompare(b.date || ''));
   }, [harvests]);
 
   // Financial Grouping Function (By 2 weeks)
@@ -155,8 +155,8 @@ export default function DashboardTab() {
     });
 
     return {
-      fortnightData: Object.values(fortnightMap).sort((a, b) => a.time.localeCompare(b.time)),
-      monthData: Object.values(monthMap).sort((a, b) => a.time.localeCompare(b.time)),
+      fortnightData: Object.values(fortnightMap).sort((a, b) => (a.time || '').localeCompare(b.time || '')),
+      monthData: Object.values(monthMap).sort((a, b) => (a.time || '').localeCompare(b.time || '')),
       revPieData: Object.entries(revCategoryMap).map(([name, value]) => ({ name, value })),
       expPieData: Object.entries(expCategoryMap).map(([name, value]) => ({ name, value }))
     };
@@ -171,7 +171,7 @@ export default function DashboardTab() {
   const sortedActivities = [...activities].sort((a, b) => {
     const dateA = a.plannedDate || a.date || '';
     const dateB = b.plannedDate || b.date || '';
-    return dateB.localeCompare(dateA); // Descending
+    return (dateB || '').localeCompare(dateA || ''); // Descending
   });
 
   const getSeverity = (act) => {
@@ -302,7 +302,7 @@ export default function DashboardTab() {
       {/* Incidents Feed Table */}
       <CollapsibleCard title="Active Incidents & Issues" forceFullGrid>
         <CrudTable 
-          data={[...incidents].sort((a, b) => b.date.localeCompare(a.date))}
+          data={[...incidents].sort((a, b) => (b.date || '').localeCompare(a.date || ''))}
           columns={incidentColumns}
           itemLabel="Incident"
           customTitle="Active Incidents & Issues"
@@ -312,7 +312,7 @@ export default function DashboardTab() {
       {/* Deadlines Feed Table */}
       <CollapsibleCard title="Upcoming Deadlines" forceFullGrid>
         <CrudTable 
-          data={[...deadlines].sort((a, b) => a.dueDate.localeCompare(b.dueDate))}
+          data={[...deadlines].sort((a, b) => (a.dueDate || '').localeCompare(b.dueDate || ''))}
           columns={deadlineColumns}
           itemLabel="Deadline"
           customTitle="Upcoming Deadlines"

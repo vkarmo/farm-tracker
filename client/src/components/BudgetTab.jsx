@@ -28,7 +28,7 @@ export default function BudgetTab() {
   const historicalRate = React.useMemo(() => {
     if (!budgets.length) return 150;
     // Sort by ID descending (which contains timestamp)
-    const sorted = [...budgets].sort((a,b) => b.id.localeCompare(a.id));
+    const sorted = [...budgets].sort((a,b) => (b.id || '').localeCompare(a.id || ''));
     const recentWithRate = sorted.find(b => b.exchangeRate && String(b.exchangeRate).trim() !== '');
     return recentWithRate ? recentWithRate.exchangeRate : 150;
   }, [budgets]);

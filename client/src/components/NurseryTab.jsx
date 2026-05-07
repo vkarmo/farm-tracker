@@ -198,7 +198,7 @@ export default function NurseryTab() {
               <div style={{display: 'flex', gap: 10, marginTop: 5}}>
                 <select value={transplantFieldId} onChange={e => setTransplantFieldId(e.target.value)} style={{flex: 1}}>
                   <option value="">Choose Destination Field...</option>
-                  {[...fields].sort((a,b) => a.name.localeCompare(b.name)).map(f => <option key={f.id} value={f.id}>{f.name} - {f.year}</option>)}
+                  {[...fields].sort((a,b) => (a.name || '').localeCompare(b.name || '')).map(f => <option key={f.id} value={f.id}>{f.name} - {f.year}</option>)}
                 </select>
                 <button onClick={() => handleTransplant(crop.id)} className="btn btn-primary"><MoveRight size={14} style={{marginRight: 4}}/> Move to Field</button>
               </div>

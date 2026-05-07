@@ -80,6 +80,7 @@ export default function App() {
   });
   const syncQueue = useSelector(state => state.sync.offlineActionQueue) || [];
   const isSyncing = useSelector(state => state.sync.isSyncing);
+  const backendAvailable = useSelector(state => state.sync.backendAvailable);
 
   const [activeTab, setActiveTab] = useState('dashboard');
   const [activeModule, setActiveModule] = useState('overview');
@@ -418,7 +419,7 @@ export default function App() {
             
             <div style={{ width: '1px', background: '#ccc', margin: '4px 2px', flexShrink: 0 }}></div>
 
-            <button onClick={() => setActiveTab('sync')} className={`btn toolbar-btn ${activeTab === 'sync' ? 'btn-primary' : ''}`} style={{ background: activeTab === 'sync' ? '#1565c0' : 'transparent', color: activeTab === 'sync' ? 'white' : '#1565c0', borderColor: 'transparent' }} title="System Sync">
+            <button onClick={() => setActiveTab('sync')} className={`btn toolbar-btn ${activeTab === 'sync' ? 'btn-primary' : ''}`} style={{ background: activeTab === 'sync' ? (!backendAvailable ? '#d32f2f' : '#1565c0') : 'transparent', color: activeTab === 'sync' ? 'white' : (!backendAvailable ? '#d32f2f' : '#1565c0'), borderColor: 'transparent' }} title="System Sync">
               <RefreshCw size={18} className={isSyncing ? "spin" : ""} />
             </button>
             
