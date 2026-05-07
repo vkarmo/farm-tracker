@@ -257,44 +257,63 @@ export default function App() {
       return R * c;
     };
 
+    const processGpsPosition = (position) => {
+      const { latitude, longitude, altitude } = position.coords;
+      const lastLoc = lastSavedLocRef.current;
+
+      let shouldSave = false;
+      if (!lastLoc) {
+        // Only capture the initial point if the network is available
+        if (navigator.onLine) {
+          shouldSave = true;
+        }
+      } else {
+        const distance = getDistanceFromLatLonInM(latitude, longitude, Number(lastLoc.lat), Number(lastLoc.lng));
+        const timeSinceLastSave = Date.now() - new Date(lastLoc.timestamp).getTime();
+        
+        // Save if moved beyond threshold OR if 2 minutes have passed (stationary heartbeat)
+        if (distance >= Number(gpsDistanceThreshold) || timeSinceLastSave >= 2 * 60 * 1000) {
+          shouldSave = true;
+        }
+      }
+
+      if (shouldSave) {
+        const newLoc = {
+          id: `gps_${Date.now()}`,
+          lat: latitude,
+          lng: longitude,
+          altitude: altitude || null,
+          timestamp: new Date().toISOString(),
+          userEmail: currentUser.email || currentUser.name || 'Unknown User'
+        };
+
+        dispatch(addLocation(newLoc));
+        dispatch(queueAction({ type: 'gps/addLocation', payload: newLoc, meta: { id: Date.now() } }));
+        dispatch(setMapCenter([latitude, longitude]));
+        lastSavedLocRef.current = newLoc; // Immediately update local ref to prevent rapid-fire saves
+      }
+    };
+
+    // 1. Listen for active movements
     const watchId = navigator.geolocation.watchPosition(
-      (position) => {
-        const { latitude, longitude, altitude } = position.coords;
-        const lastLoc = lastSavedLocRef.current;
-
-        let shouldSave = false;
-        if (!lastLoc) {
-          // Only capture the initial point if the network is available
-          if (navigator.onLine) {
-            shouldSave = true;
-          }
-        } else {
-          const distance = getDistanceFromLatLonInM(latitude, longitude, Number(lastLoc.lat), Number(lastLoc.lng));
-          if (distance >= Number(gpsDistanceThreshold)) {
-            shouldSave = true;
-          }
-        }
-
-        if (shouldSave) {
-          const newLoc = {
-            id: `gps_${Date.now()}`,
-            lat: latitude,
-            lng: longitude,
-            altitude: altitude || null,
-            timestamp: new Date().toISOString(),
-            userEmail: currentUser.email || currentUser.name || 'Unknown User'
-          };
-
-          dispatch(addLocation(newLoc));
-          dispatch(queueAction({ type: 'gps/addLocation', payload: newLoc, meta: { id: Date.now() } }));
-          dispatch(setMapCenter([latitude, longitude]));
-        }
-      },
+      processGpsPosition,
       (error) => console.warn('GPS tracking error:', error),
       { enableHighAccuracy: true, maximumAge: 10000, timeout: 5000 }
     );
 
-    return () => navigator.geolocation.clearWatch(watchId);
+    // 2. Poll explicitly every 2 minutes for stationary heartbeats
+    const intervalId = setInterval(() => {
+      navigator.geolocation.getCurrentPosition(
+        processGpsPosition,
+        (error) => console.warn('GPS heartbeat error:', error),
+        { enableHighAccuracy: true, maximumAge: 10000, timeout: 5000 }
+      );
+    }, 2 * 60 * 1000);
+
+    return () => {
+      navigator.geolocation.clearWatch(watchId);
+      clearInterval(intervalId);
+    };
   }, [currentUser, dispatch, gpsDistanceThreshold, gpsActive]);
 
   const handleAddUnit = (e) => { e.preventDefault(); if (newUnit) { dispatch(addUnit(newUnit.toLowerCase())); dispatch(saveSettings()); setNewUnit(''); } };

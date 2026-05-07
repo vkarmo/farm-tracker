@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Search, Edit2, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
 
-export default function CrudTable({ data, columns, onEdit, onDelete, itemLabel = 'Item', customTitle, rowStyle, defaultSort }) {
+export default function CrudTable({ data, columns, onEdit, onDelete, itemLabel = 'Item', customTitle, rowStyle, defaultSort, maxHeight }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState(defaultSort || { key: null, direction: 'asc' });
 
@@ -67,12 +67,12 @@ export default function CrudTable({ data, columns, onEdit, onDelete, itemLabel =
         </div>
       </div>
 
-      <div className="desktop-table-container" style={{ overflowX: 'auto', WebkitOverflowScrolling: 'touch', margin: '0 -20px', padding: '0 20px' }}>
-        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', background: 'white', minWidth: '600px' }}>
+      <div className="desktop-table-container" style={{ overflowX: 'auto', overflowY: maxHeight ? 'auto' : 'visible', maxHeight: maxHeight || 'none', WebkitOverflowScrolling: 'touch', margin: '0 -20px', padding: '0 20px' }}>
+        <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', background: 'white', minWidth: '600px', position: 'relative' }}>
           <thead>
             <tr style={{ background: '#f5f7fa', borderBottom: '2px solid var(--color-border)' }}>
               {columns.map((col, i) => (
-                <th key={i} onClick={() => handleSort(col.key)} style={{ padding: '8px 10px', color: '#555', fontSize: '0.85rem', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
+                <th key={i} onClick={() => handleSort(col.key)} style={{ position: 'sticky', top: 0, zIndex: 1, background: '#f5f7fa', padding: '8px 10px', color: '#555', fontSize: '0.85rem', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                     {col.header}
                     {sortConfig.key === col.key && (
@@ -82,7 +82,7 @@ export default function CrudTable({ data, columns, onEdit, onDelete, itemLabel =
                 </th>
               ))}
               {(onEdit || onDelete) && (
-                <th style={{ padding: '8px 10px', textAlign: 'right', color: '#555', fontSize: '0.85rem', textTransform: 'uppercase' }}>Actions</th>
+                <th style={{ position: 'sticky', top: 0, zIndex: 1, background: '#f5f7fa', padding: '8px 10px', textAlign: 'right', color: '#555', fontSize: '0.85rem', textTransform: 'uppercase' }}>Actions</th>
               )}
             </tr>
           </thead>
