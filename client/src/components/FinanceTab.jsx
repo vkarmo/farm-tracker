@@ -123,7 +123,7 @@ export default function FinanceTab() {
     if (curr.txType === 'Expense') acc[month].Expenses += parseFloat(curr.amount);
     return acc;
   }, {});
-  const barData = Object.values(monthlyData).sort((a,b) => a.name.localeCompare(b.name));
+  const barData = Object.values(monthlyData).sort((a,b) => (a.name || '').localeCompare(b.name || ''));
 
   const pieDataRaw = transactions.reduce((acc, curr) => {
     if (curr.txType === 'Sale') acc.Sales += parseFloat(curr.amount);
@@ -154,20 +154,20 @@ export default function FinanceTab() {
             <select value={txData.assetId} onChange={e => setTxData({...txData, assetId: e.target.value})}>
               <option value="">General ledger...</option>
               <optgroup label="Harvest Pulls">
-                {[...harvests].sort((a,b) => a.date.localeCompare(b.date)).map(h => {
+                {[...harvests].sort((a,b) => (a.date || '').localeCompare(b.date || '')).map(h => {
                   const crop = crops.find(c => c.id === h.cropId);
                   const cropLabel = crop ? `${crop.name} ${crop.variety ? `(${crop.variety})` : ''}` : 'Unknown';
                   return <option key={h.id} value={h.id}>{cropLabel} - {h.amount} {h.unit} ({h.date})</option>;
                 })}
               </optgroup>
               <optgroup label="Livestock">
-                {[...livestock].sort((a,b) => a.type.localeCompare(b.type)).map(l => <option key={l.id} value={l.id}>Animal Type: {l.type} - Tag: {l.tagNumber}</option>)}
+                {[...livestock].sort((a,b) => (a.type || '').localeCompare(b.type || '')).map(l => <option key={l.id} value={l.id}>Animal Type: {l.type} - Tag: {l.tagNumber}</option>)}
               </optgroup>
               <optgroup label="Fields">
-                {[...fields].sort((a,b) => a.name.localeCompare(b.name)).map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+                {[...fields].sort((a,b) => (a.name || '').localeCompare(b.name || '')).map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
               </optgroup>
               <optgroup label="Crops">
-                {[...crops].sort((a,b) => a.name.localeCompare(b.name)).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                {[...crops].sort((a,b) => (a.name || '').localeCompare(b.name || '')).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
               </optgroup>
             </select>
             </div>
