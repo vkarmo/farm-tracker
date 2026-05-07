@@ -223,422 +223,429 @@ app.post('/api/sync', async (req, res) => {
     const results = [];
     // Run all actions sequentially to maintain order and data integrity
     for (const action of queue) {
-      const userEmail = (action.payload && action.payload.lastUpdatedBy) ? action.payload.lastUpdatedBy : 'system';
-      if (action.type === 'fields/addField') {
-        const { id, name, area, soil_type, irrigation, status, year, polygon } = action.payload;
-        // Merge so we don't recreate if it exists somehow
-        await session.run(
-          'MERGE (f:Field {id: $id}) SET f.name = $name, f.area = $area, f.soil_type = $soil_type, f.irrigation = $irrigation, f.status = $status, f.year = $year, f.polygon = $polygon RETURN f', { userEmail, id, name, area, soil_type, irrigation, status, year, polygon: polygon ? JSON.stringify(polygon) : null }
-        );
-        results.push({ actionId: action.meta?.id, status: 'success' });
-      }
-      else if (action.type === 'nurseries/addBed') {
-        const { id, name, capacity, status, polygon } = action.payload;
-        await session.run(
-          'MERGE (n:NurseryBed {id: $id}) SET n.name = $name, n.capacity = $capacity, n.status = $status, n.polygon = $polygon RETURN n', { userEmail, id, name, capacity, status, polygon: polygon ? JSON.stringify(polygon) : null }
-        );
-        results.push({ actionId: action.meta?.id, status: 'success' });
-      }
-
-      else if (action.type === 'assets/addCrop') {
-        const { id, name, variety, fieldId, plantingDate, expectedHarvest, seedingRate, targetYield, sowType, phHi, phLo, pestIds } = action.payload;
-
-        if (sowType === 'Nursery') {
-          await session.run(`
-            MERGE (c:Crop {id: $id}) 
-            SET c.name = $name, c.variety = $variety, c.fieldId = $fieldId, c.sowType = $sowType,
-                c.plantingDate = $plantingDate, c.expectedHarvest = $expectedHarvest, 
-                c.seedingRate = $seedingRate, c.targetYield = $targetYield,
-                c.phHi = toFloat($phHi), c.phLo = toFloat($phLo), c.pestIds = $pestIds
-            WITH c 
-            OPTIONAL MATCH (n:NurseryBed {id: $fieldId}) 
-            FOREACH (ignore IN CASE WHEN n IS NOT NULL THEN [1] ELSE [] END | MERGE (c)-[rel_new:SOWN_IN]->(n) SET rel_new.lastUpdatedBy = $userEmail)
-            SET c.lastUpdatedBy = $userEmail RETURN c
-          `, { userEmail, id, name, variety, fieldId, plantingDate, expectedHarvest, seedingRate, targetYield, sowType, phHi: phHi || null, phLo: phLo || null, pestIds: pestIds ? JSON.stringify(pestIds) : '[]' });
-        } else {
-          await session.run(`
-            MERGE (c:Crop {id: $id}) 
-            SET c.name = $name, c.variety = $variety, c.fieldId = $fieldId, c.sowType = $sowType,
-                c.plantingDate = $plantingDate, c.expectedHarvest = $expectedHarvest, 
-                c.seedingRate = $seedingRate, c.targetYield = $targetYield,
-                c.phHi = toFloat($phHi), c.phLo = toFloat($phLo), c.pestIds = $pestIds
-            WITH c 
-            OPTIONAL MATCH (f:Field {id: $fieldId}) 
-            FOREACH (ignore IN CASE WHEN f IS NOT NULL THEN [1] ELSE [] END | MERGE (c)-[rel_new:PLANTED_IN]->(f) SET rel_new.lastUpdatedBy = $userEmail)
-            SET c.lastUpdatedBy = $userEmail RETURN c
-          `, { userEmail, id, name, variety, fieldId, plantingDate, expectedHarvest, seedingRate, targetYield, sowType, phHi: phHi || null, phLo: phLo || null, pestIds: pestIds ? JSON.stringify(pestIds) : '[]' });
+      try {
+        const userEmail = (action.payload && action.payload.lastUpdatedBy) ? action.payload.lastUpdatedBy : 'system';
+        if (action.type === 'fields/addField') {
+          const { id, name, area, soil_type, irrigation, status, year, polygon } = action.payload;
+          // Merge so we don't recreate if it exists somehow
+          await session.run(
+            'MERGE (f:Field {id: $id}) SET f.name = $name, f.area = $area, f.soil_type = $soil_type, f.irrigation = $irrigation, f.status = $status, f.year = $year, f.polygon = $polygon RETURN f', { userEmail, id, name, area, soil_type, irrigation, status, year, polygon: polygon ? JSON.stringify(polygon) : null }
+          );
+          results.push({ actionId: action.meta?.id, status: 'success' });
+        }
+        else if (action.type === 'nurseries/addBed') {
+          const { id, name, capacity, status, polygon } = action.payload;
+          await session.run(
+            'MERGE (n:NurseryBed {id: $id}) SET n.name = $name, n.capacity = $capacity, n.status = $status, n.polygon = $polygon RETURN n', { userEmail, id, name, capacity, status, polygon: polygon ? JSON.stringify(polygon) : null }
+          );
+          results.push({ actionId: action.meta?.id, status: 'success' });
         }
 
-        results.push({ actionId: action.meta?.id, status: 'success' });
-      }
-      else if (action.type === 'assets/transplantCrop') {
-        const { id, fieldId, transplantDate } = action.payload;
-        await session.run(`
-          MERGE (c:Crop {id: $id})
-          WITH c
-          OPTIONAL MATCH (f:Field {id: $fieldId})
-          FOREACH (ignore IN CASE WHEN f IS NOT NULL THEN [1] ELSE [] END |
-            MERGE (c)-[r:TRANSPLANTED_TO]->(f)
-            SET r.date = $transplantDate
-          )
-          SET c.lastUpdatedBy = $userEmail RETURN c
-        `, { userEmail, id, fieldId, transplantDate });
-        results.push({ actionId: action.meta?.id, status: 'success' });
-      }
-      else if (action.type === 'assets/addLivestock') {
-        const { id, fieldId, type: animalType, breed, birthDate, tagNumber, healthStatus, causeOfDeath, medicalRecords } = action.payload;
-        await session.run(`
-          MERGE (l:Livestock {id: $id})
-          SET l.type = $animalType, l.breed = $breed, l.birthDate = $birthDate, 
-              l.tagNumber = $tagNumber, l.healthStatus = $healthStatus, l.fieldId = $fieldId, l.causeOfDeath = $causeOfDeath,
-              l.medicalRecords = $medicalRecords
-          WITH l
-          OPTIONAL MATCH (f:Field {id: $fieldId})
-          FOREACH (ignoreMe IN CASE WHEN f IS NOT NULL THEN [1] ELSE [] END |
-            MERGE (l)-[:LOCATED_IN]->(f)
-          )
-          SET l.lastUpdatedBy = $userEmail RETURN l
-        `, { userEmail, id, animalType, breed, birthDate, tagNumber, healthStatus, fieldId, causeOfDeath: causeOfDeath || '', medicalRecords: medicalRecords ? JSON.stringify(medicalRecords) : '[]' });
-        results.push({ actionId: action.meta?.id, status: 'success' });
-      }
-      else if (action.type === 'breeding/addEvent' || action.type === 'breeding/updateEvent') {
-        const { id, motherId, fatherId, matingDate, expectedDueDate, status, offspringCount, notes } = action.payload;
-        await session.run(`
-          MERGE (b:BreedingEvent {id: $id})
-          SET b.motherId = $motherId, b.fatherId = $fatherId, b.matingDate = $matingDate,
-              b.expectedDueDate = $expectedDueDate, b.status = $status, 
-              b.offspringCount = $offspringCount, b.notes = $notes
-          WITH b
-          OPTIONAL MATCH (m:Livestock {id: $motherId})
-          FOREACH (ignore IN CASE WHEN m IS NOT NULL THEN [1] ELSE [] END | MERGE (b)-[rel_new:HAS_MOTHER]->(m) SET rel_new.lastUpdatedBy = $userEmail)
-          WITH b
-          OPTIONAL MATCH (f:Livestock {id: $fatherId})
-          FOREACH (ignore IN CASE WHEN f IS NOT NULL THEN [1] ELSE [] END | MERGE (b)-[rel_new:HAS_FATHER]->(f) SET rel_new.lastUpdatedBy = $userEmail)
-          SET b.lastUpdatedBy = $userEmail RETURN b
-        `, { userEmail, id, motherId, fatherId: fatherId || '', matingDate, expectedDueDate, status, offspringCount: offspringCount || 0, notes: notes || '' });
-        results.push({ actionId: action.meta?.id, status: 'success' });
-      }
-      else if (action.type === 'assets/addKit') {
-        const { id, motherId, birthDate, type, breed, fieldId, numberOfKits, healthStatus, notes } = action.payload;
-        await session.run(`
-          MERGE (k:LivestockKit {id: $id})
-          SET k.motherId = $motherId, k.birthDate = $birthDate, k.type = $type,
-              k.breed = $breed, k.fieldId = $fieldId, k.numberOfKits = $numberOfKits,
-              k.healthStatus = $healthStatus, k.notes = $notes
-          WITH k
-          OPTIONAL MATCH (m:Livestock {id: $motherId})
-          FOREACH (ignore IN CASE WHEN m IS NOT NULL THEN [1] ELSE [] END | MERGE (k)-[rel_new:BORN_FROM]->(m) SET rel_new.lastUpdatedBy = $userEmail)
-          WITH k
-          OPTIONAL MATCH (f:Field {id: $fieldId})
-          FOREACH (ignore IN CASE WHEN f IS NOT NULL THEN [1] ELSE [] END | MERGE (k)-[rel_new:LOCATED_IN]->(f) SET rel_new.lastUpdatedBy = $userEmail)
-          SET k.lastUpdatedBy = $userEmail RETURN k
-        `, { userEmail, id, motherId, birthDate, type, breed, fieldId, numberOfKits, healthStatus, notes: notes || '' });
-        results.push({ actionId: action.meta?.id, status: 'success' });
-      }
-      else if (action.type === 'assets/addHarvest') {
-        const { id, amount, unit, date, cropId } = action.payload;
-        await session.run(`
-          MERGE (h:Harvest {id: $id})
-          SET h.amount = toFloat($amount), h.unit = $unit, h.date = $date, h.cropId = $cropId
-          WITH h
-          OPTIONAL MATCH (c:Crop {id: $cropId})
-          FOREACH (ignoreMe IN CASE WHEN c IS NOT NULL THEN [1] ELSE [] END |
-            MERGE (h)-[:HARVESTED_FROM]->(c)
-          )
-          SET h.lastUpdatedBy = $userEmail RETURN h
-        `, { userEmail, id, amount, unit, date, cropId });
-        results.push({ actionId: action.meta?.id, status: 'success' });
-      }
-      else if (action.type === 'financials/addTransaction') {
-        const { id, txType, category, amount, amountLd, exchangeRate, date, vendor, notes, assetId } = action.payload;
-        await session.run(`
-          MERGE (t:Transaction {id: $id})
-          SET t.txType = $txType, t.category = $category, t.amount = $amount, 
-              t.amountLd = $amountLd, t.exchangeRate = $exchangeRate,
-              t.date = $date, t.vendor = $vendor, t.notes = $notes, t.assetId = $assetId
-          WITH t
-          OPTIONAL MATCH (c:TransactionCategory {name: $category})
-          FOREACH (ignore IN CASE WHEN c IS NULL AND $category <> "" THEN [1] ELSE [] END | MERGE (newC:TransactionCategory {name: $category}) SET newC.lastUpdatedBy = $userEmail MERGE (t)-[r1:OF_CATEGORY]->(newC) SET r1.lastUpdatedBy = $userEmail)
-          FOREACH (ignore IN CASE WHEN c IS NOT NULL THEN [1] ELSE [] END | MERGE (t)-[rel_new:OF_CATEGORY]->(c) SET rel_new.lastUpdatedBy = $userEmail)
-          WITH t
-          OPTIONAL MATCH (asset {id: $assetId})
-          FOREACH (ignoreMe IN CASE WHEN asset IS NOT NULL THEN [1] ELSE [] END |
-            MERGE (t)-[r2:RELATED_TO]->(asset) SET r2.lastUpdatedBy = $userEmail
-          )
-          SET t.lastUpdatedBy = $userEmail RETURN t
-        `, { userEmail, id, txType, category, amount, amountLd: amountLd || '', exchangeRate: exchangeRate || '', date, vendor, notes, assetId: assetId || '' });
-        results.push({ actionId: action.meta?.id, status: 'success' });
-      }
-      else if (action.type === 'activities/addActivity') {
-        const { id, type: activityType, targetId, date, plannedDate, personResponsible, notes } = action.payload;
-        await session.run(`
-          MERGE (a:Activity {id: $id})
-          SET a.type = $activityType, a.date = $date, a.plannedDate = $plannedDate, a.personResponsible = $personResponsible, a.notes = $notes, a.targetId = $targetId
-          WITH a
-          OPTIONAL MATCH (target {id: $targetId})
-          FOREACH (ignore IN CASE WHEN target IS NOT NULL THEN [1] ELSE [] END | MERGE (a)-[:PERFORMED_ON]->(target))
-          SET a.lastUpdatedBy = $userEmail RETURN a
-        `, { userEmail, id, activityType, targetId, date, plannedDate, personResponsible, notes });
-        results.push({ actionId: action.meta?.id, status: 'success' });
-      }
-      else if (action.type === 'budgets/upsertBudget') {
-        const { id, name, description, exchangeRate } = action.payload;
-        await session.run(`
-          MERGE (b:Budget {id: $id})
-          SET b.name = $name, b.description = $description, b.exchangeRate = $exchangeRate
-          SET b.lastUpdatedBy = $userEmail RETURN b
-        `, { userEmail, id, name, description, exchangeRate });
-        results.push({ actionId: action.meta?.id, status: 'success' });
-      }
-      else if (action.type === 'budgets/upsertBudgetItem') {
-        const { budgetId, item } = action.payload;
-        await session.run(`
-          MERGE (i:BudgetItem {id: $item.id})
-          SET i.category = $item.category, i.description = $item.description, 
-              i.amount = toFloat($item.amount), i.currency = $item.currency, i.status = $item.status
-          WITH i
-          MATCH (b:Budget {id: $budgetId})
-          MERGE (b)-[:CONTAINS]->(i)
-          SET i.lastUpdatedBy = $userEmail RETURN i
-        `, { userEmail, budgetId, item });
-        results.push({ actionId: action.meta?.id, status: 'success' });
-      }
-      else if (action.type === 'users/upsertUser') {
-        const { id, email, name, role, profilePic, allowedTabs } = action.payload;
-        await session.run(`
-          MERGE (u:User {email: $email})
-          ON CREATE SET u.id = $id
-          SET u.name = $name, u.role = $role, u.profile_pic = $profilePic
-          ${allowedTabs !== undefined ? ', u.allowedTabs = $allowedTabs' : ''}
-          SET u.lastUpdatedBy = $userEmail RETURN u
-        `, { userEmail, id, email, name, role, profilePic, allowedTabs: allowedTabs !== undefined ? JSON.stringify(allowedTabs) : null });
-        results.push({ actionId: action.meta?.id, status: 'success' });
-      }
-      else if (action.type === 'users/updateUserAccess') {
-        const { email, allowedTabs } = action.payload;
-        await session.run(`
-          MATCH (u:User {email: $email})
-          SET u.allowedTabs = $allowedTabs
-          SET u.lastUpdatedBy = $userEmail RETURN u
-        `, { userEmail, email, allowedTabs: JSON.stringify(allowedTabs) });
-        results.push({ actionId: action.meta?.id, status: 'success' });
-      }
-      else if (action.type === 'assets/addEquipment') {
-        const { id, type, brand, model, purchaseDate, value, status, maintenanceDate, details } = action.payload;
-        await session.run(`
-          MERGE (e:Equipment {id: $id})
-          SET e.type = $type, e.brand = $brand, e.model = $model, e.purchaseDate = $purchaseDate,
-              e.value = toFloat($value), e.status = $status, e.maintenanceDate = $maintenanceDate, e.details = $details
-          SET e.lastUpdatedBy = $userEmail RETURN e
-        `, { userEmail, id, type, brand, model, purchaseDate, value, status, maintenanceDate, details });
-        results.push({ actionId: action.meta?.id, status: 'success' });
-      }
-      else if (action.type === 'assignments/upsertAssignment') {
-        const { id, taskName, assignedTo, priority, dueDate, status, fieldId, equipmentId, workerIds, workerCount, workers, hours, task, assignmentDate, completedDate, planningId } = action.payload;
-        await session.run(`
-          MERGE (a:TaskAssignment {id: $id})
-          SET a.taskName = $taskName, a.assignedTo = $assignedTo, a.priority = $priority,
-              a.dueDate = $dueDate, a.status = $status, a.fieldId = $fieldId, a.equipmentId = $equipmentId,
-              a.workerIds = $workerIds, a.workerCount = toInteger($workerCount), a.workers = $workers,
-              a.hours = toFloat($hours), a.task = $task, a.assignmentDate = $assignmentDate, a.completedDate = $completedDate,
-              a.planningId = $planningId
-          WITH a
-          OPTIONAL MATCH (f:Field {id: $fieldId})
-          FOREACH (ignore IN CASE WHEN f IS NOT NULL THEN [1] ELSE [] END | MERGE (a)-[rel_new:ON_FIELD]->(f) SET rel_new.lastUpdatedBy = $userEmail)
-          WITH a
-          OPTIONAL MATCH (e:Equipment {id: $equipmentId})
-          FOREACH (ignore IN CASE WHEN e IS NOT NULL THEN [1] ELSE [] END | MERGE (a)-[rel_new:USES_EQUIPMENT]->(e) SET rel_new.lastUpdatedBy = $userEmail)
-          WITH a
-          OPTIONAL MATCH (p {id: $planningId}) WHERE p:Goal OR p:Objective
-          FOREACH (ignore IN CASE WHEN p IS NOT NULL THEN [1] ELSE [] END | MERGE (a)-[rel_new:PART_OF_PLAN]->(p) SET rel_new.lastUpdatedBy = $userEmail)
-          WITH a
-          UNWIND (CASE WHEN size($workerIdList) > 0 THEN $workerIdList ELSE [null] END) AS wId
-          OPTIONAL MATCH (w:Employee {id: wId})
-          FOREACH (ignore IN CASE WHEN w IS NOT NULL THEN [1] ELSE [] END | MERGE (a)-[rel_new:ASSIGNED_TO]->(w) SET rel_new.lastUpdatedBy = $userEmail)
-          SET a.lastUpdatedBy = $userEmail RETURN DISTINCT a
-        `, { userEmail, id, taskName, assignedTo, priority, dueDate, status, fieldId: fieldId || null, equipmentId: equipmentId || null, workerIds: workerIds ? JSON.stringify(workerIds) : '[]', workerIdList: workerIds || [], workerCount: workerCount || 0, workers: workers || '', hours: hours || 0, task: task || '', assignmentDate: assignmentDate || '', completedDate: completedDate || '', planningId: planningId || null });
-        results.push({ actionId: action.meta?.id, status: 'success' });
-      }
-      else if (action.type === 'incidents/upsertIncident') {
-        const { id, title, type, date, severity, associatedAsset, resolutionStatus, notes } = action.payload;
-        await session.run(`
-          MERGE (i:Incident {id: $id})
-          SET i.title = $title, i.type = $type, i.date = $date, i.severity = $severity,
-              i.associatedAsset = $associatedAsset, i.resolutionStatus = $resolutionStatus, i.notes = $notes
-          SET i.lastUpdatedBy = $userEmail RETURN i
-        `, { userEmail, id, title, type, date, severity, associatedAsset, resolutionStatus, notes });
-        results.push({ actionId: action.meta?.id, status: 'success' });
-      }
-      else if (action.type === 'deadlines/upsertDeadline') {
-        const { id, category, targetDate, title, status, autoAlert, notes } = action.payload;
-        await session.run(`
-          MERGE (d:Deadline {id: $id})
-          SET d.category = $category, d.targetDate = $targetDate, d.title = $title,
-              d.status = $status, d.autoAlert = $autoAlert, d.notes = $notes
-          SET d.lastUpdatedBy = $userEmail RETURN d
-        `, { userEmail, id, category, targetDate, title, status, autoAlert, notes });
-        results.push({ actionId: action.meta?.id, status: 'success' });
-      }
-      else if (action.type === 'employees/upsertEmployee') {
-        const { id, firstName, lastName, address, phone, jobTitle, type, skills, startDate, endDate, isTerminated, terminationReason, dailyRateLD, twoWeekPayUSD } = action.payload;
-        await session.run(`
-          MERGE (e:Employee {id: $id})
-          SET e.firstName = $firstName, e.lastName = $lastName, e.address = $address, e.phone = $phone, 
-              e.jobTitle = $jobTitle, e.type = $type, e.skills = $skills, e.startDate = $startDate, 
-              e.endDate = $endDate, e.isTerminated = $isTerminated, e.terminationReason = $terminationReason, 
-              e.dailyRateLD = toFloat($dailyRateLD), e.twoWeekPayUSD = toFloat($twoWeekPayUSD)
-          SET e.lastUpdatedBy = $userEmail RETURN e
-        `, { userEmail, id,
-          firstName: firstName || null,
-          lastName: lastName || null,
-          address: address || null,
-          phone: phone || null,
-          jobTitle: jobTitle || null,
-          type: type || null,
-          skills: skills || null,
-          startDate: startDate || null,
-          endDate: endDate || null,
-          isTerminated: isTerminated || false,
-          terminationReason: terminationReason || null,
-          dailyRateLD: dailyRateLD || 0,
-          twoWeekPayUSD: twoWeekPayUSD || 0
-        });
-        results.push({ actionId: action.meta?.id, status: 'success' });
-      }
-      else if (action.type === 'core/deleteNode') {
-        const { id } = action.payload;
-        await session.run('MATCH (n {id: $id}) DETACH DELETE n', { id });
-        results.push({ actionId: action.meta?.id, status: 'success' });
-      }
-      else if (action.type === 'core/updateNode') {
-        const { id, properties } = action.payload;
-        await session.run('MATCH (n {id: $id}) SET n += $properties, n.lastUpdatedBy = $userEmail RETURN n', { userEmail, id, properties });
-        
-        // Enforce relationships on generic updates
-        if (properties.fieldId !== undefined) {
+        else if (action.type === 'assets/addCrop') {
+          const { id, name, variety, fieldId, plantingDate, expectedHarvest, seedingRate, targetYield, sowType, phHi, phLo, pestIds } = action.payload;
+
+          if (sowType === 'Nursery') {
+            await session.run(`
+              MERGE (c:Crop {id: $id}) 
+              SET c.name = $name, c.variety = $variety, c.fieldId = $fieldId, c.sowType = $sowType,
+                  c.plantingDate = $plantingDate, c.expectedHarvest = $expectedHarvest, 
+                  c.seedingRate = $seedingRate, c.targetYield = $targetYield,
+                  c.phHi = toFloat($phHi), c.phLo = toFloat($phLo), c.pestIds = $pestIds
+              WITH c 
+              OPTIONAL MATCH (n:NurseryBed {id: $fieldId}) 
+              FOREACH (ignore IN CASE WHEN n IS NOT NULL THEN [1] ELSE [] END | MERGE (c)-[rel_new:SOWN_IN]->(n) SET rel_new.lastUpdatedBy = $userEmail)
+              SET c.lastUpdatedBy = $userEmail RETURN c
+            `, { userEmail, id, name, variety, fieldId, plantingDate, expectedHarvest, seedingRate, targetYield, sowType, phHi: phHi || null, phLo: phLo || null, pestIds: pestIds ? JSON.stringify(pestIds) : '[]' });
+          } else {
+            await session.run(`
+              MERGE (c:Crop {id: $id}) 
+              SET c.name = $name, c.variety = $variety, c.fieldId = $fieldId, c.sowType = $sowType,
+                  c.plantingDate = $plantingDate, c.expectedHarvest = $expectedHarvest, 
+                  c.seedingRate = $seedingRate, c.targetYield = $targetYield,
+                  c.phHi = toFloat($phHi), c.phLo = toFloat($phLo), c.pestIds = $pestIds
+              WITH c 
+              OPTIONAL MATCH (f:Field {id: $fieldId}) 
+              FOREACH (ignore IN CASE WHEN f IS NOT NULL THEN [1] ELSE [] END | MERGE (c)-[rel_new:PLANTED_IN]->(f) SET rel_new.lastUpdatedBy = $userEmail)
+              SET c.lastUpdatedBy = $userEmail RETURN c
+            `, { userEmail, id, name, variety, fieldId, plantingDate, expectedHarvest, seedingRate, targetYield, sowType, phHi: phHi || null, phLo: phLo || null, pestIds: pestIds ? JSON.stringify(pestIds) : '[]' });
+          }
+
+          results.push({ actionId: action.meta?.id, status: 'success' });
+        }
+        else if (action.type === 'assets/transplantCrop') {
+          const { id, fieldId, transplantDate } = action.payload;
           await session.run(`
-            MATCH (n {id: $id})
+            MERGE (c:Crop {id: $id})
+            WITH c
             OPTIONAL MATCH (f:Field {id: $fieldId})
-            FOREACH (ignore IN CASE WHEN f IS NOT NULL THEN [1] ELSE [] END | MERGE (n)-[rel_new:LOCATED_IN]->(f) SET rel_new.lastUpdatedBy = $userEmail)
-          `, { userEmail, id, fieldId: properties.fieldId });
+            FOREACH (ignore IN CASE WHEN f IS NOT NULL THEN [1] ELSE [] END |
+              MERGE (c)-[r:TRANSPLANTED_TO]->(f)
+              SET r.date = $transplantDate
+            )
+            SET c.lastUpdatedBy = $userEmail RETURN c
+          `, { userEmail, id, fieldId, transplantDate });
+          results.push({ actionId: action.meta?.id, status: 'success' });
         }
-        
-        if (properties.planningId !== undefined) {
+        else if (action.type === 'assets/addLivestock') {
+          const { id, fieldId, type: animalType, breed, birthDate, tagNumber, healthStatus, causeOfDeath, medicalRecords } = action.payload;
           await session.run(`
-            MATCH (n {id: $id})
+            MERGE (l:Livestock {id: $id})
+            SET l.type = $animalType, l.breed = $breed, l.birthDate = $birthDate, 
+                l.tagNumber = $tagNumber, l.healthStatus = $healthStatus, l.fieldId = $fieldId, l.causeOfDeath = $causeOfDeath,
+                l.medicalRecords = $medicalRecords
+            WITH l
+            OPTIONAL MATCH (f:Field {id: $fieldId})
+            FOREACH (ignoreMe IN CASE WHEN f IS NOT NULL THEN [1] ELSE [] END |
+              MERGE (l)-[:LOCATED_IN]->(f)
+            )
+            SET l.lastUpdatedBy = $userEmail RETURN l
+          `, { userEmail, id, animalType, breed, birthDate, tagNumber, healthStatus, fieldId, causeOfDeath: causeOfDeath || '', medicalRecords: medicalRecords ? JSON.stringify(medicalRecords) : '[]' });
+          results.push({ actionId: action.meta?.id, status: 'success' });
+        }
+        else if (action.type === 'breeding/addEvent' || action.type === 'breeding/updateEvent') {
+          const { id, motherId, fatherId, matingDate, expectedDueDate, status, offspringCount, notes } = action.payload;
+          await session.run(`
+            MERGE (b:BreedingEvent {id: $id})
+            SET b.motherId = $motherId, b.fatherId = $fatherId, b.matingDate = $matingDate,
+                b.expectedDueDate = $expectedDueDate, b.status = $status, 
+                b.offspringCount = $offspringCount, b.notes = $notes
+            WITH b
+            OPTIONAL MATCH (m:Livestock {id: $motherId})
+            FOREACH (ignore IN CASE WHEN m IS NOT NULL THEN [1] ELSE [] END | MERGE (b)-[rel_new:HAS_MOTHER]->(m) SET rel_new.lastUpdatedBy = $userEmail)
+            WITH b
+            OPTIONAL MATCH (f:Livestock {id: $fatherId})
+            FOREACH (ignore IN CASE WHEN f IS NOT NULL THEN [1] ELSE [] END | MERGE (b)-[rel_new:HAS_FATHER]->(f) SET rel_new.lastUpdatedBy = $userEmail)
+            SET b.lastUpdatedBy = $userEmail RETURN b
+          `, { userEmail, id, motherId, fatherId: fatherId || '', matingDate, expectedDueDate, status, offspringCount: offspringCount || 0, notes: notes || '' });
+          results.push({ actionId: action.meta?.id, status: 'success' });
+        }
+        else if (action.type === 'assets/addKit') {
+          const { id, motherId, birthDate, type, breed, fieldId, numberOfKits, healthStatus, notes } = action.payload;
+          await session.run(`
+            MERGE (k:LivestockKit {id: $id})
+            SET k.motherId = $motherId, k.birthDate = $birthDate, k.type = $type,
+                k.breed = $breed, k.fieldId = $fieldId, k.numberOfKits = $numberOfKits,
+                k.healthStatus = $healthStatus, k.notes = $notes
+            WITH k
+            OPTIONAL MATCH (m:Livestock {id: $motherId})
+            FOREACH (ignore IN CASE WHEN m IS NOT NULL THEN [1] ELSE [] END | MERGE (k)-[rel_new:BORN_FROM]->(m) SET rel_new.lastUpdatedBy = $userEmail)
+            WITH k
+            OPTIONAL MATCH (f:Field {id: $fieldId})
+            FOREACH (ignore IN CASE WHEN f IS NOT NULL THEN [1] ELSE [] END | MERGE (k)-[rel_new:LOCATED_IN]->(f) SET rel_new.lastUpdatedBy = $userEmail)
+            SET k.lastUpdatedBy = $userEmail RETURN k
+          `, { userEmail, id, motherId, birthDate, type, breed, fieldId, numberOfKits, healthStatus, notes: notes || '' });
+          results.push({ actionId: action.meta?.id, status: 'success' });
+        }
+        else if (action.type === 'assets/addHarvest') {
+          const { id, amount, unit, date, cropId } = action.payload;
+          await session.run(`
+            MERGE (h:Harvest {id: $id})
+            SET h.amount = toFloat($amount), h.unit = $unit, h.date = $date, h.cropId = $cropId
+            WITH h
+            OPTIONAL MATCH (c:Crop {id: $cropId})
+            FOREACH (ignoreMe IN CASE WHEN c IS NOT NULL THEN [1] ELSE [] END |
+              MERGE (h)-[:HARVESTED_FROM]->(c)
+            )
+            SET h.lastUpdatedBy = $userEmail RETURN h
+          `, { userEmail, id, amount, unit, date, cropId });
+          results.push({ actionId: action.meta?.id, status: 'success' });
+        }
+        else if (action.type === 'financials/addTransaction') {
+          const { id, txType, category, amount, amountLd, exchangeRate, date, vendor, notes, assetId } = action.payload;
+          await session.run(`
+            MERGE (t:Transaction {id: $id})
+            SET t.txType = $txType, t.category = $category, t.amount = $amount, 
+                t.amountLd = $amountLd, t.exchangeRate = $exchangeRate,
+                t.date = $date, t.vendor = $vendor, t.notes = $notes, t.assetId = $assetId
+            WITH t
+            OPTIONAL MATCH (c:TransactionCategory {name: $category})
+            FOREACH (ignore IN CASE WHEN c IS NULL AND $category <> "" THEN [1] ELSE [] END | MERGE (newC:TransactionCategory {name: $category}) SET newC.lastUpdatedBy = $userEmail MERGE (t)-[r1:OF_CATEGORY]->(newC) SET r1.lastUpdatedBy = $userEmail)
+            FOREACH (ignore IN CASE WHEN c IS NOT NULL THEN [1] ELSE [] END | MERGE (t)-[rel_new:OF_CATEGORY]->(c) SET rel_new.lastUpdatedBy = $userEmail)
+            WITH t
+            OPTIONAL MATCH (asset {id: $assetId})
+            FOREACH (ignoreMe IN CASE WHEN asset IS NOT NULL THEN [1] ELSE [] END |
+              MERGE (t)-[r2:RELATED_TO]->(asset) SET r2.lastUpdatedBy = $userEmail
+            )
+            SET t.lastUpdatedBy = $userEmail RETURN t
+          `, { userEmail, id, txType, category, amount, amountLd: amountLd || '', exchangeRate: exchangeRate || '', date, vendor, notes, assetId: assetId || '' });
+          results.push({ actionId: action.meta?.id, status: 'success' });
+        }
+        else if (action.type === 'activities/addActivity') {
+          const { id, type: activityType, targetId, date, plannedDate, personResponsible, notes } = action.payload;
+          await session.run(`
+            MERGE (a:Activity {id: $id})
+            SET a.type = $activityType, a.date = $date, a.plannedDate = $plannedDate, a.personResponsible = $personResponsible, a.notes = $notes, a.targetId = $targetId
+            WITH a
+            OPTIONAL MATCH (target {id: $targetId})
+            FOREACH (ignore IN CASE WHEN target IS NOT NULL THEN [1] ELSE [] END | MERGE (a)-[:PERFORMED_ON]->(target))
+            SET a.lastUpdatedBy = $userEmail RETURN a
+          `, { userEmail, id, activityType, targetId, date, plannedDate, personResponsible, notes });
+          results.push({ actionId: action.meta?.id, status: 'success' });
+        }
+        else if (action.type === 'budgets/upsertBudget') {
+          const { id, name, description, exchangeRate } = action.payload;
+          await session.run(`
+            MERGE (b:Budget {id: $id})
+            SET b.name = $name, b.description = $description, b.exchangeRate = $exchangeRate
+            SET b.lastUpdatedBy = $userEmail RETURN b
+          `, { userEmail, id, name, description, exchangeRate });
+          results.push({ actionId: action.meta?.id, status: 'success' });
+        }
+        else if (action.type === 'budgets/upsertBudgetItem') {
+          const { budgetId, item } = action.payload;
+          await session.run(`
+            MERGE (i:BudgetItem {id: $item.id})
+            SET i.category = $item.category, i.description = $item.description, 
+                i.amount = toFloat($item.amount), i.currency = $item.currency, i.status = $item.status
+            WITH i
+            MATCH (b:Budget {id: $budgetId})
+            MERGE (b)-[:CONTAINS]->(i)
+            SET i.lastUpdatedBy = $userEmail RETURN i
+          `, { userEmail, budgetId, item });
+          results.push({ actionId: action.meta?.id, status: 'success' });
+        }
+        else if (action.type === 'users/upsertUser') {
+          const { id, email, name, role, profilePic, allowedTabs } = action.payload;
+          await session.run(`
+            MERGE (u:User {email: $email})
+            ON CREATE SET u.id = $id
+            SET u.name = $name, u.role = $role, u.profile_pic = $profilePic
+            ${allowedTabs !== undefined ? ', u.allowedTabs = $allowedTabs' : ''}
+            SET u.lastUpdatedBy = $userEmail RETURN u
+          `, { userEmail, id, email, name, role, profilePic, allowedTabs: allowedTabs !== undefined ? JSON.stringify(allowedTabs) : null });
+          results.push({ actionId: action.meta?.id, status: 'success' });
+        }
+        else if (action.type === 'users/updateUserAccess') {
+          const { email, allowedTabs } = action.payload;
+          await session.run(`
+            MATCH (u:User {email: $email})
+            SET u.allowedTabs = $allowedTabs
+            SET u.lastUpdatedBy = $userEmail RETURN u
+          `, { userEmail, email, allowedTabs: JSON.stringify(allowedTabs) });
+          results.push({ actionId: action.meta?.id, status: 'success' });
+        }
+        else if (action.type === 'assets/addEquipment') {
+          const { id, type, brand, model, purchaseDate, value, status, maintenanceDate, details } = action.payload;
+          await session.run(`
+            MERGE (e:Equipment {id: $id})
+            SET e.type = $type, e.brand = $brand, e.model = $model, e.purchaseDate = $purchaseDate,
+                e.value = toFloat($value), e.status = $status, e.maintenanceDate = $maintenanceDate, e.details = $details
+            SET e.lastUpdatedBy = $userEmail RETURN e
+          `, { userEmail, id, type, brand, model, purchaseDate, value, status, maintenanceDate, details });
+          results.push({ actionId: action.meta?.id, status: 'success' });
+        }
+        else if (action.type === 'assignments/upsertAssignment') {
+          const { id, taskName, assignedTo, priority, dueDate, status, fieldId, equipmentId, workerIds, workerCount, workers, hours, task, assignmentDate, completedDate, planningId } = action.payload;
+          await session.run(`
+            MERGE (a:TaskAssignment {id: $id})
+            SET a.taskName = $taskName, a.assignedTo = $assignedTo, a.priority = $priority,
+                a.dueDate = $dueDate, a.status = $status, a.fieldId = $fieldId, a.equipmentId = $equipmentId,
+                a.workerIds = $workerIds, a.workerCount = toInteger($workerCount), a.workers = $workers,
+                a.hours = toFloat($hours), a.task = $task, a.assignmentDate = $assignmentDate, a.completedDate = $completedDate,
+                a.planningId = $planningId
+            WITH a
+            OPTIONAL MATCH (f:Field {id: $fieldId})
+            FOREACH (ignore IN CASE WHEN f IS NOT NULL THEN [1] ELSE [] END | MERGE (a)-[rel_new:ON_FIELD]->(f) SET rel_new.lastUpdatedBy = $userEmail)
+            WITH a
+            OPTIONAL MATCH (e:Equipment {id: $equipmentId})
+            FOREACH (ignore IN CASE WHEN e IS NOT NULL THEN [1] ELSE [] END | MERGE (a)-[rel_new:USES_EQUIPMENT]->(e) SET rel_new.lastUpdatedBy = $userEmail)
+            WITH a
             OPTIONAL MATCH (p {id: $planningId}) WHERE p:Goal OR p:Objective
-            FOREACH (ignore IN CASE WHEN p IS NOT NULL THEN [1] ELSE [] END | MERGE (n)-[rel_new:PART_OF_PLAN]->(p) SET rel_new.lastUpdatedBy = $userEmail)
-          `, { userEmail, id, planningId: properties.planningId });
-        }
-        
-        if (properties.workerIds !== undefined) {
-          await session.run(`
-            MATCH (n {id: $id})
-            UNWIND (CASE WHEN size($workerIds) > 0 THEN $workerIds ELSE [null] END) AS wId
+            FOREACH (ignore IN CASE WHEN p IS NOT NULL THEN [1] ELSE [] END | MERGE (a)-[rel_new:PART_OF_PLAN]->(p) SET rel_new.lastUpdatedBy = $userEmail)
+            WITH a
+            UNWIND (CASE WHEN size($workerIdList) > 0 THEN $workerIdList ELSE [null] END) AS wId
             OPTIONAL MATCH (w:Employee {id: wId})
-            FOREACH (ignore IN CASE WHEN w IS NOT NULL THEN [1] ELSE [] END | MERGE (n)-[rel_new:ASSIGNED_TO]->(w) SET rel_new.lastUpdatedBy = $userEmail)
-          `, { userEmail, id, workerIds: properties.workerIds || [] });
+            FOREACH (ignore IN CASE WHEN w IS NOT NULL THEN [1] ELSE [] END | MERGE (a)-[rel_new:ASSIGNED_TO]->(w) SET rel_new.lastUpdatedBy = $userEmail)
+            SET a.lastUpdatedBy = $userEmail RETURN DISTINCT a
+          `, { userEmail, id, taskName, assignedTo, priority, dueDate, status, fieldId: fieldId || null, equipmentId: equipmentId || null, workerIds: workerIds ? JSON.stringify(workerIds) : '[]', workerIdList: workerIds || [], workerCount: workerCount || 0, workers: workers || '', hours: hours || 0, task: task || '', assignmentDate: assignmentDate || '', completedDate: completedDate || '', planningId: planningId || null });
+          results.push({ actionId: action.meta?.id, status: 'success' });
         }
+        else if (action.type === 'incidents/upsertIncident') {
+          const { id, title, type, date, severity, associatedAsset, resolutionStatus, notes } = action.payload;
+          await session.run(`
+            MERGE (i:Incident {id: $id})
+            SET i.title = $title, i.type = $type, i.date = $date, i.severity = $severity,
+                i.associatedAsset = $associatedAsset, i.resolutionStatus = $resolutionStatus, i.notes = $notes
+            SET i.lastUpdatedBy = $userEmail RETURN i
+          `, { userEmail, id, title, type, date, severity, associatedAsset, resolutionStatus, notes });
+          results.push({ actionId: action.meta?.id, status: 'success' });
+        }
+        else if (action.type === 'deadlines/upsertDeadline') {
+          const { id, category, targetDate, title, status, autoAlert, notes } = action.payload;
+          await session.run(`
+            MERGE (d:Deadline {id: $id})
+            SET d.category = $category, d.targetDate = $targetDate, d.title = $title,
+                d.status = $status, d.autoAlert = $autoAlert, d.notes = $notes
+            SET d.lastUpdatedBy = $userEmail RETURN d
+          `, { userEmail, id, category, targetDate, title, status, autoAlert, notes });
+          results.push({ actionId: action.meta?.id, status: 'success' });
+        }
+        else if (action.type === 'employees/upsertEmployee') {
+          const { id, firstName, lastName, address, phone, jobTitle, type, skills, startDate, endDate, isTerminated, terminationReason, dailyRateLD, twoWeekPayUSD } = action.payload;
+          await session.run(`
+            MERGE (e:Employee {id: $id})
+            SET e.firstName = $firstName, e.lastName = $lastName, e.address = $address, e.phone = $phone, 
+                e.jobTitle = $jobTitle, e.type = $type, e.skills = $skills, e.startDate = $startDate, 
+                e.endDate = $endDate, e.isTerminated = $isTerminated, e.terminationReason = $terminationReason, 
+                e.dailyRateLD = toFloat($dailyRateLD), e.twoWeekPayUSD = toFloat($twoWeekPayUSD)
+            SET e.lastUpdatedBy = $userEmail RETURN e
+          `, { userEmail, id,
+            firstName: firstName || null,
+            lastName: lastName || null,
+            address: address || null,
+            phone: phone || null,
+            jobTitle: jobTitle || null,
+            type: type || null,
+            skills: skills || null,
+            startDate: startDate || null,
+            endDate: endDate || null,
+            isTerminated: isTerminated || false,
+            terminationReason: terminationReason || null,
+            dailyRateLD: dailyRateLD || 0,
+            twoWeekPayUSD: twoWeekPayUSD || 0
+          });
+          results.push({ actionId: action.meta?.id, status: 'success' });
+        }
+        else if (action.type === 'core/deleteNode') {
+          const { id } = action.payload;
+          await session.run('MATCH (n {id: $id}) DETACH DELETE n', { id });
+          results.push({ actionId: action.meta?.id, status: 'success' });
+        }
+        else if (action.type === 'core/updateNode') {
+          const { id, properties } = action.payload;
+          await session.run('MATCH (n {id: $id}) SET n += $properties, n.lastUpdatedBy = $userEmail RETURN n', { userEmail, id, properties });
+          
+          // Enforce relationships on generic updates
+          if (properties.fieldId !== undefined) {
+            await session.run(`
+              MATCH (n {id: $id})
+              OPTIONAL MATCH (f:Field {id: $fieldId})
+              FOREACH (ignore IN CASE WHEN f IS NOT NULL THEN [1] ELSE [] END | MERGE (n)-[rel_new:LOCATED_IN]->(f) SET rel_new.lastUpdatedBy = $userEmail)
+            `, { userEmail, id, fieldId: properties.fieldId });
+          }
+          
+          if (properties.planningId !== undefined) {
+            await session.run(`
+              MATCH (n {id: $id})
+              OPTIONAL MATCH (p {id: $planningId}) WHERE p:Goal OR p:Objective
+              FOREACH (ignore IN CASE WHEN p IS NOT NULL THEN [1] ELSE [] END | MERGE (n)-[rel_new:PART_OF_PLAN]->(p) SET rel_new.lastUpdatedBy = $userEmail)
+            `, { userEmail, id, planningId: properties.planningId });
+          }
+          
+          if (properties.workerIds !== undefined) {
+            await session.run(`
+              MATCH (n {id: $id})
+              UNWIND (CASE WHEN size($workerIds) > 0 THEN $workerIds ELSE [null] END) AS wId
+              OPTIONAL MATCH (w:Employee {id: wId})
+              FOREACH (ignore IN CASE WHEN w IS NOT NULL THEN [1] ELSE [] END | MERGE (n)-[rel_new:ASSIGNED_TO]->(w) SET rel_new.lastUpdatedBy = $userEmail)
+            `, { userEmail, id, workerIds: properties.workerIds || [] });
+          }
 
-        results.push({ actionId: action.meta?.id, status: 'success' });
-      }
-      else if (action.type === 'gps/addLocation') {
-        const { id, lat, lng, timestamp, userEmail } = action.payload;
-        await session.run(`
-          MERGE (g:GpsLog {id: $id})
-          SET g.lat = $lat, g.lng = $lng, g.timestamp = $timestamp, g.userEmail = $userEmail
-          WITH g
-          OPTIONAL MATCH (u:User {email: $userEmail})
-          FOREACH (ignoreMe IN CASE WHEN u IS NOT NULL THEN [1] ELSE [] END |
-            MERGE (u)-[r1:LOGGED_LOCATION]->(g) SET r1.lastUpdatedBy = $userEmail
-          )
-          SET g.lastUpdatedBy = $userEmail RETURN g
-        `, { userEmail, id, lat, lng, timestamp, userEmail });
-        results.push({ actionId: action.meta?.id, status: 'success' });
-      }
-      else if (action.type === 'settings/updateGlobal') {
-        const payload = action.payload;
-        const properties = {};
-        for (const [k, v] of Object.entries(payload)) {
-           if (Array.isArray(v)) {
-               properties[k] = JSON.stringify(v);
-           } else {
-               properties[k] = v;
-           }
+          results.push({ actionId: action.meta?.id, status: 'success' });
         }
-        await session.run(`
-          MERGE (s:GlobalSettings {id: 'default'})
-          SET s += $properties
-          SET s.lastUpdatedBy = $userEmail RETURN s
-        `, { userEmail, properties });
-        results.push({ actionId: action.meta?.id, status: 'success' });
-      }
-      else if (action.type === 'pests/savePest') {
-        const { id, name, type, description, treatment } = action.payload;
-        await session.run(`
-          MERGE (p:Pest {id: $id})
-          SET p.name = $name, p.type = $type, p.description = $description, p.treatment = $treatment
-          SET p.lastUpdatedBy = $userEmail RETURN p
-        `, { userEmail, id, name, type, description, treatment });
-        results.push({ actionId: action.meta?.id, status: 'success' });
-      }
-      else if (action.type === 'soilTests/saveSoilTest') {
-        const { id, fieldId, description, testResults } = action.payload;
-        await session.run(`
-          MERGE (s:SoilTest {id: $id})
-          SET s.fieldId = $fieldId, s.description = $description,
-              s.testResults = $testResults
-          WITH s
-          OPTIONAL MATCH (f:Field {id: $fieldId})
-          FOREACH (ignore IN CASE WHEN f IS NOT NULL THEN [1] ELSE [] END | MERGE (s)-[rel_new:TESTED_ON]->(f) SET rel_new.lastUpdatedBy = $userEmail)
-          SET s.lastUpdatedBy = $userEmail RETURN s
-        `, { userEmail, id, fieldId, description: description || '', testResults: testResults ? JSON.stringify(testResults) : '[]' });
-        results.push({ actionId: action.meta?.id, status: 'success' });
-      }
-      else if (action.type === 'planning/saveGoal') {
-        const { id, title, fromDate, toDate, workerIds, parentGoalId } = action.payload;
-        await session.run(`
-          MERGE (g:Goal {id: $id})
-          SET g.title = $title, g.fromDate = $fromDate, g.toDate = $toDate, g.workerIds = $workerIds, g.parentGoalId = $parentGoalId
-          WITH g
-          OPTIONAL MATCH (p:Goal {id: $parentGoalId})
-          FOREACH (ignore IN CASE WHEN p IS NOT NULL THEN [1] ELSE [] END | MERGE (g)-[rel_new:PARENT_GOAL]->(p) SET rel_new.lastUpdatedBy = $userEmail)
-          WITH g
-          UNWIND (CASE WHEN size($workerIdList) > 0 THEN $workerIdList ELSE [null] END) AS wId
-          OPTIONAL MATCH (w:Employee {id: wId})
-          FOREACH (ignore IN CASE WHEN w IS NOT NULL THEN [1] ELSE [] END | MERGE (g)-[rel_new:ASSIGNED_TO]->(w) SET rel_new.lastUpdatedBy = $userEmail)
-          SET g.lastUpdatedBy = $userEmail RETURN DISTINCT g
-        `, { userEmail, id, title, fromDate, toDate, workerIds: workerIds ? JSON.stringify(workerIds) : '[]', workerIdList: workerIds || [], parentGoalId: parentGoalId || null });
-        results.push({ actionId: action.meta?.id, status: 'success' });
-      }
-      else if (action.type === 'planning/saveObjective') {
-        const { id, goalId, title, fromDate, toDate, workerIds } = action.payload;
-        await session.run(`
-          MERGE (o:Objective {id: $id})
-          SET o.goalId = $goalId, o.title = $title, o.fromDate = $fromDate, o.toDate = $toDate, o.workerIds = $workerIds
-          WITH o
-          OPTIONAL MATCH (g:Goal {id: $goalId})
-          FOREACH (ignore IN CASE WHEN g IS NOT NULL THEN [1] ELSE [] END | MERGE (g)-[rel_new:HAS_OBJECTIVE]->(o) SET rel_new.lastUpdatedBy = $userEmail)
-          WITH o
-          UNWIND (CASE WHEN size($workerIdList) > 0 THEN $workerIdList ELSE [null] END) AS wId
-          OPTIONAL MATCH (w:Employee {id: wId})
-          FOREACH (ignore IN CASE WHEN w IS NOT NULL THEN [1] ELSE [] END | MERGE (o)-[rel_new:ASSIGNED_TO]->(w) SET rel_new.lastUpdatedBy = $userEmail)
-          SET o.lastUpdatedBy = $userEmail RETURN DISTINCT o
-        `, { userEmail, id, goalId, title, fromDate, toDate, workerIds: workerIds ? JSON.stringify(workerIds) : '[]', workerIdList: workerIds || [] });
-        results.push({ actionId: action.meta?.id, status: 'success' });
-      }
-      else if (action.type === 'livestockDiseases/saveDisease') {
-        const { id, name, description, treatment, animalTypes } = action.payload;
-        await session.run(`
-          MERGE (d:LivestockDisease {id: $id})
-          SET d.name = $name, d.description = $description, d.treatment = $treatment, d.animalTypes = $animalTypes
-          SET d.lastUpdatedBy = $userEmail RETURN d
-        `, { userEmail, id, name, description, treatment, animalTypes: animalTypes ? JSON.stringify(animalTypes) : '[]' });
-        results.push({ actionId: action.meta?.id, status: 'success' });
-      }
-      else {
-        console.warn('Unknown sync action:', action.type);
-        results.push({ actionId: action.meta?.id, status: 'ignored' });
+        else if (action.type === 'gps/addLocation') {
+          const { id, lat, lng, timestamp, userEmail } = action.payload;
+          await session.run(`
+            MERGE (g:GpsLog {id: $id})
+            SET g.lat = $lat, g.lng = $lng, g.timestamp = $timestamp, g.userEmail = $userEmail
+            WITH g
+            OPTIONAL MATCH (u:User {email: $userEmail})
+            FOREACH (ignoreMe IN CASE WHEN u IS NOT NULL THEN [1] ELSE [] END |
+              MERGE (u)-[r1:LOGGED_LOCATION]->(g) SET r1.lastUpdatedBy = $userEmail
+            )
+            SET g.lastUpdatedBy = $userEmail RETURN g
+          `, { userEmail, id, lat, lng, timestamp, userEmail });
+          results.push({ actionId: action.meta?.id, status: 'success' });
+        }
+        else if (action.type === 'settings/updateGlobal') {
+          const payload = action.payload;
+          const properties = {};
+          for (const [k, v] of Object.entries(payload)) {
+             if (Array.isArray(v)) {
+                 properties[k] = JSON.stringify(v);
+             } else {
+                 properties[k] = v;
+             }
+          }
+          await session.run(`
+            MERGE (s:GlobalSettings {id: 'default'})
+            SET s += $properties
+            SET s.lastUpdatedBy = $userEmail RETURN s
+          `, { userEmail, properties });
+          results.push({ actionId: action.meta?.id, status: 'success' });
+        }
+        else if (action.type === 'pests/savePest') {
+          const { id, name, type, description, treatment } = action.payload;
+          await session.run(`
+            MERGE (p:Pest {id: $id})
+            SET p.name = $name, p.type = $type, p.description = $description, p.treatment = $treatment
+            SET p.lastUpdatedBy = $userEmail RETURN p
+          `, { userEmail, id, name, type, description, treatment });
+          results.push({ actionId: action.meta?.id, status: 'success' });
+        }
+        else if (action.type === 'soilTests/saveSoilTest') {
+          const { id, fieldId, description, testResults } = action.payload;
+          await session.run(`
+            MERGE (s:SoilTest {id: $id})
+            SET s.fieldId = $fieldId, s.description = $description,
+                s.testResults = $testResults
+            WITH s
+            OPTIONAL MATCH (f:Field {id: $fieldId})
+            FOREACH (ignore IN CASE WHEN f IS NOT NULL THEN [1] ELSE [] END | MERGE (s)-[rel_new:TESTED_ON]->(f) SET rel_new.lastUpdatedBy = $userEmail)
+            SET s.lastUpdatedBy = $userEmail RETURN s
+          `, { userEmail, id, fieldId, description: description || '', testResults: testResults ? JSON.stringify(testResults) : '[]' });
+          results.push({ actionId: action.meta?.id, status: 'success' });
+        }
+        else if (action.type === 'planning/saveGoal') {
+          const { id, title, fromDate, toDate, workerIds, parentGoalId } = action.payload;
+          await session.run(`
+            MERGE (g:Goal {id: $id})
+            SET g.title = $title, g.fromDate = $fromDate, g.toDate = $toDate, g.workerIds = $workerIds, g.parentGoalId = $parentGoalId
+            WITH g
+            OPTIONAL MATCH (p:Goal {id: $parentGoalId})
+            FOREACH (ignore IN CASE WHEN p IS NOT NULL THEN [1] ELSE [] END | MERGE (g)-[rel_new:PARENT_GOAL]->(p) SET rel_new.lastUpdatedBy = $userEmail)
+            WITH g
+            UNWIND (CASE WHEN size($workerIdList) > 0 THEN $workerIdList ELSE [null] END) AS wId
+            OPTIONAL MATCH (w:Employee {id: wId})
+            FOREACH (ignore IN CASE WHEN w IS NOT NULL THEN [1] ELSE [] END | MERGE (g)-[rel_new:ASSIGNED_TO]->(w) SET rel_new.lastUpdatedBy = $userEmail)
+            SET g.lastUpdatedBy = $userEmail RETURN DISTINCT g
+          `, { userEmail, id, title, fromDate, toDate, workerIds: workerIds ? JSON.stringify(workerIds) : '[]', workerIdList: workerIds || [], parentGoalId: parentGoalId || null });
+          results.push({ actionId: action.meta?.id, status: 'success' });
+        }
+        else if (action.type === 'planning/saveObjective') {
+          const { id, goalId, title, fromDate, toDate, workerIds } = action.payload;
+          await session.run(`
+            MERGE (o:Objective {id: $id})
+            SET o.goalId = $goalId, o.title = $title, o.fromDate = $fromDate, o.toDate = $toDate, o.workerIds = $workerIds
+            WITH o
+            OPTIONAL MATCH (g:Goal {id: $goalId})
+            FOREACH (ignore IN CASE WHEN g IS NOT NULL THEN [1] ELSE [] END | MERGE (g)-[rel_new:HAS_OBJECTIVE]->(o) SET rel_new.lastUpdatedBy = $userEmail)
+            WITH o
+            UNWIND (CASE WHEN size($workerIdList) > 0 THEN $workerIdList ELSE [null] END) AS wId
+            OPTIONAL MATCH (w:Employee {id: wId})
+            FOREACH (ignore IN CASE WHEN w IS NOT NULL THEN [1] ELSE [] END | MERGE (o)-[rel_new:ASSIGNED_TO]->(w) SET rel_new.lastUpdatedBy = $userEmail)
+            SET o.lastUpdatedBy = $userEmail RETURN DISTINCT o
+          `, { userEmail, id, goalId, title, fromDate, toDate, workerIds: workerIds ? JSON.stringify(workerIds) : '[]', workerIdList: workerIds || [] });
+          results.push({ actionId: action.meta?.id, status: 'success' });
+        }
+        else if (action.type === 'livestockDiseases/saveDisease') {
+          const { id, name, description, treatment, animalTypes } = action.payload;
+          await session.run(`
+            MERGE (d:LivestockDisease {id: $id})
+            SET d.name = $name, d.description = $description, d.treatment = $treatment, d.animalTypes = $animalTypes
+            SET d.lastUpdatedBy = $userEmail RETURN d
+          `, { userEmail, id, name, description, treatment, animalTypes: animalTypes ? JSON.stringify(animalTypes) : '[]' });
+          results.push({ actionId: action.meta?.id, status: 'success' });
+        }
+        else {
+          console.warn('Unknown sync action:', action.type);
+          results.push({ actionId: action.meta?.id, status: 'ignored' });
+        }
+      } catch (actionErr) {
+        console.error(`Failed to process action ${action.type}:`, actionErr);
+        // We log the error but do NOT throw it, allowing the rest of the queue to process.
+        // The action is marked as failed/ignored so the queue will be cleared and not permanently blocked.
+        results.push({ actionId: action.meta?.id, status: 'error', error: actionErr.message });
       }
     }
 
