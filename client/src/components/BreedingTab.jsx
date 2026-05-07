@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { savePairing, removePairing } from '../store/breedingSlice';
 
+let isSubmitting = false;
+
 export default function BreedingTab() {
   const dispatch = useDispatch();
   const pairings = useSelector(state => state.breeding?.pairings) || [];
@@ -20,6 +22,12 @@ export default function BreedingTab() {
   };
 
   const handleSave = () => {
+    if (isSubmitting) return;
+    isSubmitting = true;
+    setTimeout(() => { isSubmitting = false; }, 1000);
+    if (isSubmitting) return;
+    isSubmitting = true;
+    setTimeout(() => { isSubmitting = false; }, 1000);
     if (!doeId || !buckId || !pairedDate) {
       alert('Doe, Buck, and Paired Date are required');
       return;

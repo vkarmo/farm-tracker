@@ -6,6 +6,8 @@ import { BarChart as BarChartIcon, X, LineChart } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import CrudTable from './CrudTable';
 
+let isSubmitting = false;
+
 export default function HarvestTab() {
   const dispatch = useDispatch();
   const fields = useSelector(state => state.fields.data) || [];
@@ -45,7 +47,13 @@ export default function HarvestTab() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!harvestData.cropId) return alert("Validation Error: Source Crop Batch is strictly required.");
+    if (isSubmitting) return;
+    isSubmitting = true;
+    setTimeout(() => { isSubmitting = false; }, 1000);
+        if (isSubmitting) return;
+    isSubmitting = true;
+    setTimeout(() => { isSubmitting = false; }, 1000);
+        if (!harvestData.cropId) return alert("Validation Error: Source Crop Batch is strictly required.");
     const parsedAmt = parseFloat(harvestData.amount);
     if (!harvestData.amount || isNaN(parsedAmt) || parsedAmt < 0) return alert("Validation Error: Harvest amount must be a valid positive number.");
     if (!harvestData.amount || !harvestData.cropId || !harvestData.date) return;

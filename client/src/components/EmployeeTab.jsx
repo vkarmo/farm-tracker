@@ -3,6 +3,8 @@ import { useDispatch, useSelector } from 'react-redux';
 import { saveEmployee, removeEmployee } from '../store/employeeSlice';
 import CrudTable from './CrudTable';
 
+let isSubmitting = false;
+
 export default function EmployeeTab() {
   const dispatch = useDispatch();
   const employees = useSelector(state => state.employees?.list) || [];
@@ -68,7 +70,13 @@ export default function EmployeeTab() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!firstName || !lastName || !jobTitle) {
+    if (isSubmitting) return;
+    isSubmitting = true;
+    setTimeout(() => { isSubmitting = false; }, 1000);
+        if (isSubmitting) return;
+    isSubmitting = true;
+    setTimeout(() => { isSubmitting = false; }, 1000);
+        if (!firstName || !lastName || !jobTitle) {
       alert("First Name, Last Name, and Job Title are required.");
       return;
     }

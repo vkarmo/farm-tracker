@@ -2,8 +2,11 @@ import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { queueAction } from '../store/syncSlice';
 import { addBudget, deleteBudget, addBudgetItem, deleteBudgetItem } from '../store/budgetSlice';
-import { FileText, Plus, Trash2, Edit2, Calculator, Check, X } from 'lucide-react';
+import { addTransaction } from '../store/financialsSlice';
+import { FileText, Plus, Trash2, Edit2, Calculator, Check, X, ArrowRightCircle } from 'lucide-react';
 import CrudTable from './CrudTable';
+
+let isSubmitting = false;
 
 const INIT_BUDGET = { name: '', description: '', exchangeRate: 150 };
 const INIT_ITEM = { category: '', description: '', amount: '', currency: 'USD', status: 'Pending Review' };
@@ -22,6 +25,10 @@ export default function BudgetTab() {
   const [isNmkBudget, setIsNmkBudget] = useState(false);
   const [budgetFromDate, setBudgetFromDate] = useState('');
   const [budgetToDate, setBudgetToDate] = useState('');
+
+  const [pendingLedgerExpenses, setPendingLedgerExpenses] = useState([]);
+  const [showExpenseReview, setShowExpenseReview] = useState(false);
+  const [selectedExpensesToSubmit, setSelectedExpensesToSubmit] = useState({});
 
   const activeBudget = budgets.find(b => b.id === activeBudgetId);
 
@@ -62,7 +69,10 @@ export default function BudgetTab() {
 
   const handleCreateBudget = (e) => {
     e.preventDefault();
-    if (!budgetForm.name) return alert("Budget Name required.");
+    if (isSubmitting) return;
+    isSubmitting = true;
+    setTimeout(() => { isSubmitting = false; }, 1000);
+        if (!budgetForm.name) return alert("Budget Name required.");
     const newRate = parseFloat(budgetForm.exchangeRate) || 1;
 
     const newBudget = {
@@ -90,7 +100,10 @@ export default function BudgetTab() {
 
   const handleSaveItem = (e) => {
     e.preventDefault();
-    if (!activeBudget) return alert("Select a budget first.");
+    if (isSubmitting) return;
+    isSubmitting = true;
+    setTimeout(() => { isSubmitting = false; }, 1000);
+        if (!activeBudget) return alert("Select a budget first.");
     if (!itemForm.description || !itemForm.amount) return alert("Fill out the required item data.");
 
     const finalItem = {
@@ -152,7 +165,7 @@ export default function BudgetTab() {
         description: 'Labor Pay (Daily Farm Workers)',
         amount: parseFloat(totalDailyUSD.toFixed(2)),
         currency: 'USD',
-        status: 'Approved'
+        status: 'Pending Review'
       });
     }
 
@@ -174,7 +187,7 @@ export default function BudgetTab() {
           description: title,
           amount: parseFloat(nonDailyByTitle[title].toFixed(2)),
           currency: 'USD',
-          status: 'Approved'
+          status: 'Pending Review'
         });
       }
     });
@@ -195,6 +208,68 @@ export default function BudgetTab() {
     });
 
     alert(`Successfully generated and inserted ${newItems.length} payroll budget item(s).`);
+  };
+
+  const handleGenerateExpenses = () => {
+    if (!activeBudget) return;
+    const approvedUnlinked = activeBudget.items.filter(i => i.status === 'Approved' && !i.linkedTxId);
+    
+    if (approvedUnlinked.length === 0) {
+      alert("No Approved budget items are pending for Ledger generation.");
+      return;
+    }
+
+    const proposedTxs = approvedUnlinked.map(item => ({
+      ...item,
+      proposedTxId: `t_${Date.now()}_${item.id}`
+    }));
+
+    const initialSelections = {};
+    proposedTxs.forEach(tx => { initialSelections[tx.id] = true; });
+
+    setPendingLedgerExpenses(proposedTxs);
+    setSelectedExpensesToSubmit(initialSelections);
+    setShowExpenseReview(true);
+  };
+
+  const handleSubmitExpensesToLedger = () => {
+    const itemsToSubmit = pendingLedgerExpenses.filter(i => selectedExpensesToSubmit[i.id]);
+    if (itemsToSubmit.length === 0) return alert("Select at least one item to submit to the ledger.");
+
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    itemsToSubmit.forEach(item => {
+      // 1. Create Transaction
+      const txPayload = {
+        id: item.proposedTxId,
+        txType: 'Expense',
+        category: item.category || 'Operating Expenses',
+        amount: item.currency === 'USD' ? item.amount : '',
+        amountLd: item.currency === 'LRD' ? item.amount : '',
+        exchangeRate: activeBudget.exchangeRate || 150,
+        vendor: `Budgeted: ${activeBudget.name}`,
+        notes: item.description || '',
+        date: todayStr,
+        assetId: ''
+      };
+
+      dispatch(addTransaction(txPayload));
+      dispatch(queueAction({ type: 'financials/addTransaction', payload: txPayload, meta: { id: Date.now() + Math.random() } }));
+
+      // 2. Update Budget Item with linkedTxId
+      const updatedItem = { ...activeBudget.items.find(i => i.id === item.id), linkedTxId: item.proposedTxId };
+      dispatch(addBudgetItem({ budgetId: activeBudget.id, item: updatedItem }));
+      dispatch(queueAction({
+        type: 'budgets/upsertBudgetItem',
+        payload: { budgetId: activeBudget.id, item: updatedItem },
+        meta: { id: Date.now() + Math.random() }
+      }));
+    });
+
+    setPendingLedgerExpenses([]);
+    setShowExpenseReview(false);
+    setSelectedExpensesToSubmit({});
+    alert(`Successfully posted ${itemsToSubmit.length} transaction(s) to the Finance Ledger.`);
   };
 
   const calculateTotals = () => {
@@ -406,6 +481,60 @@ export default function BudgetTab() {
             itemLabel="Budget Item"
             defaultSort={{ key: 'category', direction: 'asc' }}
           />
+
+          {/* Budget to Ledger Linkage */}
+          <div style={{ marginTop: 30, background: '#e3f2fd', padding: 20, borderRadius: 8, border: '1px solid #90caf9' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h3 style={{ color: '#1565c0', margin: 0 }}>Ledger Integration</h3>
+                <p style={{ color: '#1976d2', fontSize: '0.9rem', marginTop: 5 }}>Generate official finance expenses from approved budget items.</p>
+              </div>
+              <button onClick={handleGenerateExpenses} className="btn btn-primary" style={{ background: '#1565c0', border: 'none' }}>
+                <ArrowRightCircle size={18} style={{ marginRight: 6 }} /> Generate Expenses
+              </button>
+            </div>
+
+            {showExpenseReview && pendingLedgerExpenses.length > 0 && (
+              <div style={{ marginTop: 20, background: '#ffffff', padding: 15, borderRadius: 8, border: '1px solid #bbdefb' }}>
+                <h4 style={{ marginBottom: 15, color: '#0d47a1' }}>Review Pending Expenses</h4>
+                <div style={{ maxHeight: 300, overflowY: 'auto', marginBottom: 15 }}>
+                  <table className="table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '2px solid #e0e0e0', textAlign: 'left' }}>
+                        <th style={{ padding: '8px 4px' }}>Include</th>
+                        <th style={{ padding: '8px 4px' }}>Category</th>
+                        <th style={{ padding: '8px 4px' }}>Description</th>
+                        <th style={{ padding: '8px 4px' }}>Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pendingLedgerExpenses.map(item => (
+                        <tr key={item.id} style={{ borderBottom: '1px solid #eeeeee' }}>
+                          <td style={{ padding: '8px 4px', textAlign: 'center' }}>
+                            <input 
+                              type="checkbox" 
+                              checked={selectedExpensesToSubmit[item.id] || false} 
+                              onChange={(e) => setSelectedExpensesToSubmit(prev => ({ ...prev, [item.id]: e.target.checked }))} 
+                              style={{ width: 18, height: 18, cursor: 'pointer' }}
+                            />
+                          </td>
+                          <td style={{ padding: '8px 4px' }}>{item.category}</td>
+                          <td style={{ padding: '8px 4px' }}>{item.description}</td>
+                          <td style={{ padding: '8px 4px', fontWeight: 'bold' }}>{item.currency === 'USD' ? '$' : 'L$'}{item.amount}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+                  <button onClick={() => setShowExpenseReview(false)} className="btn" style={{ background: '#f5f5f5', color: '#333' }}>Cancel</button>
+                  <button onClick={handleSubmitExpensesToLedger} className="btn btn-primary" style={{ background: '#2e7d32', border: 'none' }}>
+                    Submit to Ledger
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
 

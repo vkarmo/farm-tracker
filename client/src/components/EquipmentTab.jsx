@@ -8,6 +8,8 @@ import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import { MapSearchBox, MapFlyTo } from './MapSearchBox';
 import 'leaflet/dist/leaflet.css';
 
+let isSubmitting = false;
+
 const ClickToMarkComponent = ({ setGpsLocation, setCenter }) => {
   useMapEvents({
     click(e) {
@@ -37,7 +39,13 @@ export default function EquipmentTab() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!formData.name.trim()) return alert("Validation Error: Asset Name is strictly required.");
+    if (isSubmitting) return;
+    isSubmitting = true;
+    setTimeout(() => { isSubmitting = false; }, 1000);
+        if (isSubmitting) return;
+    isSubmitting = true;
+    setTimeout(() => { isSubmitting = false; }, 1000);
+        if (!formData.name.trim()) return alert("Validation Error: Asset Name is strictly required.");
 
     const finalData = { 
       ...formData, 

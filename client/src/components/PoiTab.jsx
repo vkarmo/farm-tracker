@@ -11,6 +11,8 @@ import length from '@turf/length';
 import { polygon, lineString } from '@turf/helpers';
 import 'leaflet/dist/leaflet.css';
 
+let isSubmitting = false;
+
 const ClickToDrawComponent = ({ points, setPoints, setCenter }) => {
   useMapEvents({
     click(e) {
@@ -75,7 +77,13 @@ export default function PoiTab() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!formData.name.trim()) return alert("Validation Error: POI Name is required.");
+    if (isSubmitting) return;
+    isSubmitting = true;
+    setTimeout(() => { isSubmitting = false; }, 1000);
+        if (isSubmitting) return;
+    isSubmitting = true;
+    setTimeout(() => { isSubmitting = false; }, 1000);
+        if (!formData.name.trim()) return alert("Validation Error: POI Name is required.");
 
     const finalData = { ...formData, points: JSON.stringify(points) };
 

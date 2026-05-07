@@ -5,6 +5,8 @@ import { queueAction } from '../store/syncSlice';
 import { ShieldAlert, Trash2, Shield, User } from 'lucide-react';
 import CrudTable from './CrudTable';
 
+let isSubmitting = false;
+
 export default function AdminTab() {
   const dispatch = useDispatch();
   const usersList = useSelector(state => state.auth?.usersList) || [];

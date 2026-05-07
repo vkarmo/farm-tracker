@@ -5,6 +5,8 @@ import { addLivestock, deleteLivestock } from '../store/assetsSlice';
 import { Rabbit, X, PlusCircle, Syringe } from 'lucide-react';
 import CrudTable from './CrudTable';
 
+let isSubmitting = false;
+
 const INIT_LIVE = { fieldId: '', type: '', breed: '', birthDate: '', healthStatus: 'Healthy', tagNumber: '', causeOfDeath: '', medicalRecords: [] };
 
 export default function LivestockTab() {
@@ -22,7 +24,13 @@ export default function LivestockTab() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!liveData.type.trim()) return alert("Validation Error: Species/Type is required.");
+    if (isSubmitting) return;
+    isSubmitting = true;
+    setTimeout(() => { isSubmitting = false; }, 1000);
+        if (isSubmitting) return;
+    isSubmitting = true;
+    setTimeout(() => { isSubmitting = false; }, 1000);
+        if (!liveData.type.trim()) return alert("Validation Error: Species/Type is required.");
     if (!liveData.tagNumber.trim()) return alert("Validation Error: Tag Number/Identifier is required.");
     if (!liveData.type || !liveData.tagNumber) return;
 

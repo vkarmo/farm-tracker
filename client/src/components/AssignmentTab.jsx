@@ -6,6 +6,8 @@ import CrudTable from './CrudTable';
 
 import ErrorBoundary from './ErrorBoundary';
 
+let isSubmitting = false;
+
 function AssignmentTabComponent() {
   const dispatch = useDispatch();
   const assignments = useSelector(state => state.assignments?.list) || [];
@@ -94,7 +96,13 @@ function AssignmentTabComponent() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!fieldId || !task || !assignmentDate) {
+    if (isSubmitting) return;
+    isSubmitting = true;
+    setTimeout(() => { isSubmitting = false; }, 1000);
+        if (isSubmitting) return;
+    isSubmitting = true;
+    setTimeout(() => { isSubmitting = false; }, 1000);
+        if (!fieldId || !task || !assignmentDate) {
       alert("Field, Task, and Assignment Date are required.");
       return;
     }

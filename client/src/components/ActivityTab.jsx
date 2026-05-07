@@ -5,6 +5,8 @@ import { addActivity, deleteActivity } from '../store/activitySlice';
 import { ClipboardList, X } from 'lucide-react';
 import CrudTable from './CrudTable';
 
+let isSubmitting = false;
+
 const INIT_ACT = { targetId: '', type: 'Brushing', date: '', plannedDate: '', personResponsible: '', notes: '' };
 
 const ACTIVITY_TYPES = [
@@ -25,7 +27,13 @@ export default function ActivityTab() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!actData.type) return alert("Validation Error: Please select an Activity Type.");
+    if (isSubmitting) return;
+    isSubmitting = true;
+    setTimeout(() => { isSubmitting = false; }, 1000);
+        if (isSubmitting) return;
+    isSubmitting = true;
+    setTimeout(() => { isSubmitting = false; }, 1000);
+        if (!actData.type) return alert("Validation Error: Please select an Activity Type.");
     if (!actData.plannedDate) return alert("Validation Error: Planned Date is required.");
     if (!actData.targetId) return;
 

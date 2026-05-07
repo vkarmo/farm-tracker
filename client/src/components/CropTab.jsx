@@ -6,6 +6,8 @@ import { Leaf, X } from 'lucide-react';
 import Select from 'react-select';
 import CrudTable from './CrudTable';
 
+let isSubmitting = false;
+
 const INIT_CROP = { sowType: 'Direct', fieldId: '', name: '', variety: '', plantingDate: '', expectedHarvest: '', seedingRate: '', targetYield: '', phHi: '', phLo: '', pestIds: [] };
 
 export default function CropTab() {
@@ -20,7 +22,13 @@ export default function CropTab() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!cropData.name || !cropData.name.trim()) return alert("Validation Error: Crop Name is required to initialize a batch.");
+    if (isSubmitting) return;
+    isSubmitting = true;
+    setTimeout(() => { isSubmitting = false; }, 1000);
+        if (isSubmitting) return;
+    isSubmitting = true;
+    setTimeout(() => { isSubmitting = false; }, 1000);
+        if (!cropData.name || !cropData.name.trim()) return alert("Validation Error: Crop Name is required to initialize a batch.");
     if (!cropData.sowType || !cropData.sowType.trim()) return alert("Validation Error: Sowing Strategy is required.");
 
     if (editingId) {

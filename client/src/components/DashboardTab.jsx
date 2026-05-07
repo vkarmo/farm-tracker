@@ -5,6 +5,8 @@ import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGri
 import { TrendingUp, Layers, Rabbit, DollarSign, Sun, CloudRain, Cloud, CloudLightning, Snowflake, CloudFog, MapPin, Droplets, Wind, ThermometerSun, CloudSun } from 'lucide-react';
 import CrudTable from './CrudTable';
 
+let isSubmitting = false;
+
 const CollapsibleCard = ({ title, children, defaultOpen = true, forceFullGrid = false }) => {
   const [isOpen, setIsOpen] = useState(defaultOpen);
   return (
