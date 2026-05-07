@@ -152,7 +152,8 @@ app.get('/api/all-data', async (req, res) => {
        soilTests: 'MATCH (n:SoilTest) RETURN n',
        goals: 'MATCH (n:Goal) RETURN n',
        objectives: 'MATCH (n:Objective) RETURN n',
-       livestockDiseases: 'MATCH (n:LivestockDisease) RETURN n'
+       livestockDiseases: 'MATCH (n:LivestockDisease) RETURN n',
+       poi: 'MATCH (n:PointOfInterest) RETURN n'
     };
 
     const data = {};
@@ -166,6 +167,9 @@ app.get('/api/all-data', async (req, res) => {
            }
            if (props.boundary) {
                try { props.boundary = JSON.parse(props.boundary); } catch(e){}
+           }
+           if (props.points) {
+               try { props.points = JSON.parse(props.points); } catch(e){}
            }
            if (props.tags) {
                try { props.tags = JSON.parse(props.tags); } catch(e){}
@@ -348,6 +352,26 @@ app.post('/api/sync', async (req, res) => {
             )
             SET h.lastUpdatedBy = $userEmail RETURN h
           `, { userEmail, id, amount, unit, date, cropId });
+          results.push({ actionId: action.meta?.id, status: 'success' });
+        }
+        else if (action.type === 'poi/addPoi') {
+          const { id, name, type, description, area, length, points } = action.payload;
+          await session.run(`
+            MERGE (n:PointOfInterest {id: $id})
+            SET n.name = $name, n.type = $type, n.description = $description,
+                n.area = $area, n.length = $length, n.points = $points,
+                n.lastUpdatedBy = $userEmail, n.lastUpdatedAt = datetime()
+            RETURN n
+          `, { 
+            userEmail, 
+            id, 
+            name: name || '', 
+            type: type || '', 
+            description: description || '', 
+            area: area || '', 
+            length: length || '', 
+            points: points ? JSON.stringify(points) : '[]' 
+          });
           results.push({ actionId: action.meta?.id, status: 'success' });
         }
         else if (action.type === 'financials/addTransaction') {
