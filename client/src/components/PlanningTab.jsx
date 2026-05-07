@@ -6,7 +6,6 @@ import CrudTable from './CrudTable';
 import Select from 'react-select';
 import { Target, X, PlusCircle, ChevronRight, ChevronDown, List, ClipboardList, Edit } from 'lucide-react';
 
-let isSubmitting = false;
 
 const INIT_GOAL = { title: '', fromDate: '', toDate: '', workerIds: [], parentGoalId: '' };
 const INIT_OBJECTIVE = { title: '', fromDate: '', toDate: '', workerIds: [], goalId: '' };
@@ -87,9 +86,6 @@ export default function PlanningTab() {
 
   const handleGoalSubmit = (e) => {
     e.preventDefault();
-    if (isSubmitting) return;
-    isSubmitting = true;
-    setTimeout(() => { isSubmitting = false; }, 1000);
         if (!goalData.title.trim()) return alert("Title is required.");
     if (goalData.parentGoalId === editingGoalId) return alert("A goal cannot be its own parent.");
 
@@ -107,9 +103,6 @@ export default function PlanningTab() {
 
   const handleObjectiveSubmit = (e) => {
     e.preventDefault();
-    if (isSubmitting) return;
-    isSubmitting = true;
-    setTimeout(() => { isSubmitting = false; }, 1000);
         if (!objectiveData.title.trim() || !objectiveData.goalId) return alert("Title and Goal selection are required.");
 
     const payload = {

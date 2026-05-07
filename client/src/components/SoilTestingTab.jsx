@@ -8,7 +8,6 @@ import { MapSearchBox, MapFlyTo } from './MapSearchBox';
 import { MapPin, X, FlaskConical } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 
-let isSubmitting = false;
 
 const INIT_TEST_STATE = { 
   fieldId: '', 
@@ -77,12 +76,6 @@ export default function SoilTestingTab() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (isSubmitting) return;
-    isSubmitting = true;
-    setTimeout(() => { isSubmitting = false; }, 1000);
-        if (isSubmitting) return;
-    isSubmitting = true;
-    setTimeout(() => { isSubmitting = false; }, 1000);
         if (!testData.fieldId) return alert("Please select a related Field.");
 
     const payload = {

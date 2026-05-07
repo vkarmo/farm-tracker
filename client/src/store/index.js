@@ -69,7 +69,18 @@ const injectUserMiddleware = store => next => action => {
     const currentUser = store.getState().auth?.currentUser;
     if (currentUser?.email) {
       if (action.payload && action.payload.payload) {
-        action.payload.payload.lastUpdatedBy = currentUser.email;
+        // Create a new action object to avoid mutating the frozen original
+        const newAction = {
+          ...action,
+          payload: {
+            ...action.payload,
+            payload: {
+              ...action.payload.payload,
+              lastUpdatedBy: currentUser.email
+            }
+          }
+        };
+        return next(newAction);
       }
     }
   }

@@ -22,10 +22,12 @@ export const syncSlice = createSlice({
     lastSynced: null,
     backendFailures: 0,
     backendAvailable: true,
+    totalActionsQueued: 0,
   },
   reducers: {
     queueAction: (state, action) => {
       state.offlineActionQueue.push(action.payload);
+      state.totalActionsQueued = (state.totalActionsQueued || 0) + 1;
     },
     clearQueue: (state) => {
       state.offlineActionQueue = [];
@@ -78,6 +80,13 @@ export const flushQueue = (forceSync = false) => async (dispatch, getState) => {
     });
 
     if (response.ok) {
+      const data = await response.json();
+      if (data.error === 'DATABASE_UNAVAILABLE' || data.ok === false) {
+        console.warn('Sync endpoint database unavailable — will retry.', data.details || '');
+        dispatch(incrementFailures());
+        return;
+      }
+
       dispatch(clearQueue());
       dispatch(resetBackend());
       dispatch(setLastSynced(new Date().toISOString()));
@@ -110,8 +119,17 @@ export const fetchInitialData = () => async (dispatch, getState) => {
         'Expires': '0'
       }
     });
-    if (!response.ok) throw new Error('Failed to fetch initial data');
+    if (!response.ok) {
+      console.warn(`Initial data sync skipped: Backend returned status ${response.status}. Using local cache.`);
+      return;
+    }
+    
     const data = await response.json();
+    
+    if (data.error === 'DATABASE_UNAVAILABLE' || data.ok === false) {
+      console.warn('Initial data sync skipped: Backend database is unavailable. Using local cache.', data.details || '');
+      return;
+    }
     
     if (data.fields) dispatch(setFields(data.fields));
     if (data.nurseries) dispatch(setNurseries(data.nurseries));
@@ -132,7 +150,7 @@ export const fetchInitialData = () => async (dispatch, getState) => {
     if (data.poi) dispatch(setPoiData(data.poi));
 
   } catch (err) {
-    console.error('Failed to load initial data from backend', err);
+    console.warn('Backend unreachable — falling back to offline cache.', err.message);
   }
 };
 

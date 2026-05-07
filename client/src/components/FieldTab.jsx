@@ -10,7 +10,6 @@ import area from '@turf/area';
 import { polygon } from '@turf/helpers';
 import 'leaflet/dist/leaflet.css';
 
-let isSubmitting = false;
 
 const ClickToDrawComponent = ({ polygon, setPolygon, setCenter }) => {
   useMapEvents({
@@ -65,12 +64,6 @@ export default function FieldTab() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (isSubmitting) return;
-    isSubmitting = true;
-    setTimeout(() => { isSubmitting = false; }, 1000);
-        if (isSubmitting) return;
-    isSubmitting = true;
-    setTimeout(() => { isSubmitting = false; }, 1000);
         if (!formData.name.trim()) return alert("Validation Error: Field Name is strictly required.");
     if (parseFloat(formData.area) < 0) return alert("Validation Error: Mathematical acreage cannot be negative.");
     if (!formData.name || !formData.area) return;
