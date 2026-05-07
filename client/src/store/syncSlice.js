@@ -13,6 +13,7 @@ import { setLogs } from './auditSlice';
 import { setUsersList } from './authSlice';
 import { setAllSettings } from './settingsSlice';
 import { setPoiData } from './poiSlice';
+import { setGoals, setObjectives } from './planningSlice';
 
 export const syncSlice = createSlice({
   name: 'sync',
@@ -155,6 +156,8 @@ export const fetchInitialData = () => async (dispatch, getState) => {
     if (data.users) dispatch(setUsersList(data.users));
     if (data.settings && data.settings.length > 0) dispatch(setAllSettings(data.settings[0]));
     if (data.poi) dispatch(setPoiData(data.poi));
+    if (data.goals) dispatch(setGoals(data.goals));
+    if (data.objectives) dispatch(setObjectives(data.objectives));
 
   } catch (err) {
     console.warn('Backend unreachable — falling back to offline cache.', err.message);
