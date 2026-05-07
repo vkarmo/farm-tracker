@@ -5,6 +5,8 @@ import { queueAction } from '../store/syncSlice';
 import CrudTable from './CrudTable';
 import { Bug, X } from 'lucide-react';
 
+let isSubmitting = false;
+
 const INIT_STATE = { name: '', type: 'Pest', description: '', treatment: '' };
 
 export default function PestTab() {
@@ -16,7 +18,13 @@ export default function PestTab() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!formData.name.trim()) return alert("Name is required.");
+    if (isSubmitting) return;
+    isSubmitting = true;
+    setTimeout(() => { isSubmitting = false; }, 1000);
+        if (isSubmitting) return;
+    isSubmitting = true;
+    setTimeout(() => { isSubmitting = false; }, 1000);
+        if (!formData.name.trim()) return alert("Name is required.");
 
     const payload = {
       ...formData,

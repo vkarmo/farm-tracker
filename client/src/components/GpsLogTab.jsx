@@ -7,6 +7,8 @@ import CrudTable from './CrudTable';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import L from 'leaflet';
 
+let isSubmitting = false;
+
 // Fix for leaflet marker icon missing in some react-leaflet builds
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({

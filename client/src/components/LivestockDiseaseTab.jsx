@@ -6,6 +6,8 @@ import CrudTable from './CrudTable';
 import Select from 'react-select';
 import { Syringe, X } from 'lucide-react';
 
+let isSubmitting = false;
+
 const INIT_STATE = { name: '', description: '', treatment: '', animalTypes: [] };
 
 export default function LivestockDiseaseTab() {
@@ -20,7 +22,13 @@ export default function LivestockDiseaseTab() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!formData.name.trim()) return alert("Name is required.");
+    if (isSubmitting) return;
+    isSubmitting = true;
+    setTimeout(() => { isSubmitting = false; }, 1000);
+        if (isSubmitting) return;
+    isSubmitting = true;
+    setTimeout(() => { isSubmitting = false; }, 1000);
+        if (!formData.name.trim()) return alert("Name is required.");
 
     const payload = {
       ...formData,

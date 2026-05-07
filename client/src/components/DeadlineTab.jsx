@@ -5,6 +5,8 @@ import { queueAction } from '../store/syncSlice';
 import { Calendar, X } from 'lucide-react';
 import CrudTable from './CrudTable';
 
+let isSubmitting = false;
+
 const INIT_DEADLINE = { title: '', type: 'Insurance Registration', dueDate: '', status: 'Pending', personResponsible: '', notes: '' };
 
 const DEADLINE_TYPES = [
@@ -20,7 +22,13 @@ export default function DeadlineTab() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    if (!formData.title || !formData.dueDate) return alert("Title and Due Date are required.");
+    if (isSubmitting) return;
+    isSubmitting = true;
+    setTimeout(() => { isSubmitting = false; }, 1000);
+        if (isSubmitting) return;
+    isSubmitting = true;
+    setTimeout(() => { isSubmitting = false; }, 1000);
+        if (!formData.title || !formData.dueDate) return alert("Title and Due Date are required.");
 
     const newObj = { ...formData, id: editingId || `dl_${Date.now()}` };
     dispatch(addDeadline(newObj));

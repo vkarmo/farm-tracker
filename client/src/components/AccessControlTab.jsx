@@ -4,6 +4,8 @@ import { updateUserAccess } from '../store/authSlice';
 import { queueAction } from '../store/syncSlice';
 import { ShieldAlert } from 'lucide-react';
 
+let isSubmitting = false;
+
 const AVAILABLE_TABS = [
   { id: 'dashboard', label: 'Dashboard' },
   { id: 'map', label: 'Map' },

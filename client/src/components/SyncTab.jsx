@@ -3,6 +3,8 @@ import { useSelector, useDispatch } from 'react-redux';
 import { flushQueue } from '../store/syncSlice';
 import { RefreshCw, Database } from 'lucide-react';
 
+let isSubmitting = false;
+
 export default function SyncTab() {
   const dispatch = useDispatch();
   const fullState = useSelector(state => state);

@@ -6,6 +6,8 @@ import { DollarSign, X } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, PieChart, Pie, Cell } from 'recharts';
 import CrudTable from './CrudTable';
 
+let isSubmitting = false;
+
 const INIT_TX = { assetId: '', txType: 'Expense', category: '', amount: '', amountLd: '', exchangeRate: '', vendor: '', notes: '', date: new Date().toISOString().split('T')[0] };
 
 export default function FinanceTab() {
@@ -59,7 +61,13 @@ export default function FinanceTab() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    const parsedUsd = parseFloat(txData.amount);
+    if (isSubmitting) return;
+    isSubmitting = true;
+    setTimeout(() => { isSubmitting = false; }, 1000);
+        if (isSubmitting) return;
+    isSubmitting = true;
+    setTimeout(() => { isSubmitting = false; }, 1000);
+        const parsedUsd = parseFloat(txData.amount);
     const parsedLd = parseFloat(txData.amountLd);
     if ((!txData.amount || isNaN(parsedUsd) || parsedUsd < 0) && (!txData.amountLd || isNaN(parsedLd) || parsedLd < 0)) {
       return alert("Validation Error: A valid positive Amount (USD or LD) is required.");
