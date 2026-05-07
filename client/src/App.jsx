@@ -375,6 +375,13 @@ export default function App() {
 
   const LocationMarker = () => {
     const dispatch = useDispatch();
+    const isInitialMount = React.useRef(true);
+
+    useEffect(() => {
+      const timer = setTimeout(() => { isInitialMount.current = false; }, 800);
+      return () => clearTimeout(timer);
+    }, []);
+
     useMapEvents({
       click(e) {
         dispatch(setMapCenter([e.latlng.lat, e.latlng.lng]));
@@ -382,7 +389,9 @@ export default function App() {
       },
       zoomend(e) {
         dispatch(setMapZoom(e.target.getZoom()));
-        dispatch(saveSettings());
+        if (!isInitialMount.current) {
+          dispatch(saveSettings());
+        }
       }
     });
     return null;
