@@ -21,12 +21,12 @@ import pestsReducer from './pestsSlice';
 import planningReducer from './planningSlice';
 import soilTestsReducer from './soilTestsSlice';
 import livestockDiseasesReducer from './livestockDiseasesSlice';
+import poiReducer from './poiSlice';
 
-// Persist config that uses IndexedDB via localforage
 const persistConfig = {
   key: 'root',
   storage: localForage,
-  whitelist: ['sync', 'fields', 'assets', 'financials', 'settings', 'nurseries', 'activities', 'auth', 'budgets', 'deadlines', 'incidents', 'assignments', 'employees', 'audit', 'gps', 'breeding', 'pests', 'planning', 'soilTests', 'livestockDiseases'] // Store all entity & settings data
+  whitelist: ['sync', 'fields', 'assets', 'financials', 'settings', 'nurseries', 'activities', 'auth', 'budgets', 'deadlines', 'incidents', 'assignments', 'employees', 'audit', 'gps', 'breeding', 'pests', 'planning', 'soilTests', 'livestockDiseases', 'poi'] // Store all entity & settings data
 };
 
 const rootReducer = combineReducers({
@@ -47,9 +47,9 @@ const rootReducer = combineReducers({
   gps: gpsReducer,
   breeding: breedingReducer,
   pests: pestsReducer,
-  planning: planningReducer,
   soilTests: soilTestsReducer,
-  livestockDiseases: livestockDiseasesReducer
+  livestockDiseases: livestockDiseasesReducer,
+  poi: poiReducer
 });
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);

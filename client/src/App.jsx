@@ -38,6 +38,7 @@ import AssignmentTab from './components/AssignmentTab';
 import PlanningTab from './components/PlanningTab';
 import EmployeeTab from './components/EmployeeTab';
 import EquipmentTab from './components/EquipmentTab';
+import PoiTab from './components/PoiTab';
 import SyncTab from './components/SyncTab';
 import AuditTab from './components/AuditTab';
 import GpsLogTab from './components/GpsLogTab';
@@ -380,13 +381,18 @@ export default function App() {
             </div>
             {isSyncing ? (
               <div className="status-indicator status-syncing"><RefreshCw size={16} className="spin" /> Pushing to DB...</div>
-            ) : isOnline ? (
-              <div className="status-indicator status-online"><Wifi size={16} /> Online</div>
-            ) : (
+            ) : !isOnline ? (
               <div className="status-indicator status-offline">
                 <WifiOff size={16} /> Offline Cache Active
                 {syncQueue.length > 0 && <span style={{ marginLeft: '4px' }}>({syncQueue.length} pending writes)</span>}
               </div>
+            ) : !backendAvailable ? (
+              <div className="status-indicator status-offline" style={{ background: '#ffebee', color: '#c62828' }}>
+                <WifiOff size={16} /> DB Unreachable
+                {syncQueue.length > 0 && <span style={{ marginLeft: '4px' }}>({syncQueue.length} pending writes)</span>}
+              </div>
+            ) : (
+              <div className="status-indicator status-online"><Wifi size={16} /> Online</div>
             )}
           </div>
 
@@ -441,6 +447,7 @@ export default function App() {
           <>
             {hasAccess('dashboard') && <button onClick={() => setActiveTab('dashboard')} className={`btn ${activeTab === 'dashboard' ? 'tab-btn-active' : ''}`}><BarChart size={16} style={{ marginRight: 6 }} /> Dashboard</button>}
             {hasAccess('map') && <button onClick={() => setActiveTab('map')} className={`btn ${activeTab === 'map' ? 'tab-btn-active' : ''}`}><MapPin size={16} style={{ marginRight: 6 }} /> Map</button>}
+            {hasAccess('poi') && <button onClick={() => setActiveTab('poi')} className={`btn ${activeTab === 'poi' ? 'tab-btn-active' : ''}`}><MapPin size={16} style={{ marginRight: 6 }} /> POIs</button>}
           </>
         )}
         {activeModule === 'agronomy' && (
@@ -507,6 +514,7 @@ export default function App() {
             <MapLayer fields={fields} nurseries={nurseries} equipment={equipment} />
           </div>
         )}
+        {activeTab === 'poi' && <PoiTab />}
 
         {/* Modular Entity CRUD Component Wrappers */}
         {activeTab === 'field' && <FieldTab />}

@@ -58,7 +58,41 @@ export const MapSearchBox = ({ onLocationFound, onClear }) => {
   const [isLocating, setIsLocating] = useState(false);
   const watchIdRef = useRef(null);
   const lastPointRef = useRef(null);
+  const wakeLockRef = useRef(null);
   const onLocationFoundRef = useRef(onLocationFound);
+
+  useEffect(() => {
+    const requestWakeLock = async () => {
+      if ('wakeLock' in navigator) {
+        try {
+          wakeLockRef.current = await navigator.wakeLock.request('screen');
+        } catch (err) {
+          console.warn('Wake Lock error:', err);
+        }
+      }
+    };
+    
+    const releaseWakeLock = async () => {
+      if (wakeLockRef.current) {
+        try {
+          await wakeLockRef.current.release();
+          wakeLockRef.current = null;
+        } catch (err) {
+          console.warn('Wake Lock release error:', err);
+        }
+      }
+    };
+
+    if (gpsOn) {
+      requestWakeLock();
+    } else {
+      releaseWakeLock();
+    }
+
+    return () => {
+      releaseWakeLock();
+    };
+  }, [gpsOn]);
 
   useEffect(() => {
     onLocationFoundRef.current = onLocationFound;
