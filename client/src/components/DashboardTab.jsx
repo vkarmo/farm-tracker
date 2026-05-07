@@ -429,6 +429,7 @@ export default function DashboardTab() {
               data={harvestReportData}
               columns={reportColumns}
               itemLabel="Harvest Record"
+              maxHeight="350px"
             />
           )}
         </CollapsibleCard>
