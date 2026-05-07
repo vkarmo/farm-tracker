@@ -49,7 +49,8 @@ const rootReducer = combineReducers({
   pests: pestsReducer,
   soilTests: soilTestsReducer,
   livestockDiseases: livestockDiseasesReducer,
-  poi: poiReducer
+  poi: poiReducer,
+  planning: planningReducer
 });
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);

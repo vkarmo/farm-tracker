@@ -9,6 +9,12 @@ const planningSlice = createSlice({
   name: 'planning',
   initialState,
   reducers: {
+    setGoals: (state, action) => {
+      state.goals = action.payload;
+    },
+    setObjectives: (state, action) => {
+      state.objectives = action.payload;
+    },
     saveGoal: (state, action) => {
       const index = state.goals.findIndex(g => g.id === action.payload.id);
       if (index !== -1) {
@@ -36,5 +42,5 @@ const planningSlice = createSlice({
   }
 });
 
-export const { saveGoal, removeGoal, saveObjective, removeObjective } = planningSlice.actions;
+export const { setGoals, setObjectives, saveGoal, removeGoal, saveObjective, removeObjective } = planningSlice.actions;
 export default planningSlice.reducer;
