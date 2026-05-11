@@ -38,8 +38,8 @@ export default function FieldTab() {
   const [searchResultCenter, setSearchResultCenter] = useState(null);
 
   const handleLocationFound = (loc) => {
-    const newLoc = loc.length === 3 ? loc : [loc[0], loc[1], Date.now()];
-    setSearchResultCenter([newLoc[0], newLoc[1]]);
+    const newLoc = loc.length >= 3 ? loc : [loc[0], loc[1], Date.now()];
+    setSearchResultCenter(newLoc);
     setPolygonPositions(prev => [...prev, newLoc]);
   };
 
@@ -150,7 +150,6 @@ export default function FieldTab() {
             <div style={{ marginBottom: '10px' }}>
               <MapSearchBox 
                 onLocationFound={handleLocationFound} 
-                onNavigate={(loc) => setSearchResultCenter(loc)}
                 onClear={polygonPositions.length > 0 ? () => setPolygonPositions([]) : null}
               />
             </div>

@@ -37,8 +37,8 @@ export default function PoiTab() {
   const [searchResultCenter, setSearchResultCenter] = useState(null);
 
   const handleLocationFound = (loc) => {
-    const newLoc = loc.length === 3 ? loc : [loc[0], loc[1], Date.now()];
-    setSearchResultCenter([newLoc[0], newLoc[1]]);
+    const newLoc = loc.length >= 3 ? loc : [loc[0], loc[1], Date.now()];
+    setSearchResultCenter(newLoc);
     setPoints(prev => [...prev, newLoc]);
   };
 
@@ -146,7 +146,7 @@ export default function PoiTab() {
 
       <div style={{ marginBottom: '20px', height: '400px', width: '100%', borderRadius: '8px', overflow: 'hidden', border: '2px solid var(--color-border)', position: 'relative' }}>
         <div style={{ position: 'absolute', top: 10, left: 50, right: 10, zIndex: 1000, background: 'rgba(255,255,255,0.9)', padding: '5px', borderRadius: '4px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
-           <MapSearchBox onLocationFound={handleLocationFound} onNavigate={(loc) => setSearchResultCenter(loc)} onClear={clearDrawing} />
+           <MapSearchBox onLocationFound={handleLocationFound} onClear={clearDrawing} />
         </div>
 
         <MapContainer center={mapCenter} zoom={mapZoom} style={{ height: '100%', width: '100%' }} zoomControl={false}>

@@ -57,8 +57,10 @@ export default function SoilTestingTab() {
   }, [markerPosition]);
 
   const handleLocationFound = (loc) => {
-    setSearchResultCenter(loc);
-    setMarkerPosition(loc);
+    const newLoc = loc.length >= 3 ? loc : [loc[0], loc[1], Date.now()];
+    setSearchResultCenter(newLoc);
+    setMarkerPosition(newLoc);
+    setTestData({ ...testData, lat: newLoc[0], lng: newLoc[1] });
     
     // Attempt to get elevation if HTML5 geolocation is available
     if (navigator.geolocation) {
@@ -212,7 +214,6 @@ export default function SoilTestingTab() {
               <div style={{ marginBottom: '10px' }}>
                 <MapSearchBox 
                   onLocationFound={handleLocationFound}
-                  onNavigate={(loc) => setSearchResultCenter(loc)}
                   onClear={markerPosition ? () => { setMarkerPosition(null); setNewResultLat(''); setNewResultLng(''); setNewResultElevation(''); } : null}
                 />
               </div>

@@ -32,8 +32,9 @@ export default function EquipmentTab() {
   const [searchResultCenter, setSearchResultCenter] = useState(null);
 
   const handleLocationFound = (loc) => {
-    setSearchResultCenter(loc);
-    setGpsLocation(loc); // Equipments only have 1 active pin
+    const newLoc = loc.length >= 3 ? loc : [loc[0], loc[1], Date.now()];
+    setSearchResultCenter(newLoc);
+    setGpsLocation(newLoc); // Equipments only have 1 active pin
   };
 
   const handleSubmit = (e) => {
@@ -117,7 +118,6 @@ export default function EquipmentTab() {
             <div style={{ marginBottom: '10px' }}>
               <MapSearchBox 
                 onLocationFound={handleLocationFound}
-                onNavigate={(loc) => setSearchResultCenter(loc)}
                 onClear={gpsLocation ? () => setGpsLocation(null) : null}
               />
             </div>
