@@ -94,7 +94,7 @@ export default function App() {
   useEffect(() => {
     if (totalActionsQueued > prevTotalQueued.current) {
       document.body.classList.add('is-saving');
-      
+
       const timer1 = setTimeout(() => {
         document.body.classList.remove('is-saving');
         document.body.classList.add('is-saved');
@@ -126,7 +126,14 @@ export default function App() {
   const [newIncomeCategory, setNewIncomeCategory] = useState('');
   const [newKml, setNewKml] = useState('');
   const [showManualPin, setShowManualPin] = useState(false);
-  const [manualCoords, setManualCoords] = useState('6.7319579, -10.8700117');
+  const [manualCoords, setManualCoords] = useState('');
+
+  useEffect(() => {
+    if (mapCenter && mapCenter.length >= 2) {
+      setManualCoords(`${mapCenter[0]}, ${mapCenter[1]}`);
+    }
+  }, [mapCenter]);
+
   const [localGpsThreshold, setLocalGpsThreshold] = useState(gpsDistanceThreshold ? gpsDistanceThreshold.toString() : '10');
   const [activeLedgerCategoryView, setActiveLedgerCategoryView] = useState('expense');
   const [showGpsPrompt, setShowGpsPrompt] = useState(false);
@@ -206,7 +213,7 @@ export default function App() {
 
   const lastSavedLocRef = React.useRef(null);
   const wakeLockRef = React.useRef(null);
-  
+
   useEffect(() => {
     lastSavedLocRef.current = lastGpsLocation;
   }, [lastGpsLocation]);
@@ -235,7 +242,7 @@ export default function App() {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (wakeLockRef.current !== null) {
-        wakeLockRef.current.release().catch(() => {});
+        wakeLockRef.current.release().catch(() => { });
         wakeLockRef.current = null;
       }
     };
@@ -270,7 +277,7 @@ export default function App() {
       } else {
         const distance = getDistanceFromLatLonInM(latitude, longitude, Number(lastLoc.lat), Number(lastLoc.lng));
         const timeSinceLastSave = Date.now() - new Date(lastLoc.timestamp).getTime();
-        
+
         // Save if moved beyond threshold OR if 2 minutes have passed (stationary heartbeat)
         if (distance >= Number(gpsDistanceThreshold) || timeSinceLastSave >= 2 * 60 * 1000) {
           shouldSave = true;
@@ -482,19 +489,19 @@ export default function App() {
                 <Users size={18} />
               </button>
             )}
-            
+
             <div style={{ width: '1px', background: '#ccc', margin: '4px 2px', flexShrink: 0 }}></div>
 
             <button onClick={() => setActiveTab('sync')} className={`btn toolbar-btn ${activeTab === 'sync' ? 'btn-primary' : ''}`} style={{ background: activeTab === 'sync' ? (!backendAvailable ? '#d32f2f' : '#1565c0') : 'transparent', color: activeTab === 'sync' ? 'white' : (!backendAvailable ? '#d32f2f' : '#1565c0'), borderColor: 'transparent' }} title="System Sync">
               <RefreshCw size={18} className={isSyncing ? "spin" : ""} />
             </button>
-            
+
             {currentUser?.role === 'Admin' && (
               <button onClick={() => handleModuleSwitch('admin')} className={`btn toolbar-btn ${activeModule === 'admin' && activeTab !== 'sync' ? 'btn-primary' : ''}`} style={{ background: activeModule === 'admin' && activeTab !== 'sync' ? '#c62828' : 'transparent', color: activeModule === 'admin' && activeTab !== 'sync' ? 'white' : '#c62828', borderColor: 'transparent' }} title="Admin Module">
                 <Settings size={18} />
               </button>
             )}
-            
+
             <button onClick={() => { if (window.confirm('Sign out and lock offline data?')) dispatch(logout()) }} className="btn toolbar-btn" style={{ background: 'transparent', color: 'var(--color-primary-dark)', borderColor: 'transparent' }} title="Logout">
               <LogOut size={18} />
             </button>
@@ -609,13 +616,13 @@ export default function App() {
               <h3>App Identity</h3>
               <div style={{ marginBottom: 16 }}>
                 <label>App Name</label>
-                <input 
-                  type="text" 
-                  value={appName || ''} 
-                  onChange={(e) => { dispatch(setAppName(e.target.value)); dispatch(saveSettings()); }} 
-                  placeholder={packageJson.name} 
-                  className="btn" 
-                  style={{ display: 'block', marginTop: 8, padding: '8px', minWidth: '200px', cursor: 'text', background: '#fff', border: '1px solid #ccc' }} 
+                <input
+                  type="text"
+                  value={appName || ''}
+                  onChange={(e) => { dispatch(setAppName(e.target.value)); dispatch(saveSettings()); }}
+                  placeholder={packageJson.name}
+                  className="btn"
+                  style={{ display: 'block', marginTop: 8, padding: '8px', minWidth: '200px', cursor: 'text', background: '#fff', border: '1px solid #ccc' }}
                 />
                 <span style={{ fontSize: '0.8rem', color: '#666', display: 'block', marginTop: 4 }}>Custom name for your application instance. Leave blank to use default.</span>
               </div>
@@ -645,7 +652,7 @@ export default function App() {
                 ))}
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', background: '#f5f7fa', padding: '10px', borderRadius: '4px', border: '1px solid var(--color-border)' }}>
-                <input type="text" value={newUnit} onChange={e => setNewUnit(e.target.value)} placeholder="e.g. pallets, boxes" style={{ flex: 1, minWidth: '200px', padding: '8px' }} onKeyDown={e => { if(e.key === 'Enter') handleAddUnit(e) }} />
+                <input type="text" value={newUnit} onChange={e => setNewUnit(e.target.value)} placeholder="e.g. pallets, boxes" style={{ flex: 1, minWidth: '200px', padding: '8px' }} onKeyDown={e => { if (e.key === 'Enter') handleAddUnit(e) }} />
                 <button onClick={handleAddUnit} className="btn btn-primary" style={{ whiteSpace: 'nowrap' }}>Add Unit</button>
               </div>
             </div>
@@ -660,7 +667,7 @@ export default function App() {
                 ))}
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', background: '#f5f7fa', padding: '10px', borderRadius: '4px', border: '1px solid var(--color-border)' }}>
-                <input type="text" value={newJobTitle} onChange={e => setNewJobTitle(e.target.value)} placeholder="e.g. Foreman, Agronomist" style={{ flex: 1, minWidth: '200px', padding: '8px' }} onKeyDown={e => { if(e.key === 'Enter') handleAddJobTitle(e) }} />
+                <input type="text" value={newJobTitle} onChange={e => setNewJobTitle(e.target.value)} placeholder="e.g. Foreman, Agronomist" style={{ flex: 1, minWidth: '200px', padding: '8px' }} onKeyDown={e => { if (e.key === 'Enter') handleAddJobTitle(e) }} />
                 <button onClick={handleAddJobTitle} className="btn btn-primary" style={{ whiteSpace: 'nowrap' }}>Add Job Title</button>
               </div>
             </div>
@@ -675,7 +682,7 @@ export default function App() {
                 ))}
               </div>
               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', background: '#f5f7fa', padding: '10px', borderRadius: '4px', border: '1px solid var(--color-border)' }}>
-                <input type="text" value={newAnimalType} onChange={e => setNewAnimalType(e.target.value)} placeholder="e.g. Cattle, Poultry" style={{ flex: 1, minWidth: '200px', padding: '8px' }} onKeyDown={e => { if(e.key === 'Enter') handleAddAnimalType(e) }} />
+                <input type="text" value={newAnimalType} onChange={e => setNewAnimalType(e.target.value)} placeholder="e.g. Cattle, Poultry" style={{ flex: 1, minWidth: '200px', padding: '8px' }} onKeyDown={e => { if (e.key === 'Enter') handleAddAnimalType(e) }} />
                 <button onClick={handleAddAnimalType} className="btn btn-primary" style={{ whiteSpace: 'nowrap' }}>Add Animal Type</button>
               </div>
             </div>
@@ -699,7 +706,7 @@ export default function App() {
                       ))}
                     </div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', background: '#f5f7fa', padding: '10px', borderRadius: '4px', border: '1px solid var(--color-border)' }}>
-                      <input type="text" value={newExpenseCategory} onChange={e => setNewExpenseCategory(e.target.value)} placeholder="e.g. Utilities, Insurance" style={{ flex: 1, minWidth: '150px', padding: '8px' }} onKeyDown={e => { if(e.key === 'Enter') handleAddExpenseCategory(e) }} />
+                      <input type="text" value={newExpenseCategory} onChange={e => setNewExpenseCategory(e.target.value)} placeholder="e.g. Utilities, Insurance" style={{ flex: 1, minWidth: '150px', padding: '8px' }} onKeyDown={e => { if (e.key === 'Enter') handleAddExpenseCategory(e) }} />
                       <button onClick={handleAddExpenseCategory} className="btn" style={{ background: '#c62828', color: 'white', whiteSpace: 'nowrap' }}>Add</button>
                     </div>
                   </div>
@@ -714,7 +721,7 @@ export default function App() {
                       ))}
                     </div>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', background: '#f5f7fa', padding: '10px', borderRadius: '4px', border: '1px solid var(--color-border)' }}>
-                      <input type="text" value={newIncomeCategory} onChange={e => setNewIncomeCategory(e.target.value)} placeholder="e.g. Contract Work" style={{ flex: 1, minWidth: '150px', padding: '8px' }} onKeyDown={e => { if(e.key === 'Enter') handleAddIncomeCategory(e) }} />
+                      <input type="text" value={newIncomeCategory} onChange={e => setNewIncomeCategory(e.target.value)} placeholder="e.g. Contract Work" style={{ flex: 1, minWidth: '150px', padding: '8px' }} onKeyDown={e => { if (e.key === 'Enter') handleAddIncomeCategory(e) }} />
                       <button onClick={handleAddIncomeCategory} className="btn" style={{ background: '#2e7d32', color: 'white', whiteSpace: 'nowrap' }}>Add</button>
                     </div>
                   </div>
@@ -754,9 +761,10 @@ export default function App() {
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '10px' }}>
                   <label style={{ margin: 0, fontWeight: 'bold' }}>Location of Farm</label>
                   <span style={{ fontSize: '0.85rem', color: '#666' }}>Search below, Drop Pin by clicking on map, Zoom to save default zoom, or enter exact coordinates.</span>
-                  
+
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', background: '#f5f7fa', padding: '10px', borderRadius: '4px', border: '1px solid var(--color-border)' }}>
                     <input
+                      id="farm-location-input"
                       type="text"
                       value={manualCoords}
                       onChange={(e) => setManualCoords(e.target.value)}
@@ -787,8 +795,8 @@ export default function App() {
                   </div>
                 </div>
                 <div style={{ marginTop: 8 }}>
-                  <MapSearchBox 
-                    onLocationFound={(loc) => { dispatch(setMapCenter(loc)); dispatch(saveSettings()); }} 
+                  <MapSearchBox
+                    onLocationFound={(loc) => { dispatch(setMapCenter(loc)); dispatch(saveSettings()); }}
                   />
                 </div>
                 <div style={{ height: '300px', width: '100%', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--color-border)', marginTop: 8 }}>
@@ -806,7 +814,7 @@ export default function App() {
         )}
 
       </main>
-      
+
       {/* Global Save Indicator Toast */}
       <div className={`global-save-toast ${showSaveToast ? 'visible' : ''}`}>
         <Check size={20} /> Record Saved Successfully

@@ -309,7 +309,7 @@ function AssignmentTabComponent() {
             </button>
             {editingId && (
               <button type="button" className="btn" onClick={resetForm}>
-                Cancel Route
+                Cancel
               </button>
             )}
           </div>
