@@ -26,6 +26,7 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
   const mapZoom = useSelector(state => state.settings?.mapZoom) || 13;
   const [geoJsonLayers, setGeoJsonLayers] = useState([]);
   const [errors, setErrors] = useState([]);
+  const [flyTarget, setFlyTarget] = useState(null);
 
   // Fetch and parse KML URLs into GeoJSON
   useEffect(() => {
@@ -82,7 +83,7 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
           type="button"
           onClick={() => {
             if (mapCenter) {
-              dispatch(setMapCenter([mapCenter[0], mapCenter[1], Date.now()]));
+              setFlyTarget([mapCenter[0], mapCenter[1], Date.now()]);
             }
           }}
           className="btn map-toolbar-btn"
@@ -91,7 +92,7 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
         >
           <Tractor size={16} />
         </button>
-        <CurrentLocationButton onLocationFound={(loc) => dispatch(setMapCenter([loc[0], loc[1], Date.now()]))} />
+        <CurrentLocationButton onLocationFound={(loc) => setFlyTarget(loc)} />
       </div>
       <div style={{ flex: 1, minHeight: 0, width: '100%', borderRadius: 'var(--radius-md)', overflow: 'hidden', zIndex: 0, position: 'relative' }}>
       
@@ -173,7 +174,7 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
             </Polygon>
           );
         })}
-        <MapFlyTo center={mapCenter} />
+        <MapFlyTo center={flyTarget || mapCenter} />
       </MapContainer>
     </div>
     </div>
