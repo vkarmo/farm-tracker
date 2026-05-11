@@ -52,7 +52,7 @@ export const CurrentLocationButton = ({ onLocationFound, disabled }) => {
   );
 };
 
-export const MapSearchBox = ({ onLocationFound, onNavigate, onClear }) => {
+export const MapSearchBox = ({ onLocationFound, onClear }) => {
   const [query, setQuery] = useState('');
   const [gpsOn, setGpsOn] = useState(false);
   const [gpsInterval, setGpsInterval] = useState(30);
@@ -62,12 +62,10 @@ export const MapSearchBox = ({ onLocationFound, onNavigate, onClear }) => {
   const lastPointRef = useRef(null);
   const wakeLockRef = useRef(null);
   const onLocationFoundRef = useRef(onLocationFound);
-  const onNavigateRef = useRef(onNavigate);
 
   useEffect(() => {
     onLocationFoundRef.current = onLocationFound;
-    onNavigateRef.current = onNavigate;
-  }, [onLocationFound, onNavigate]);
+  }, [onLocationFound]);
 
   useEffect(() => {
     const requestWakeLock = async () => {
@@ -219,12 +217,8 @@ export const MapSearchBox = ({ onLocationFound, onNavigate, onClear }) => {
           <button
             type="button"
             onClick={() => {
-              if (globalMapCenter) {
-                if (onNavigateRef.current) {
-                  onNavigateRef.current([globalMapCenter[0], globalMapCenter[1], Date.now()]);
-                } else if (onLocationFoundRef.current) {
-                  onLocationFoundRef.current([globalMapCenter[0], globalMapCenter[1], Date.now()]);
-                }
+              if (globalMapCenter && onLocationFoundRef.current) {
+                onLocationFoundRef.current([globalMapCenter[0], globalMapCenter[1], Date.now()]);
               }
             }}
             disabled={gpsOn}
@@ -284,7 +278,11 @@ export const MapFlyTo = ({ center }) => {
   const map = useMap();
   useEffect(() => {
     if (center && center.length >= 2) {
-      map.flyTo([center[0], center[1]], 16);
+      const lat = parseFloat(center[0]);
+      const lng = parseFloat(center[1]);
+      if (!isNaN(lat) && !isNaN(lng)) {
+        map.flyTo([lat, lng], 16);
+      }
     }
   }, [center, map]);
   return null;

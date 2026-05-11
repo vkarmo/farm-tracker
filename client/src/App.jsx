@@ -289,7 +289,6 @@ export default function App() {
 
         dispatch(addLocation(newLoc));
         dispatch(queueAction({ type: 'gps/addLocation', payload: newLoc, meta: { id: Date.now() } }));
-        dispatch(setMapCenter([latitude, longitude]));
         lastSavedLocRef.current = newLoc; // Immediately update local ref to prevent rapid-fire saves
       }
     };
@@ -753,7 +752,7 @@ export default function App() {
               </div>
               <div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '10px' }}>
-                  <label style={{ margin: 0, fontWeight: 'bold' }}>Default Map Tab Location</label>
+                  <label style={{ margin: 0, fontWeight: 'bold' }}>Location of Farm</label>
                   <span style={{ fontSize: '0.85rem', color: '#666' }}>Search below, Drop Pin by clicking on map, Zoom to save default zoom, or enter exact coordinates.</span>
                   
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', background: '#f5f7fa', padding: '10px', borderRadius: '4px', border: '1px solid var(--color-border)' }}>
@@ -790,7 +789,6 @@ export default function App() {
                 <div style={{ marginTop: 8 }}>
                   <MapSearchBox 
                     onLocationFound={(loc) => { dispatch(setMapCenter(loc)); dispatch(saveSettings()); }} 
-                    onNavigate={(loc) => dispatch(setMapCenter(loc))}
                   />
                 </div>
                 <div style={{ height: '300px', width: '100%', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--color-border)', marginTop: 8 }}>
