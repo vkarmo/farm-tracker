@@ -34,7 +34,7 @@ export const CurrentLocationButton = ({ onLocationFound, disabled }) => {
         setIsLocating(false);
         alert('Could not find your location. Please check browser permissions.');
       },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 }
     );
   };
 
