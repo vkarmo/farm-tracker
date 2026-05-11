@@ -770,7 +770,7 @@ export default function App() {
                           const lat = parseFloat(parts[0].trim());
                           const lng = parseFloat(parts[1].trim());
                           if (!isNaN(lat) && !isNaN(lng)) {
-                            dispatch(setMapCenter([lat, lng]));
+                            dispatch(setMapCenter([lat, lng, Date.now()]));
                             dispatch(saveSettings());
                           } else {
                             alert("Invalid coordinates. Please enter Lat, Lng.");
@@ -795,6 +795,7 @@ export default function App() {
                   <MapContainer center={mapCenter} zoom={mapZoom} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
                     <TileLayer attribution="Google Maps" url="http://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}&s=Ga" />
                     <MapFlyTo center={mapCenter} />
+                    <Marker position={mapCenter} />
                     <LocationMarker />
                   </MapContainer>
                 </div>
