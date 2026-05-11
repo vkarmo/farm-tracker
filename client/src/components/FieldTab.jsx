@@ -150,6 +150,7 @@ export default function FieldTab() {
             <div style={{ marginBottom: '10px' }}>
               <MapSearchBox 
                 onLocationFound={handleLocationFound} 
+                onNavigate={(loc) => setSearchResultCenter(loc)}
                 onClear={polygonPositions.length > 0 ? () => setPolygonPositions([]) : null}
               />
             </div>
@@ -167,7 +168,6 @@ export default function FieldTab() {
                 {latLngs.length > 0 && (
                   <Polygon positions={latLngs} pathOptions={{ color: polygonColor }} />
                 )}
-                <FarmLocationButton />
               </MapContainer>
             </div>
           </div>

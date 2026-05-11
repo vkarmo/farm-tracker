@@ -52,7 +52,7 @@ export const CurrentLocationButton = ({ onLocationFound, disabled }) => {
   );
 };
 
-export const MapSearchBox = ({ onLocationFound, onClear }) => {
+export const MapSearchBox = ({ onLocationFound, onNavigate, onClear }) => {
   const [query, setQuery] = useState('');
   const [gpsOn, setGpsOn] = useState(false);
   const [gpsInterval, setGpsInterval] = useState(30);
@@ -62,6 +62,12 @@ export const MapSearchBox = ({ onLocationFound, onClear }) => {
   const lastPointRef = useRef(null);
   const wakeLockRef = useRef(null);
   const onLocationFoundRef = useRef(onLocationFound);
+  const onNavigateRef = useRef(onNavigate);
+
+  useEffect(() => {
+    onLocationFoundRef.current = onLocationFound;
+    onNavigateRef.current = onNavigate;
+  }, [onLocationFound, onNavigate]);
 
   useEffect(() => {
     const requestWakeLock = async () => {
@@ -213,9 +219,12 @@ export const MapSearchBox = ({ onLocationFound, onClear }) => {
           <button
             type="button"
             onClick={() => {
-              // Trigger flyto indirectly via the onLocationFound callback
-              if (onLocationFoundRef.current && globalMapCenter) {
-                onLocationFoundRef.current([globalMapCenter[0], globalMapCenter[1], Date.now()]);
+              if (globalMapCenter) {
+                if (onNavigateRef.current) {
+                  onNavigateRef.current([globalMapCenter[0], globalMapCenter[1], Date.now()]);
+                } else if (onLocationFoundRef.current) {
+                  onLocationFoundRef.current([globalMapCenter[0], globalMapCenter[1], Date.now()]);
+                }
               }
             }}
             disabled={gpsOn}
@@ -274,8 +283,8 @@ export const MapSearchBox = ({ onLocationFound, onClear }) => {
 export const MapFlyTo = ({ center }) => {
   const map = useMap();
   useEffect(() => {
-    if (center && center.length === 2) {
-      map.flyTo(center, 16);
+    if (center && center.length >= 2) {
+      map.flyTo([center[0], center[1]], 16);
     }
   }, [center, map]);
   return null;

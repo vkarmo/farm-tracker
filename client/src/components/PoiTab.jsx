@@ -146,14 +146,13 @@ export default function PoiTab() {
 
       <div style={{ marginBottom: '20px', height: '400px', width: '100%', borderRadius: '8px', overflow: 'hidden', border: '2px solid var(--color-border)', position: 'relative' }}>
         <div style={{ position: 'absolute', top: 10, left: 50, right: 10, zIndex: 1000, background: 'rgba(255,255,255,0.9)', padding: '5px', borderRadius: '4px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
-           <MapSearchBox onLocationFound={handleLocationFound} onClear={clearDrawing} />
+           <MapSearchBox onLocationFound={handleLocationFound} onNavigate={(loc) => setSearchResultCenter(loc)} onClear={clearDrawing} />
         </div>
 
         <MapContainer center={mapCenter} zoom={mapZoom} style={{ height: '100%', width: '100%' }} zoomControl={false}>
           <TileLayer url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}" attribution="Tiles &copy; Esri" />
           
           <MapFlyTo center={searchResultCenter} />
-          <FarmLocationButton />
           <ClickToDrawComponent points={points} setPoints={setPoints} setCenter={setSearchResultCenter} />
 
           {latLngs.length > 2 && <Polygon positions={latLngs} pathOptions={{ color: polygonColor, weight: 2, fillOpacity: 0.3 }} />}

@@ -117,6 +117,7 @@ export default function EquipmentTab() {
             <div style={{ marginBottom: '10px' }}>
               <MapSearchBox 
                 onLocationFound={handleLocationFound}
+                onNavigate={(loc) => setSearchResultCenter(loc)}
                 onClear={gpsLocation ? () => setGpsLocation(null) : null}
               />
             </div>
@@ -131,7 +132,6 @@ export default function EquipmentTab() {
                 {gpsLocation && (
                   <Marker position={gpsLocation} />
                 )}
-                <FarmLocationButton />
               </MapContainer>
             </div>
           </div>

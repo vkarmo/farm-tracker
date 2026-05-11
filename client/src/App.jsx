@@ -788,14 +788,16 @@ export default function App() {
                   </div>
                 </div>
                 <div style={{ marginTop: 8 }}>
-                  <MapSearchBox onLocationFound={(loc) => { dispatch(setMapCenter(loc)); dispatch(saveSettings()); }} />
+                  <MapSearchBox 
+                    onLocationFound={(loc) => { dispatch(setMapCenter(loc)); dispatch(saveSettings()); }} 
+                    onNavigate={(loc) => dispatch(setMapCenter(loc))}
+                  />
                 </div>
                 <div style={{ height: '300px', width: '100%', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--color-border)', marginTop: 8 }}>
                   <MapContainer center={mapCenter} zoom={mapZoom} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
                     <TileLayer attribution="Google Maps" url="http://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}&s=Ga" />
                     <MapFlyTo center={mapCenter} />
                     <LocationMarker />
-                    <FarmLocationButton />
                   </MapContainer>
                 </div>
               </div>
