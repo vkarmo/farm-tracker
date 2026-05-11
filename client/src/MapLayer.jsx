@@ -4,6 +4,7 @@ import { MapContainer, TileLayer, Polygon, Popup, GeoJSON, Marker } from 'react-
 import { setMapCenter } from './store/settingsSlice';
 import { kml } from '@tmcw/togeojson';
 import L from 'leaflet';
+import { FarmLocationButton, MapFlyTo } from './components/MapSearchBox';
 
 // Create a custom orange icon for Hard Assets
 const orangeIcon = new L.Icon({
@@ -159,6 +160,8 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
             </Polygon>
           );
         })}
+        <MapFlyTo center={mapCenter} />
+        <FarmLocationButton />
       </MapContainer>
     </div>
     </div>

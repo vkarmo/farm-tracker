@@ -5,7 +5,7 @@ import { updateField, addField, deleteField } from '../store/fieldsSlice';
 import { CheckCircle2, Target, X, PlusCircle } from 'lucide-react';
 import CrudTable from './CrudTable';
 import { MapContainer, TileLayer, Polygon, Marker, useMapEvents } from 'react-leaflet';
-import { MapSearchBox, MapFlyTo } from './MapSearchBox';
+import { MapSearchBox, MapFlyTo, FarmLocationButton } from './MapSearchBox';
 import area from '@turf/area';
 import { polygon } from '@turf/helpers';
 import 'leaflet/dist/leaflet.css';
@@ -167,6 +167,7 @@ export default function FieldTab() {
                 {latLngs.length > 0 && (
                   <Polygon positions={latLngs} pathOptions={{ color: polygonColor }} />
                 )}
+                <FarmLocationButton />
               </MapContainer>
             </div>
           </div>

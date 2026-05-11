@@ -5,7 +5,7 @@ import { addEquipment, updateEquipment, deleteEquipment } from '../store/assetsS
 import { CheckCircle2, X } from 'lucide-react';
 import CrudTable from './CrudTable';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
-import { MapSearchBox, MapFlyTo } from './MapSearchBox';
+import { MapSearchBox, MapFlyTo, FarmLocationButton } from './MapSearchBox';
 import 'leaflet/dist/leaflet.css';
 
 
@@ -131,6 +131,7 @@ export default function EquipmentTab() {
                 {gpsLocation && (
                   <Marker position={gpsLocation} />
                 )}
+                <FarmLocationButton />
               </MapContainer>
             </div>
           </div>

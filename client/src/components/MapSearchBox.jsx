@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useMap } from 'react-leaflet';
-import { LocateFixed, Map as MapIcon, Eraser, Plus } from 'lucide-react';
+import { useSelector } from 'react-redux';
+import { LocateFixed, Map as MapIcon, Eraser, Plus, Tractor } from 'lucide-react';
 
 const calculateDistance = (lat1, lon1, lat2, lon2) => {
   const R = 6371e3; // metres
@@ -261,4 +262,30 @@ export const MapFlyTo = ({ center }) => {
     }
   }, [center, map]);
   return null;
+};
+
+export const FarmLocationButton = () => {
+  const map = useMap();
+  const mapCenter = useSelector(state => state.settings?.mapCenter);
+  const mapZoom = useSelector(state => state.settings?.mapZoom) || 15;
+
+  return (
+    <div className="leaflet-top leaflet-right" style={{ pointerEvents: 'auto', marginTop: '10px', marginRight: '10px' }}>
+      <div className="leaflet-control leaflet-bar">
+        <a 
+          href="#"
+          onClick={(e) => {
+            e.preventDefault();
+            if (mapCenter) {
+              map.flyTo(mapCenter, mapZoom);
+            }
+          }}
+          title="Return to Farm Base"
+          style={{ width: '34px', height: '34px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'white', color: '#2e7d32', cursor: 'pointer', textDecoration: 'none' }}
+        >
+          <Tractor size={18} />
+        </a>
+      </div>
+    </div>
+  );
 };
