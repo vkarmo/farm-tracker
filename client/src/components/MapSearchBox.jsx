@@ -52,15 +52,22 @@ export const CurrentLocationButton = ({ onLocationFound, disabled }) => {
   );
 };
 
-export const MapSearchBox = ({ onLocationFound, onClear }) => {
+export const MapSearchBox = ({ onLocationFound, onNavigate, onClear }) => {
   const [query, setQuery] = useState('');
   const [gpsOn, setGpsOn] = useState(false);
   const [gpsInterval, setGpsInterval] = useState(30);
   const [isLocating, setIsLocating] = useState(false);
+  const globalMapCenter = useSelector(state => state.settings?.mapCenter);
   const watchIdRef = useRef(null);
   const lastPointRef = useRef(null);
   const wakeLockRef = useRef(null);
   const onLocationFoundRef = useRef(onLocationFound);
+  const onNavigateRef = useRef(onNavigate);
+
+  useEffect(() => {
+    onLocationFoundRef.current = onLocationFound;
+    onNavigateRef.current = onNavigate;
+  }, [onLocationFound, onNavigate]);
 
   useEffect(() => {
     const requestWakeLock = async () => {
@@ -208,6 +215,25 @@ export const MapSearchBox = ({ onLocationFound, onClear }) => {
 
         <div style={{ display: 'flex', gap: '8px' }}>
           <CurrentLocationButton disabled={gpsOn} onLocationFound={(loc) => { if (onLocationFoundRef.current) onLocationFoundRef.current(loc); }} />
+          
+          <button
+            type="button"
+            onClick={() => {
+              if (globalMapCenter) {
+                if (onNavigateRef.current) {
+                  onNavigateRef.current([globalMapCenter[0], globalMapCenter[1], Date.now()]);
+                } else if (onLocationFoundRef.current) {
+                  onLocationFoundRef.current([globalMapCenter[0], globalMapCenter[1], Date.now()]);
+                }
+              }
+            }}
+            disabled={gpsOn}
+            className="btn map-toolbar-btn"
+            style={{ padding: '6px 12px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: gpsOn ? 0.5 : 1, cursor: gpsOn ? 'not-allowed' : 'pointer' }}
+            title="Go to Farm Base"
+          >
+            <Tractor size={16} />
+          </button>
           <button 
             type="button" 
             onClick={() => setGpsOn(!gpsOn)}
@@ -257,8 +283,8 @@ export const MapSearchBox = ({ onLocationFound, onClear }) => {
 export const MapFlyTo = ({ center }) => {
   const map = useMap();
   useEffect(() => {
-    if (center && center.length === 2) {
-      map.flyTo(center, 16);
+    if (center && center.length >= 2) {
+      map.flyTo([center[0], center[1]], 16);
     }
   }, [center, map]);
   return null;
@@ -270,10 +296,9 @@ export const FarmLocationButton = () => {
   const mapZoom = useSelector(state => state.settings?.mapZoom) || 15;
 
   return (
-    <div className="leaflet-top leaflet-right" style={{ pointerEvents: 'auto', marginTop: '10px', marginRight: '10px' }}>
-      <div className="leaflet-control leaflet-bar">
-        <a 
-          href="#"
+    <div className="leaflet-top leaflet-left" style={{ pointerEvents: 'auto', marginTop: '80px', marginLeft: '10px' }}>
+      <div className="leaflet-control leaflet-bar" style={{ border: 'none', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
+        <button 
           onClick={(e) => {
             e.preventDefault();
             if (mapCenter) {
@@ -281,10 +306,11 @@ export const FarmLocationButton = () => {
             }
           }}
           title="Return to Farm Base"
-          style={{ width: '34px', height: '34px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'white', color: '#2e7d32', cursor: 'pointer', textDecoration: 'none' }}
+          className="btn map-toolbar-btn"
+          style={{ width: '34px', height: '34px', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'white', color: '#333', cursor: 'pointer', padding: 0 }}
         >
-          <Tractor size={18} />
-        </a>
+          <Tractor size={16} />
+        </button>
       </div>
     </div>
   );

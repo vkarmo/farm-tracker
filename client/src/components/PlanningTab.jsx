@@ -66,8 +66,8 @@ export default function PlanningTab() {
   const assignments = useSelector(state => state.assignments?.list) || [];
 
   const [activeView, setActiveView] = useState('goals'); // goals or objectives
-  const [goalViewMode, setGoalViewMode] = useState('table'); // table or tree
-  const [objViewMode, setObjViewMode] = useState('table'); // table or tree
+  const [goalViewMode, setGoalViewMode] = useState('tree'); // table or tree
+  const [objViewMode, setObjViewMode] = useState('tree'); // table or tree
 
   const [goalData, setGoalData] = useState(INIT_GOAL);
   const [editingGoalId, setEditingGoalId] = useState(null);
@@ -185,7 +185,7 @@ export default function PlanningTab() {
             {assignments.filter(a => a.planningId === obj.id).map(ass => (
                <TreeNode 
                  key={ass.id} 
-                 label={`${ass.taskName} (Assigned: ${ass.workers || renderWorkerNames(ass.workerIds)})`} 
+                 label={`${ass.task} (Assigned: ${ass.workers || renderWorkerNames(ass.workerIds)})`} 
                  icon={List} 
                  isSelected={selectedNodeId === ass.id}
                  onSelect={() => setSelectedNodeId(ass.id)}
@@ -216,7 +216,7 @@ export default function PlanningTab() {
         {assignments.filter(a => a.planningId === obj.id).map(ass => (
            <TreeNode 
              key={ass.id} 
-             label={`${ass.taskName} (Assigned: ${ass.workers || renderWorkerNames(ass.workerIds)})`} 
+             label={`${ass.task} (Assigned: ${ass.workers || renderWorkerNames(ass.workerIds)})`} 
              icon={List} 
              isSelected={selectedNodeId === ass.id}
              onSelect={() => setSelectedNodeId(ass.id)}

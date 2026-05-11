@@ -212,6 +212,7 @@ export default function SoilTestingTab() {
               <div style={{ marginBottom: '10px' }}>
                 <MapSearchBox 
                   onLocationFound={handleLocationFound}
+                  onNavigate={(loc) => setSearchResultCenter(loc)}
                   onClear={markerPosition ? () => { setMarkerPosition(null); setNewResultLat(''); setNewResultLng(''); setNewResultElevation(''); } : null}
                 />
               </div>
@@ -224,7 +225,6 @@ export default function SoilTestingTab() {
                   />
                   <ClickToPlaceMarker position={markerPosition} setPosition={setMarkerPosition} setCenter={setSearchResultCenter} />
                   {markerPosition && <Marker position={markerPosition} />}
-                  <FarmLocationButton />
                 </MapContainer>
               </div>
             </div>

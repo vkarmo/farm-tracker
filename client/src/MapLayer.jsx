@@ -4,7 +4,8 @@ import { MapContainer, TileLayer, Polygon, Popup, GeoJSON, Marker } from 'react-
 import { setMapCenter } from './store/settingsSlice';
 import { kml } from '@tmcw/togeojson';
 import L from 'leaflet';
-import { FarmLocationButton, MapFlyTo } from './components/MapSearchBox';
+import { CurrentLocationButton, MapFlyTo } from './components/MapSearchBox';
+import { Tractor } from 'lucide-react';
 
 // Create a custom orange icon for Hard Assets
 const orangeIcon = new L.Icon({
@@ -16,7 +17,6 @@ const orangeIcon = new L.Icon({
   shadowSize: [41, 41]
 });
 import 'leaflet/dist/leaflet.css';
-import { CurrentLocationButton } from './components/MapSearchBox';
 
 const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
   const dispatch = useDispatch();
@@ -77,8 +77,21 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '10px' }}>
-        <CurrentLocationButton onLocationFound={(loc) => dispatch(setMapCenter([loc[0], loc[1]]))} />
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '10px', gap: '8px' }}>
+        <button
+          type="button"
+          onClick={() => {
+            if (mapCenter) {
+              dispatch(setMapCenter([mapCenter[0], mapCenter[1], Date.now()]));
+            }
+          }}
+          className="btn map-toolbar-btn"
+          style={{ padding: '6px 12px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+          title="Go to Farm Base"
+        >
+          <Tractor size={16} />
+        </button>
+        <CurrentLocationButton onLocationFound={(loc) => dispatch(setMapCenter([loc[0], loc[1], Date.now()]))} />
       </div>
       <div style={{ flex: 1, minHeight: 0, width: '100%', borderRadius: 'var(--radius-md)', overflow: 'hidden', zIndex: 0, position: 'relative' }}>
       
@@ -161,7 +174,6 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
           );
         })}
         <MapFlyTo center={mapCenter} />
-        <FarmLocationButton />
       </MapContainer>
     </div>
     </div>

@@ -5,7 +5,8 @@ import { Trash2, Map, TrendingUp, List } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
 import CrudTable from './CrudTable';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
-import { FarmLocationButton } from './MapSearchBox';
+import { MapFlyTo } from './MapSearchBox';
+import { Tractor } from 'lucide-react';
 import L from 'leaflet';
 
 
@@ -36,6 +37,7 @@ export default function GpsLogTab() {
 
   const [selectedUser, setSelectedUser] = useState('All');
   const [activeView, setActiveView] = useState('list');
+  const [flyTarget, setFlyTarget] = useState(null);
 
   // Authorization check
   if (currentUser?.role !== 'Admin') {
@@ -111,8 +113,23 @@ export default function GpsLogTab() {
 
       {activeView === 'map' && (
         <div style={{ border: '1px solid var(--color-border)', borderRadius: '8px', overflow: 'hidden', marginTop: 20 }}>
-          <div style={{ padding: '15px', background: '#f5f7fa', fontWeight: 600, color: 'var(--color-primary-dark)', display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Map size={18} /> Map Visualization
+          <div style={{ padding: '15px', background: '#f5f7fa', fontWeight: 600, color: 'var(--color-primary-dark)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Map size={18} /> Map Visualization
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                if (mapCenter) {
+                  setFlyTarget([mapCenter[0], mapCenter[1], Date.now()]);
+                }
+              }}
+              className="btn map-toolbar-btn"
+              style={{ padding: '6px 12px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', background: 'white' }}
+              title="Go to Farm Base"
+            >
+              <Tractor size={16} /> Go to Farm
+            </button>
           </div>
           <div style={{ height: '500px', width: '100%' }}>
             <MapContainer
@@ -120,6 +137,7 @@ export default function GpsLogTab() {
               zoom={mapZoom}
               style={{ height: '100%', width: '100%' }}
             >
+              <MapFlyTo center={flyTarget} />
               <TileLayer attribution="Google Maps" url="http://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}&s=Ga" />
               {filteredLogs.map(log => {
                 const d = new Date(log.timestamp);
@@ -135,7 +153,6 @@ export default function GpsLogTab() {
                   </Marker>
                 );
               })}
-              <FarmLocationButton />
             </MapContainer>
           </div>
         </div>
