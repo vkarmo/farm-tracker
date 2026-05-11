@@ -5,6 +5,7 @@ import { Trash2, Map, TrendingUp, List } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
 import CrudTable from './CrudTable';
 import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import { FarmLocationButton } from './MapSearchBox';
 import L from 'leaflet';
 
 
@@ -134,6 +135,7 @@ export default function GpsLogTab() {
                   </Marker>
                 );
               })}
+              <FarmLocationButton />
             </MapContainer>
           </div>
         </div>

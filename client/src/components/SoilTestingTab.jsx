@@ -4,7 +4,7 @@ import { saveSoilTest, removeSoilTest } from '../store/soilTestsSlice';
 import { queueAction } from '../store/syncSlice';
 import CrudTable from './CrudTable';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
-import { MapSearchBox, MapFlyTo } from './MapSearchBox';
+import { MapSearchBox, MapFlyTo, FarmLocationButton } from './MapSearchBox';
 import { MapPin, X, FlaskConical } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 
@@ -224,6 +224,7 @@ export default function SoilTestingTab() {
                   />
                   <ClickToPlaceMarker position={markerPosition} setPosition={setMarkerPosition} setCenter={setSearchResultCenter} />
                   {markerPosition && <Marker position={markerPosition} />}
+                  <FarmLocationButton />
                 </MapContainer>
               </div>
             </div>

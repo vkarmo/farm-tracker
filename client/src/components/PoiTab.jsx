@@ -5,7 +5,7 @@ import { addPoi, deletePoi } from '../store/poiSlice';
 import { MapPin, X } from 'lucide-react';
 import CrudTable from './CrudTable';
 import { MapContainer, TileLayer, Polygon, Polyline, Marker, useMapEvents } from 'react-leaflet';
-import { MapSearchBox, MapFlyTo } from './MapSearchBox';
+import { MapSearchBox, MapFlyTo, FarmLocationButton } from './MapSearchBox';
 import area from '@turf/area';
 import length from '@turf/length';
 import { polygon, lineString } from '@turf/helpers';
@@ -153,6 +153,7 @@ export default function PoiTab() {
           <TileLayer url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}" attribution="Tiles &copy; Esri" />
           
           <MapFlyTo center={searchResultCenter} />
+          <FarmLocationButton />
           <ClickToDrawComponent points={points} setPoints={setPoints} setCenter={setSearchResultCenter} />
 
           {latLngs.length > 2 && <Polygon positions={latLngs} pathOptions={{ color: polygonColor, weight: 2, fillOpacity: 0.3 }} />}

@@ -6,7 +6,7 @@ import { transplantCrop } from '../store/assetsSlice';
 import { Box, MoveRight, X } from 'lucide-react';
 import CrudTable from './CrudTable';
 import { MapContainer, TileLayer, Polygon, Marker, useMapEvents } from 'react-leaflet';
-import { MapSearchBox, MapFlyTo } from './MapSearchBox';
+import { MapSearchBox, MapFlyTo, FarmLocationButton } from './MapSearchBox';
 import area from '@turf/area';
 import { polygon } from '@turf/helpers';
 import 'leaflet/dist/leaflet.css';
@@ -148,6 +148,7 @@ export default function NurseryTab() {
                 {latLngs.length > 0 && (
                   <Polygon positions={latLngs} pathOptions={{ color: polygonColor }} />
                 )}
+                <FarmLocationButton />
               </MapContainer>
             </div>
           </div>
