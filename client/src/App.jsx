@@ -10,7 +10,7 @@ import 'leaflet/dist/leaflet.css';
 import { CACHE_NAME } from './config/cache';
 import packageJson from '../package.json';
 
-import { Wifi, WifiOff, CloudOff, Target, Tractor, Leaf, DollarSign, MapPin, Rabbit, Settings, BarChart, Layers, Box, ClipboardList, ShieldAlert, Calculator, CalendarClock, AlertTriangle, LogOut, Database, Users, Contact, Briefcase, RefreshCw, Home, Baby, FlaskConical, Map, Check } from 'lucide-react';
+import { Wifi, WifiOff, CloudOff, Target, Tractor, Leaf, DollarSign, MapPin, Rabbit, Settings, BarChart, Layers, Box, ClipboardList, ShieldAlert, Calculator, CalendarClock, AlertTriangle, LogOut, Database, Users, Contact, Briefcase, RefreshCw, Home, Baby, FlaskConical, Map, Check, ChevronDown, ChevronRight } from 'lucide-react';
 import NmkLogo from './components/NmkLogo';
 import MapLayer from './MapLayer';
 
@@ -86,6 +86,7 @@ export default function App() {
   const totalActionsQueued = useSelector(state => state.sync.totalActionsQueued || 0);
 
   const [activeTab, setActiveTab] = useState('dashboard');
+  const [openSettings, setOpenSettings] = useState({ general: true, dropdown: false, map: false, units: false, jobs: false, animals: false, ledgers: false });
   const [showSaveToast, setShowSaveToast] = useState(false);
 
   const prevTotalQueued = useRef(totalActionsQueued);
@@ -612,202 +613,295 @@ export default function App() {
         {activeTab === 'settings' && currentUser?.role === 'Admin' && (
           <div className="card">
             <h2>App Settings</h2>
-            <div style={{ marginBottom: 20 }}>
-              <h3>App Identity</h3>
-              <div style={{ marginBottom: 16 }}>
-                <label>App Name</label>
-                <input
-                  type="text"
-                  value={appName || ''}
-                  onChange={(e) => { dispatch(setAppName(e.target.value)); dispatch(saveSettings()); }}
-                  placeholder={packageJson.name}
-                  className="btn"
-                  style={{ display: 'block', marginTop: 8, padding: '8px', minWidth: '200px', cursor: 'text', background: '#fff', border: '1px solid #ccc' }}
-                />
-                <span style={{ fontSize: '0.8rem', color: '#666', display: 'block', marginTop: 4 }}>Custom name for your application instance. Leave blank to use default.</span>
-              </div>
-            </div>
-            <hr style={{ border: 'none', borderTop: '1px solid var(--color-border)', margin: '20px 0' }} />
-            <div style={{ marginBottom: 20 }}>
-              <h3>Company Logo</h3>
-              <div style={{ marginBottom: 16 }}>
-                {logo && (
-                  <div style={{ marginBottom: 10 }}>
-                    <img src={logo} alt="Current Logo" style={{ maxHeight: '60px', borderRadius: '4px', border: '1px solid var(--color-border)' }} />
-                    <br />
-                    <button onClick={() => { dispatch(setLogo(null)); dispatch(saveSettings()); }} className="btn" style={{ marginTop: 8, background: '#ffebee', color: '#c62828', padding: '4px 8px' }}>Remove Logo</button>
+            
+            {/* General Card */}
+            <div style={{ marginBottom: 15, border: '1px solid var(--color-border)', borderRadius: '8px', overflow: 'hidden' }}>
+              <button 
+                onClick={() => setOpenSettings({...openSettings, general: !openSettings.general})}
+                style={{ width: '100%', padding: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f5f7fa', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '1.1rem', color: '#333' }}
+              >
+                General Settings
+                {openSettings.general ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
+              </button>
+              
+              {openSettings.general && (
+                <div style={{ padding: '20px', background: 'white' }}>
+                  <div style={{ marginBottom: 20 }}>
+                    <h3 style={{ marginTop: 0 }}>App Identity</h3>
+                    <div style={{ marginBottom: 16 }}>
+                      <label>App Name</label>
+                      <input
+                        type="text"
+                        value={appName || ''}
+                        onChange={(e) => { dispatch(setAppName(e.target.value)); dispatch(saveSettings()); }}
+                        placeholder={packageJson.name}
+                        className="btn"
+                        style={{ display: 'block', marginTop: 8, padding: '8px', minWidth: '200px', cursor: 'text', background: '#fff', border: '1px solid #ccc' }}
+                      />
+                      <span style={{ fontSize: '0.8rem', color: '#666', display: 'block', marginTop: 4 }}>Custom name for your application instance. Leave blank to use default.</span>
+                    </div>
                   </div>
-                )}
-                <input type="file" accept="image/*" onChange={handleLogoUpload} className="btn" style={{ padding: '6px' }} />
-              </div>
-            </div>
-            <hr style={{ border: 'none', borderTop: '1px solid var(--color-border)', margin: '20px 0' }} />
-            <div style={{ marginBottom: 20 }}>
-              <h3>Measurement Unites</h3>
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: 16 }}>
-                {units.map(u => (
-                  <span key={u} className="status-indicator" style={{ background: '#e0e0e0', color: '#333' }}>
-                    {u} <button onClick={() => { dispatch(removeUnit(u)); dispatch(saveSettings()); }} style={{ border: 'none', background: 'transparent', cursor: 'pointer', marginLeft: 4 }}>x</button>
-                  </span>
-                ))}
-              </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', background: '#f5f7fa', padding: '10px', borderRadius: '4px', border: '1px solid var(--color-border)' }}>
-                <input type="text" value={newUnit} onChange={e => setNewUnit(e.target.value)} placeholder="e.g. pallets, boxes" style={{ flex: 1, minWidth: '200px', padding: '8px' }} onKeyDown={e => { if (e.key === 'Enter') handleAddUnit(e) }} />
-                <button onClick={handleAddUnit} className="btn btn-primary" style={{ whiteSpace: 'nowrap' }}>Add Unit</button>
-              </div>
-            </div>
-            <hr style={{ border: 'none', borderTop: '1px solid var(--color-border)', margin: '20px 0' }} />
-            <div style={{ marginBottom: 20 }}>
-              <h3>Job Titles</h3>
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: 16 }}>
-                {jobTitles.map(t => (
-                  <span key={t} className="status-indicator" style={{ background: '#e3f2fd', color: '#1565c0' }}>
-                    {t} <button onClick={() => { dispatch(removeJobTitle(t)); dispatch(saveSettings()); }} style={{ border: 'none', background: 'transparent', cursor: 'pointer', marginLeft: 4, color: '#1565c0' }}>x</button>
-                  </span>
-                ))}
-              </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', background: '#f5f7fa', padding: '10px', borderRadius: '4px', border: '1px solid var(--color-border)' }}>
-                <input type="text" value={newJobTitle} onChange={e => setNewJobTitle(e.target.value)} placeholder="e.g. Foreman, Agronomist" style={{ flex: 1, minWidth: '200px', padding: '8px' }} onKeyDown={e => { if (e.key === 'Enter') handleAddJobTitle(e) }} />
-                <button onClick={handleAddJobTitle} className="btn btn-primary" style={{ whiteSpace: 'nowrap' }}>Add Job Title</button>
-              </div>
-            </div>
-            <hr style={{ border: 'none', borderTop: '1px solid var(--color-border)', margin: '20px 0' }} />
-            <div style={{ marginBottom: 20 }}>
-              <h3>Livestock Animal Types</h3>
-              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: 16 }}>
-                {animalTypes.map(t => (
-                  <span key={t} className="status-indicator" style={{ background: '#f3e5f5', color: '#6a1b9a' }}>
-                    {t} <button onClick={() => { dispatch(removeAnimalType(t)); dispatch(saveSettings()); }} style={{ border: 'none', background: 'transparent', cursor: 'pointer', marginLeft: 4, color: '#6a1b9a' }}>x</button>
-                  </span>
-                ))}
-              </div>
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', background: '#f5f7fa', padding: '10px', borderRadius: '4px', border: '1px solid var(--color-border)' }}>
-                <input type="text" value={newAnimalType} onChange={e => setNewAnimalType(e.target.value)} placeholder="e.g. Cattle, Poultry" style={{ flex: 1, minWidth: '200px', padding: '8px' }} onKeyDown={e => { if (e.key === 'Enter') handleAddAnimalType(e) }} />
-                <button onClick={handleAddAnimalType} className="btn btn-primary" style={{ whiteSpace: 'nowrap' }}>Add Animal Type</button>
-              </div>
-            </div>
-            <hr style={{ border: 'none', borderTop: '1px solid var(--color-border)', margin: '20px 0' }} />
-            <div style={{ marginBottom: 20 }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15, flexWrap: 'wrap', gap: 10 }}>
-                <h3 style={{ margin: 0 }}>Ledger Categories</h3>
-                <div style={{ display: 'flex', gap: '10px' }}>
-                  <button onClick={() => setActiveLedgerCategoryView('expense')} className={`btn ${activeLedgerCategoryView === 'expense' ? 'btn-primary' : ''}`} style={{ background: activeLedgerCategoryView !== 'expense' ? '#f0f0f0' : '#c62828', color: activeLedgerCategoryView !== 'expense' ? '#333' : 'white', borderColor: activeLedgerCategoryView === 'expense' ? '#b71c1c' : '' }}>Expenses</button>
-                  <button onClick={() => setActiveLedgerCategoryView('income')} className={`btn ${activeLedgerCategoryView === 'income' ? 'btn-primary' : ''}`} style={{ background: activeLedgerCategoryView !== 'income' ? '#f0f0f0' : '#2e7d32', color: activeLedgerCategoryView !== 'income' ? '#333' : 'white', borderColor: activeLedgerCategoryView === 'income' ? '#1b5e20' : '' }}>Income</button>
+                  <hr style={{ border: 'none', borderTop: '1px solid var(--color-border)', margin: '20px 0' }} />
+                  <div style={{ marginBottom: 20 }}>
+                    <h3 style={{ marginTop: 0 }}>Company Logo</h3>
+                    <div style={{ marginBottom: 16 }}>
+                      {logo && (
+                        <div style={{ marginBottom: 10 }}>
+                          <img src={logo} alt="Current Logo" style={{ maxHeight: '60px', borderRadius: '4px', border: '1px solid var(--color-border)' }} />
+                          <br />
+                          <button onClick={() => { dispatch(setLogo(null)); dispatch(saveSettings()); }} className="btn" style={{ marginTop: 8, background: '#ffebee', color: '#c62828', padding: '4px 8px' }}>Remove Logo</button>
+                        </div>
+                      )}
+                      <input type="file" accept="image/*" onChange={handleLogoUpload} className="btn" style={{ padding: '6px' }} />
+                    </div>
+                  </div>
                 </div>
-              </div>
-              <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
-                {activeLedgerCategoryView === 'expense' && (
-                  <div style={{ flex: '1 1 300px' }}>
-                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: 16 }}>
-                      {expenseCategories.map(c => (
-                        <span key={c} className="status-indicator" style={{ background: '#ffebee', color: '#c62828' }}>
-                          {c} <button onClick={() => { dispatch(removeExpenseCategory(c)); dispatch(saveSettings()); }} style={{ border: 'none', background: 'transparent', cursor: 'pointer', marginLeft: 4, color: '#c62828' }}>x</button>
-                        </span>
-                      ))}
-                    </div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', background: '#f5f7fa', padding: '10px', borderRadius: '4px', border: '1px solid var(--color-border)' }}>
-                      <input type="text" value={newExpenseCategory} onChange={e => setNewExpenseCategory(e.target.value)} placeholder="e.g. Utilities, Insurance" style={{ flex: 1, minWidth: '150px', padding: '8px' }} onKeyDown={e => { if (e.key === 'Enter') handleAddExpenseCategory(e) }} />
-                      <button onClick={handleAddExpenseCategory} className="btn" style={{ background: '#c62828', color: 'white', whiteSpace: 'nowrap' }}>Add</button>
-                    </div>
-                  </div>
-                )}
-                {activeLedgerCategoryView === 'income' && (
-                  <div style={{ flex: '1 1 300px' }}>
-                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: 16 }}>
-                      {incomeCategories.map(c => (
-                        <span key={c} className="status-indicator" style={{ background: '#e8f5e9', color: '#2e7d32' }}>
-                          {c} <button onClick={() => { dispatch(removeIncomeCategory(c)); dispatch(saveSettings()); }} style={{ border: 'none', background: 'transparent', cursor: 'pointer', marginLeft: 4, color: '#2e7d32' }}>x</button>
-                        </span>
-                      ))}
-                    </div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', background: '#f5f7fa', padding: '10px', borderRadius: '4px', border: '1px solid var(--color-border)' }}>
-                      <input type="text" value={newIncomeCategory} onChange={e => setNewIncomeCategory(e.target.value)} placeholder="e.g. Contract Work" style={{ flex: 1, minWidth: '150px', padding: '8px' }} onKeyDown={e => { if (e.key === 'Enter') handleAddIncomeCategory(e) }} />
-                      <button onClick={handleAddIncomeCategory} className="btn" style={{ background: '#2e7d32', color: 'white', whiteSpace: 'nowrap' }}>Add</button>
-                    </div>
-                  </div>
-                )}
-              </div>
+              )}
             </div>
-            <hr style={{ border: 'none', borderTop: '1px solid var(--color-border)', margin: '20px 0' }} />
-            <div style={{ marginBottom: 20 }}>
-              <h3>Map Preferences</h3>
-              <div style={{ marginBottom: 16 }}>
-                <label>GPS Distance Threshold (meters)</label>
-                <input
-                  type="number"
-                  min="0.0001"
-                  step="0.0001"
-                  value={localGpsThreshold}
-                  onChange={(e) => setLocalGpsThreshold(e.target.value)}
-                  onBlur={(e) => {
-                    const num = Number(e.target.value);
-                    if (!isNaN(num) && num > 0) {
-                      dispatch(setGpsDistanceThreshold(num));
-                      dispatch(saveSettings());
-                    } else {
-                      setLocalGpsThreshold(gpsDistanceThreshold.toString());
-                    }
-                  }}
-                  className="btn"
-                  style={{ display: 'block', marginTop: 8, padding: '8px', minWidth: '200px', cursor: 'text' }}
-                />
-                <span style={{ fontSize: '0.8rem', color: '#666' }}>Controls how many meters you must move before a new breadcrumb is captured.</span>
-              </div>
-              <div style={{ marginBottom: 16 }}>
-                <label>Polygon Draw Color</label>
-                <input type="color" value={polygonColor} onChange={(e) => { dispatch(setPolygonColor(e.target.value)); dispatch(saveSettings()); }} style={{ display: 'block', marginTop: 8 }} />
-              </div>
-              <div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '10px' }}>
-                  <label style={{ margin: 0, fontWeight: 'bold' }}>Location of Farm</label>
-                  <span style={{ fontSize: '0.85rem', color: '#666' }}>Search below, Drop Pin by clicking on map, Zoom to save default zoom, or enter exact coordinates.</span>
 
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', background: '#f5f7fa', padding: '10px', borderRadius: '4px', border: '1px solid var(--color-border)' }}>
-                    <input
-                      id="farm-location-input"
-                      type="text"
-                      value={manualCoords}
-                      onChange={(e) => setManualCoords(e.target.value)}
-                      placeholder="e.g. 6.7319579, -10.8700117"
-                      style={{ flex: 1, minWidth: '200px', padding: '8px' }}
-                    />
-                    <button
-                      onClick={() => {
-                        const parts = manualCoords.split(',');
-                        if (parts.length === 2) {
-                          const lat = parseFloat(parts[0].trim());
-                          const lng = parseFloat(parts[1].trim());
-                          if (!isNaN(lat) && !isNaN(lng)) {
-                            dispatch(setMapCenter([lat, lng, Date.now()]));
+            {/* Dropdown Data Card */}
+            <div style={{ marginBottom: 15, border: '1px solid var(--color-border)', borderRadius: '8px', overflow: 'hidden' }}>
+              <button 
+                onClick={() => setOpenSettings({...openSettings, dropdown: !openSettings.dropdown})}
+                style={{ width: '100%', padding: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f5f7fa', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '1.1rem', color: '#333' }}
+              >
+                Dropdown Data
+                {openSettings.dropdown ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
+              </button>
+              
+              {openSettings.dropdown && (
+                <div style={{ padding: '20px', background: 'white', display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                  
+                  {/* Units Toggle */}
+                  <div style={{ border: '1px solid #eee', borderRadius: '6px', overflow: 'hidden' }}>
+                    <button 
+                      onClick={() => setOpenSettings({...openSettings, units: !openSettings.units})}
+                      style={{ width: '100%', padding: '10px 15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fafafa', border: 'none', cursor: 'pointer', fontWeight: 600 }}
+                    >
+                      Measurement Units
+                      {openSettings.units ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                    </button>
+                    {openSettings.units && (
+                      <div style={{ padding: '15px' }}>
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: 16 }}>
+                          {units.map(u => (
+                            <span key={u} className="status-indicator" style={{ background: '#e0e0e0', color: '#333' }}>
+                              {u} <button onClick={() => { dispatch(removeUnit(u)); dispatch(saveSettings()); }} style={{ border: 'none', background: 'transparent', cursor: 'pointer', marginLeft: 4 }}>x</button>
+                            </span>
+                          ))}
+                        </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', background: '#f5f7fa', padding: '10px', borderRadius: '4px', border: '1px solid var(--color-border)' }}>
+                          <input type="text" value={newUnit} onChange={e => setNewUnit(e.target.value)} placeholder="e.g. pallets, boxes" style={{ flex: 1, minWidth: '200px', padding: '8px' }} onKeyDown={e => { if (e.key === 'Enter') handleAddUnit(e) }} />
+                          <button onClick={handleAddUnit} className="btn btn-primary" style={{ whiteSpace: 'nowrap' }}>Add Unit</button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Job Titles Toggle */}
+                  <div style={{ border: '1px solid #eee', borderRadius: '6px', overflow: 'hidden' }}>
+                    <button 
+                      onClick={() => setOpenSettings({...openSettings, jobs: !openSettings.jobs})}
+                      style={{ width: '100%', padding: '10px 15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fafafa', border: 'none', cursor: 'pointer', fontWeight: 600 }}
+                    >
+                      Job Titles
+                      {openSettings.jobs ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                    </button>
+                    {openSettings.jobs && (
+                      <div style={{ padding: '15px' }}>
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: 16 }}>
+                          {jobTitles.map(t => (
+                            <span key={t} className="status-indicator" style={{ background: '#e3f2fd', color: '#1565c0' }}>
+                              {t} <button onClick={() => { dispatch(removeJobTitle(t)); dispatch(saveSettings()); }} style={{ border: 'none', background: 'transparent', cursor: 'pointer', marginLeft: 4, color: '#1565c0' }}>x</button>
+                            </span>
+                          ))}
+                        </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', background: '#f5f7fa', padding: '10px', borderRadius: '4px', border: '1px solid var(--color-border)' }}>
+                          <input type="text" value={newJobTitle} onChange={e => setNewJobTitle(e.target.value)} placeholder="e.g. Foreman, Agronomist" style={{ flex: 1, minWidth: '200px', padding: '8px' }} onKeyDown={e => { if (e.key === 'Enter') handleAddJobTitle(e) }} />
+                          <button onClick={handleAddJobTitle} className="btn btn-primary" style={{ whiteSpace: 'nowrap' }}>Add Job Title</button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Animal Types Toggle */}
+                  <div style={{ border: '1px solid #eee', borderRadius: '6px', overflow: 'hidden' }}>
+                    <button 
+                      onClick={() => setOpenSettings({...openSettings, animals: !openSettings.animals})}
+                      style={{ width: '100%', padding: '10px 15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fafafa', border: 'none', cursor: 'pointer', fontWeight: 600 }}
+                    >
+                      Livestock Animal Types
+                      {openSettings.animals ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                    </button>
+                    {openSettings.animals && (
+                      <div style={{ padding: '15px' }}>
+                        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: 16 }}>
+                          {animalTypes.map(t => (
+                            <span key={t} className="status-indicator" style={{ background: '#f3e5f5', color: '#6a1b9a' }}>
+                              {t} <button onClick={() => { dispatch(removeAnimalType(t)); dispatch(saveSettings()); }} style={{ border: 'none', background: 'transparent', cursor: 'pointer', marginLeft: 4, color: '#6a1b9a' }}>x</button>
+                            </span>
+                          ))}
+                        </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', background: '#f5f7fa', padding: '10px', borderRadius: '4px', border: '1px solid var(--color-border)' }}>
+                          <input type="text" value={newAnimalType} onChange={e => setNewAnimalType(e.target.value)} placeholder="e.g. Cattle, Poultry" style={{ flex: 1, minWidth: '200px', padding: '8px' }} onKeyDown={e => { if (e.key === 'Enter') handleAddAnimalType(e) }} />
+                          <button onClick={handleAddAnimalType} className="btn btn-primary" style={{ whiteSpace: 'nowrap' }}>Add Animal Type</button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Ledger Categories Toggle */}
+                  <div style={{ border: '1px solid #eee', borderRadius: '6px', overflow: 'hidden' }}>
+                    <button 
+                      onClick={() => setOpenSettings({...openSettings, ledgers: !openSettings.ledgers})}
+                      style={{ width: '100%', padding: '10px 15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fafafa', border: 'none', cursor: 'pointer', fontWeight: 600 }}
+                    >
+                      Ledger Categories
+                      {openSettings.ledgers ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                    </button>
+                    {openSettings.ledgers && (
+                      <div style={{ padding: '15px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 15, flexWrap: 'wrap', gap: 10 }}>
+                          <div style={{ display: 'flex', gap: '10px' }}>
+                            <button onClick={() => setActiveLedgerCategoryView('expense')} className={`btn ${activeLedgerCategoryView === 'expense' ? 'btn-primary' : ''}`} style={{ background: activeLedgerCategoryView !== 'expense' ? '#f0f0f0' : '#c62828', color: activeLedgerCategoryView !== 'expense' ? '#333' : 'white', borderColor: activeLedgerCategoryView === 'expense' ? '#b71c1c' : '' }}>Expenses</button>
+                            <button onClick={() => setActiveLedgerCategoryView('income')} className={`btn ${activeLedgerCategoryView === 'income' ? 'btn-primary' : ''}`} style={{ background: activeLedgerCategoryView !== 'income' ? '#f0f0f0' : '#2e7d32', color: activeLedgerCategoryView !== 'income' ? '#333' : 'white', borderColor: activeLedgerCategoryView === 'income' ? '#1b5e20' : '' }}>Income</button>
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
+                          {activeLedgerCategoryView === 'expense' && (
+                            <div style={{ flex: '1 1 300px' }}>
+                              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: 16 }}>
+                                {expenseCategories.map(c => (
+                                  <span key={c} className="status-indicator" style={{ background: '#ffebee', color: '#c62828' }}>
+                                    {c} <button onClick={() => { dispatch(removeExpenseCategory(c)); dispatch(saveSettings()); }} style={{ border: 'none', background: 'transparent', cursor: 'pointer', marginLeft: 4, color: '#c62828' }}>x</button>
+                                  </span>
+                                ))}
+                              </div>
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', background: '#f5f7fa', padding: '10px', borderRadius: '4px', border: '1px solid var(--color-border)' }}>
+                                <input type="text" value={newExpenseCategory} onChange={e => setNewExpenseCategory(e.target.value)} placeholder="e.g. Utilities, Insurance" style={{ flex: 1, minWidth: '150px', padding: '8px' }} onKeyDown={e => { if (e.key === 'Enter') handleAddExpenseCategory(e) }} />
+                                <button onClick={handleAddExpenseCategory} className="btn" style={{ background: '#c62828', color: 'white', whiteSpace: 'nowrap' }}>Add</button>
+                              </div>
+                            </div>
+                          )}
+                          {activeLedgerCategoryView === 'income' && (
+                            <div style={{ flex: '1 1 300px' }}>
+                              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: 16 }}>
+                                {incomeCategories.map(c => (
+                                  <span key={c} className="status-indicator" style={{ background: '#e8f5e9', color: '#2e7d32' }}>
+                                    {c} <button onClick={() => { dispatch(removeIncomeCategory(c)); dispatch(saveSettings()); }} style={{ border: 'none', background: 'transparent', cursor: 'pointer', marginLeft: 4, color: '#2e7d32' }}>x</button>
+                                  </span>
+                                ))}
+                              </div>
+                              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', background: '#f5f7fa', padding: '10px', borderRadius: '4px', border: '1px solid var(--color-border)' }}>
+                                <input type="text" value={newIncomeCategory} onChange={e => setNewIncomeCategory(e.target.value)} placeholder="e.g. Contract Work" style={{ flex: 1, minWidth: '150px', padding: '8px' }} onKeyDown={e => { if (e.key === 'Enter') handleAddIncomeCategory(e) }} />
+                                <button onClick={handleAddIncomeCategory} className="btn" style={{ background: '#2e7d32', color: 'white', whiteSpace: 'nowrap' }}>Add</button>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                </div>
+              )}
+            </div>
+
+            {/* Map Settings Card */}
+            <div style={{ marginBottom: 15, border: '1px solid var(--color-border)', borderRadius: '8px', overflow: 'hidden' }}>
+              <button 
+                onClick={() => setOpenSettings({...openSettings, map: !openSettings.map})}
+                style={{ width: '100%', padding: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f5f7fa', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '1.1rem', color: '#333' }}
+              >
+                Map Settings
+                {openSettings.map ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
+              </button>
+              
+              {openSettings.map && (
+                <div style={{ padding: '20px', background: 'white' }}>
+                  <div style={{ marginBottom: 20 }}>
+                    <h3 style={{ marginTop: 0 }}>Map Preferences</h3>
+                    <div style={{ marginBottom: 16 }}>
+                      <label>GPS Distance Threshold (meters)</label>
+                      <input
+                        type="number"
+                        min="0.0001"
+                        step="0.0001"
+                        value={localGpsThreshold}
+                        onChange={(e) => setLocalGpsThreshold(e.target.value)}
+                        onBlur={(e) => {
+                          const num = Number(e.target.value);
+                          if (!isNaN(num) && num > 0) {
+                            dispatch(setGpsDistanceThreshold(num));
                             dispatch(saveSettings());
                           } else {
-                            alert("Invalid coordinates. Please enter Lat, Lng.");
+                            setLocalGpsThreshold(gpsDistanceThreshold.toString());
                           }
-                        } else {
-                          alert("Invalid format. Please enter as: Latitude, Longitude");
-                        }
-                      }}
-                      className="btn btn-primary"
-                      style={{ whiteSpace: 'nowrap' }}
-                    >
-                      Drop Pin
-                    </button>
+                        }}
+                        className="btn"
+                        style={{ display: 'block', marginTop: 8, padding: '8px', minWidth: '200px', cursor: 'text' }}
+                      />
+                      <span style={{ fontSize: '0.8rem', color: '#666' }}>Controls how many meters you must move before a new breadcrumb is captured.</span>
+                    </div>
+                    <div style={{ marginBottom: 16 }}>
+                      <label>Polygon Draw Color</label>
+                      <input type="color" value={polygonColor} onChange={(e) => { dispatch(setPolygonColor(e.target.value)); dispatch(saveSettings()); }} style={{ display: 'block', marginTop: 8 }} />
+                    </div>
+                  </div>
+                  <hr style={{ border: 'none', borderTop: '1px solid var(--color-border)', margin: '20px 0' }} />
+                  <div style={{ marginBottom: 20 }}>
+                    <h3 style={{ marginTop: 0 }}>Location of Farm</h3>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '10px' }}>
+                      <span style={{ fontSize: '0.85rem', color: '#666' }}>Search below, Drop Pin by clicking on map, Zoom to save default zoom, or enter exact coordinates.</span>
+
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', background: '#f5f7fa', padding: '10px', borderRadius: '4px', border: '1px solid var(--color-border)' }}>
+                        <input
+                          id="farm-location-input"
+                          type="text"
+                          value={manualCoords}
+                          onChange={(e) => setManualCoords(e.target.value)}
+                          placeholder="e.g. 6.7319579, -10.8700117"
+                          style={{ flex: 1, minWidth: '200px', padding: '8px' }}
+                        />
+                        <button
+                          onClick={() => {
+                            const parts = manualCoords.split(',');
+                            if (parts.length === 2) {
+                              const lat = parseFloat(parts[0].trim());
+                              const lng = parseFloat(parts[1].trim());
+                              if (!isNaN(lat) && !isNaN(lng)) {
+                                dispatch(setMapCenter([lat, lng, Date.now()]));
+                                dispatch(saveSettings());
+                              } else {
+                                alert("Invalid coordinates. Please enter Lat, Lng.");
+                              }
+                            } else {
+                              alert("Invalid format. Please enter as: Latitude, Longitude");
+                            }
+                          }}
+                          className="btn btn-primary"
+                          style={{ whiteSpace: 'nowrap' }}
+                        >
+                          Drop Pin
+                        </button>
+                      </div>
+                    </div>
+                    <div style={{ marginTop: 8 }}>
+                      <MapSearchBox
+                        onLocationFound={(loc) => { dispatch(setMapCenter(loc)); dispatch(saveSettings()); }}
+                      />
+                    </div>
+                    <div style={{ height: '300px', width: '100%', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--color-border)', marginTop: 8 }}>
+                      <MapContainer center={mapCenter} zoom={mapZoom} maxZoom={24} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
+                        <TileLayer attribution="Google Maps" url="http://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}&s=Ga" maxZoom={24} maxNativeZoom={20} />
+                        <MapFlyTo center={mapCenter} />
+                        <Marker position={mapCenter} />
+                        <LocationMarker />
+                      </MapContainer>
+                    </div>
                   </div>
                 </div>
-                <div style={{ marginTop: 8 }}>
-                  <MapSearchBox
-                    onLocationFound={(loc) => { dispatch(setMapCenter(loc)); dispatch(saveSettings()); }}
-                  />
-                </div>
-                <div style={{ height: '300px', width: '100%', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--color-border)', marginTop: 8 }}>
-                  <MapContainer center={mapCenter} zoom={mapZoom} maxZoom={24} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
-                    <TileLayer attribution="Google Maps" url="http://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}&s=Ga" maxZoom={24} maxNativeZoom={20} />
-                    <MapFlyTo center={mapCenter} />
-                    <Marker position={mapCenter} />
-                    <LocationMarker />
-                  </MapContainer>
-                </div>
-              </div>
+              )}
             </div>
 
           </div>
