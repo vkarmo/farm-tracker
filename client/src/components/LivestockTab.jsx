@@ -180,7 +180,7 @@ export default function LivestockTab() {
 
       <hr style={{border: 'none', borderTop: '1px solid var(--color-border)', margin: '30px 0'}} />
 
-      <CrudTable 
+      <CrudTable activeRowId={editingId} 
         data={livestock} 
         columns={columns} 
         onEdit={(row) => { setLiveData({ ...INIT_LIVE, ...row }); setEditingId(row.id); }} 

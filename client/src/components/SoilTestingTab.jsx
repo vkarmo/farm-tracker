@@ -5,7 +5,7 @@ import { queueAction } from '../store/syncSlice';
 import CrudTable from './CrudTable';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import { MapSearchBox, MapFlyTo, FarmLocationButton } from './MapSearchBox';
-import { MapPin, X, FlaskConical } from 'lucide-react';
+import { MapPin, X, FlaskConical, Copy } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 
 
@@ -222,11 +222,28 @@ export default function SoilTestingTab() {
             
             <div className="form-group form-grid-full" style={{ marginBottom: '15px' }}>
               <label style={{ fontSize: '0.85rem' }}>Capture GPS Location for this result (Optional)</label>
-              <div style={{ marginBottom: '10px' }}>
-                <MapSearchBox 
-                  onLocationFound={handleLocationFound}
-                  onClear={markerPosition ? () => { setMarkerPosition(null); setNewResultLat(''); setNewResultLng(''); setNewResultElevation(''); } : null}
-                />
+              <div style={{ marginBottom: '10px', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                <div style={{ flex: 1 }}>
+                  <MapSearchBox 
+                    onLocationFound={handleLocationFound}
+                    onClear={markerPosition ? () => { setMarkerPosition(null); setNewResultLat(''); setNewResultLng(''); setNewResultElevation(''); } : null}
+                  />
+                </div>
+                {markerPosition && (
+                  <button 
+                    type="button" 
+                    className="btn map-toolbar-btn" 
+                    style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                    onClick={() => {
+                      const str = `[(${markerPosition[0]}, ${markerPosition[1]})]`;
+                      navigator.clipboard.writeText(str);
+                      window.dispatchEvent(new CustomEvent('show-toast', { detail: 'Coordinates copied to clipboard!' }));
+                    }} 
+                    title="Copy Coordinates to Clipboard"
+                  >
+                    <Copy size={16} />
+                  </button>
+                )}
               </div>
               <div style={{ height: '200px', width: '100%', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--color-border)' }}>
                 <MapContainer key={editingId || 'new_test'} center={markerPosition || mapCenter} zoom={markerPosition ? 16 : mapZoom} maxZoom={24} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
@@ -289,7 +306,7 @@ export default function SoilTestingTab() {
       </div>
 
       <div className="card">
-        <CrudTable 
+        <CrudTable activeRowId={editingId} 
           data={soilTests}
           columns={columns}
           onEdit={handleEdit}

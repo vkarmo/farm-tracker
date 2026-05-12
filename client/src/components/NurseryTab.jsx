@@ -3,7 +3,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import { queueAction } from '../store/syncSlice';
 import { addBed, deleteBed } from '../store/nurserySlice';
 import { transplantCrop } from '../store/assetsSlice';
-import { Box, MoveRight, X } from 'lucide-react';
+import { Box, MoveRight, X, Copy } from 'lucide-react';
 import CrudTable from './CrudTable';
 import { MapContainer, TileLayer, Polygon, Marker, useMapEvents } from 'react-leaflet';
 import { MapSearchBox, MapFlyTo, FarmLocationButton } from './MapSearchBox';
@@ -127,11 +127,28 @@ export default function NurseryTab() {
         <div className="form-grid">
           <div className="form-group form-grid-full" style={{ marginBottom: '15px' }}>
             <label>Draw Nursery Location on Map (Click to add points to polygon)</label>
-            <div style={{ marginBottom: '10px' }}>
-              <MapSearchBox 
-                onLocationFound={handleLocationFound} 
-                onClear={polygonPositions.length > 0 ? () => setPolygonPositions([]) : null}
-              />
+            <div style={{ marginBottom: '10px', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+              <div style={{ flex: 1 }}>
+                <MapSearchBox 
+                  onLocationFound={handleLocationFound} 
+                  onClear={polygonPositions.length > 0 ? () => setPolygonPositions([]) : null}
+                />
+              </div>
+              {polygonPositions.length > 0 && (
+                <button 
+                  type="button" 
+                  className="btn map-toolbar-btn" 
+                  style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  onClick={() => {
+                    const str = '[' + polygonPositions.map(p => `(${p[0]}, ${p[1]})`).join(',\n') + ']';
+                    navigator.clipboard.writeText(str);
+                    window.dispatchEvent(new CustomEvent('show-toast', { detail: 'Coordinates copied to clipboard!' }));
+                  }} 
+                  title="Copy Coordinates to Clipboard"
+                >
+                  <Copy size={16} />
+                </button>
+              )}
             </div>
             <div style={{ height: '300px', width: '100%', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--color-border)' }}>
               <MapContainer key={editingId || 'new'} center={latLngs.length > 0 ? latLngs[0] : mapCenter} zoom={latLngs.length > 0 ? 17 : mapZoom} maxZoom={24} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
@@ -188,7 +205,7 @@ export default function NurseryTab() {
         <button type="submit" className="btn btn-primary" style={{marginTop: 10}}><Box size={16} style={{marginRight: 6}}/> {editingId ? 'Update Bed' : 'Save Nursery Bed Data'}</button>
       </form>
 
-      <CrudTable 
+      <CrudTable activeRowId={editingId} 
         data={nurseries} 
         columns={nurseryColumns} 
         onEdit={(row) => { 

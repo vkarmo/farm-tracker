@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { queueAction } from '../store/syncSlice';
 import { addPoi, deletePoi } from '../store/poiSlice';
-import { MapPin, X } from 'lucide-react';
+import { MapPin, X, Copy } from 'lucide-react';
 import CrudTable from './CrudTable';
 import { MapContainer, TileLayer, Polygon, Polyline, Marker, useMapEvents } from 'react-leaflet';
 import { MapSearchBox, MapFlyTo, FarmLocationButton } from './MapSearchBox';
@@ -143,8 +143,25 @@ export default function PoiTab() {
         )}
       </div>
 
-      <div style={{ marginBottom: '10px' }}>
-        <MapSearchBox onLocationFound={handleLocationFound} onClear={clearDrawing} />
+      <div style={{ marginBottom: '10px', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+        <div style={{ flex: 1 }}>
+          <MapSearchBox onLocationFound={handleLocationFound} onClear={clearDrawing} />
+        </div>
+        {points.length > 0 && (
+          <button 
+            type="button" 
+            className="btn map-toolbar-btn" 
+            style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            onClick={() => {
+              const str = '[' + points.map(p => `(${p[0]}, ${p[1]})`).join(',\n') + ']';
+              navigator.clipboard.writeText(str);
+              window.dispatchEvent(new CustomEvent('show-toast', { detail: 'Coordinates copied to clipboard!' }));
+            }} 
+            title="Copy Coordinates to Clipboard"
+          >
+            <Copy size={16} />
+          </button>
+        )}
       </div>
       <div style={{ marginBottom: '20px', height: '400px', width: '100%', borderRadius: '8px', overflow: 'hidden', border: '2px solid var(--color-border)', position: 'relative' }}>
 
@@ -222,7 +239,7 @@ export default function PoiTab() {
 
       <hr style={{ border: 'none', borderTop: '1px solid var(--color-border)', margin: '30px 0' }} />
 
-      <CrudTable 
+      <CrudTable activeRowId={editingId} 
         data={poiList} 
         columns={columns} 
         onEdit={handleEdit} 

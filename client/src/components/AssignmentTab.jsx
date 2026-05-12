@@ -318,7 +318,7 @@ function AssignmentTabComponent() {
 
       {activeAssignments.length > 0 && (
         <div className="card">
-          <CrudTable 
+          <CrudTable activeRowId={editingId} 
             data={activeAssignments}
             columns={activeColumns}
             onEdit={handleEdit}
@@ -332,7 +332,7 @@ function AssignmentTabComponent() {
 
       {completedAssignments.length > 0 && (
         <div className="card" style={{ opacity: 0.85 }}>
-          <CrudTable 
+          <CrudTable activeRowId={editingId} 
             data={completedAssignments}
             columns={completedColumns}
             onEdit={handleEdit}
