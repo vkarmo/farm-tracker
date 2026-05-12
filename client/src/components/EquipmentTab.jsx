@@ -75,8 +75,9 @@ export default function EquipmentTab() {
     
     if (row.gpsLocation) {
       try {
-        setGpsLocation(JSON.parse(row.gpsLocation));
-      } catch(e) { setGpsLocation(null); }
+        const loc = typeof row.gpsLocation === 'string' ? JSON.parse(row.gpsLocation) : row.gpsLocation;
+        setGpsLocation(Array.isArray(loc) ? loc : null);
+      } catch (e) { setGpsLocation(null); }
     } else {
       setGpsLocation(null);
     }

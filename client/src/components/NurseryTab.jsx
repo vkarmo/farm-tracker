@@ -170,7 +170,7 @@ export default function NurseryTab() {
                 {nurseries.filter(b => b.id !== editingId).map(bed => {
                   let positions = [];
                   if (bed.polygon) {
-                    try { positions = JSON.parse(bed.polygon); } catch (e) {}
+                    try { positions = typeof bed.polygon === 'string' ? JSON.parse(bed.polygon) : bed.polygon; } catch (e) {}
                   }
                   if (positions.length === 0) return null;
                   return (
@@ -212,11 +212,13 @@ export default function NurseryTab() {
           setBedData(row); 
           setEditingId(row.id); 
           if (row.polygon) {
-            try { 
-              const poly = JSON.parse(row.polygon);
-              setPolygonPositions(poly); 
-              if (poly.length > 0) setSearchResultCenter(poly[0]);
-            } catch(e) { setPolygonPositions([]); }
+            try {
+              const poly = typeof row.polygon === 'string' ? JSON.parse(row.polygon) : row.polygon;
+              setPolygonPositions(Array.isArray(poly) ? poly : []);
+              if (Array.isArray(poly) && poly.length > 0) setSearchResultCenter(poly[0]);
+            } catch(e) { 
+              setPolygonPositions([]); 
+            }
           } else { 
             setPolygonPositions([]); 
             setSearchResultCenter(mapCenter);

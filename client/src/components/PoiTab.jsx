@@ -100,11 +100,14 @@ export default function PoiTab() {
     setFormData(row);
     setEditingId(row.id);
     if (row.points) {
-      try {
-        setPoints(JSON.parse(row.points));
-      } catch (e) { setPoints([]); }
-    } else {
-      setPoints([]);
+      try { 
+        const pts = typeof row.points === 'string' ? JSON.parse(row.points) : row.points;
+        setPoints(Array.isArray(pts) ? pts : []); 
+        if (Array.isArray(pts) && pts.length > 0) setSearchResultCenter(pts[0]);
+      } catch(e) { setPoints([]); }
+    } else { 
+      setPoints([]); 
+      setSearchResultCenter(mapCenter);
     }
   };
 
@@ -180,7 +183,7 @@ export default function PoiTab() {
           {/* Render existing POIs for context */}
           {poiList.filter(p => p.id !== editingId).map(p => {
              let existingPts = [];
-             try { existingPts = JSON.parse(p.points); } catch(e){}
+             try { existingPts = typeof p.points === 'string' ? JSON.parse(p.points) : p.points; } catch(e){}
              if (!existingPts || existingPts.length === 0) return null;
              const mappedPts = existingPts.map(pt => [pt[0], pt[1]]);
              if (mappedPts.length > 2) {
