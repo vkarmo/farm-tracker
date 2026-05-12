@@ -88,6 +88,7 @@ export default function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [openSettings, setOpenSettings] = useState({ general: true, dropdown: false, map: false, units: false, jobs: false, animals: false, ledgers: false });
   const [showSaveToast, setShowSaveToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState("Record Saved Successfully");
 
   const prevTotalQueued = useRef(totalActionsQueued);
 
@@ -99,6 +100,7 @@ export default function App() {
       const timer1 = setTimeout(() => {
         document.body.classList.remove('is-saving');
         document.body.classList.add('is-saved');
+        setToastMessage("Record Saved Successfully");
         setShowSaveToast(true);
       }, 400); // Simulate network delay slightly
 
@@ -114,10 +116,18 @@ export default function App() {
         clearTimeout(timer2);
         document.body.classList.remove('is-saving', 'is-saved');
       };
-    } else {
-      prevTotalQueued.current = totalActionsQueued;
     }
   }, [totalActionsQueued]);
+
+  useEffect(() => {
+    const handleShowToast = (e) => {
+      setToastMessage(e.detail || "Action Completed");
+      setShowSaveToast(true);
+      setTimeout(() => setShowSaveToast(false), 2000);
+    };
+    window.addEventListener('show-toast', handleShowToast);
+    return () => window.removeEventListener('show-toast', handleShowToast);
+  }, []);
   const [activeModule, setActiveModule] = useState('overview');
   const [isUpdating, setIsUpdating] = useState(false);
   const [newUnit, setNewUnit] = useState('');
@@ -426,7 +436,7 @@ export default function App() {
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
           <RefreshCw size={54} className="spin" style={{ marginBottom: '24px', color: 'var(--color-accent)' }} />
           <h2 style={{ color: 'white', marginBottom: '8px' }}>Updating {displayAppName}...</h2>
-          <p style={{ color: '#ccc' }}>Downloading the latest version. The app will reload automatically.</p>
+          <p style={{ color: '#ccc', maxWidth: '280px', textAlign: 'center', wordWrap: 'break-word', whiteSpace: 'normal', lineHeight: '1.4' }}>Downloading the latest version. The app will reload automatically.</p>
         </div>
       )}
       <header>
@@ -911,7 +921,7 @@ export default function App() {
 
       {/* Global Save Indicator Toast */}
       <div className={`global-save-toast ${showSaveToast ? 'visible' : ''}`}>
-        <Check size={20} /> Record Saved Successfully
+        <Check size={20} /> {toastMessage}
       </div>
     </>
   );

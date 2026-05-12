@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { queueAction } from '../store/syncSlice';
 import { addEquipment, updateEquipment, deleteEquipment } from '../store/assetsSlice';
-import { CheckCircle2, X } from 'lucide-react';
+import { CheckCircle2, X, Copy } from 'lucide-react';
 import CrudTable from './CrudTable';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
 import { MapSearchBox, MapFlyTo, FarmLocationButton } from './MapSearchBox';
@@ -116,11 +116,28 @@ export default function EquipmentTab() {
         <div className="form-grid">
           <div className="form-group form-grid-full" style={{ marginBottom: '15px' }}>
             <label>Drop Hardware Map Pin (Click to mark location)</label>
-            <div style={{ marginBottom: '10px' }}>
-              <MapSearchBox 
-                onLocationFound={handleLocationFound}
-                onClear={gpsLocation ? () => setGpsLocation(null) : null}
-              />
+            <div style={{ marginBottom: '10px', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+              <div style={{ flex: 1 }}>
+                <MapSearchBox 
+                  onLocationFound={handleLocationFound}
+                  onClear={gpsLocation ? () => setGpsLocation(null) : null}
+                />
+              </div>
+              {gpsLocation && (
+                <button 
+                  type="button" 
+                  className="btn map-toolbar-btn" 
+                  style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  onClick={() => {
+                    const str = `[(${gpsLocation[0]}, ${gpsLocation[1]})]`;
+                    navigator.clipboard.writeText(str);
+                    window.dispatchEvent(new CustomEvent('show-toast', { detail: 'Coordinates copied to clipboard!' }));
+                  }} 
+                  title="Copy Coordinates to Clipboard"
+                >
+                  <Copy size={16} />
+                </button>
+              )}
             </div>
             <div style={{ height: '280px', width: '100%', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--color-border)' }}>
               <MapContainer key={editingId || 'new'} center={gpsLocation || mapCenter} zoom={gpsLocation ? 16 : 14} maxZoom={24} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
