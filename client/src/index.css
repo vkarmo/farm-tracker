@@ -95,8 +95,8 @@ textarea {
   border-radius: var(--radius-md);
   font-family: 'Inter', sans-serif;
   font-size: 0.95rem;
-  background-color: var(--color-bg);
-  transition: border-color 0.2s;
+  background-color: #f5f7fa;
+  transition: border-color 0.2s, background-color 0.2s;
 }
 
 input[type="radio"],
@@ -113,7 +113,18 @@ textarea:focus {
   outline: none;
   border-color: var(--color-primary);
   box-shadow: 0 0 0 3px rgba(46, 125, 50, 0.1);
-  background-color: #fff;
+  background-color: #fff9c4;
+}
+
+input:not(:placeholder-shown):not(:focus),
+textarea:not(:placeholder-shown):not(:focus),
+input:valid:required:not(:focus),
+select:valid:required:not(:focus),
+textarea:valid:required:not(:focus),
+input[data-populated="true"]:not(:focus),
+select[data-populated="true"]:not(:focus),
+textarea[data-populated="true"]:not(:focus) {
+  background-color: #ffffff;
 }
 
 .btn {

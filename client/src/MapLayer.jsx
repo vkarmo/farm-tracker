@@ -102,10 +102,12 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
         </div>
       )}
 
-      <MapContainer center={mapCenter} zoom={mapZoom} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
+      <MapContainer center={mapCenter} zoom={mapZoom} maxZoom={24} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
         <TileLayer
           attribution="Google Maps"
           url="http://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}&s=Ga"
+          maxZoom={24}
+          maxNativeZoom={20}
         />
         
         {/* Render successfully parsed remote KML Layers */}

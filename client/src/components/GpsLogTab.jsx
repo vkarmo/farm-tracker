@@ -135,10 +135,11 @@ export default function GpsLogTab() {
             <MapContainer
               center={filteredLogs.length > 0 ? [filteredLogs[0].lat, filteredLogs[0].lng] : mapCenter}
               zoom={mapZoom}
+              maxZoom={24}
               style={{ height: '100%', width: '100%' }}
             >
               <MapFlyTo center={flyTarget} />
-              <TileLayer attribution="Google Maps" url="http://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}&s=Ga" />
+              <TileLayer attribution="Google Maps" url="http://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}&s=Ga" maxZoom={24} maxNativeZoom={20} />
               {filteredLogs.map(log => {
                 const d = new Date(log.timestamp);
                 const dateStr = `${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getDate().toString().padStart(2, '0')}/${d.getFullYear()}`;

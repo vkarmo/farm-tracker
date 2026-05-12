@@ -19,7 +19,6 @@ const ClickToPlaceMarker = ({ position, setPosition, setCenter }) => {
   useMapEvents({
     click(e) {
       setPosition([e.latlng.lat, e.latlng.lng]);
-      if (setCenter) setCenter([e.latlng.lat, e.latlng.lng]);
     }
   });
   return null;
@@ -218,11 +217,13 @@ export default function SoilTestingTab() {
                 />
               </div>
               <div style={{ height: '200px', width: '100%', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--color-border)' }}>
-                <MapContainer key={editingId || 'new_test'} center={markerPosition || mapCenter} zoom={markerPosition ? 16 : mapZoom} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
+                <MapContainer key={editingId || 'new_test'} center={markerPosition || mapCenter} zoom={markerPosition ? 16 : mapZoom} maxZoom={24} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
                   <MapFlyTo center={searchResultCenter} />
                   <TileLayer
                     attribution="Google Maps"
                     url="http://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}&s=Ga"
+                    maxZoom={24}
+                    maxNativeZoom={20}
                   />
                   <ClickToPlaceMarker position={markerPosition} setPosition={setMarkerPosition} setCenter={setSearchResultCenter} />
                   {markerPosition && <Marker position={markerPosition} />}
