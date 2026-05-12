@@ -41,7 +41,7 @@ export default function AdminTab() {
                 e.stopPropagation();
                 const newRole = r.role === 'Admin' ? 'Staff' : 'Admin';
                 if (window.confirm(`Are you sure you want to change ${r.name}'s role to ${newRole}?`)) {
-                  dispatch(queueAction({ type: 'core/updateNode', payload: { id: r.id, properties: { ...r, role: newRole } }, meta: { id: Date.now() } }));
+                  dispatch(queueAction({ type: 'users/upsertUser', payload: { ...r, role: newRole }, meta: { id: Date.now() } }));
                   dispatch(updateUserRole({ email: r.email, role: newRole }));
                 }
               }}

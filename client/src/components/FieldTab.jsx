@@ -92,10 +92,13 @@ export default function FieldTab() {
     setEditingId(row.id);
     if (row.polygon) {
       try {
-        setPolygonPositions(JSON.parse(row.polygon));
+        const poly = JSON.parse(row.polygon);
+        setPolygonPositions(poly);
+        if (poly.length > 0) setSearchResultCenter(poly[0]);
       } catch (e) { setPolygonPositions([]); }
     } else {
       setPolygonPositions([]);
+      setSearchResultCenter(mapCenter);
     }
   };
 
@@ -168,6 +171,17 @@ export default function FieldTab() {
                 {latLngs.length > 0 && (
                   <Polygon positions={latLngs} pathOptions={{ color: polygonColor }} />
                 )}
+                {/* Render existing saved fields */}
+                {fields.filter(f => f.id !== editingId).map(field => {
+                  let positions = [];
+                  if (field.polygon) {
+                    try { positions = JSON.parse(field.polygon); } catch (e) {}
+                  }
+                  if (positions.length === 0) return null;
+                  return (
+                    <Polygon key={field.id} positions={positions} pathOptions={{ color: '#ff7800', weight: 2, fillOpacity: 0.3 }} />
+                  );
+                })}
               </MapContainer>
             </div>
           </div>

@@ -109,7 +109,7 @@ export default function CrudTable({ data, columns, onEdit, onDelete, itemLabel =
                   {columns.map((col, colIndex) => {
                     const isDateColumn = col.header.toLowerCase().includes('date') || col.header.toLowerCase().includes('time') || col.header.toLowerCase().includes('deadline') || col.header.toLowerCase() === 'dob' || col.key.toLowerCase().includes('date');
                     return (
-                      <td key={colIndex} style={{ padding: '8px 10px', whiteSpace: isDateColumn ? 'nowrap' : 'normal' }}>
+                      <td key={colIndex} style={{ padding: '8px 10px', whiteSpace: isDateColumn ? 'nowrap' : 'normal', wordBreak: isDateColumn ? 'normal' : 'break-all', overflowWrap: isDateColumn ? 'normal' : 'anywhere' }}>
                       {/* Render custom func if passed, otherwise raw key string */}
                       {col.render ? col.render(row) : row[col.key]}
                     </td>
