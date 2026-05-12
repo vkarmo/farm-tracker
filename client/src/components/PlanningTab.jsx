@@ -309,7 +309,7 @@ export default function PlanningTab() {
             </div>
             
             {goalViewMode === 'table' ? (
-              <CrudTable 
+              <CrudTable activeRowId={editingGoalId} 
                 data={goals}
                 columns={goalColumns}
                 onEdit={(r) => { setGoalData(r); setEditingGoalId(r.id); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
@@ -389,7 +389,7 @@ export default function PlanningTab() {
             </div>
             
             {objViewMode === 'table' ? (
-              <CrudTable 
+              <CrudTable activeRowId={typeof editingObjId !== 'undefined' ? editingObjId : null} 
                 data={objectives}
                 columns={objColumns}
                 onEdit={(r) => { setObjectiveData(r); setEditingObjId(r.id); window.scrollTo({ top: 0, behavior: 'smooth' }); }}

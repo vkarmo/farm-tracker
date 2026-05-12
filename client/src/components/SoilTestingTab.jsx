@@ -306,7 +306,7 @@ export default function SoilTestingTab() {
       </div>
 
       <div className="card">
-        <CrudTable 
+        <CrudTable activeRowId={editingId} 
           data={soilTests}
           columns={columns}
           onEdit={handleEdit}

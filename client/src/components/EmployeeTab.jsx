@@ -246,7 +246,7 @@ export default function EmployeeTab() {
       </div>
 
       <div className="card">
-        <CrudTable 
+        <CrudTable activeRowId={editingId} 
           data={[...filteredEmployees].sort((a, b) => (a.lastName || '').localeCompare(b.lastName || ''))}
           columns={employeeColumns}
           onEdit={handleEdit}

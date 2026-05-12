@@ -211,7 +211,7 @@ export default function EquipmentTab() {
 
       <hr style={{border: 'none', borderTop: '1px solid var(--color-border)', margin: '30px 0'}} />
 
-      <CrudTable 
+      <CrudTable activeRowId={editingId} 
         data={equipment} 
         columns={columns} 
         onEdit={handleEdit} 

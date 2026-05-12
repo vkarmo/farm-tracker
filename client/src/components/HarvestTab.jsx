@@ -159,7 +159,7 @@ export default function HarvestTab() {
       </div>
 
       {!showGraph ? (
-        <CrudTable 
+        <CrudTable activeRowId={editingId} 
           data={filteredHarvests} 
           columns={columns} 
           onEdit={(row) => { setHarvestData(row); setEditingId(row.id); }} 

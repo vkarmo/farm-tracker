@@ -289,7 +289,7 @@ export default function FinanceTab() {
       )}
 
       {activeView === 'transactions' && (
-        <CrudTable 
+        <CrudTable activeRowId={editingId} 
           data={transactions} 
           columns={columns} 
           onEdit={(row) => { setTxData(row); setEditingId(row.id); }} 

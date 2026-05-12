@@ -103,7 +103,7 @@ export default function LivestockDiseaseTab() {
       </div>
 
       <div className="card">
-        <CrudTable 
+        <CrudTable activeRowId={editingId} 
           data={diseases}
           columns={columns}
           onEdit={handleEdit}

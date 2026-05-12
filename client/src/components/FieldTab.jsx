@@ -254,7 +254,7 @@ export default function FieldTab() {
              <span style={{ fontSize: '0.85rem', color: '#666' }}>Add new tests in the Soil Tests tab</span>
           </div>
           <div style={{ marginTop: '15px' }}>
-            <CrudTable
+            <CrudTable activeRowId={editingId}
               data={fieldTests}
               columns={testColumns}
               onEdit={() => alert("Please edit soil tests from the dedicated Soil Tests tab.")}
@@ -269,7 +269,7 @@ export default function FieldTab() {
 
       <hr style={{ border: 'none', borderTop: '1px solid var(--color-border)', margin: '30px 0' }} />
 
-      <CrudTable
+      <CrudTable activeRowId={editingId}
         data={fields}
         columns={columns}
         onEdit={handleEdit}

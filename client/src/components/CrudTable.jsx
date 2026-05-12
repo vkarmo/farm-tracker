@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Search, Edit2, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
 
-export default function CrudTable({ data, columns, onEdit, onDelete, itemLabel = 'Item', customTitle, rowStyle, defaultSort, maxHeight }) {
+export default function CrudTable({ data, columns, onEdit, onDelete, itemLabel = 'Item', customTitle, rowStyle, defaultSort, maxHeight, activeRowId }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState(defaultSort || { key: null, direction: 'asc' });
 
@@ -103,6 +103,7 @@ export default function CrudTable({ data, columns, onEdit, onDelete, itemLabel =
                     borderBottom: '1px solid #eee', 
                     transition: 'all 0.2s ease', 
                     cursor: onEdit ? 'pointer' : 'default',
+                    background: activeRowId && activeRowId === row.id ? '#fff9c4' : undefined,
                     ...(rowStyle ? rowStyle(row) : {})
                   }}
                 >
@@ -162,6 +163,7 @@ export default function CrudTable({ data, columns, onEdit, onDelete, itemLabel =
               style={{
                 transition: 'all 0.2s ease',
                 cursor: onEdit ? 'pointer' : 'default',
+                background: activeRowId && activeRowId === row.id ? '#fff9c4' : undefined,
                 ...(rowStyle ? rowStyle(row) : {})
               }}
             >

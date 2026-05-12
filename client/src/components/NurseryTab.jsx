@@ -205,7 +205,7 @@ export default function NurseryTab() {
         <button type="submit" className="btn btn-primary" style={{marginTop: 10}}><Box size={16} style={{marginRight: 6}}/> {editingId ? 'Update Bed' : 'Save Nursery Bed Data'}</button>
       </form>
 
-      <CrudTable 
+      <CrudTable activeRowId={editingId} 
         data={nurseries} 
         columns={nurseryColumns} 
         onEdit={(row) => { 

@@ -96,7 +96,7 @@ export default function PestTab() {
       </div>
 
       <div className="card">
-        <CrudTable 
+        <CrudTable activeRowId={editingId} 
           data={pests}
           columns={columns}
           onEdit={handleEdit}
