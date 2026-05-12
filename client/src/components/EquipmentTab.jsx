@@ -18,12 +18,13 @@ const ClickToMarkComponent = ({ setGpsLocation, setCenter }) => {
   return null;
 };
 
-const INIT_STATE = { name: '', type: 'Machinery', value: '', status: 'Active', purchaseDate: '' };
+const INIT_STATE = { name: '', type: 'Machinery', value: '', status: 'Active', purchaseDate: '', drawColor: '' };
 
 export default function EquipmentTab() {
   const dispatch = useDispatch();
   const equipment = useSelector(state => state.assets?.equipment) || [];
   const mapCenter = useSelector(state => state.settings?.mapCenter) || [51.505, -0.09];
+  const polygonColor = useSelector(state => state.settings?.polygonColor) || '#ffffff';
   
   const [formData, setFormData] = useState(INIT_STATE);
   const [editingId, setEditingId] = useState(null);
@@ -67,7 +68,8 @@ export default function EquipmentTab() {
       type: row.type || 'Machinery',
       value: row.value || '',
       status: row.status || 'Active',
-      purchaseDate: row.purchaseDate || ''
+      purchaseDate: row.purchaseDate || '',
+      drawColor: row.drawColor || ''
     });
     setEditingId(row.id);
     
@@ -172,6 +174,16 @@ export default function EquipmentTab() {
           <div className="form-group">
             <label>Purchase / Acquisition Date</label>
             <input type="date" value={formData.purchaseDate} onChange={e => setFormData({...formData, purchaseDate: e.target.value})} />
+          </div>
+
+          <div className="form-group">
+            <label>Draw Color</label>
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+              <input type="color" value={formData.drawColor || polygonColor} onChange={e => setFormData({ ...formData, drawColor: e.target.value })} />
+              {formData.drawColor && (
+                <button type="button" onClick={() => setFormData({ ...formData, drawColor: '' })} className="btn" style={{ padding: '2px 8px', fontSize: '0.8rem' }}>Clear</button>
+              )}
+            </div>
           </div>
         </div>
 

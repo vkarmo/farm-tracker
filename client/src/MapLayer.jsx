@@ -145,7 +145,7 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
           }
           if (positions.length === 0) return null;
           return (
-            <Polygon key={bed.id} pathOptions={{ color: '#4caf50', weight: 2, fillOpacity: 0.4 }} positions={positions}>
+            <Polygon key={bed.id} pathOptions={{ color: bed.drawColor || polygonColor, weight: 2, fillOpacity: 0.4 }} positions={positions}>
               <Popup>
                 <strong>Nursery: {bed.name}</strong><br/>
                 Capacity: {bed.capacity} plugs
@@ -168,7 +168,7 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
           if (positions.length === 0) return null;
           
           return (
-            <Polygon key={field.id} pathOptions={{ color: polygonColor }} positions={positions}>
+            <Polygon key={field.id} pathOptions={{ color: field.drawColor || polygonColor }} positions={positions}>
               <Popup>
                 <strong>{field.name}</strong><br/>
                 Area: {field.area}

@@ -163,6 +163,21 @@ export const MapSearchBox = ({ onLocationFound, onClear }) => {
     e.preventDefault();
     if (!query.trim()) return;
 
+    // Multi-coordinate array parsing: e.g. [(lat, lng), (lat, lng)]
+    const multiCoordsMatch = query.match(/\(\s*(-?\d+(\.\d+)?)[,\s]+(-?\d+(\.\d+)?)\s*\)/g);
+    if (multiCoordsMatch && multiCoordsMatch.length > 1) {
+      multiCoordsMatch.forEach((matchStr, idx) => {
+        const pair = matchStr.match(/(-?\d+(\.\d+)?)[,\s]+(-?\d+(\.\d+)?)/);
+        if (pair) {
+          const lat = parseFloat(pair[1]);
+          const lng = parseFloat(pair[3]);
+          onLocationFound([lat, lng, Date.now() + idx]);
+        }
+      });
+      setQuery('');
+      return;
+    }
+
     // Direct Lat, Lng coordinate parsing regex
     const coordsMatch = query.trim().match(/^(-?\d+(\.\d+)?)[,\s]+(-?\d+(\.\d+)?)$/);
     if (coordsMatch) {

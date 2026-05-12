@@ -21,7 +21,7 @@ const ClickToDrawComponent = ({ points, setPoints, setCenter }) => {
   return null;
 };
 
-const INIT_STATE = { name: '', type: 'Terrain Feature', description: '', area: '', length: '' };
+const INIT_STATE = { name: '', type: 'Terrain Feature', description: '', area: '', length: '', drawColor: '' };
 
 export default function PoiTab() {
   const dispatch = useDispatch();
@@ -154,8 +154,8 @@ export default function PoiTab() {
           <MapFlyTo center={searchResultCenter} />
           <ClickToDrawComponent points={points} setPoints={setPoints} setCenter={setSearchResultCenter} />
 
-          {latLngs.length > 2 && <Polygon positions={latLngs} pathOptions={{ color: polygonColor, weight: 2, fillOpacity: 0.3 }} />}
-          {latLngs.length > 1 && latLngs.length <= 2 && <Polyline positions={latLngs} pathOptions={{ color: polygonColor, weight: 3 }} />}
+          {latLngs.length > 2 && <Polygon positions={latLngs} pathOptions={{ color: formData.drawColor || polygonColor, weight: 2, fillOpacity: 0.3 }} />}
+          {latLngs.length > 1 && latLngs.length <= 2 && <Polyline positions={latLngs} pathOptions={{ color: formData.drawColor || polygonColor, weight: 3 }} />}
           {latLngs.map((pos, idx) => (
             <Marker key={idx} position={pos} opacity={0.8} />
           ))}
@@ -167,9 +167,9 @@ export default function PoiTab() {
              if (!existingPts || existingPts.length === 0) return null;
              const mappedPts = existingPts.map(pt => [pt[0], pt[1]]);
              if (mappedPts.length > 2) {
-                return <Polygon key={p.id} positions={mappedPts} pathOptions={{ color: '#00bcd4', weight: 1, fillOpacity: 0.1 }} />
+                return <Polygon key={p.id} positions={mappedPts} pathOptions={{ color: p.drawColor || polygonColor, weight: 1, fillOpacity: 0.1 }} />
              } else if (mappedPts.length > 1) {
-                return <Polyline key={p.id} positions={mappedPts} pathOptions={{ color: '#00bcd4', weight: 2 }} />
+                return <Polyline key={p.id} positions={mappedPts} pathOptions={{ color: p.drawColor || polygonColor, weight: 2 }} />
              } else {
                 return <Marker key={p.id} position={mappedPts[0]} opacity={0.5} />
              }
@@ -203,6 +203,15 @@ export default function PoiTab() {
           <div className="form-group">
             <label>Calculated Area (Acres)</label>
             <input type="number" step="0.01" value={formData.area} onChange={e => setFormData({ ...formData, area: e.target.value })} />
+          </div>
+          <div className="form-group">
+            <label>Draw Color</label>
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+              <input type="color" value={formData.drawColor || polygonColor} onChange={e => setFormData({ ...formData, drawColor: e.target.value })} />
+              {formData.drawColor && (
+                <button type="button" onClick={() => setFormData({ ...formData, drawColor: '' })} className="btn" style={{ padding: '2px 8px', fontSize: '0.8rem' }}>Clear</button>
+              )}
+            </div>
           </div>
         </div>
 

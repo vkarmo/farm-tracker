@@ -21,7 +21,7 @@ const ClickToDrawComponent = ({ polygon, setPolygon, setCenter }) => {
   return null;
 };
 
-const INIT_BED = { name: '', capacity: '', area: '', status: 'Available', gps: '' };
+const INIT_BED = { name: '', capacity: '', area: '', status: 'Available', gps: '', drawColor: '' };
 
 export default function NurseryTab() {
   const dispatch = useDispatch();
@@ -147,7 +147,7 @@ export default function NurseryTab() {
                   <Marker key={`pin_${idx}`} position={pos} />
                 ))}
                 {latLngs.length > 0 && (
-                  <Polygon positions={latLngs} pathOptions={{ color: polygonColor }} />
+                  <Polygon positions={latLngs} pathOptions={{ color: bedData.drawColor || polygonColor }} />
                 )}
                 {/* Render existing saved beds */}
                 {nurseries.filter(b => b.id !== editingId).map(bed => {
@@ -157,7 +157,7 @@ export default function NurseryTab() {
                   }
                   if (positions.length === 0) return null;
                   return (
-                    <Polygon key={bed.id} positions={positions} pathOptions={{ color: '#4caf50', weight: 2, fillOpacity: 0.4 }} />
+                    <Polygon key={bed.id} positions={positions} pathOptions={{ color: bed.drawColor || polygonColor, weight: 2, fillOpacity: 0.4 }} />
                   );
                 })}
               </MapContainer>
@@ -174,6 +174,15 @@ export default function NurseryTab() {
           <div className="form-group">
             <label>Plug Capacity</label>
             <input type="number" value={bedData.capacity} onChange={e => setBedData({...bedData, capacity: e.target.value})} placeholder="e.g. 72"/>
+          </div>
+          <div className="form-group">
+            <label>Draw Color</label>
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+              <input type="color" value={bedData.drawColor || polygonColor} onChange={e => setBedData({ ...bedData, drawColor: e.target.value })} />
+              {bedData.drawColor && (
+                <button type="button" onClick={() => setBedData({ ...bedData, drawColor: '' })} className="btn" style={{ padding: '2px 8px', fontSize: '0.8rem' }}>Clear</button>
+              )}
+            </div>
           </div>
         </div>
         <button type="submit" className="btn btn-primary" style={{marginTop: 10}}><Box size={16} style={{marginRight: 6}}/> {editingId ? 'Update Bed' : 'Save Nursery Bed Data'}</button>
