@@ -108,17 +108,24 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', gap: '8px', alignItems: 'center' }}>
-        <div style={{ flex: 1, maxWidth: '400px', zIndex: 1001 }}>
+      <div style={{ display: 'flex', flexDirection: 'column', marginBottom: '10px', gap: '8px' }}>
+        <div style={{ zIndex: 1001, width: '100%' }}>
           <Select
             isMulti
             options={LAYER_OPTIONS}
             value={selectedLayers}
             onChange={handleLayersChange}
             placeholder="Select layers to display..."
+            styles={{ 
+              control: (base) => ({ ...base, minHeight: '36px', fontSize: '0.85rem' }),
+              valueContainer: (base) => ({ ...base, padding: '2px 8px' }),
+              dropdownIndicator: (base) => ({ ...base, padding: '4px' }),
+              clearIndicator: (base) => ({ ...base, padding: '4px' }),
+              multiValue: (base) => ({ ...base, margin: '2px' })
+            }}
           />
         </div>
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
           <button
             type="button"
             onClick={() => {
