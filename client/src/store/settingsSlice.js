@@ -16,6 +16,7 @@ export const settingsSlice = createSlice({
     expenseCategories: ['Equipment Maintenance', 'Fertilizer', 'Fuel', 'Labor', 'Seed'],
     incomeCategories: ['Crop Sale', 'Livestock Sale', 'Subsidy'],
     animalTypes: ['Cattle', 'Goat', 'Poultry', 'Sheep', 'Swine'],
+    visibleMapLayers: ['fields', 'nurseries', 'pois', 'equipment', 'soilTests'],
   },
   reducers: {
     addUnit: (state, action) => {
@@ -96,11 +97,14 @@ export const settingsSlice = createSlice({
     },
     setAllSettings: (state, action) => {
       return { ...state, ...action.payload };
+    },
+    setVisibleMapLayers: (state, action) => {
+      state.visibleMapLayers = action.payload;
     }
   }
 });
 
-export const { addUnit, removeUnit, addJobTitle, removeJobTitle, addExpenseCategory, removeExpenseCategory, addIncomeCategory, removeIncomeCategory, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold, setAppName, addAnimalType, removeAnimalType, setAllSettings } = settingsSlice.actions;
+export const { addUnit, removeUnit, addJobTitle, removeJobTitle, addExpenseCategory, removeExpenseCategory, addIncomeCategory, removeIncomeCategory, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold, setAppName, addAnimalType, removeAnimalType, setAllSettings, setVisibleMapLayers } = settingsSlice.actions;
 
 export const saveSettings = () => (dispatch, getState) => {
   const settings = getState().settings;

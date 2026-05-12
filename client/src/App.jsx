@@ -588,7 +588,7 @@ export default function App() {
         {activeTab === 'dashboard' && <DashboardTab />}
         {activeTab === 'map' && (
           <div className="card" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 180px)' }}>
-            <h2>GIS Field Map</h2>
+            <h2>Farm Overview Map</h2>
             <MapLayer fields={fields} nurseries={nurseries} equipment={equipment} />
           </div>
         )}
@@ -623,17 +623,17 @@ export default function App() {
         {activeTab === 'settings' && currentUser?.role === 'Admin' && (
           <div className="card">
             <h2>App Settings</h2>
-            
+
             {/* General Card */}
             <div style={{ marginBottom: 15, border: '1px solid var(--color-border)', borderRadius: '8px', overflow: 'hidden' }}>
-              <button 
-                onClick={() => setOpenSettings({...openSettings, general: !openSettings.general})}
+              <button
+                onClick={() => setOpenSettings({ ...openSettings, general: !openSettings.general })}
                 style={{ width: '100%', padding: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f5f7fa', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '1.1rem', color: '#333' }}
               >
                 General Settings
                 {openSettings.general ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
               </button>
-              
+
               {openSettings.general && (
                 <div style={{ padding: '20px', background: 'white' }}>
                   <div style={{ marginBottom: 20 }}>
@@ -671,21 +671,21 @@ export default function App() {
 
             {/* Dropdown Data Card */}
             <div style={{ marginBottom: 15, border: '1px solid var(--color-border)', borderRadius: '8px', overflow: 'hidden' }}>
-              <button 
-                onClick={() => setOpenSettings({...openSettings, dropdown: !openSettings.dropdown})}
+              <button
+                onClick={() => setOpenSettings({ ...openSettings, dropdown: !openSettings.dropdown })}
                 style={{ width: '100%', padding: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f5f7fa', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '1.1rem', color: '#333' }}
               >
                 Dropdown Data
                 {openSettings.dropdown ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
               </button>
-              
+
               {openSettings.dropdown && (
                 <div style={{ padding: '20px', background: 'white', display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                  
+
                   {/* Units Toggle */}
                   <div style={{ border: '1px solid #eee', borderRadius: '6px', overflow: 'hidden' }}>
-                    <button 
-                      onClick={() => setOpenSettings({...openSettings, units: !openSettings.units})}
+                    <button
+                      onClick={() => setOpenSettings({ ...openSettings, units: !openSettings.units })}
                       style={{ width: '100%', padding: '10px 15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fafafa', border: 'none', cursor: 'pointer', fontWeight: 600 }}
                     >
                       Measurement Units
@@ -710,8 +710,8 @@ export default function App() {
 
                   {/* Job Titles Toggle */}
                   <div style={{ border: '1px solid #eee', borderRadius: '6px', overflow: 'hidden' }}>
-                    <button 
-                      onClick={() => setOpenSettings({...openSettings, jobs: !openSettings.jobs})}
+                    <button
+                      onClick={() => setOpenSettings({ ...openSettings, jobs: !openSettings.jobs })}
                       style={{ width: '100%', padding: '10px 15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fafafa', border: 'none', cursor: 'pointer', fontWeight: 600 }}
                     >
                       Job Titles
@@ -736,8 +736,8 @@ export default function App() {
 
                   {/* Animal Types Toggle */}
                   <div style={{ border: '1px solid #eee', borderRadius: '6px', overflow: 'hidden' }}>
-                    <button 
-                      onClick={() => setOpenSettings({...openSettings, animals: !openSettings.animals})}
+                    <button
+                      onClick={() => setOpenSettings({ ...openSettings, animals: !openSettings.animals })}
                       style={{ width: '100%', padding: '10px 15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fafafa', border: 'none', cursor: 'pointer', fontWeight: 600 }}
                     >
                       Livestock Animal Types
@@ -762,8 +762,8 @@ export default function App() {
 
                   {/* Ledger Categories Toggle */}
                   <div style={{ border: '1px solid #eee', borderRadius: '6px', overflow: 'hidden' }}>
-                    <button 
-                      onClick={() => setOpenSettings({...openSettings, ledgers: !openSettings.ledgers})}
+                    <button
+                      onClick={() => setOpenSettings({ ...openSettings, ledgers: !openSettings.ledgers })}
                       style={{ width: '100%', padding: '10px 15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fafafa', border: 'none', cursor: 'pointer', fontWeight: 600 }}
                     >
                       Ledger Categories
@@ -819,14 +819,14 @@ export default function App() {
 
             {/* Map Settings Card */}
             <div style={{ marginBottom: 15, border: '1px solid var(--color-border)', borderRadius: '8px', overflow: 'hidden' }}>
-              <button 
-                onClick={() => setOpenSettings({...openSettings, map: !openSettings.map})}
+              <button
+                onClick={() => setOpenSettings({ ...openSettings, map: !openSettings.map })}
                 style={{ width: '100%', padding: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f5f7fa', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '1.1rem', color: '#333' }}
               >
                 Map Settings
                 {openSettings.map ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
               </button>
-              
+
               {openSettings.map && (
                 <div style={{ padding: '20px', background: 'white' }}>
                   <div style={{ marginBottom: 20 }}>
