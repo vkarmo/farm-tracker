@@ -82,16 +82,29 @@ label {
   font-size: 0.9rem;
 }
 
-input,
+input[type="text"],
+input[type="number"],
+input[type="password"],
+input[type="email"],
+input[type="date"],
 select,
 textarea {
   width: 100%;
   padding: 10px 12px;
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-sm);
-  font-size: 1rem;
-  background-color: #fafafa;
-  transition: border-color 0.2s, box-shadow 0.2s;
+  border-radius: var(--radius-md);
+  font-family: 'Inter', sans-serif;
+  font-size: 0.95rem;
+  background-color: var(--color-bg);
+  transition: border-color 0.2s;
+}
+
+input[type="radio"],
+input[type="checkbox"] {
+  width: auto;
+  margin-right: 8px;
+  cursor: pointer;
+  transform: scale(1.2);
 }
 
 input:focus,

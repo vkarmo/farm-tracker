@@ -141,7 +141,7 @@ app.get('/api/all-data', async (req, res) => {
        budgets: 'MATCH (n:Budget) RETURN n',
        incidents: 'MATCH (n:Incident) RETURN n',
        deadlines: 'MATCH (n:Deadline) RETURN n',
-       gps: 'MATCH (n:GpsLocation) RETURN n',
+       gps: 'MATCH (n:GpsLog) RETURN n',
        audit: 'MATCH (n:AuditLog) RETURN n',
        users: 'MATCH (n:User) RETURN n',
        harvests: 'MATCH (n:Harvest) RETURN n',
@@ -505,10 +505,10 @@ app.post('/api/sync', async (req, res) => {
           results.push({ actionId: action.meta?.id, status: 'success' });
         }
         else if (action.type === 'employees/upsertEmployee') {
-          const { id, firstName, lastName, address, phone, jobTitle, type, skills, startDate, endDate, isTerminated, terminationReason, dailyRateLD, twoWeekPayUSD } = action.payload;
+          const { id, firstName, lastName, gender, address, phone, jobTitle, type, skills, startDate, endDate, isTerminated, terminationReason, dailyRateLD, twoWeekPayUSD } = action.payload;
           await session.run(`
             MERGE (e:Employee {id: $id})
-            SET e.firstName = $firstName, e.lastName = $lastName, e.address = $address, e.phone = $phone, 
+            SET e.firstName = $firstName, e.lastName = $lastName, e.gender = $gender, e.address = $address, e.phone = $phone, 
                 e.jobTitle = $jobTitle, e.type = $type, e.skills = $skills, e.startDate = $startDate, 
                 e.endDate = $endDate, e.isTerminated = $isTerminated, e.terminationReason = $terminationReason, 
                 e.dailyRateLD = toFloat($dailyRateLD), e.twoWeekPayUSD = toFloat($twoWeekPayUSD)
@@ -516,6 +516,7 @@ app.post('/api/sync', async (req, res) => {
           `, { userEmail, id,
             firstName: firstName || null,
             lastName: lastName || null,
+            gender: gender || null,
             address: address || null,
             phone: phone || null,
             jobTitle: jobTitle || null,
