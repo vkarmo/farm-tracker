@@ -166,7 +166,7 @@ export default function PoiTab() {
       <div style={{ marginBottom: '20px', height: '400px', width: '100%', borderRadius: '8px', overflow: 'hidden', border: '2px solid var(--color-border)', position: 'relative' }}>
 
         <MapContainer center={mapCenter} zoom={mapZoom} maxZoom={24} style={{ height: '100%', width: '100%' }} zoomControl={false}>
-          <TileLayer attribution="Google Maps" url="http://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}&s=Ga" maxZoom={24} maxNativeZoom={20} />
+          <TileLayer attribution="Google Maps" url="https://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}&s=Ga" maxZoom={24} maxNativeZoom={20} />
           
           <MapFlyTo center={searchResultCenter} />
           <ClickToDrawComponent points={points} setPoints={setPoints} setCenter={setSearchResultCenter} />
