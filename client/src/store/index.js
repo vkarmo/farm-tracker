@@ -65,6 +65,24 @@ const reduxLoggingMiddleware = store => next => action => {
   return next(action);
 };
 
+const timestampMiddleware = store => next => action => {
+  if (action.type && action.payload && typeof action.payload === 'object' && !Array.isArray(action.payload)) {
+    if (action.type.includes('/add') || action.type.includes('/update')) {
+      if (!action.type.startsWith('sync/') && !action.type.startsWith('settings/') && !action.type.startsWith('auth/')) {
+        const newAction = {
+          ...action,
+          payload: {
+            ...action.payload,
+            updatedAt: action.payload.updatedAt || Date.now()
+          }
+        };
+        return next(newAction);
+      }
+    }
+  }
+  return next(action);
+};
+
 const injectUserMiddleware = store => next => action => {
   if (action.type === 'sync/queueAction') {
     const currentUser = store.getState().auth?.currentUser;
@@ -96,7 +114,7 @@ export const store = configureStore({
         // Ignore redux-persist actions
         ignoredActions: ['persist/PERSIST', 'persist/REHYDRATE', 'persist/REGISTER'],
       },
-    }).concat(auditMiddleware, injectUserMiddleware, reduxLoggingMiddleware),
+    }).concat(auditMiddleware, timestampMiddleware, injectUserMiddleware, reduxLoggingMiddleware),
 });
 
 export const persistor = persistStore(store);

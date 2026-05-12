@@ -5,7 +5,7 @@ import { setMapCenter, setVisibleMapLayers, saveSettings } from './store/setting
 import { kml } from '@tmcw/togeojson';
 import L from 'leaflet';
 import { CurrentLocationButton, MapFlyTo } from './components/MapSearchBox';
-import { Tractor } from 'lucide-react';
+import { Tractor, Layers } from 'lucide-react';
 import Select from 'react-select';
 
 // Create a custom orange icon for Hard Assets
@@ -49,6 +49,7 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
   const [geoJsonLayers, setGeoJsonLayers] = useState([]);
   const [errors, setErrors] = useState([]);
   const [flyTarget, setFlyTarget] = useState(null);
+  const [showLayers, setShowLayers] = useState(false);
   const visibleMapLayers = useSelector(state => state.settings?.visibleMapLayers) || ['fields', 'nurseries', 'pois', 'equipment', 'soilTests'];
   const selectedLayers = LAYER_OPTIONS.filter(opt => visibleMapLayers.includes(opt.value));
   
@@ -109,23 +110,34 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <div style={{ display: 'flex', flexDirection: 'column', marginBottom: '10px', gap: '8px' }}>
-        <div style={{ zIndex: 1001, width: '100%' }}>
-          <Select
-            isMulti
-            options={LAYER_OPTIONS}
-            value={selectedLayers}
-            onChange={handleLayersChange}
-            placeholder="Select layers to display..."
-            styles={{ 
-              control: (base) => ({ ...base, minHeight: '36px', fontSize: '0.85rem' }),
-              valueContainer: (base) => ({ ...base, padding: '2px 8px' }),
-              dropdownIndicator: (base) => ({ ...base, padding: '4px' }),
-              clearIndicator: (base) => ({ ...base, padding: '4px' }),
-              multiValue: (base) => ({ ...base, margin: '2px' })
-            }}
-          />
-        </div>
+        {showLayers && (
+          <div style={{ zIndex: 1001, width: '100%' }}>
+            <Select
+              isMulti
+              options={LAYER_OPTIONS}
+              value={selectedLayers}
+              onChange={handleLayersChange}
+              placeholder="Select layers to display..."
+              styles={{ 
+                control: (base) => ({ ...base, minHeight: '36px', fontSize: '0.85rem' }),
+                valueContainer: (base) => ({ ...base, padding: '2px 8px' }),
+                dropdownIndicator: (base) => ({ ...base, padding: '4px' }),
+                clearIndicator: (base) => ({ ...base, padding: '4px' }),
+                multiValue: (base) => ({ ...base, margin: '2px' })
+              }}
+            />
+          </div>
+        )}
         <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
+          <button
+            type="button"
+            onClick={() => setShowLayers(!showLayers)}
+            className={`btn map-toolbar-btn ${showLayers ? 'active' : ''}`}
+            style={{ padding: '6px 12px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+            title="Toggle Map Layers"
+          >
+            <Layers size={16} />
+          </button>
           <button
             type="button"
             onClick={() => {

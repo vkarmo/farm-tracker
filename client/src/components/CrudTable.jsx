@@ -3,7 +3,7 @@ import { Search, Edit2, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
 
 export default function CrudTable({ data, columns, onEdit, onDelete, itemLabel = 'Item', customTitle, rowStyle, defaultSort, maxHeight, activeRowId }) {
   const [searchTerm, setSearchTerm] = useState('');
-  const [sortConfig, setSortConfig] = useState(defaultSort || { key: null, direction: 'asc' });
+  const [sortConfig, setSortConfig] = useState(defaultSort || { key: 'updatedAt', direction: 'desc' });
 
   const handleSort = (key) => {
     let direction = 'asc';
@@ -20,6 +20,19 @@ export default function CrudTable({ data, columns, onEdit, onDelete, itemLabel =
         let valA = a[sortConfig.key];
         let valB = b[sortConfig.key];
         
+        if (sortConfig.key === 'updatedAt') {
+          const getTimestamp = (row, val) => {
+            if (val) return val;
+            if (row && typeof row.id === 'string' && row.id.includes('_')) {
+              const parts = row.id.split('_');
+              if (parts.length > 1 && !isNaN(Number(parts[1]))) return Number(parts[1]);
+            }
+            return 0;
+          };
+          valA = getTimestamp(a, valA);
+          valB = getTimestamp(b, valB);
+        }
+
         if (valA === undefined || valA === null) valA = '';
         if (valB === undefined || valB === null) valB = '';
         

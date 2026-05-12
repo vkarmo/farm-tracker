@@ -26,6 +26,8 @@ const INIT_TEST_STATE = { date: new Date().toISOString().split('T')[0], ph: '', 
 export default function FieldTab() {
   const dispatch = useDispatch();
   const fields = useSelector(state => state.fields.data) || [];
+  const nurseries = useSelector(state => state.nurseries?.beds) || [];
+  const pois = useSelector(state => state.poi?.list) || [];
   const soilTests = useSelector(state => state.soilTests?.tests) || [];
   const polygonColor = useSelector(state => state.settings?.polygonColor) || '#ffffff';
   const mapCenter = useSelector(state => state.settings?.mapCenter) || [51.505, -0.09];
@@ -154,23 +156,11 @@ export default function FieldTab() {
                 <MapSearchBox 
                   onLocationFound={handleLocationFound} 
                   onClear={polygonPositions.length > 0 ? () => setPolygonPositions([]) : null}
+                  polygon={polygonPositions}
+                  setPolygon={setPolygonPositions}
+                  activeId={editingId}
                 />
               </div>
-              {polygonPositions.length > 0 && (
-                <button 
-                  type="button" 
-                  className="btn map-toolbar-btn" 
-                  style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-                  onClick={() => {
-                    const str = '[' + polygonPositions.map(p => `(${p[0]}, ${p[1]})`).join(',\n') + ']';
-                    navigator.clipboard.writeText(str);
-                    window.dispatchEvent(new CustomEvent('show-toast', { detail: 'Coordinates copied to clipboard!' }));
-                  }} 
-                  title="Copy Coordinates to Clipboard"
-                >
-                  <Copy size={16} />
-                </button>
-              )}
             </div>
             <div style={{ height: '300px', width: '100%', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--color-border)' }}>
               <MapContainer key={editingId || 'new'} center={latLngs.length > 0 ? latLngs[0] : mapCenter} zoom={latLngs.length > 0 ? 16 : mapZoom} maxZoom={24} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
@@ -188,7 +178,7 @@ export default function FieldTab() {
                 {latLngs.length > 0 && (
                   <Polygon positions={latLngs} pathOptions={{ color: formData.drawColor || polygonColor }} />
                 )}
-                {/* Render existing saved fields */}
+                {/* Render existing saved fields (clickable for editing) */}
                 {fields.filter(f => f.id !== editingId).map(field => {
                   let positions = [];
                   if (field.polygon) {
@@ -196,8 +186,30 @@ export default function FieldTab() {
                   }
                   if (positions.length === 0) return null;
                   return (
-                    <Polygon key={field.id} positions={positions} pathOptions={{ color: field.drawColor || polygonColor, weight: 2, fillOpacity: 0.3 }} />
+                    <Polygon 
+                      key={field.id} 
+                      positions={positions} 
+                      pathOptions={{ color: field.drawColor || polygonColor, weight: 2, fillOpacity: 0.3, bubblingMouseEvents: false }} 
+                      eventHandlers={{ click: (e) => {
+                        e.originalEvent.stopPropagation();
+                        handleEdit(field);
+                      } }}
+                    />
                   );
+                })}
+                {/* Render nurseries for context (unclickable) */}
+                {nurseries.map(n => {
+                  let positions = [];
+                  if (n.polygon) { try { positions = typeof n.polygon === 'string' ? JSON.parse(n.polygon) : n.polygon; } catch(e){} }
+                  if (positions.length === 0) return null;
+                  return <Polygon key={n.id} positions={positions} pathOptions={{ color: n.drawColor || 'orange', weight: 1, dashArray: '5,5', fillOpacity: 0.1 }} interactive={false} />;
+                })}
+                {/* Render POIs for context (unclickable) */}
+                {pois.map(p => {
+                  let positions = [];
+                  if (p.points) { try { positions = typeof p.points === 'string' ? JSON.parse(p.points) : p.points; } catch(e){} }
+                  if (positions.length === 0) return null;
+                  return <Polygon key={p.id} positions={positions} pathOptions={{ color: 'purple', weight: 1, dashArray: '5,5', fillOpacity: 0.1 }} interactive={false} />;
                 })}
               </MapContainer>
             </div>
