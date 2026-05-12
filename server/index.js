@@ -225,8 +225,43 @@ app.post('/api/sync', async (req, res) => {
   const session = driver.session();
   try {
     const results = [];
-    // Run all actions sequentially to maintain order and data integrity
-    for (const action of queue) {
+    
+    // Extract and bulk process GPS logs for extreme performance optimization
+    const gpsActions = queue.filter(a => a.type === 'gps/addLocation');
+    const remainingActions = queue.filter(a => a.type !== 'gps/addLocation');
+
+    if (gpsActions.length > 0) {
+      try {
+        const events = gpsActions.map(action => ({
+          ...action.payload,
+          userEmail: (action.payload && action.payload.lastUpdatedBy) ? action.payload.lastUpdatedBy : (action.payload.userEmail || 'system')
+        }));
+        
+        await session.run(`
+          UNWIND $events AS event
+          MERGE (g:GpsLog {id: event.id})
+          SET g.lat = event.lat, g.lng = event.lng, g.timestamp = event.timestamp, g.userEmail = event.userEmail
+          WITH g, event
+          OPTIONAL MATCH (u:User {email: event.userEmail})
+          FOREACH (ignoreMe IN CASE WHEN u IS NOT NULL THEN [1] ELSE [] END |
+            MERGE (u)-[r1:LOGGED_LOCATION]->(g) SET r1.lastUpdatedBy = event.userEmail
+          )
+          SET g.lastUpdatedBy = event.userEmail
+        `, { events });
+        
+        gpsActions.forEach(action => {
+          results.push({ actionId: action.meta?.id, status: 'success' });
+        });
+      } catch (err) {
+        console.error('Failed to bulk process GPS logs:', err.message);
+        gpsActions.forEach(action => {
+          results.push({ actionId: action.meta?.id, status: 'error', message: err.message });
+        });
+      }
+    }
+
+    // Run remaining actions sequentially to maintain order and data integrity
+    for (const action of remainingActions) {
       try {
         const userEmail = (action.payload && action.payload.lastUpdatedBy) ? action.payload.lastUpdatedBy : 'system';
         if (action.type === 'fields/addField') {
@@ -570,20 +605,7 @@ app.post('/api/sync', async (req, res) => {
 
           results.push({ actionId: action.meta?.id, status: 'success' });
         }
-        else if (action.type === 'gps/addLocation') {
-          const { id, lat, lng, timestamp, userEmail } = action.payload;
-          await session.run(`
-            MERGE (g:GpsLog {id: $id})
-            SET g.lat = $lat, g.lng = $lng, g.timestamp = $timestamp, g.userEmail = $userEmail
-            WITH g
-            OPTIONAL MATCH (u:User {email: $userEmail})
-            FOREACH (ignoreMe IN CASE WHEN u IS NOT NULL THEN [1] ELSE [] END |
-              MERGE (u)-[r1:LOGGED_LOCATION]->(g) SET r1.lastUpdatedBy = $userEmail
-            )
-            SET g.lastUpdatedBy = $userEmail RETURN g
-          `, { userEmail, id, lat, lng, timestamp, userEmail });
-          results.push({ actionId: action.meta?.id, status: 'success' });
-        }
+
         else if (action.type === 'settings/updateGlobal') {
           const payload = action.payload;
           const properties = {};
