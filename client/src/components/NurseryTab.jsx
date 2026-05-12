@@ -16,7 +16,6 @@ const ClickToDrawComponent = ({ polygon, setPolygon, setCenter }) => {
   useMapEvents({
     click(e) {
       setPolygon([...polygon, [e.latlng.lat, e.latlng.lng, Date.now()]]);
-      if (setCenter) setCenter([e.latlng.lat, e.latlng.lng]);
     }
   });
   return null;
@@ -135,11 +134,13 @@ export default function NurseryTab() {
               />
             </div>
             <div style={{ height: '300px', width: '100%', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--color-border)' }}>
-              <MapContainer key={editingId || 'new'} center={latLngs.length > 0 ? latLngs[0] : mapCenter} zoom={latLngs.length > 0 ? 17 : mapZoom} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
+              <MapContainer key={editingId || 'new'} center={latLngs.length > 0 ? latLngs[0] : mapCenter} zoom={latLngs.length > 0 ? 17 : mapZoom} maxZoom={24} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
                 <MapFlyTo center={searchResultCenter} />
                 <TileLayer
                   attribution="Google Maps"
                   url="http://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}&s=Ga"
+                  maxZoom={24}
+                  maxNativeZoom={20}
                 />
                 <ClickToDrawComponent polygon={polygonPositions} setPolygon={setPolygonPositions} setCenter={setSearchResultCenter} />
                 {latLngs.map((pos, idx) => (

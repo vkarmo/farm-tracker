@@ -13,7 +13,6 @@ const ClickToMarkComponent = ({ setGpsLocation, setCenter }) => {
   useMapEvents({
     click(e) {
       setGpsLocation([e.latlng.lat, e.latlng.lng]);
-      if (setCenter) setCenter([e.latlng.lat, e.latlng.lng]);
     }
   });
   return null;
@@ -122,11 +121,13 @@ export default function EquipmentTab() {
               />
             </div>
             <div style={{ height: '280px', width: '100%', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--color-border)' }}>
-              <MapContainer key={editingId || 'new'} center={gpsLocation || mapCenter} zoom={gpsLocation ? 16 : 14} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
+              <MapContainer key={editingId || 'new'} center={gpsLocation || mapCenter} zoom={gpsLocation ? 16 : 14} maxZoom={24} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
                 <MapFlyTo center={searchResultCenter} />
                 <TileLayer
                   attribution="Google Maps"
                   url="http://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}&s=Ga"
+                  maxZoom={24}
+                  maxNativeZoom={20}
                 />
                 <ClickToMarkComponent setGpsLocation={setGpsLocation} setCenter={setSearchResultCenter} />
                 {gpsLocation && (

@@ -17,7 +17,23 @@ const SyncController = ({ children }) => {
       dispatch(flushQueue());
     };
 
+    // Track input population for CSS styling
+    const updatePopulatedState = (e) => {
+      if (['INPUT', 'SELECT', 'TEXTAREA'].includes(e.target.tagName)) {
+        if (e.target.type !== 'radio' && e.target.type !== 'checkbox') {
+          if (e.target.value) {
+            e.target.setAttribute('data-populated', 'true');
+          } else {
+            e.target.removeAttribute('data-populated');
+          }
+        }
+      }
+    };
+
     window.addEventListener('online', handleOnline);
+    document.addEventListener('input', updatePopulatedState, true);
+    document.addEventListener('change', updatePopulatedState, true);
+    document.addEventListener('blur', updatePopulatedState, true);
 
     // Auto-sync every 3 seconds if there are items in the queue and we're online
     const syncInterval = setInterval(() => {
@@ -26,6 +42,9 @@ const SyncController = ({ children }) => {
 
     return () => {
       window.removeEventListener('online', handleOnline);
+      document.removeEventListener('input', updatePopulatedState, true);
+      document.removeEventListener('change', updatePopulatedState, true);
+      document.removeEventListener('blur', updatePopulatedState, true);
       clearInterval(syncInterval);
     };
   }, [dispatch]);
