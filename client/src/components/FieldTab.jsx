@@ -20,7 +20,7 @@ const ClickToDrawComponent = ({ polygon, setPolygon, setCenter }) => {
   return null;
 };
 
-const INIT_STATE = { name: '', area: '', year: String(new Date().getFullYear()), soil_type: 'Loam', irrigation: 'None', status: 'Fallow', gps: '' };
+const INIT_STATE = { name: '', area: '', year: String(new Date().getFullYear()), soil_type: 'Loam', irrigation: 'None', status: 'Fallow', gps: '', drawColor: '' };
 const INIT_TEST_STATE = { date: new Date().toISOString().split('T')[0], ph: '', nitrogen: '', phosphorus: '', potassium: '', notes: '' };
 
 export default function FieldTab() {
@@ -169,7 +169,7 @@ export default function FieldTab() {
                   <Marker key={`pin_${idx}`} position={pos} />
                 ))}
                 {latLngs.length > 0 && (
-                  <Polygon positions={latLngs} pathOptions={{ color: polygonColor }} />
+                  <Polygon positions={latLngs} pathOptions={{ color: formData.drawColor || polygonColor }} />
                 )}
                 {/* Render existing saved fields */}
                 {fields.filter(f => f.id !== editingId).map(field => {
@@ -179,7 +179,7 @@ export default function FieldTab() {
                   }
                   if (positions.length === 0) return null;
                   return (
-                    <Polygon key={field.id} positions={positions} pathOptions={{ color: '#ff7800', weight: 2, fillOpacity: 0.3 }} />
+                    <Polygon key={field.id} positions={positions} pathOptions={{ color: field.drawColor || polygonColor, weight: 2, fillOpacity: 0.3 }} />
                   );
                 })}
               </MapContainer>
@@ -214,6 +214,15 @@ export default function FieldTab() {
             <select value={formData.status} onChange={e => setFormData({ ...formData, status: e.target.value })}>
               <option>Cover Crop</option><option>Fallow</option><option>Planted</option><option>Prepared</option>
             </select>
+          </div>
+          <div className="form-group">
+            <label>Draw Color</label>
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+              <input type="color" value={formData.drawColor || polygonColor} onChange={e => setFormData({ ...formData, drawColor: e.target.value })} />
+              {formData.drawColor && (
+                <button type="button" onClick={() => setFormData({ ...formData, drawColor: '' })} className="btn" style={{ padding: '2px 8px', fontSize: '0.8rem' }}>Clear</button>
+              )}
+            </div>
           </div>
         </div>
         <button type="submit" className="btn btn-primary" style={{ marginTop: 10 }}>

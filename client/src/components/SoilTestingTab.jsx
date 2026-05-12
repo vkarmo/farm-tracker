@@ -12,7 +12,8 @@ import 'leaflet/dist/leaflet.css';
 const INIT_TEST_STATE = { 
   fieldId: '', 
   description: '',
-  testResults: []
+  testResults: [],
+  drawColor: ''
 };
 
 const ClickToPlaceMarker = ({ position, setPosition, setCenter }) => {
@@ -30,6 +31,7 @@ export default function SoilTestingTab() {
   const fields = useSelector(state => state.fields?.data) || [];
   const mapCenter = useSelector(state => state.settings?.mapCenter) || [51.505, -0.09];
   const mapZoom = useSelector(state => state.settings?.mapZoom) || 13;
+  const polygonColor = useSelector(state => state.settings?.polygonColor) || '#ffffff';
 
   const [testData, setTestData] = useState(INIT_TEST_STATE);
   const [editingId, setEditingId] = useState(null);
@@ -178,6 +180,16 @@ export default function SoilTestingTab() {
             <div className="form-group form-grid-full">
               <label>Description / Notes</label>
               <input type="text" value={testData.description} onChange={e => setTestData({ ...testData, description: e.target.value })} placeholder="Observations, lab name, sample depth..." />
+            </div>
+
+            <div className="form-group">
+              <label>Draw Color</label>
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                <input type="color" value={testData.drawColor || polygonColor} onChange={e => setTestData({ ...testData, drawColor: e.target.value })} />
+                {testData.drawColor && (
+                  <button type="button" onClick={() => setTestData({ ...testData, drawColor: '' })} className="btn" style={{ padding: '2px 8px', fontSize: '0.8rem' }}>Clear</button>
+                )}
+              </div>
             </div>
 
           </div>
