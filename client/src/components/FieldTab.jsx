@@ -92,8 +92,8 @@ export default function FieldTab() {
     setEditingId(row.id);
     if (row.polygon) {
       try {
-        const poly = JSON.parse(row.polygon);
-        setPolygonPositions(poly);
+        const poly = typeof row.polygon === 'string' ? JSON.parse(row.polygon) : row.polygon;
+        setPolygonPositions(Array.isArray(poly) ? poly : []);
         if (poly.length > 0) setSearchResultCenter(poly[0]);
       } catch (e) { setPolygonPositions([]); }
     } else {
@@ -192,7 +192,7 @@ export default function FieldTab() {
                 {fields.filter(f => f.id !== editingId).map(field => {
                   let positions = [];
                   if (field.polygon) {
-                    try { positions = JSON.parse(field.polygon); } catch (e) {}
+                    try { positions = typeof field.polygon === 'string' ? JSON.parse(field.polygon) : field.polygon; } catch (e) {}
                   }
                   if (positions.length === 0) return null;
                   return (
