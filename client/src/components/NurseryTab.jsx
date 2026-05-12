@@ -155,7 +155,7 @@ export default function NurseryTab() {
                 <MapFlyTo center={searchResultCenter} />
                 <TileLayer
                   attribution="Google Maps"
-                  url="http://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}&s=Ga"
+                  url="https://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}&s=Ga"
                   maxZoom={24}
                   maxNativeZoom={20}
                 />
