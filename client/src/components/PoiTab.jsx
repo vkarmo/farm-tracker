@@ -29,6 +29,8 @@ export default function PoiTab() {
   const polygonColor = useSelector(state => state.settings?.polygonColor) || '#ffffff';
   const mapCenter = useSelector(state => state.settings?.mapCenter) || [51.505, -0.09];
   const mapZoom = useSelector(state => state.settings?.mapZoom) || 13;
+  const fields = useSelector(state => state.fields.data) || [];
+  const nurseries = useSelector(state => state.nurseries?.beds) || [];
 
   const [formData, setFormData] = useState(INIT_STATE);
   const [editingId, setEditingId] = useState(null);
@@ -148,23 +150,8 @@ export default function PoiTab() {
 
       <div style={{ marginBottom: '10px', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
         <div style={{ flex: 1 }}>
-          <MapSearchBox onLocationFound={handleLocationFound} onClear={clearDrawing} />
+          <MapSearchBox onLocationFound={handleLocationFound} onClear={clearDrawing} polygon={points} setPolygon={setPoints} activeId={editingId} />
         </div>
-        {points.length > 0 && (
-          <button 
-            type="button" 
-            className="btn map-toolbar-btn" 
-            style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-            onClick={() => {
-              const str = '[' + points.map(p => `(${p[0]}, ${p[1]})`).join(',\n') + ']';
-              navigator.clipboard.writeText(str);
-              window.dispatchEvent(new CustomEvent('show-toast', { detail: 'Coordinates copied to clipboard!' }));
-            }} 
-            title="Copy Coordinates to Clipboard"
-          >
-            <Copy size={16} />
-          </button>
-        )}
       </div>
       <div style={{ marginBottom: '20px', height: '400px', width: '100%', borderRadius: '8px', overflow: 'hidden', border: '2px solid var(--color-border)', position: 'relative' }}>
 
@@ -180,19 +167,41 @@ export default function PoiTab() {
             <Marker key={idx} position={pos} opacity={0.8} />
           ))}
 
-          {/* Render existing POIs for context */}
+          {/* Render existing POIs for editing (clickable) */}
           {poiList.filter(p => p.id !== editingId).map(p => {
              let existingPts = [];
              try { existingPts = typeof p.points === 'string' ? JSON.parse(p.points) : p.points; } catch(e){}
              if (!existingPts || existingPts.length === 0) return null;
              const mappedPts = existingPts.map(pt => [pt[0], pt[1]]);
+             
+             const handleClick = (e) => {
+               e.originalEvent.stopPropagation();
+               handleEdit(p);
+             };
+
              if (mappedPts.length > 2) {
-                return <Polygon key={p.id} positions={mappedPts} pathOptions={{ color: p.drawColor || polygonColor, weight: 1, fillOpacity: 0.1 }} />
+                return <Polygon key={p.id} positions={mappedPts} pathOptions={{ color: p.drawColor || polygonColor, weight: 1, fillOpacity: 0.1, bubblingMouseEvents: false }} eventHandlers={{ click: handleClick }} />
              } else if (mappedPts.length > 1) {
-                return <Polyline key={p.id} positions={mappedPts} pathOptions={{ color: p.drawColor || polygonColor, weight: 2 }} />
+                return <Polyline key={p.id} positions={mappedPts} pathOptions={{ color: p.drawColor || polygonColor, weight: 2, bubblingMouseEvents: false }} eventHandlers={{ click: handleClick }} />
              } else {
-                return <Marker key={p.id} position={mappedPts[0]} opacity={0.5} />
+                return <Marker key={p.id} position={mappedPts[0]} opacity={0.5} bubblingMouseEvents={false} eventHandlers={{ click: handleClick }} />
              }
+          })}
+
+          {/* Render fields for context (unclickable) */}
+          {fields.map(f => {
+            let positions = [];
+            if (f.polygon) { try { positions = typeof f.polygon === 'string' ? JSON.parse(f.polygon) : f.polygon; } catch(e){} }
+            if (positions.length === 0) return null;
+            return <Polygon key={f.id} positions={positions} pathOptions={{ color: f.drawColor || '#ffffff', weight: 1, dashArray: '5,5', fillOpacity: 0.1 }} interactive={false} />;
+          })}
+
+          {/* Render nurseries for context (unclickable) */}
+          {nurseries.map(n => {
+            let positions = [];
+            if (n.polygon) { try { positions = typeof n.polygon === 'string' ? JSON.parse(n.polygon) : n.polygon; } catch(e){} }
+            if (positions.length === 0) return null;
+            return <Polygon key={n.id} positions={positions} pathOptions={{ color: n.drawColor || 'orange', weight: 1, dashArray: '5,5', fillOpacity: 0.1 }} interactive={false} />;
           })}
         </MapContainer>
       </div>

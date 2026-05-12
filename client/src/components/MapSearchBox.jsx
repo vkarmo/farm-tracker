@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useMap } from 'react-leaflet';
-import { useSelector } from 'react-redux';
-import { LocateFixed, Map as MapIcon, Eraser, Plus, Tractor } from 'lucide-react';
+import { useSelector, useDispatch } from 'react-redux';
+import { setSnapGap, saveSettings } from '../store/settingsSlice';
+import { LocateFixed, Map as MapIcon, Eraser, Plus, Tractor, Magnet, Copy } from 'lucide-react';
+import * as turf from '@turf/turf';
 
 const calculateDistance = (lat1, lon1, lat2, lon2) => {
   const R = 6371e3; // metres
@@ -52,12 +54,19 @@ export const CurrentLocationButton = ({ onLocationFound, disabled }) => {
   );
 };
 
-export const MapSearchBox = ({ onLocationFound, onClear }) => {
+export const MapSearchBox = ({ onLocationFound, onClear, polygon, setPolygon, activeId }) => {
   const [query, setQuery] = useState('');
   const [gpsOn, setGpsOn] = useState(false);
   const [gpsInterval, setGpsInterval] = useState(30);
   const [isLocating, setIsLocating] = useState(false);
   const globalMapCenter = useSelector(state => state.settings?.mapCenter);
+  const snapGap = useSelector(state => state.settings?.snapGap) ?? 5;
+  const dispatch = useDispatch();
+  
+  // Data for snapping
+  const fields = useSelector(state => state.fields?.data) || [];
+  const nurseries = useSelector(state => state.nurseries?.beds) || [];
+  const pois = useSelector(state => state.poi?.list) || [];
   const watchIdRef = useRef(null);
   const lastPointRef = useRef(null);
   const wakeLockRef = useRef(null);
@@ -141,7 +150,118 @@ export const MapSearchBox = ({ onLocationFound, onClear }) => {
         navigator.geolocation.clearWatch(watchIdRef.current);
       }
     };
-  }, [gpsOn, gpsInterval]);
+  }, [gpsOn, gpsInterval, onLocationFound]);
+
+  const handleSnap = () => {
+    if (!polygon || polygon.length === 0 || !setPolygon) return;
+    
+    const existingPolygons = [];
+    const existingLines = []; // Used for edge snapping, supports 2-point lines
+    
+    const addPolygon = (polyStringOrArr) => {
+      let arr = [];
+      try { arr = typeof polyStringOrArr === 'string' ? JSON.parse(polyStringOrArr) : polyStringOrArr; } catch (e) {}
+      
+      // Handle GeoJSON Feature or Geometry
+      if (arr && typeof arr === 'object' && !Array.isArray(arr)) {
+        if (arr.type === 'Feature' && arr.geometry && arr.geometry.coordinates) {
+          arr = arr.geometry.coordinates[0];
+        } else if (arr.type === 'Polygon' && arr.coordinates) {
+          arr = arr.coordinates[0];
+        }
+      }
+
+      if (Array.isArray(arr) && arr.length >= 2) {
+        // Turf uses [lng, lat]
+        const turfCoords = arr.map(pt => {
+          if (Array.isArray(pt)) return [Number(pt[1]), Number(pt[0])];
+          if (pt && typeof pt === 'object' && pt.lat !== undefined) return [Number(pt.lng || pt.lon || pt.longitude), Number(pt.lat)];
+          return null;
+        }).filter(Boolean);
+        
+        if (turfCoords.length >= 3) {
+          if (turfCoords[0][0] !== turfCoords[turfCoords.length-1][0] || turfCoords[0][1] !== turfCoords[turfCoords.length-1][1]) {
+            turfCoords.push([...turfCoords[0]]);
+          }
+          try {
+            const poly = turf.polygon([turfCoords]);
+            existingPolygons.push(poly);
+            existingLines.push(turf.polygonToLine(poly));
+          } catch(e) { console.warn("Failed to create turf polygon:", e, turfCoords); }
+        } else if (turfCoords.length === 2) {
+          // If it's just a line (2 points), we can't use it for containment, but we can snap to it!
+          try {
+            existingLines.push(turf.lineString(turfCoords));
+          } catch(e) {}
+        }
+      }
+    };
+    
+    fields.forEach(f => { if (f.polygon && f.id !== activeId) addPolygon(f.polygon); });
+    nurseries.forEach(n => { if (n.polygon && n.id !== activeId) addPolygon(n.polygon); });
+    pois.forEach(p => { if (p.points && p.id !== activeId) addPolygon(p.points); });
+
+    // Current polygon in [lng, lat]
+    const drawnLngLat = polygon.map(pt => [pt[1], pt[0]]);
+    
+    // Close the drawn polygon for containment testing
+    let drawnPoly = null;
+    if (drawnLngLat.length >= 3) {
+      const closedCoords = [...drawnLngLat];
+      if (closedCoords[0][0] !== closedCoords[closedCoords.length-1][0] || closedCoords[0][1] !== closedCoords[closedCoords.length-1][1]) {
+        closedCoords.push([...closedCoords[0]]);
+      }
+      try { drawnPoly = turf.polygon([closedCoords]); } catch(e) {}
+    }
+
+    // Filter out existing lines that are INSIDE the drawn polygon
+    // This prevents a large outer field from snapping inward to smaller interior features
+    let validLines = existingLines;
+    if (drawnPoly) {
+      validLines = existingLines.filter(line => {
+        let insideCount = 0;
+        const coords = line.geometry.coordinates;
+        coords.forEach(c => {
+          if (turf.booleanPointInPolygon(turf.point(c), drawnPoly)) insideCount++;
+        });
+        // If more than 50% of vertices are inside, filter it out
+        return (insideCount / coords.length) <= 0.5;
+      });
+    }
+
+    const snappedPolygon = drawnLngLat.map((v, i) => {
+      let snappedLngLat = [...v];
+      let minDistance = snapGap; // dynamic threshold from Redux
+      let closestVertex = [...snappedLngLat];
+      const currentPt = turf.point(snappedLngLat);
+      
+      validLines.forEach(line => {
+        try {
+          const nearest = turf.nearestPointOnLine(line, currentPt);
+          const dist = turf.distance(currentPt, nearest, {units: 'meters'});
+          if (dist < minDistance) {
+            minDistance = dist;
+            closestVertex = nearest.geometry.coordinates;
+          }
+        } catch(e) { console.warn("Snap logic failed:", e); }
+      });
+      
+      return [closestVertex[1], closestVertex[0]]; // Return [lat, lng]
+    });
+
+    let snappedCount = 0;
+    snappedPolygon.forEach((p, i) => {
+      // Small float comparison due to math precision
+      if (Math.abs(p[0] - polygon[i][0]) > 0.0000001 || Math.abs(p[1] - polygon[i][1]) > 0.0000001) snappedCount++;
+    });
+
+    if (snappedCount > 0) {
+      setPolygon(snappedPolygon);
+      window.dispatchEvent(new CustomEvent('show-toast', { detail: `Adjusted ${snappedCount} vertices using advanced topology.` }));
+    } else {
+      window.dispatchEvent(new CustomEvent('show-toast', { detail: `No boundaries were close enough to adjust.` }));
+    }
+  };
 
   const locateUser = () => {
     setIsLocating(true);
@@ -203,9 +323,23 @@ export const MapSearchBox = ({ onLocationFound, onClear }) => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '8px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem' }}>
+        <label htmlFor="snapGapInput" style={{ fontWeight: 500 }}>Snap Gap(meters):</label>
+        <input 
+          id="snapGapInput"
+          type="number" 
+          value={snapGap}
+          onChange={(e) => {
+            dispatch(setSnapGap(Number(e.target.value)));
+            dispatch(saveSettings());
+          }}
+          style={{ width: '60px', padding: '4px', borderRadius: '4px', border: '1px solid #ccc' }}
+          min="1"
+        />
+      </div>
       <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
         
-        <div style={{ display: 'flex', gap: '8px', flex: '1 1 250px' }}>
+        <div style={{ display: 'flex', gap: '8px', flex: '1 1 150px' }}>
           <input
             type="text"
             placeholder="Search address or enter coordinates (lat, lng)..."
@@ -265,6 +399,33 @@ export const MapSearchBox = ({ onLocationFound, onClear }) => {
               title="Clear Drawing / Pin Drop"
             >
                <Eraser size={16} />
+            </button>
+          )}
+          {polygon !== undefined && setPolygon !== undefined && (
+            <button 
+              type="button" 
+              onClick={handleSnap} 
+              disabled={gpsOn || polygon.length === 0}
+              className="btn map-toolbar-btn" 
+              style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: (gpsOn || polygon.length === 0) ? 0.5 : 1, cursor: (gpsOn || polygon.length === 0) ? 'not-allowed' : 'pointer' }}
+              title={`Snap boundaries to nearest polygons (within ${snapGap}m)`}
+            >
+               <Magnet size={16} />
+            </button>
+          )}
+          {polygon !== undefined && polygon.length > 0 && (
+            <button 
+              type="button" 
+              className="btn map-toolbar-btn" 
+              style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              onClick={() => {
+                const str = '[' + polygon.map(p => `(${p[0]}, ${p[1]})`).join(',\n') + ']';
+                navigator.clipboard.writeText(str);
+                window.dispatchEvent(new CustomEvent('show-toast', { detail: 'Coordinates copied to clipboard!' }));
+              }} 
+              title="Copy Coordinates to Clipboard"
+            >
+              <Copy size={16} />
             </button>
           )}
         </div>
