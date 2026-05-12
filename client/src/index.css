@@ -107,6 +107,32 @@ input[type="checkbox"] {
   transform: scale(1.2);
 }
 
+input[type="color"] {
+  -webkit-appearance: none;
+  appearance: none;
+  border: none;
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  padding: 0;
+  cursor: pointer;
+  background-color: transparent;
+}
+
+input[type="color"]::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+input[type="color"]::-webkit-color-swatch {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+input[type="color"]::-moz-color-swatch {
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
 input:focus,
 select:focus,
 textarea:focus {

@@ -230,17 +230,17 @@ app.post('/api/sync', async (req, res) => {
       try {
         const userEmail = (action.payload && action.payload.lastUpdatedBy) ? action.payload.lastUpdatedBy : 'system';
         if (action.type === 'fields/addField') {
-          const { id, name, area, soil_type, irrigation, status, year, polygon } = action.payload;
+          const { id, name, area, soil_type, irrigation, status, year, polygon, drawColor } = action.payload;
           // Merge so we don't recreate if it exists somehow
           await session.run(
-            'MERGE (f:Field {id: $id}) SET f.name = $name, f.area = $area, f.soil_type = $soil_type, f.irrigation = $irrigation, f.status = $status, f.year = $year, f.polygon = $polygon RETURN f', { userEmail, id, name, area, soil_type, irrigation, status, year, polygon: polygon ? JSON.stringify(polygon) : null }
+            'MERGE (f:Field {id: $id}) SET f.name = $name, f.area = $area, f.soil_type = $soil_type, f.irrigation = $irrigation, f.status = $status, f.year = $year, f.polygon = $polygon, f.drawColor = $drawColor RETURN f', { userEmail, id, name, area, soil_type, irrigation, status, year, polygon: (typeof polygon === 'string') ? polygon : (polygon ? JSON.stringify(polygon) : null), drawColor: drawColor || null }
           );
           results.push({ actionId: action.meta?.id, status: 'success' });
         }
         else if (action.type === 'nurseries/addBed') {
-          const { id, name, capacity, status, polygon } = action.payload;
+          const { id, name, capacity, status, polygon, drawColor } = action.payload;
           await session.run(
-            'MERGE (n:NurseryBed {id: $id}) SET n.name = $name, n.capacity = $capacity, n.status = $status, n.polygon = $polygon RETURN n', { userEmail, id, name, capacity, status, polygon: polygon ? JSON.stringify(polygon) : null }
+            'MERGE (n:NurseryBed {id: $id}) SET n.name = $name, n.capacity = $capacity, n.status = $status, n.polygon = $polygon, n.drawColor = $drawColor RETURN n', { userEmail, id, name, capacity, status, polygon: (typeof polygon === 'string') ? polygon : (polygon ? JSON.stringify(polygon) : null), drawColor: drawColor || null }
           );
           results.push({ actionId: action.meta?.id, status: 'success' });
         }
@@ -355,11 +355,11 @@ app.post('/api/sync', async (req, res) => {
           results.push({ actionId: action.meta?.id, status: 'success' });
         }
         else if (action.type === 'poi/addPoi') {
-          const { id, name, type, description, area, length, points } = action.payload;
+          const { id, name, type, description, area, length, points, drawColor } = action.payload;
           await session.run(`
             MERGE (n:PointOfInterest {id: $id})
             SET n.name = $name, n.type = $type, n.description = $description,
-                n.area = $area, n.length = $length, n.points = $points,
+                n.area = $area, n.length = $length, n.points = $points, n.drawColor = $drawColor,
                 n.lastUpdatedBy = $userEmail, n.lastUpdatedAt = datetime()
             RETURN n
           `, { 
@@ -370,7 +370,8 @@ app.post('/api/sync', async (req, res) => {
             description: description || '', 
             area: area || '', 
             length: length || '', 
-            points: points ? JSON.stringify(points) : '[]' 
+            points: (typeof points === 'string') ? points : (points ? JSON.stringify(points) : '[]'),
+            drawColor: drawColor || null
           });
           results.push({ actionId: action.meta?.id, status: 'success' });
         }
@@ -449,13 +450,14 @@ app.post('/api/sync', async (req, res) => {
           results.push({ actionId: action.meta?.id, status: 'success' });
         }
         else if (action.type === 'assets/addEquipment') {
-          const { id, type, brand, model, purchaseDate, value, status, maintenanceDate, details } = action.payload;
+          const { id, type, brand, model, purchaseDate, value, status, maintenanceDate, details, gpsLocation, drawColor } = action.payload;
           await session.run(`
             MERGE (e:Equipment {id: $id})
             SET e.type = $type, e.brand = $brand, e.model = $model, e.purchaseDate = $purchaseDate,
-                e.value = toFloat($value), e.status = $status, e.maintenanceDate = $maintenanceDate, e.details = $details
+                e.value = toFloat($value), e.status = $status, e.maintenanceDate = $maintenanceDate, e.details = $details,
+                e.gpsLocation = $gpsLocation, e.drawColor = $drawColor
             SET e.lastUpdatedBy = $userEmail RETURN e
-          `, { userEmail, id, type, brand, model, purchaseDate, value, status, maintenanceDate, details });
+          `, { userEmail, id, type, brand, model, purchaseDate, value, status, maintenanceDate, details, gpsLocation: (typeof gpsLocation === 'string') ? gpsLocation : (gpsLocation ? JSON.stringify(gpsLocation) : null), drawColor: drawColor || null });
           results.push({ actionId: action.meta?.id, status: 'success' });
         }
         else if (action.type === 'assignments/upsertAssignment') {
@@ -609,16 +611,16 @@ app.post('/api/sync', async (req, res) => {
           results.push({ actionId: action.meta?.id, status: 'success' });
         }
         else if (action.type === 'soilTests/saveSoilTest') {
-          const { id, fieldId, description, testResults } = action.payload;
+          const { id, fieldId, description, testResults, location, drawColor } = action.payload;
           await session.run(`
             MERGE (s:SoilTest {id: $id})
             SET s.fieldId = $fieldId, s.description = $description,
-                s.testResults = $testResults
+                s.testResults = $testResults, s.location = $location, s.drawColor = $drawColor
             WITH s
             OPTIONAL MATCH (f:Field {id: $fieldId})
             FOREACH (ignore IN CASE WHEN f IS NOT NULL THEN [1] ELSE [] END | MERGE (s)-[rel_new:TESTED_ON]->(f) SET rel_new.lastUpdatedBy = $userEmail)
             SET s.lastUpdatedBy = $userEmail RETURN s
-          `, { userEmail, id, fieldId, description: description || '', testResults: testResults ? JSON.stringify(testResults) : '[]' });
+          `, { userEmail, id, fieldId, description: description || '', testResults: testResults ? JSON.stringify(testResults) : '[]', location: (typeof location === 'string') ? location : (location ? JSON.stringify(location) : null), drawColor: drawColor || null });
           results.push({ actionId: action.meta?.id, status: 'success' });
         }
         else if (action.type === 'planning/saveGoal') {
