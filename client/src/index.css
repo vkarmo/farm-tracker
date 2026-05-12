@@ -359,7 +359,7 @@ textarea[data-populated="true"]:not(:focus) {
     font-size: 0.95rem;
     text-align: right;
     max-width: 65%;
-    word-break: break-word;
+    word-break: break-all;
   }
 
   .mobile-data-actions {

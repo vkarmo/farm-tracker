@@ -149,6 +149,17 @@ export default function NurseryTab() {
                 {latLngs.length > 0 && (
                   <Polygon positions={latLngs} pathOptions={{ color: polygonColor }} />
                 )}
+                {/* Render existing saved beds */}
+                {nurseries.filter(b => b.id !== editingId).map(bed => {
+                  let positions = [];
+                  if (bed.polygon) {
+                    try { positions = JSON.parse(bed.polygon); } catch (e) {}
+                  }
+                  if (positions.length === 0) return null;
+                  return (
+                    <Polygon key={bed.id} positions={positions} pathOptions={{ color: '#4caf50', weight: 2, fillOpacity: 0.4 }} />
+                  );
+                })}
               </MapContainer>
             </div>
           </div>
@@ -175,8 +186,15 @@ export default function NurseryTab() {
           setBedData(row); 
           setEditingId(row.id); 
           if (row.polygon) {
-            try { setPolygonPositions(JSON.parse(row.polygon)); } catch(e) { setPolygonPositions([]); }
-          } else { setPolygonPositions([]); }
+            try { 
+              const poly = JSON.parse(row.polygon);
+              setPolygonPositions(poly); 
+              if (poly.length > 0) setSearchResultCenter(poly[0]);
+            } catch(e) { setPolygonPositions([]); }
+          } else { 
+            setPolygonPositions([]); 
+            setSearchResultCenter(mapCenter);
+          }
         }} 
         onDelete={(id) => {
           dispatch(deleteBed(id));
