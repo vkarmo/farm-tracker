@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { MapContainer, TileLayer, Polygon, Popup, GeoJSON, Marker } from 'react-leaflet';
-import { setMapCenter } from './store/settingsSlice';
+import { setMapCenter, setVisibleMapLayers, saveSettings } from './store/settingsSlice';
 import { kml } from '@tmcw/togeojson';
 import L from 'leaflet';
 import { CurrentLocationButton, MapFlyTo } from './components/MapSearchBox';
 import { Tractor } from 'lucide-react';
+import Select from 'react-select';
 
 // Create a custom orange icon for Hard Assets
 const orangeIcon = new L.Icon({
@@ -16,7 +17,25 @@ const orangeIcon = new L.Icon({
   popupAnchor: [1, -34],
   shadowSize: [41, 41]
 });
+
+// Create a custom brown icon for Soil Tests
+const brownIcon = new L.Icon({
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-gold.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41]
+});
 import 'leaflet/dist/leaflet.css';
+
+const LAYER_OPTIONS = [
+  { value: 'fields', label: 'Fields' },
+  { value: 'nurseries', label: 'Nurseries' },
+  { value: 'pois', label: 'Points of Interest' },
+  { value: 'equipment', label: 'Hard Assets' },
+  { value: 'soilTests', label: 'Soil Tests' }
+];
 
 const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
   const dispatch = useDispatch();
@@ -24,9 +43,20 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
   const polygonColor = useSelector(state => state.settings?.polygonColor) || '#ffffff';
   const mapCenter = useSelector(state => state.settings?.mapCenter) || [51.505, -0.09];
   const mapZoom = useSelector(state => state.settings?.mapZoom) || 13;
+  const pois = useSelector(state => state.poi?.list) || [];
+  const soilTests = useSelector(state => state.soilTests?.tests) || [];
+  
   const [geoJsonLayers, setGeoJsonLayers] = useState([]);
   const [errors, setErrors] = useState([]);
   const [flyTarget, setFlyTarget] = useState(null);
+  const visibleMapLayers = useSelector(state => state.settings?.visibleMapLayers) || ['fields', 'nurseries', 'pois', 'equipment', 'soilTests'];
+  const selectedLayers = LAYER_OPTIONS.filter(opt => visibleMapLayers.includes(opt.value));
+  
+  const handleLayersChange = (selected) => {
+    const vals = selected ? selected.map(s => s.value) : [];
+    dispatch(setVisibleMapLayers(vals));
+    dispatch(saveSettings());
+  };
 
   // Fetch and parse KML URLs into GeoJSON
   useEffect(() => {
@@ -78,21 +108,32 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '10px', gap: '8px' }}>
-        <button
-          type="button"
-          onClick={() => {
-            if (mapCenter) {
-              setFlyTarget([mapCenter[0], mapCenter[1], Date.now()]);
-            }
-          }}
-          className="btn map-toolbar-btn"
-          style={{ padding: '6px 12px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-          title="Go to Farm Base"
-        >
-          <Tractor size={16} />
-        </button>
-        <CurrentLocationButton onLocationFound={(loc) => setFlyTarget(loc)} />
+      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px', gap: '8px', alignItems: 'center' }}>
+        <div style={{ flex: 1, maxWidth: '400px', zIndex: 1001 }}>
+          <Select
+            isMulti
+            options={LAYER_OPTIONS}
+            value={selectedLayers}
+            onChange={handleLayersChange}
+            placeholder="Select layers to display..."
+          />
+        </div>
+        <div style={{ display: 'flex', gap: '8px' }}>
+          <button
+            type="button"
+            onClick={() => {
+              if (mapCenter) {
+                setFlyTarget([mapCenter[0], mapCenter[1], Date.now()]);
+              }
+            }}
+            className="btn map-toolbar-btn"
+            style={{ padding: '6px 12px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+            title="Go to Farm Base"
+          >
+            <Tractor size={16} />
+          </button>
+          <CurrentLocationButton onLocationFound={(loc) => setFlyTarget(loc)} />
+        </div>
       </div>
       <div style={{ flex: 1, minHeight: 0, width: '100%', borderRadius: 'var(--radius-md)', overflow: 'hidden', zIndex: 0, position: 'relative' }}>
       
@@ -120,12 +161,12 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
         ))}
 
         {/* Render Equipment (Hard Assets) as Markers */}
-        {equipment.map(item => {
+        {selectedLayers.some(l => l.value === 'equipment') && equipment.map(item => {
           let pos = null;
           if (item.gpsLocation) {
-            try { pos = JSON.parse(item.gpsLocation); } catch(e) {}
+            try { pos = typeof item.gpsLocation === 'string' ? JSON.parse(item.gpsLocation) : item.gpsLocation; } catch(e) {}
           }
-          if (!pos || pos.length !== 2) return null;
+          if (!pos || !Array.isArray(pos) || pos.length !== 2) return null;
           
           return (
             <Marker key={item.id} position={pos} icon={orangeIcon}>
@@ -138,12 +179,12 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
         })}
 
         {/* Render Nurseries as green Polygons */}
-        {nurseries.map(bed => {
+        {selectedLayers.some(l => l.value === 'nurseries') && nurseries.map(bed => {
           let positions = [];
           if (bed.polygon) {
-            try { positions = JSON.parse(bed.polygon); } catch(e) {}
+            try { positions = typeof bed.polygon === 'string' ? JSON.parse(bed.polygon) : bed.polygon; } catch(e) {}
           }
-          if (positions.length === 0) return null;
+          if (!Array.isArray(positions) || positions.length === 0) return null;
           return (
             <Polygon key={bed.id} pathOptions={{ color: bed.drawColor || polygonColor, weight: 2, fillOpacity: 0.4 }} positions={positions}>
               <Popup>
@@ -154,18 +195,15 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
           );
         })}
 
-        {/* Existing logic to render simulated drawn polygons for the red Fields array */}
-        {fields.map(field => {
+        {/* Render Fields */}
+        {selectedLayers.some(l => l.value === 'fields') && fields.map(field => {
           let positions = [];
           if (field.polygon) {
             try {
-              positions = JSON.parse(field.polygon);
-            } catch (e) {
-              // fallback
-            }
+              positions = typeof field.polygon === 'string' ? JSON.parse(field.polygon) : field.polygon;
+            } catch (e) {}
           }
-          
-          if (positions.length === 0) return null;
+          if (!Array.isArray(positions) || positions.length === 0) return null;
           
           return (
             <Polygon key={field.id} pathOptions={{ color: field.drawColor || polygonColor }} positions={positions}>
@@ -176,6 +214,36 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
             </Polygon>
           );
         })}
+
+        {/* Render POIs */}
+        {selectedLayers.some(l => l.value === 'pois') && pois.map(poi => {
+          let positions = [];
+          if (poi.points) {
+            try { positions = typeof poi.points === 'string' ? JSON.parse(poi.points) : poi.points; } catch(e) {}
+          }
+          if (!Array.isArray(positions) || positions.length < 3) return null;
+          const mappedPts = positions.map(pt => [pt[0], pt[1]]);
+          return (
+            <Polygon key={poi.id} pathOptions={{ color: poi.drawColor || polygonColor, weight: 2, fillOpacity: 0.5 }} positions={mappedPts}>
+              <Popup>
+                <strong>POI: {poi.name}</strong><br/>
+                {poi.type}
+              </Popup>
+            </Polygon>
+          );
+        })}
+
+        {/* Render Soil Tests */}
+        {selectedLayers.some(l => l.value === 'soilTests') && soilTests.flatMap(test => 
+          (test.testResults || []).filter(res => res.lat && res.lng).map((res, i) => (
+            <Marker key={`${test.id}_${i}`} position={[parseFloat(res.lat), parseFloat(res.lng)]} icon={brownIcon}>
+              <Popup>
+                <strong>Soil Test: {test.date}</strong><br/>
+                pH: {res.ph} | N: {res.nitrogen} | P: {res.phosphorus} | K: {res.potassium}
+              </Popup>
+            </Marker>
+          ))
+        )}
         <MapFlyTo center={flyTarget || mapCenter} />
       </MapContainer>
     </div>
