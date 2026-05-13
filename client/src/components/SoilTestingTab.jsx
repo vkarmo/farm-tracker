@@ -4,6 +4,7 @@ import { saveSoilTest, removeSoilTest } from '../store/soilTestsSlice';
 import { queueAction } from '../store/syncSlice';
 import CrudTable from './CrudTable';
 import { MapContainer, TileLayer, Marker, useMapEvents, Polygon, Polyline } from 'react-leaflet';
+import ResizableMapWrapper, { MapResizer } from './ResizableMapWrapper';
 import { MapSearchBox, MapFlyTo, FarmLocationButton } from './MapSearchBox';
 import { MapPin, X, FlaskConical, Copy } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
@@ -247,8 +248,9 @@ export default function SoilTestingTab() {
                   </button>
                 )}
               </div>
-              <div style={{ height: '200px', width: '100%', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--color-border)' }}>
+              <ResizableMapWrapper initialHeight={200} style={{ marginBottom: '15px' }}>
                 <MapContainer key={editingId || 'new_test'} center={markerPosition || mapCenter} zoom={markerPosition ? 16 : mapZoom} maxZoom={24} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
+                  <MapResizer />
                   <MapFlyTo center={searchResultCenter} />
                   <TileLayer
                     attribution="Google Maps"
@@ -290,7 +292,7 @@ export default function SoilTestingTab() {
                     }
                   })}
                 </MapContainer>
-              </div>
+              </ResizableMapWrapper>
             </div>
 
             <div className="form-group form-grid-full" style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'flex-end', marginTop: '10px' }}>

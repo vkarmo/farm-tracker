@@ -5,6 +5,7 @@ import { addPoi, deletePoi } from '../store/poiSlice';
 import { MapPin, X, Copy } from 'lucide-react';
 import CrudTable from './CrudTable';
 import { MapContainer, TileLayer, Polygon, Polyline, Marker, useMapEvents } from 'react-leaflet';
+import ResizableMapWrapper, { MapResizer } from './ResizableMapWrapper';
 import { MapSearchBox, MapFlyTo, FarmLocationButton } from './MapSearchBox';
 import area from '@turf/area';
 import length from '@turf/length';
@@ -153,9 +154,9 @@ export default function PoiTab() {
           <MapSearchBox onLocationFound={handleLocationFound} onClear={clearDrawing} polygon={points} setPolygon={setPoints} activeId={editingId} />
         </div>
       </div>
-      <div style={{ marginBottom: '20px', height: '400px', width: '100%', borderRadius: '8px', overflow: 'hidden', border: '2px solid var(--color-border)', position: 'relative' }}>
-
+      <ResizableMapWrapper initialHeight={400} style={{ marginBottom: '20px' }}>
         <MapContainer center={mapCenter} zoom={mapZoom} maxZoom={24} style={{ height: '100%', width: '100%' }} zoomControl={false}>
+          <MapResizer />
           <TileLayer attribution="Google Maps" url="https://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}&s=Ga" maxZoom={24} maxNativeZoom={20} />
 
           <MapFlyTo center={searchResultCenter} />
@@ -176,6 +177,7 @@ export default function PoiTab() {
 
             const handleClick = (e) => {
               e.originalEvent.stopPropagation();
+              if (editingId || points.length > 0) return;
               handleEdit(p);
             };
 
@@ -203,8 +205,9 @@ export default function PoiTab() {
             if (positions.length === 0) return null;
             return <Polygon key={n.id} positions={positions} pathOptions={{ color: n.drawColor || 'orange', weight: 1, dashArray: '5,5', fillOpacity: 0.1 }} interactive={false} />;
           })}
+
         </MapContainer>
-      </div>
+      </ResizableMapWrapper>
 
       <form onSubmit={handleSubmit}>
         <div className="form-grid">
