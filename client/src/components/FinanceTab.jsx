@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { queueAction } from '../store/syncSlice';
 import { addTransaction, deleteTransaction } from '../store/financialsSlice';
-import { DollarSign, X } from 'lucide-react';
+import { DollarSign, X, TrendingUp, TrendingDown } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, PieChart, Pie, Cell } from 'recharts';
 import CrudTable from './CrudTable';
 
@@ -100,7 +100,15 @@ export default function FinanceTab() {
 
   const columns = [
     { key: 'date', header: 'Date' },
-    { key: 'txType', header: 'Type' },
+    { 
+      key: 'txType', 
+      header: 'Type',
+      render: (r) => (
+        <span title={r.txType === 'Sale' ? 'Revenue' : 'Expense'} style={{ display: 'flex', alignItems: 'center', color: r.txType === 'Sale' ? '#2e7d32' : '#d32f2f' }}>
+          {r.txType === 'Sale' ? <TrendingUp size={18} /> : <TrendingDown size={18} />}
+        </span>
+      )
+    },
     { key: 'category', header: 'Category' },
     { key: 'assetId', header: 'Description', render: (r) => getAssetName(r.assetId) },
     { 
@@ -273,8 +281,8 @@ export default function FinanceTab() {
               <h4 style={{textAlign: 'center', marginBottom: 10, fontSize: '0.9rem'}}>Total Aggregate Flow</h4>
               <div style={{ width: '100%', height: 300 }}>
                 <ResponsiveContainer width="100%" height="100%">
-                  <PieChart margin={{ top: 20, right: 20, bottom: 20, left: 20 }}>
-                    <Pie data={pieData} cx="50%" cy="50%" innerRadius={60} outerRadius={90} paddingAngle={5} dataKey="value" label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`}>
+                  <PieChart margin={{ top: 20, right: 30, bottom: 20, left: 30 }}>
+                    <Pie data={pieData} cx="50%" cy="50%" innerRadius={40} outerRadius={65} paddingAngle={5} dataKey="value" label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`} style={{ fontSize: '0.8rem' }}>
                       {pieData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                       ))}
@@ -299,6 +307,7 @@ export default function FinanceTab() {
           }} 
           itemLabel="Transaction" 
           defaultSort={{ key: 'date', direction: 'desc' }}
+          rowStyle={() => ({ fontSize: '0.85rem' })}
         />
       )}
     </div>

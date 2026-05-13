@@ -50,7 +50,7 @@ export default function PoiTab() {
         const turfLine = lineString(lineRing);
         const lineLengthKm = length(turfLine, { units: 'kilometers' });
         const lineLengthMeters = lineLengthKm * 1000;
-        
+
         let calculatedArea = 0;
         if (points.length >= 3) {
           const polyRing = [...lineRing];
@@ -62,10 +62,10 @@ export default function PoiTab() {
           calculatedArea = sqMeters * 0.000247105; // Acres
         }
 
-        setFormData(prev => ({ 
-          ...prev, 
+        setFormData(prev => ({
+          ...prev,
           length: lineLengthMeters.toFixed(2),
-          area: calculatedArea ? calculatedArea.toFixed(2) : prev.area 
+          area: calculatedArea ? calculatedArea.toFixed(2) : prev.area
         }));
       } catch (err) {
         console.warn("Geographic computation failed:", err);
@@ -77,7 +77,7 @@ export default function PoiTab() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-        if (!formData.name.trim()) return alert("Validation Error: POI Name is required.");
+    if (!formData.name.trim()) return alert("Validation Error: POI Name is required.");
 
     const finalData = { ...formData, points: JSON.stringify(points) };
 
@@ -102,13 +102,13 @@ export default function PoiTab() {
     setFormData(row);
     setEditingId(row.id);
     if (row.points) {
-      try { 
+      try {
         const pts = typeof row.points === 'string' ? JSON.parse(row.points) : row.points;
-        setPoints(Array.isArray(pts) ? pts : []); 
+        setPoints(Array.isArray(pts) ? pts : []);
         if (Array.isArray(pts) && pts.length > 0) setSearchResultCenter(pts[0]);
-      } catch(e) { setPoints([]); }
-    } else { 
-      setPoints([]); 
+      } catch (e) { setPoints([]); }
+    } else {
+      setPoints([]);
       setSearchResultCenter(mapCenter);
     }
   };
@@ -157,7 +157,7 @@ export default function PoiTab() {
 
         <MapContainer center={mapCenter} zoom={mapZoom} maxZoom={24} style={{ height: '100%', width: '100%' }} zoomControl={false}>
           <TileLayer attribution="Google Maps" url="https://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}&s=Ga" maxZoom={24} maxNativeZoom={20} />
-          
+
           <MapFlyTo center={searchResultCenter} />
           <ClickToDrawComponent points={points} setPoints={setPoints} setCenter={setSearchResultCenter} />
 
@@ -169,29 +169,29 @@ export default function PoiTab() {
 
           {/* Render existing POIs for editing (clickable) */}
           {poiList.filter(p => p.id !== editingId).map(p => {
-             let existingPts = [];
-             try { existingPts = typeof p.points === 'string' ? JSON.parse(p.points) : p.points; } catch(e){}
-             if (!existingPts || existingPts.length === 0) return null;
-             const mappedPts = existingPts.map(pt => [pt[0], pt[1]]);
-             
-             const handleClick = (e) => {
-               e.originalEvent.stopPropagation();
-               handleEdit(p);
-             };
+            let existingPts = [];
+            try { existingPts = typeof p.points === 'string' ? JSON.parse(p.points) : p.points; } catch (e) { }
+            if (!existingPts || existingPts.length === 0) return null;
+            const mappedPts = existingPts.map(pt => [pt[0], pt[1]]);
 
-             if (mappedPts.length > 2) {
-                return <Polygon key={p.id} positions={mappedPts} pathOptions={{ color: p.drawColor || polygonColor, weight: 1, fillOpacity: 0.1, bubblingMouseEvents: false }} eventHandlers={{ click: handleClick }} />
-             } else if (mappedPts.length > 1) {
-                return <Polyline key={p.id} positions={mappedPts} pathOptions={{ color: p.drawColor || polygonColor, weight: 2, bubblingMouseEvents: false }} eventHandlers={{ click: handleClick }} />
-             } else {
-                return <Marker key={p.id} position={mappedPts[0]} opacity={0.5} bubblingMouseEvents={false} eventHandlers={{ click: handleClick }} />
-             }
+            const handleClick = (e) => {
+              e.originalEvent.stopPropagation();
+              handleEdit(p);
+            };
+
+            if (mappedPts.length > 2) {
+              return <Polygon key={p.id} positions={mappedPts} pathOptions={{ color: p.drawColor || polygonColor, weight: 1, fillOpacity: 0.1, bubblingMouseEvents: false }} eventHandlers={{ click: handleClick }} />
+            } else if (mappedPts.length > 1) {
+              return <Polyline key={p.id} positions={mappedPts} pathOptions={{ color: p.drawColor || polygonColor, weight: 2, bubblingMouseEvents: false }} eventHandlers={{ click: handleClick }} />
+            } else {
+              return <Marker key={p.id} position={mappedPts[0]} opacity={0.5} bubblingMouseEvents={false} eventHandlers={{ click: handleClick }} />
+            }
           })}
 
           {/* Render fields for context (unclickable) */}
           {fields.map(f => {
             let positions = [];
-            if (f.polygon) { try { positions = typeof f.polygon === 'string' ? JSON.parse(f.polygon) : f.polygon; } catch(e){} }
+            if (f.polygon) { try { positions = typeof f.polygon === 'string' ? JSON.parse(f.polygon) : f.polygon; } catch (e) { } }
             if (positions.length === 0) return null;
             return <Polygon key={f.id} positions={positions} pathOptions={{ color: f.drawColor || '#ffffff', weight: 1, dashArray: '5,5', fillOpacity: 0.1 }} interactive={false} />;
           })}
@@ -199,7 +199,7 @@ export default function PoiTab() {
           {/* Render nurseries for context (unclickable) */}
           {nurseries.map(n => {
             let positions = [];
-            if (n.polygon) { try { positions = typeof n.polygon === 'string' ? JSON.parse(n.polygon) : n.polygon; } catch(e){} }
+            if (n.polygon) { try { positions = typeof n.polygon === 'string' ? JSON.parse(n.polygon) : n.polygon; } catch (e) { } }
             if (positions.length === 0) return null;
             return <Polygon key={n.id} positions={positions} pathOptions={{ color: n.drawColor || 'orange', weight: 1, dashArray: '5,5', fillOpacity: 0.1 }} interactive={false} />;
           })}
@@ -209,7 +209,7 @@ export default function PoiTab() {
       <form onSubmit={handleSubmit}>
         <div className="form-grid">
           <div className="form-group form-grid-full">
-            <label>POI Name</label>
+            <label>Point of Interest Name</label>
             <input type="text" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} placeholder="e.g. North Creek, Water Well 1" required />
           </div>
           <div className="form-group">
@@ -251,15 +251,15 @@ export default function PoiTab() {
 
       <hr style={{ border: 'none', borderTop: '1px solid var(--color-border)', margin: '30px 0' }} />
 
-      <CrudTable activeRowId={editingId} 
-        data={poiList} 
-        columns={columns} 
-        onEdit={handleEdit} 
+      <CrudTable activeRowId={editingId}
+        data={poiList}
+        columns={columns}
+        onEdit={handleEdit}
         onDelete={(id) => {
           dispatch(deletePoi(id));
           dispatch(queueAction({ type: 'core/deleteNode', payload: { id }, meta: { id: Date.now() } }));
-        }} 
-        itemLabel="Point of Interest" 
+        }}
+        itemLabel="Point of Interest"
       />
     </div>
   );

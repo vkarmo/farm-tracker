@@ -436,7 +436,7 @@ export default function App() {
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
           <RefreshCw size={54} className="spin" style={{ marginBottom: '24px', color: 'var(--color-accent)' }} />
           <h2 style={{ color: 'white', marginBottom: '8px' }}>Updating {displayAppName}...</h2>
-          <p style={{ color: '#ccc', maxWidth: '280px', textAlign: 'center', wordWrap: 'break-word', whiteSpace: 'normal', lineHeight: '1.4' }}>Downloading the latest version.<br/>The app will reload automatically.</p>
+          <p style={{ color: '#ccc', maxWidth: '280px', textAlign: 'center', wordWrap: 'break-word', whiteSpace: 'normal', lineHeight: '1.4' }}>Downloading the latest version.<br />The app will reload automatically.</p>
         </div>
       )}
       <header>
@@ -525,7 +525,7 @@ export default function App() {
           <>
             {hasAccess('dashboard') && <button onClick={() => setActiveTab('dashboard')} className={`btn ${activeTab === 'dashboard' ? 'tab-btn-active' : ''}`}><BarChart size={16} style={{ marginRight: 6 }} /> Dashboard</button>}
             {hasAccess('map') && <button onClick={() => setActiveTab('map')} className={`btn ${activeTab === 'map' ? 'tab-btn-active' : ''}`}><MapPin size={16} style={{ marginRight: 6 }} /> Map</button>}
-            {hasAccess('poi') && <button onClick={() => setActiveTab('poi')} className={`btn ${activeTab === 'poi' ? 'tab-btn-active' : ''}`}><MapPin size={16} style={{ marginRight: 6 }} /> POIs</button>}
+            {hasAccess('poi') && <button onClick={() => setActiveTab('poi')} className={`btn ${activeTab === 'poi' ? 'tab-btn-active' : ''}`}><MapPin size={16} style={{ marginRight: 6 }} /> Points of Interest</button>}
           </>
         )}
         {activeModule === 'agronomy' && (
