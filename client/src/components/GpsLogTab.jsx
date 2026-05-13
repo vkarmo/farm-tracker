@@ -8,6 +8,7 @@ import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
 import { MapFlyTo } from './MapSearchBox';
 import { Tractor } from 'lucide-react';
 import L from 'leaflet';
+import ResizableMapWrapper, { MapResizer } from './ResizableMapWrapper';
 
 
 // Fix for leaflet marker icon missing in some react-leaflet builds
@@ -131,13 +132,14 @@ export default function GpsLogTab() {
               <Tractor size={16} /> Go to Farm
             </button>
           </div>
-          <div style={{ height: '500px', width: '100%' }}>
+          <ResizableMapWrapper initialHeight={500} style={{ width: '100%' }}>
             <MapContainer
               center={filteredLogs.length > 0 ? [filteredLogs[0].lat, filteredLogs[0].lng] : mapCenter}
               zoom={mapZoom}
               maxZoom={24}
               style={{ height: '100%', width: '100%' }}
             >
+              <MapResizer />
               <MapFlyTo center={flyTarget} />
               <TileLayer attribution="Google Maps" url="https://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}&s=Ga" maxZoom={24} maxNativeZoom={20} />
               {filteredLogs.map(log => {
@@ -155,7 +157,7 @@ export default function GpsLogTab() {
                 );
               })}
             </MapContainer>
-          </div>
+          </ResizableMapWrapper>
         </div>
       )}
 

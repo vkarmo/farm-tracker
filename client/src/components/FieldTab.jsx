@@ -5,6 +5,7 @@ import { updateField, addField, deleteField } from '../store/fieldsSlice';
 import { CheckCircle2, Target, X, PlusCircle, Copy } from 'lucide-react';
 import CrudTable from './CrudTable';
 import { MapContainer, TileLayer, Polygon, Marker, useMapEvents } from 'react-leaflet';
+import ResizableMapWrapper, { MapResizer } from './ResizableMapWrapper';
 import { MapSearchBox, MapFlyTo, FarmLocationButton } from './MapSearchBox';
 import area from '@turf/area';
 import { polygon } from '@turf/helpers';
@@ -162,8 +163,9 @@ export default function FieldTab() {
                 />
               </div>
             </div>
-            <div style={{ height: '300px', width: '100%', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--color-border)' }}>
+            <ResizableMapWrapper initialHeight={300} style={{ marginBottom: '15px' }}>
               <MapContainer key={editingId || 'new'} center={latLngs.length > 0 ? latLngs[0] : mapCenter} zoom={latLngs.length > 0 ? 16 : mapZoom} maxZoom={24} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
+                <MapResizer />
                 <MapFlyTo center={searchResultCenter} />
                 <TileLayer
                   attribution="Google Maps"
@@ -215,7 +217,7 @@ export default function FieldTab() {
                   return <Polygon key={p.id} positions={positions} pathOptions={{ color: 'purple', weight: 1, dashArray: '5,5', fillOpacity: 0.1 }} interactive={false} />;
                 })}
               </MapContainer>
-            </div>
+            </ResizableMapWrapper>
           </div>
           <div className="form-group">
             <label>Field Name / Identifier</label>
