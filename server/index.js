@@ -10,6 +10,15 @@ app.use(cors());
 // Increase body limit so large sync queues (with GeoJSON polygons) don't get rejected
 app.use(express.json({ limit: '50mb' }));
 
+// Gracefully handle body-parser errors (like aborted requests during slow mobile syncs)
+app.use((err, req, res, next) => {
+  if (err && err.type === 'request.aborted') {
+    console.warn(`[Express] Ignored aborted request from ${req.ip} during body parsing.`);
+    return res.status(400).end();
+  }
+  next(err);
+});
+
 // Essential headers to allow Google OAuth popups to function correctly when embedded in iframes like Replit
 app.use((req, res, next) => {
   res.setHeader('Cross-Origin-Opener-Policy', 'same-origin-allow-popups');
@@ -721,6 +730,14 @@ if (process.env.NODE_ENV === 'production') {
     res.sendFile(path.join(__dirname, '../client/dist/index.html'));
   });
 }
+
+// Global Error Handler to prevent unhandled exceptions from crashing the server
+app.use((err, req, res, next) => {
+  console.error('[Global Error Handler]', err.stack || err.message || err);
+  if (!res.headersSent) {
+    res.status(500).json({ ok: false, error: 'Internal Server Error' });
+  }
+});
 
 app.listen(port, '0.0.0.0', () => {
   console.log(`Node Server proxy running on port ${port}`);
