@@ -193,6 +193,7 @@ export default function FieldTab() {
                       eventHandlers={{
                         click: (e) => {
                           e.originalEvent.stopPropagation();
+                          if (editingId || polygonPositions.length > 0) return;
                           handleEdit(field);
                         }
                       }}

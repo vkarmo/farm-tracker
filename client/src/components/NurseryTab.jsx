@@ -169,6 +169,7 @@ export default function NurseryTab() {
                       pathOptions={{ color: bed.drawColor || polygonColor, weight: 2, fillOpacity: 0.4, bubblingMouseEvents: false }} 
                       eventHandlers={{ click: (e) => {
                         e.originalEvent.stopPropagation();
+                        if (editingId || polygonPositions.length > 0) return;
                         handleEdit(bed);
                       } }}
                     />

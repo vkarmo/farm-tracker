@@ -176,6 +176,7 @@ export default function PoiTab() {
 
             const handleClick = (e) => {
               e.originalEvent.stopPropagation();
+              if (editingId || points.length > 0) return;
               handleEdit(p);
             };
 
