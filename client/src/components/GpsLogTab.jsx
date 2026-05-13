@@ -50,18 +50,18 @@ export default function GpsLogTab() {
     }
   };
 
-  const uniqueUsers = Array.from(new Set(logs.map(log => log.userEmail))).sort((a, b) => (a || '').localeCompare(b || ''));
+  const uniqueUsers = Array.from(new Set(logs.map(log => log.userEmail?.trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b));
 
   const filteredLogs = logs.filter(log => {
-    return selectedUser === 'All' || log.userEmail === selectedUser;
+    return selectedUser === 'All' || (log.userEmail && log.userEmail.trim() === selectedUser);
   }).reverse(); // Newest first
 
   const gpsColumns = [
-    { key: 'timestamp', header: 'Timestamp', render: (r) => <span style={{ fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{new Date(r.timestamp).toLocaleString()}</span> },
-    { key: 'userEmail', header: 'User', render: (r) => <span style={{ fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{r.userEmail}</span> },
-    { key: 'lat', header: 'Latitude', render: (r) => <span style={{ fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{r.lat.toFixed(6)}</span> },
-    { key: 'lng', header: 'Longitude', render: (r) => <span style={{ fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{r.lng.toFixed(6)}</span> },
-    { key: 'altitude', header: 'Elevation', render: (r) => <span style={{ fontFamily: 'monospace', whiteSpace: 'nowrap' }}>{r.altitude !== undefined && r.altitude !== null ? `${r.altitude.toFixed(1)}m` : 'N/A'}</span> }
+    { key: 'timestamp', header: 'Timestamp', render: (r) => <span style={{ fontFamily: 'monospace', fontSize: '0.75rem', whiteSpace: 'nowrap' }}>{new Date(r.timestamp).toLocaleString()}</span> },
+    { key: 'userEmail', header: 'User', render: (r) => <span style={{ fontFamily: 'monospace', fontSize: '0.75rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '100px', display: 'inline-block' }} title={r.userEmail}>{r.userEmail}</span> },
+    { key: 'lat', header: 'Latitude', render: (r) => <span style={{ fontFamily: 'monospace', fontSize: '0.75rem', whiteSpace: 'nowrap' }}>{r.lat.toFixed(6)}</span> },
+    { key: 'lng', header: 'Longitude', render: (r) => <span style={{ fontFamily: 'monospace', fontSize: '0.75rem', whiteSpace: 'nowrap' }}>{r.lng.toFixed(6)}</span> },
+    { key: 'altitude', header: 'Elevation', render: (r) => <span style={{ fontFamily: 'monospace', fontSize: '0.75rem', whiteSpace: 'nowrap' }}>{r.altitude !== undefined && r.altitude !== null ? `${r.altitude.toFixed(1)}m` : 'N/A'}</span> }
   ];
 
   const chartData = [...filteredLogs].reverse().map(log => ({

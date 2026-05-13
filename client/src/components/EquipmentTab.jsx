@@ -4,7 +4,7 @@ import { queueAction } from '../store/syncSlice';
 import { addEquipment, updateEquipment, deleteEquipment } from '../store/assetsSlice';
 import { CheckCircle2, X, Copy } from 'lucide-react';
 import CrudTable from './CrudTable';
-import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, useMapEvents, Polygon, Polyline } from 'react-leaflet';
 import { MapSearchBox, MapFlyTo, FarmLocationButton } from './MapSearchBox';
 import 'leaflet/dist/leaflet.css';
 
@@ -23,6 +23,9 @@ const INIT_STATE = { name: '', type: 'Machinery', value: '', status: 'Active', p
 export default function EquipmentTab() {
   const dispatch = useDispatch();
   const equipment = useSelector(state => state.assets?.equipment) || [];
+  const fields = useSelector(state => state.fields?.data) || [];
+  const nurseries = useSelector(state => state.assets?.nurseries) || [];
+  const pois = useSelector(state => state.assets?.pois) || [];
   const mapCenter = useSelector(state => state.settings?.mapCenter) || [51.505, -0.09];
   const polygonColor = useSelector(state => state.settings?.polygonColor) || '#ffffff';
   
@@ -153,6 +156,37 @@ export default function EquipmentTab() {
                 {gpsLocation && (
                   <Marker position={gpsLocation} />
                 )}
+
+                {/* Render fields for context (unclickable) */}
+                {fields.map(f => {
+                  let positions = [];
+                  if (f.polygon) { try { positions = typeof f.polygon === 'string' ? JSON.parse(f.polygon) : f.polygon; } catch(e){} }
+                  if (positions.length === 0) return null;
+                  return <Polygon key={f.id} positions={positions} pathOptions={{ color: f.drawColor || '#ffffff', weight: 1, dashArray: '5,5', fillOpacity: 0.1 }} interactive={false} />;
+                })}
+
+                {/* Render nurseries for context (unclickable) */}
+                {nurseries.map(n => {
+                  let positions = [];
+                  if (n.polygon) { try { positions = typeof n.polygon === 'string' ? JSON.parse(n.polygon) : n.polygon; } catch(e){} }
+                  if (positions.length === 0) return null;
+                  return <Polygon key={n.id} positions={positions} pathOptions={{ color: n.drawColor || 'orange', weight: 1, dashArray: '5,5', fillOpacity: 0.1 }} interactive={false} />;
+                })}
+
+                {/* Render POIs for context (unclickable) */}
+                {pois.map(p => {
+                  let existingPts = [];
+                  try { existingPts = typeof p.points === 'string' ? JSON.parse(p.points) : p.points; } catch(e){}
+                  if (!existingPts || existingPts.length === 0) return null;
+                  const mappedPts = existingPts.map(pt => [pt[0], pt[1]]);
+                  if (mappedPts.length > 2) {
+                     return <Polygon key={p.id} positions={mappedPts} pathOptions={{ color: p.drawColor || polygonColor, weight: 1, dashArray: '5,5', fillOpacity: 0.1 }} interactive={false} />
+                  } else if (mappedPts.length > 1) {
+                     return <Polyline key={p.id} positions={mappedPts} pathOptions={{ color: p.drawColor || polygonColor, weight: 2, dashArray: '5,5' }} interactive={false} />
+                  } else {
+                     return <Marker key={p.id} position={mappedPts[0]} opacity={0.5} interactive={false} />
+                  }
+                })}
               </MapContainer>
             </div>
           </div>

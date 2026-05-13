@@ -109,7 +109,13 @@ export default function EmployeeTab() {
     : employees;
 
   const employeeColumns = [
-    { key: 'name', header: 'Name', render: (r) => <span style={{ fontWeight: 600 }}>{r.lastName}, {r.firstName}</span> },
+    { key: 'name', header: 'Name', render: (r) => (
+      <span style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+        {r.lastName}, {r.firstName}
+        {r.gender === 'Male' && <span style={{ color: '#1565c0', fontSize: '1.1rem', lineHeight: 1 }} title="Male">♂</span>}
+        {r.gender === 'Female' && <span style={{ color: '#c2185b', fontSize: '1.1rem', lineHeight: 1 }} title="Female">♀</span>}
+      </span> 
+    ) },
     { key: 'jobTitle', header: 'Job Title' },
     { key: 'status', header: 'Status', render: (r) => r.isTerminated ? (
       <div style={{ color: '#c62828', fontWeight: 500, fontSize: '0.85rem' }}>

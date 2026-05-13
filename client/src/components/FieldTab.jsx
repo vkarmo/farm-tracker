@@ -65,7 +65,7 @@ export default function FieldTab() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-        if (!formData.name.trim()) return alert("Validation Error: Field Name is strictly required.");
+    if (!formData.name.trim()) return alert("Validation Error: Field Name is strictly required.");
     if (parseFloat(formData.area) < 0) return alert("Validation Error: Mathematical acreage cannot be negative.");
     if (!formData.name || !formData.area) return;
 
@@ -139,7 +139,7 @@ export default function FieldTab() {
   return (
     <div className="card">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h2>{editingId ? 'Edit Field Geometry' : 'Track New Field Geometry'}</h2>
+        <h2>{editingId ? 'Edit Field Data' : 'Enter New Field Data'}</h2>
         {editingId && (
           <button onClick={() => { setEditingId(null); setFormData(INIT_STATE); setPolygonPositions([]); }} className="btn" style={{ background: '#f5f5f5', color: '#333' }}>
             <X size={14} style={{ marginRight: 4 }} /> Cancel Edit
@@ -153,8 +153,8 @@ export default function FieldTab() {
             <label>Draw Field Location on Map (Click to add points to polygon)</label>
             <div style={{ marginBottom: '10px', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
               <div style={{ flex: 1 }}>
-                <MapSearchBox 
-                  onLocationFound={handleLocationFound} 
+                <MapSearchBox
+                  onLocationFound={handleLocationFound}
                   onClear={polygonPositions.length > 0 ? () => setPolygonPositions([]) : null}
                   polygon={polygonPositions}
                   setPolygon={setPolygonPositions}
@@ -182,32 +182,34 @@ export default function FieldTab() {
                 {fields.filter(f => f.id !== editingId).map(field => {
                   let positions = [];
                   if (field.polygon) {
-                    try { positions = typeof field.polygon === 'string' ? JSON.parse(field.polygon) : field.polygon; } catch (e) {}
+                    try { positions = typeof field.polygon === 'string' ? JSON.parse(field.polygon) : field.polygon; } catch (e) { }
                   }
                   if (positions.length === 0) return null;
                   return (
-                    <Polygon 
-                      key={field.id} 
-                      positions={positions} 
-                      pathOptions={{ color: field.drawColor || polygonColor, weight: 2, fillOpacity: 0.3, bubblingMouseEvents: false }} 
-                      eventHandlers={{ click: (e) => {
-                        e.originalEvent.stopPropagation();
-                        handleEdit(field);
-                      } }}
+                    <Polygon
+                      key={field.id}
+                      positions={positions}
+                      pathOptions={{ color: field.drawColor || polygonColor, weight: 2, fillOpacity: 0.3, bubblingMouseEvents: false }}
+                      eventHandlers={{
+                        click: (e) => {
+                          e.originalEvent.stopPropagation();
+                          handleEdit(field);
+                        }
+                      }}
                     />
                   );
                 })}
                 {/* Render nurseries for context (unclickable) */}
                 {nurseries.map(n => {
                   let positions = [];
-                  if (n.polygon) { try { positions = typeof n.polygon === 'string' ? JSON.parse(n.polygon) : n.polygon; } catch(e){} }
+                  if (n.polygon) { try { positions = typeof n.polygon === 'string' ? JSON.parse(n.polygon) : n.polygon; } catch (e) { } }
                   if (positions.length === 0) return null;
                   return <Polygon key={n.id} positions={positions} pathOptions={{ color: n.drawColor || 'orange', weight: 1, dashArray: '5,5', fillOpacity: 0.1 }} interactive={false} />;
                 })}
                 {/* Render POIs for context (unclickable) */}
                 {pois.map(p => {
                   let positions = [];
-                  if (p.points) { try { positions = typeof p.points === 'string' ? JSON.parse(p.points) : p.points; } catch(e){} }
+                  if (p.points) { try { positions = typeof p.points === 'string' ? JSON.parse(p.points) : p.points; } catch (e) { } }
                   if (positions.length === 0) return null;
                   return <Polygon key={p.id} positions={positions} pathOptions={{ color: 'purple', weight: 1, dashArray: '5,5', fillOpacity: 0.1 }} interactive={false} />;
                 })}
@@ -262,8 +264,8 @@ export default function FieldTab() {
       {editingId && fieldTests.length > 0 && (
         <div style={{ marginTop: '30px', background: '#f9f9f9', padding: '15px', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-             <h3 style={{ margin: 0 }}>Soil Tests for {formData.name}</h3>
-             <span style={{ fontSize: '0.85rem', color: '#666' }}>Add new tests in the Soil Tests tab</span>
+            <h3 style={{ margin: 0 }}>Soil Tests for {formData.name}</h3>
+            <span style={{ fontSize: '0.85rem', color: '#666' }}>Add new tests in the Soil Tests tab</span>
           </div>
           <div style={{ marginTop: '15px' }}>
             <CrudTable activeRowId={editingId}

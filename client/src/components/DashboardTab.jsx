@@ -333,7 +333,7 @@ export default function DashboardTab() {
             </div>
             <div style={{ flex: '2 1 400px', display: 'flex', flexDirection: 'column', gap: '10px', justifyContent: 'center' }}>
               <h4 style={{ margin: '0 0 10px 0', color: '#666', borderBottom: '1px solid #eee', paddingBottom: '5px' }}>7-Day Forecast</h4>
-              <div style={{ display: 'flex', justifyContent: 'space-between', overflowX: 'auto', gap: '10px', paddingBottom: '10px' }}>
+              <div style={{ display: 'flex', justifyContent: 'flex-start', overflowX: 'auto', gap: '15px', paddingBottom: '10px', width: '100%' }}>
                 {weatherData.daily?.time?.map((time, idx) => {
                   if (idx === 0) return null; // Skip today since we show it large
                   const date = new Date(time);
