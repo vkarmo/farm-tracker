@@ -3,11 +3,11 @@
   --color-primary-light: #4caf50;
   --color-primary-dark: #1b5e20;
   --color-accent: #81c784;
-  --color-bg: #000222;
+  --color-bg: #eeeef1;
   --color-surface: #ffffff;
   --color-text: #3e3e3e;
   --color-text-light: #6a6a6a;
-  --color-border: #0c0808;
+  --color-border: #363535;
   --color-border-light: #e0e0e0;
 
   --radius-sm: 4px;
@@ -36,8 +36,8 @@ body {
 .container {
   max-width: 1024px;
   margin: 0 auto;
-  padding: 16px;
-  background-color: black;
+  padding: 20px;
+  background-color: rgb(179 179 142 / 19%);
 }
 
 header {
@@ -47,7 +47,7 @@ header {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  border-bottom: 2px solid var(--color-primary);
+  border-bottom: 1px solid var(--color-primary);
 }
 
 h1 {
@@ -196,7 +196,8 @@ textarea[data-populated="true"]:not(:focus) {
   border: none !important;
 }
 
-.map-toolbar-btn:hover, .map-toolbar-btn.active {
+.map-toolbar-btn:hover,
+.map-toolbar-btn.active {
   background-color: khaki !important;
 }
 
@@ -207,7 +208,7 @@ textarea[data-populated="true"]:not(:focus) {
   font-size: 0.85rem;
   font-weight: 600;
   padding: 4px 8px;
-  border-radius: 12px;
+  border-radius: 10px;
 }
 
 .status-online {
@@ -395,7 +396,7 @@ textarea[data-populated="true"]:not(:focus) {
     gap: 15px;
     margin-top: 15px;
     padding-top: 15px;
-    border-top: 2px solid #eee;
+    border-top: 1px solid #eee;
   }
 }
 
@@ -446,6 +447,7 @@ textarea[data-populated="true"]:not(:focus) {
 .db-info:focus-within {
   max-width: 400px;
 }
+
 /* Global Saving Indicator & Button States */
 body.is-saving button[type="submit"] {
   pointer-events: none;
@@ -453,6 +455,7 @@ body.is-saving button[type="submit"] {
   color: transparent !important;
   position: relative;
 }
+
 body.is-saving button[type="submit"]::before {
   content: "Saving...";
   color: white;
@@ -472,6 +475,7 @@ body.is-saved button[type="submit"] {
   color: transparent !important;
   position: relative;
 }
+
 body.is-saved button[type="submit"]::before {
   content: "✔ Saved!";
   color: white;
@@ -486,7 +490,8 @@ body.is-saved button[type="submit"]::before {
 }
 
 /* Also disable cancel buttons globally when saving */
-body.is-saving button[type="button"], body.is-saved button[type="button"] {
+body.is-saving button[type="button"],
+body.is-saved button[type="button"] {
   pointer-events: none;
   opacity: 0.6;
 }
@@ -500,7 +505,7 @@ body.is-saving button[type="button"], body.is-saved button[type="button"] {
   color: white;
   padding: 12px 24px;
   border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   display: flex;
   align-items: center;
   gap: 10px;
