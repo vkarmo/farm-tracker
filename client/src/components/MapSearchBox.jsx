@@ -46,7 +46,7 @@ export const CurrentLocationButton = ({ onLocationFound, disabled }) => {
       onClick={locateUser}
       disabled={disabled}
       className="btn map-toolbar-btn"
-      style={{ padding: '6px 12px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: disabled ? 0.5 : 1, cursor: disabled ? 'not-allowed' : 'pointer' }}
+      style={{ flexShrink: 0, padding: '6px 10px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: disabled ? 0.5 : 1, cursor: disabled ? 'not-allowed' : 'pointer' }}
       title="Go to Current Location"
     >
       <LocateFixed size={16} className={isLocating ? 'spin' : ''} />
@@ -337,30 +337,30 @@ export const MapSearchBox = ({ onLocationFound, onClear, polygon, setPolygon, ac
           min="1"
         />
       </div>
-      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+      <div className="map-toolbar-container" style={{ display: 'flex', gap: '8px', flexWrap: 'nowrap', overflowX: 'auto', paddingBottom: '4px', WebkitOverflowScrolling: 'touch', alignItems: 'center' }}>
         
-        <div style={{ display: 'flex', gap: '8px', flex: '1 1 150px' }}>
+        <div style={{ display: 'flex', gap: '8px', flex: '0 0 140px' }}>
           <input
             type="text"
-            placeholder="Search address or enter coordinates (lat, lng)..."
+            placeholder="Search/Coords..."
             value={query}
             onChange={e => setQuery(e.target.value)}
             onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(e); }}
-            style={{ flex: 1, minWidth: 0, padding: '6px 10px', fontSize: '0.85rem', borderRadius: '4px', border: '1px solid #ccc' }}
+            style={{ flex: 1, minWidth: 0, padding: '6px 8px', fontSize: '0.85rem', borderRadius: '4px', border: '1px solid #ccc' }}
           />
           <button 
             type="button" 
             onClick={handleSearch} 
             disabled={gpsOn}
             className="btn map-toolbar-btn" 
-            style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: gpsOn ? 0.5 : 1, cursor: gpsOn ? 'not-allowed' : 'pointer' }}
+            style={{ flexShrink: 0, padding: '6px 10px', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: gpsOn ? 0.5 : 1, cursor: gpsOn ? 'not-allowed' : 'pointer' }}
             title="Add Pin"
           >
             <Plus size={16} />
           </button>
         </div>
 
-        <div style={{ display: 'flex', gap: '8px' }}>
+        <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
           <CurrentLocationButton disabled={gpsOn} onLocationFound={(loc) => { if (onLocationFoundRef.current) onLocationFoundRef.current(loc); }} />
           
           <button
@@ -372,7 +372,7 @@ export const MapSearchBox = ({ onLocationFound, onClear, polygon, setPolygon, ac
             }}
             disabled={gpsOn}
             className="btn map-toolbar-btn"
-            style={{ padding: '6px 12px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: gpsOn ? 0.5 : 1, cursor: gpsOn ? 'not-allowed' : 'pointer' }}
+            style={{ flexShrink: 0, padding: '6px 10px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: gpsOn ? 0.5 : 1, cursor: gpsOn ? 'not-allowed' : 'pointer' }}
             title="Go to Farm Base"
           >
             <Tractor size={16} />
@@ -382,8 +382,9 @@ export const MapSearchBox = ({ onLocationFound, onClear, polygon, setPolygon, ac
             onClick={() => setGpsOn(!gpsOn)}
             className={`btn map-toolbar-btn ${gpsOn ? 'active' : ''}`}
             style={{ 
-              padding: '6px 12px', fontSize: '0.85rem', 
-              display: 'flex', alignItems: 'center', gap: '6px',
+              flexShrink: 0,
+              padding: '6px 10px', fontSize: '0.85rem', 
+              display: 'flex', alignItems: 'center', gap: '4px',
               cursor: 'pointer'
             }}
           >
@@ -395,7 +396,7 @@ export const MapSearchBox = ({ onLocationFound, onClear, polygon, setPolygon, ac
               onClick={onClear || (() => {})} 
               disabled={gpsOn || !onClear}
               className="btn map-toolbar-btn" 
-              style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: (gpsOn || !onClear) ? 0.5 : 1, cursor: (gpsOn || !onClear) ? 'not-allowed' : 'pointer' }}
+              style={{ flexShrink: 0, padding: '6px 10px', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: (gpsOn || !onClear) ? 0.5 : 1, cursor: (gpsOn || !onClear) ? 'not-allowed' : 'pointer' }}
               title="Clear Drawing / Pin Drop"
             >
                <Eraser size={16} />
@@ -407,7 +408,7 @@ export const MapSearchBox = ({ onLocationFound, onClear, polygon, setPolygon, ac
               onClick={handleSnap} 
               disabled={gpsOn || polygon.length === 0}
               className="btn map-toolbar-btn" 
-              style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: (gpsOn || polygon.length === 0) ? 0.5 : 1, cursor: (gpsOn || polygon.length === 0) ? 'not-allowed' : 'pointer' }}
+              style={{ flexShrink: 0, padding: '6px 10px', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: (gpsOn || polygon.length === 0) ? 0.5 : 1, cursor: (gpsOn || polygon.length === 0) ? 'not-allowed' : 'pointer' }}
               title={`Snap boundaries to nearest polygons (within ${snapGap}m)`}
             >
                <Magnet size={16} />
@@ -417,7 +418,7 @@ export const MapSearchBox = ({ onLocationFound, onClear, polygon, setPolygon, ac
             <button 
               type="button" 
               className="btn map-toolbar-btn" 
-              style={{ padding: '6px 12px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+              style={{ flexShrink: 0, padding: '6px 10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
               onClick={() => {
                 const str = '[' + polygon.map(p => `(${p[0]}, ${p[1]})`).join(',\n') + ']';
                 navigator.clipboard.writeText(str);

@@ -201,6 +201,15 @@ textarea[data-populated="true"]:not(:focus) {
   background-color: khaki !important;
 }
 
+.map-toolbar-container {
+  scrollbar-width: none;
+}
+
+.map-toolbar-container::-webkit-scrollbar {
+  display: none;
+}
+
+
 .status-indicator {
   display: inline-flex;
   align-items: center;
