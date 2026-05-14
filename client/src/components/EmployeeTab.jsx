@@ -24,6 +24,7 @@ export default function EmployeeTab() {
   const [skills, setSkills] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [isActive, setIsActive] = useState(true);
   const [isTerminated, setIsTerminated] = useState(false);
   const [terminationReason, setTerminationReason] = useState('');
 
@@ -44,6 +45,7 @@ export default function EmployeeTab() {
     setSkills('');
     setStartDate('');
     setEndDate('');
+    setIsActive(true);
     setIsTerminated(false);
     setTerminationReason('');
   };
@@ -62,6 +64,7 @@ export default function EmployeeTab() {
     setSkills(emp.skills || '');
     setStartDate(emp.startDate || '');
     setEndDate(emp.endDate || '');
+    setIsActive(emp.isActive !== undefined ? emp.isActive : true);
     setIsTerminated(emp.isTerminated || false);
     setTerminationReason(emp.terminationReason || '');
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -88,6 +91,7 @@ export default function EmployeeTab() {
       skills,
       startDate,
       endDate,
+      isActive,
       isTerminated,
       terminationReason: isTerminated ? terminationReason : '' // clear reason if not terminated
     };
@@ -97,15 +101,13 @@ export default function EmployeeTab() {
   };
 
   const handleDelete = (id) => {
-    if (window.confirm("Permanently delete this employee profile?")) {
-      dispatch(removeEmployee(id));
-      if (editingId === id) resetForm();
-    }
+    dispatch(removeEmployee(id));
+    if (editingId === id) resetForm();
   };
 
   // Derive final filtered list immediately before rendering
   const filteredEmployees = filterActive
-    ? employees.filter(emp => !emp.isTerminated)
+    ? employees.filter(emp => !emp.isTerminated && emp.isActive !== false)
     : employees;
 
   const employeeColumns = [
@@ -122,6 +124,8 @@ export default function EmployeeTab() {
         Terminated
         <div style={{ fontSize: '0.75rem', fontWeight: 400, marginTop: '2px' }}>{r.terminationReason}</div>
       </div>
+    ) : r.isActive === false ? (
+      <span style={{ color: '#f57c00', fontWeight: 500, fontSize: '0.85rem' }}>Inactive</span>
     ) : (
       <span style={{ color: '#2e7d32', fontWeight: 500, fontSize: '0.85rem' }}>Active</span>
     )}
@@ -222,11 +226,15 @@ export default function EmployeeTab() {
 
             {/* Termination field moved below Home Address */}
             <div className="form-group" style={{ background: isTerminated ? '#ffebee' : '#f5f5f5', padding: '16px', borderRadius: '6px', border: '1px solid', borderColor: isTerminated ? '#ffcdd2' : '#e0e0e0', display: 'flex', flexDirection: 'column', gap: '8px', gridColumn: '1 / -1' }}>
-              <label style={{ color: isTerminated ? '#c62828' : '#333', fontWeight: 'bold' }}>Termination Status</label>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <label style={{ color: isTerminated ? '#c62828' : '#333', fontWeight: 'bold' }}>Employment Status</label>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
                 <button type="button" className="btn" style={{ background: isTerminated ? '#c62828' : '#e0e0e0', color: isTerminated ? 'white' : '#333', fontWeight: 500 }} onClick={() => setIsTerminated(!isTerminated)}>
                   {isTerminated ? 'Status: Terminated (Click to Revoke)' : 'Mark as Terminated'}
                 </button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <label htmlFor="empActive" style={{ margin: 0, fontWeight: 500 }}>Active Status</label>
+                  <input type="checkbox" checked={isActive} onChange={e => setIsActive(e.target.checked)} id="empActive" style={{ width: '18px', height: '18px', margin: 0, cursor: 'pointer' }} />
+                </div>
               </div>
               {isTerminated && (
                 <div style={{ marginTop: '8px' }}>

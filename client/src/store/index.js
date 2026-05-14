@@ -22,11 +22,12 @@ import planningReducer from './planningSlice';
 import soilTestsReducer from './soilTestsSlice';
 import livestockDiseasesReducer from './livestockDiseasesSlice';
 import poiReducer from './poiSlice';
+import recommendationsReducer from './recommendationsSlice';
 
 const persistConfig = {
   key: 'root',
   storage: localForage,
-  whitelist: ['sync', 'fields', 'assets', 'financials', 'settings', 'nurseries', 'activities', 'auth', 'budgets', 'deadlines', 'incidents', 'assignments', 'employees', 'audit', 'gps', 'breeding', 'pests', 'planning', 'soilTests', 'livestockDiseases', 'poi'] // Store all entity & settings data
+  whitelist: ['sync', 'fields', 'assets', 'financials', 'settings', 'nurseries', 'activities', 'auth', 'budgets', 'deadlines', 'incidents', 'assignments', 'employees', 'audit', 'gps', 'breeding', 'pests', 'planning', 'soilTests', 'livestockDiseases', 'poi', 'recommendations'] // Store all entity & settings data
 };
 
 const rootReducer = combineReducers({
@@ -50,7 +51,8 @@ const rootReducer = combineReducers({
   soilTests: soilTestsReducer,
   livestockDiseases: livestockDiseasesReducer,
   poi: poiReducer,
-  planning: planningReducer
+  planning: planningReducer,
+  recommendations: recommendationsReducer
 });
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);

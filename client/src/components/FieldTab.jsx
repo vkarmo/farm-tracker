@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { queueAction } from '../store/syncSlice';
 import { updateField, addField, deleteField } from '../store/fieldsSlice';
-import { CheckCircle2, Target, X, PlusCircle, Copy } from 'lucide-react';
+import { CheckCircle2, Target, X, PlusCircle, Copy, Lightbulb } from 'lucide-react';
 import CrudTable from './CrudTable';
+import RecommendationViewer from './RecommendationViewer';
 import { MapContainer, TileLayer, Polygon, Marker, useMapEvents } from 'react-leaflet';
 import ResizableMapWrapper, { MapResizer } from './ResizableMapWrapper';
 import { MapSearchBox, MapFlyTo, FarmLocationButton } from './MapSearchBox';
@@ -38,6 +39,8 @@ export default function FieldTab() {
   const [editingId, setEditingId] = useState(null);
   const [polygonPositions, setPolygonPositions] = useState([]);
   const [searchResultCenter, setSearchResultCenter] = useState(null);
+  const [showRecommendations, setShowRecommendations] = useState(false);
+  const [showRecAlert, setShowRecAlert] = useState(false);
 
   const handleLocationFound = (loc) => {
     const newLoc = loc.length >= 3 ? loc : [loc[0], loc[1], Date.now()];
@@ -136,17 +139,31 @@ export default function FieldTab() {
     .map(obj => obj.pos);
 
   const latLngs = sortedPositions.map(p => [p[0], p[1]]);
-
   return (
-    <div className="card">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h2>{editingId ? 'Edit Field Data' : 'Enter New Field Data'}</h2>
-        {editingId && (
-          <button onClick={() => { setEditingId(null); setFormData(INIT_STATE); setPolygonPositions([]); }} className="btn" style={{ background: '#f5f5f5', color: '#333' }}>
-            <X size={14} style={{ marginRight: 4 }} /> Cancel Edit
-          </button>
-        )}
-      </div>
+    <>
+      {showRecommendations && editingId ? (
+        <RecommendationViewer fieldId={editingId} onToggleBack={() => setShowRecommendations(false)} />
+      ) : (
+        <div className="card">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <h2>{editingId ? 'Edit Field Data' : 'Enter New Field Data'}</h2>
+            <div style={{ display: 'flex', gap: '10px' }}>
+              <button type="button" onClick={() => {
+                if (!editingId) {
+                  setShowRecAlert(true);
+                } else {
+                  setShowRecommendations(true);
+                }
+              }} className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                <Lightbulb size={14} /> Recommendations
+              </button>
+              {editingId && (
+                <button type="button" onClick={() => { setEditingId(null); setFormData(INIT_STATE); setPolygonPositions([]); }} className="btn" style={{ background: '#f5f5f5', color: '#333' }}>
+                  <X size={14} style={{ marginRight: 4 }} /> Cancel Edit
+                </button>
+              )}
+            </div>
+          </div>
 
       <form onSubmit={handleSubmit}>
         <div className="form-grid">
@@ -283,6 +300,20 @@ export default function FieldTab() {
           </div>
         </div>
       )}
+      </div>
+      )}
+
+      {showRecAlert && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setShowRecAlert(false)}>
+          <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', maxWidth: '400px', width: '90%', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }} onClick={e => e.stopPropagation()}>
+            <h3 style={{ marginTop: 0, color: '#f57c00', display: 'flex', alignItems: 'center', gap: '8px' }}><Lightbulb size={20} /> Notice</h3>
+            <p style={{ color: '#333', fontSize: '1rem', margin: '15px 0' }}>Please save the field data first before adding or viewing recommendations.</p>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px' }}>
+              <button type="button" onClick={() => setShowRecAlert(false)} className="btn btn-primary" style={{ background: '#1565c0' }}>OK</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       <hr style={{ border: 'none', borderTop: '1px solid var(--color-border)', margin: '30px 0' }} />
 
@@ -293,6 +324,6 @@ export default function FieldTab() {
         onDelete={handleDelete}
         itemLabel="Field"
       />
-    </div>
+    </>
   );
 }

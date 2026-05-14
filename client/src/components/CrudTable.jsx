@@ -4,6 +4,7 @@ import { Search, Edit2, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
 export default function CrudTable({ data, columns, onEdit, onDelete, itemLabel = 'Item', customTitle, rowStyle, defaultSort, maxHeight, activeRowId }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState(defaultSort || { key: 'updatedAt', direction: 'desc' });
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null);
 
   const handleSort = (key) => {
     let direction = 'asc';
@@ -134,6 +135,7 @@ export default function CrudTable({ data, columns, onEdit, onDelete, itemLabel =
                       <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
                         {onEdit && (
                           <button 
+                            type="button"
                             onClick={() => onEdit(row)} 
                             title="Edit Record"
                             style={{ padding: '6px', background: '#e3f2fd', color: '#1565c0', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
@@ -142,9 +144,10 @@ export default function CrudTable({ data, columns, onEdit, onDelete, itemLabel =
                         )}
                         {onDelete && (
                           <button 
+                            type="button"
                             onClick={(e) => { 
                               e.stopPropagation();
-                              if(window.confirm(`Permanently delete this ${itemLabel.toLowerCase()}?`)) onDelete(row.id);
+                              setConfirmDeleteId(row.id);
                             }} 
                             title="Delete Record"
                             style={{ padding: '6px', background: '#ffebee', color: '#c62828', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
@@ -193,6 +196,7 @@ export default function CrudTable({ data, columns, onEdit, onDelete, itemLabel =
                 <div className="mobile-data-actions">
                   {onEdit && (
                     <button 
+                      type="button"
                       onClick={() => onEdit(row)} 
                       style={{ flex: 1, padding: '10px', background: '#e3f2fd', color: '#1565c0', border: 'none', borderRadius: '4px', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', fontSize: '1rem', fontWeight: 600 }}>
                       <Edit2 size={16} /> Edit
@@ -200,9 +204,10 @@ export default function CrudTable({ data, columns, onEdit, onDelete, itemLabel =
                   )}
                   {onDelete && (
                     <button 
+                      type="button"
                       onClick={(e) => { 
                         e.stopPropagation();
-                        if(window.confirm(`Permanently delete this ${itemLabel.toLowerCase()}?`)) onDelete(row.id);
+                        setConfirmDeleteId(row.id);
                       }} 
                       style={{ flex: 1, padding: '10px', background: '#ffebee', color: '#c62828', border: 'none', borderRadius: '4px', cursor: 'pointer', display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '8px', fontSize: '1rem', fontWeight: 600 }}>
                       <Trash2 size={16} /> Delete
@@ -214,6 +219,19 @@ export default function CrudTable({ data, columns, onEdit, onDelete, itemLabel =
           ))
         )}
       </div>
+
+      {confirmDeleteId && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(null); }}>
+          <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', maxWidth: '400px', width: '90%', boxShadow: '0 4px 12px rgba(0,0,0,0.15)' }} onClick={e => e.stopPropagation()}>
+            <h3 style={{ marginTop: 0, color: '#c62828', display: 'flex', alignItems: 'center', gap: '8px' }}><Trash2 size={20} /> Confirm Deletion</h3>
+            <p style={{ color: '#333', fontSize: '1rem', margin: '15px 0' }}>Are you sure you want to permanently delete this {itemLabel.toLowerCase()}? This action cannot be undone.</p>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '20px' }}>
+              <button type="button" onClick={(e) => { e.stopPropagation(); setConfirmDeleteId(null); }} className="btn" style={{ background: '#f5f5f5', color: '#333' }}>Cancel</button>
+              <button type="button" onClick={(e) => { e.stopPropagation(); onDelete(confirmDeleteId); setConfirmDeleteId(null); }} className="btn btn-primary" style={{ background: '#c62828', borderColor: '#c62828' }}>Delete</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
