@@ -173,6 +173,9 @@ export default function App() {
 
   const hasAccess = (tabId) => {
     if (currentUser?.role === 'Admin') return true;
+    if (currentUser?.role === 'Viewer' && tabId === 'budget') {
+      if (!currentUser?.allowedTabs) return false;
+    }
     if (!currentUser?.allowedTabs) return true; // Default to all if admin hasn't customized
     return currentUser.allowedTabs.includes(tabId);
   };
@@ -583,7 +586,7 @@ export default function App() {
         )}
       </nav>
 
-      <main className="container" style={{ marginTop: '20px' }}>
+      <main className={`container ${currentUser?.role === 'Viewer' ? 'role-viewer' : ''}`} style={{ marginTop: '20px' }}>
 
         {activeTab === 'dashboard' && <DashboardTab />}
         {activeTab === 'map' && (

@@ -46,7 +46,7 @@ export default function LoginScreen() {
           id: existingUser ? existingUser.id : `u_${Date.now()}`,
           name: decoded.name || email.split('@')[0],
           email: email,
-          role: isAdminRoot || (existingUser && existingUser.role === 'Admin') ? 'Admin' : 'Staff',
+          role: isAdminRoot ? 'Admin' : (existingUser ? (existingUser.role || 'Staff') : 'Staff'),
           profilePic: decoded.picture || `https://api.dicebear.com/7.x/initials/svg?seed=${email}`,
           allowedTabs: existingUser?.allowedTabs || null
         };

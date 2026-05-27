@@ -32,24 +32,29 @@ export default function AdminTab() {
       header: 'System Permissions',
       render: (r) => (
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
-          <div>
-            {r.role === 'Admin' ? <><Shield size={14} color="#d32f2f" /> <strong style={{ color: '#d32f2f' }}>Admin</strong></> : <><User size={14} color="#1976d2" /> Staff</>}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+            {r.role === 'Admin' && <><Shield size={14} color="#d32f2f" /> <strong style={{ color: '#d32f2f' }}>Admin</strong></>}
+            {r.role === 'Staff' && <><User size={14} color="#1976d2" /> Staff</>}
+            {r.role === 'Viewer' && <><User size={14} color="#757575" /> Viewer</>}
+            {!['Admin', 'Staff', 'Viewer'].includes(r.role) && <><User size={14} color="#1976d2" /> {r.role || 'Staff'}</>}
           </div>
           {r.email !== currentUser?.email && (
-            <button 
-              onClick={(e) => {
-                e.stopPropagation();
-                const newRole = r.role === 'Admin' ? 'Staff' : 'Admin';
-                if (window.confirm(`Are you sure you want to change ${r.name}'s role to ${newRole}?`)) {
+            <select 
+              value={r.role || 'Staff'} 
+              onClick={(e) => e.stopPropagation()}
+              onChange={(e) => {
+                const newRole = e.target.value;
+                if (window.confirm(`Are you sure you want to change ${r.name || r.email}'s role to ${newRole}?`)) {
                   dispatch(queueAction({ type: 'users/upsertUser', payload: { ...r, role: newRole }, meta: { id: Date.now() } }));
                   dispatch(updateUserRole({ email: r.email, role: newRole }));
                 }
               }}
-              className="btn" 
-              style={{ padding: '4px 8px', fontSize: '0.8rem', background: '#f0f0f0', color: '#333' }}
+              style={{ padding: '4px 8px', fontSize: '0.8rem', borderRadius: '4px', border: '1px solid #ccc', background: 'white', color: '#333', cursor: 'pointer' }}
             >
-              {r.role === 'Admin' ? 'Revoke Admin' : 'Make Admin'}
-            </button>
+              <option value="Admin">Admin</option>
+              <option value="Staff">Staff</option>
+              <option value="Viewer">Viewer</option>
+            </select>
           )}
         </div>
       )

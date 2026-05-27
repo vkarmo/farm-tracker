@@ -529,3 +529,23 @@ body.is-saved button[type="button"] {
   transform: translateY(0);
   opacity: 1;
 }
+
+/* Viewer Mode (Read-Only) Global UI Overrides */
+.role-viewer form,
+.role-viewer .form-group,
+.role-viewer button[type="submit"],
+.role-viewer .btn-primary,
+.role-viewer .map-toolbar-btn,
+.role-viewer button[title*="Edit"],
+.role-viewer button[title*="Delete"],
+.role-viewer .mobile-data-actions,
+.role-viewer .btn-secondary {
+  display: none !important;
+}
+
+/* Make table rows non-clickable for editing */
+.role-viewer .crud-table-row.clickable {
+  cursor: default !important;
+  background-color: transparent !important;
+  pointer-events: none;
+}
