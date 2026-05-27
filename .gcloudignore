@@ -1,0 +1,29 @@
+# Ignore Git and metadata
+.git/
+.gitignore
+.gitattributes
+.github/
+
+# Ignore Node dependencies (will be installed inside the container)
+node_modules/
+**/node_modules/
+
+# Ignore build artifacts (will be built inside the container)
+client/dist/
+client/dev-dist/
+
+# Ignore local config/secret files
+.env
+client/.env
+server/.env
+
+# Ignore system/editor files
+.DS_Store
+.vscode/
+.idea/
+.replit
+
+# Ignore Word docs and log files
+*.docx
+*.log
+npm-debug.log*

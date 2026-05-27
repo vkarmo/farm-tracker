@@ -1,0 +1,42 @@
+steps:
+  # Step 1: Build the container image using the root Dockerfile
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'build'
+      - '-t'
+      - '$_AR_HOSTNAME/$PROJECT_ID/$_AR_REPO/$_SERVICE_NAME:$_TAG'
+      - '.'
+
+  # Step 2: Push the built image to Google Artifact Registry
+  - name: 'gcr.io/cloud-builders/docker'
+    args:
+      - 'push'
+      - '$_AR_HOSTNAME/$PROJECT_ID/$_AR_REPO/$_SERVICE_NAME:$_TAG'
+
+  # Step 3: Deploy the container to Google Cloud Run
+  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
+    entrypoint: gcloud
+    args:
+      - 'run'
+      - 'deploy'
+      - '$_SERVICE_NAME'
+      - '--image'
+      - '$_AR_HOSTNAME/$PROJECT_ID/$_AR_REPO/$_SERVICE_NAME:$_TAG'
+      - '--region'
+      - '$_DEPLOY_REGION'
+      - '--platform'
+      - 'managed'
+      - '--allow-unauthenticated'
+
+# Images to be pushed to Artifact Registry
+images:
+  - '$_AR_HOSTNAME/$PROJECT_ID/$_AR_REPO/$_SERVICE_NAME:$_TAG'
+
+# Default values for substitution variables (can be overridden during build execution)
+substitutions:
+  _AR_HOSTNAME: 'us-central1-docker.pkg.dev'
+  _AR_REPO: 'farm-tracker-repo'
+  _SERVICE_NAME: 'farm-tracker'
+  _DEPLOY_REGION: 'us-central1'
+  _TAG: 'latest'
+

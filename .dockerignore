@@ -1,0 +1,26 @@
+# Dependencies
+node_modules/
+client/node_modules/
+server/node_modules/
+
+# Local env files
+.env
+client/.env
+server/.env
+
+# Build outputs
+client/dist/
+client/dev-dist/
+
+# OS/IDE files
+.DS_Store
+.replit
+.git/
+.github/
+.vscode/
+.idea/
+
+# Word documents / logs
+*.docx
+*.log
+npm-debug.log*
