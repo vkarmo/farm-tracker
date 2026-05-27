@@ -210,7 +210,7 @@ export default function FieldTab() {
                       key={field.id}
                       positions={positions}
                       pathOptions={{
-                        color: isBg ? '#888888' : (field.drawColor || polygonColor),
+                        color: field.drawColor || polygonColor,
                         weight: isBg ? 1 : 2,
                         fillOpacity: isBg ? 0.05 : 0.3,
                         dashArray: isBg ? '5,5' : undefined,
