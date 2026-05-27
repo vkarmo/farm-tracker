@@ -172,7 +172,7 @@ export default function App() {
   }, [gpsDistanceThreshold]);
 
   const hasAccess = (tabId) => {
-    if (currentUser?.role === 'Admin') return true;
+    if (currentUser?.role === 'Admin' || currentUser?.role === 'Admin Viewer') return true;
     if (currentUser?.role === 'Viewer' && tabId === 'budget') {
       if (!currentUser?.allowedTabs) return false;
     }
@@ -181,7 +181,7 @@ export default function App() {
   };
 
   const hasModuleAccess = (moduleId) => {
-    if (currentUser?.role === 'Admin') return true;
+    if (currentUser?.role === 'Admin' || currentUser?.role === 'Admin Viewer') return true;
     const tabs = MODULES[moduleId] || [];
     return tabs.some(tab => hasAccess(tab));
   };
@@ -404,10 +404,12 @@ export default function App() {
 
     useMapEvents({
       click(e) {
+        if (currentUser?.role === 'Admin Viewer') return;
         dispatch(setMapCenter([e.latlng.lat, e.latlng.lng]));
         dispatch(saveSettings());
       },
       zoomend(e) {
+        if (currentUser?.role === 'Admin Viewer') return;
         dispatch(setMapZoom(e.target.getZoom()));
         if (!isInitialMount.current) {
           dispatch(saveSettings());
@@ -510,7 +512,7 @@ export default function App() {
               <RefreshCw size={18} className={isSyncing ? "spin" : ""} />
             </button>
 
-            {currentUser?.role === 'Admin' && (
+            {(currentUser?.role === 'Admin' || currentUser?.role === 'Admin Viewer') && (
               <button onClick={() => handleModuleSwitch('admin')} className={`btn toolbar-btn ${activeModule === 'admin' && activeTab !== 'sync' ? 'btn-primary' : ''}`} style={{ background: activeModule === 'admin' && activeTab !== 'sync' ? '#c62828' : 'transparent', color: activeModule === 'admin' && activeTab !== 'sync' ? 'white' : '#c62828', borderColor: 'transparent' }} title="Admin Module">
                 <Settings size={18} />
               </button>
@@ -565,7 +567,7 @@ export default function App() {
             {hasAccess('incident') && <button onClick={() => setActiveTab('incident')} className={`btn ${activeTab === 'incident' ? 'tab-btn-active' : ''}`}><AlertTriangle size={16} style={{ marginRight: 6 }} /> Incidents</button>}
           </>
         )}
-        {activeModule === 'admin' && currentUser?.role === 'Admin' && (
+        {activeModule === 'admin' && (currentUser?.role === 'Admin' || currentUser?.role === 'Admin Viewer') && (
           <>
             <button onClick={() => setActiveTab('admin')} className={`btn ${activeTab === 'admin' ? 'tab-btn-active' : ''}`} style={{ background: activeTab === 'admin' ? '#c62828' : 'white', color: activeTab === 'admin' ? 'white' : '#c62828', borderColor: '#c62828' }}>
               <ShieldAlert size={16} style={{ marginRight: 6 }} /> Admin
@@ -586,7 +588,7 @@ export default function App() {
         )}
       </nav>
 
-      <main className={`container ${currentUser?.role === 'Viewer' ? 'role-viewer' : ''}`} style={{ marginTop: '20px' }}>
+      <main className={`container ${currentUser?.role === 'Viewer' || currentUser?.role === 'Admin Viewer' ? 'role-viewer' : ''}`} style={{ marginTop: '20px' }}>
 
         {activeTab === 'dashboard' && <DashboardTab />}
         {activeTab === 'map' && (
@@ -623,7 +625,7 @@ export default function App() {
         {activeTab === 'audit' && <AuditTab />}
         {activeTab === 'gps' && <GpsLogTab />}
 
-        {activeTab === 'settings' && currentUser?.role === 'Admin' && (
+        {activeTab === 'settings' && (currentUser?.role === 'Admin' || currentUser?.role === 'Admin Viewer') && (
           <div className="card">
             <h2>App Settings</h2>
 
@@ -648,8 +650,9 @@ export default function App() {
                         value={appName || ''}
                         onChange={(e) => { dispatch(setAppName(e.target.value)); dispatch(saveSettings()); }}
                         placeholder={packageJson.name}
+                        disabled={currentUser?.role === 'Admin Viewer'}
                         className="btn"
-                        style={{ display: 'block', marginTop: 8, padding: '8px', minWidth: '200px', cursor: 'text', background: '#fff', border: '1px solid #ccc' }}
+                        style={{ display: 'block', marginTop: 8, padding: '8px', minWidth: '200px', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'text', background: '#fff', border: '1px solid #ccc' }}
                       />
                       <span style={{ fontSize: '0.8rem', color: '#666', display: 'block', marginTop: 4 }}>Custom name for your application instance. Leave blank to use default.</span>
                     </div>
@@ -662,10 +665,10 @@ export default function App() {
                         <div style={{ marginBottom: 10 }}>
                           <img src={logo} alt="Current Logo" style={{ maxHeight: '60px', borderRadius: '4px', border: '1px solid var(--color-border)' }} />
                           <br />
-                          <button onClick={() => { dispatch(setLogo(null)); dispatch(saveSettings()); }} className="btn" style={{ marginTop: 8, background: '#ffebee', color: '#c62828', padding: '4px 8px' }}>Remove Logo</button>
+                          <button onClick={() => { if (currentUser?.role !== 'Admin Viewer') { dispatch(setLogo(null)); dispatch(saveSettings()); } }} className="btn" style={{ marginTop: 8, background: '#ffebee', color: '#c62828', padding: '4px 8px', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer' }} disabled={currentUser?.role === 'Admin Viewer'}>Remove Logo</button>
                         </div>
                       )}
-                      <input type="file" accept="image/*" onChange={handleLogoUpload} className="btn" style={{ padding: '6px' }} />
+                      <input type="file" accept="image/*" onChange={handleLogoUpload} className="btn" style={{ padding: '6px', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer' }} disabled={currentUser?.role === 'Admin Viewer'} />
                     </div>
                   </div>
                 </div>
@@ -699,13 +702,13 @@ export default function App() {
                         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: 16 }}>
                           {units.map(u => (
                             <span key={u} className="status-indicator" style={{ background: '#e0e0e0', color: '#333' }}>
-                              {u} <button onClick={() => { dispatch(removeUnit(u)); dispatch(saveSettings()); }} style={{ border: 'none', background: 'transparent', cursor: 'pointer', marginLeft: 4 }}>x</button>
+                              {u} <button onClick={() => { if (currentUser?.role !== 'Admin Viewer') { dispatch(removeUnit(u)); dispatch(saveSettings()); } }} style={{ border: 'none', background: 'transparent', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer', marginLeft: 4 }} disabled={currentUser?.role === 'Admin Viewer'}>x</button>
                             </span>
                           ))}
                         </div>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', background: '#f5f7fa', padding: '10px', borderRadius: '4px', border: '1px solid var(--color-border)' }}>
-                          <input type="text" value={newUnit} onChange={e => setNewUnit(e.target.value)} placeholder="e.g. pallets, boxes" style={{ flex: 1, minWidth: '200px', padding: '8px' }} onKeyDown={e => { if (e.key === 'Enter') handleAddUnit(e) }} />
-                          <button onClick={handleAddUnit} className="btn btn-primary" style={{ whiteSpace: 'nowrap' }}>Add Unit</button>
+                          <input type="text" value={newUnit} onChange={e => setNewUnit(e.target.value)} placeholder="e.g. pallets, boxes" style={{ flex: 1, minWidth: '200px', padding: '8px', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'text' }} onKeyDown={e => { if (e.key === 'Enter') handleAddUnit(e) }} disabled={currentUser?.role === 'Admin Viewer'} />
+                          <button onClick={handleAddUnit} className="btn btn-primary" style={{ whiteSpace: 'nowrap', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer' }} disabled={currentUser?.role === 'Admin Viewer'}>Add Unit</button>
                         </div>
                       </div>
                     )}
@@ -725,13 +728,13 @@ export default function App() {
                         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: 16 }}>
                           {jobTitles.map(t => (
                             <span key={t} className="status-indicator" style={{ background: '#e3f2fd', color: '#1565c0' }}>
-                              {t} <button onClick={() => { dispatch(removeJobTitle(t)); dispatch(saveSettings()); }} style={{ border: 'none', background: 'transparent', cursor: 'pointer', marginLeft: 4, color: '#1565c0' }}>x</button>
+                              {t} <button onClick={() => { if (currentUser?.role !== 'Admin Viewer') { dispatch(removeJobTitle(t)); dispatch(saveSettings()); } }} style={{ border: 'none', background: 'transparent', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer', marginLeft: 4, color: '#1565c0' }} disabled={currentUser?.role === 'Admin Viewer'}>x</button>
                             </span>
                           ))}
                         </div>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', background: '#f5f7fa', padding: '10px', borderRadius: '4px', border: '1px solid var(--color-border)' }}>
-                          <input type="text" value={newJobTitle} onChange={e => setNewJobTitle(e.target.value)} placeholder="e.g. Foreman, Agronomist" style={{ flex: 1, minWidth: '200px', padding: '8px' }} onKeyDown={e => { if (e.key === 'Enter') handleAddJobTitle(e) }} />
-                          <button onClick={handleAddJobTitle} className="btn btn-primary" style={{ whiteSpace: 'nowrap' }}>Add Job Title</button>
+                          <input type="text" value={newJobTitle} onChange={e => setNewJobTitle(e.target.value)} placeholder="e.g. Foreman, Agronomist" style={{ flex: 1, minWidth: '200px', padding: '8px', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'text' }} onKeyDown={e => { if (e.key === 'Enter') handleAddJobTitle(e) }} disabled={currentUser?.role === 'Admin Viewer'} />
+                          <button onClick={handleAddJobTitle} className="btn btn-primary" style={{ whiteSpace: 'nowrap', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer' }} disabled={currentUser?.role === 'Admin Viewer'}>Add Job Title</button>
                         </div>
                       </div>
                     )}
@@ -751,13 +754,13 @@ export default function App() {
                         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: 16 }}>
                           {animalTypes.map(t => (
                             <span key={t} className="status-indicator" style={{ background: '#f3e5f5', color: '#6a1b9a' }}>
-                              {t} <button onClick={() => { dispatch(removeAnimalType(t)); dispatch(saveSettings()); }} style={{ border: 'none', background: 'transparent', cursor: 'pointer', marginLeft: 4, color: '#6a1b9a' }}>x</button>
+                              {t} <button onClick={() => { if (currentUser?.role !== 'Admin Viewer') { dispatch(removeAnimalType(t)); dispatch(saveSettings()); } }} style={{ border: 'none', background: 'transparent', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer', marginLeft: 4, color: '#6a1b9a' }} disabled={currentUser?.role === 'Admin Viewer'}>x</button>
                             </span>
                           ))}
                         </div>
                         <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', background: '#f5f7fa', padding: '10px', borderRadius: '4px', border: '1px solid var(--color-border)' }}>
-                          <input type="text" value={newAnimalType} onChange={e => setNewAnimalType(e.target.value)} placeholder="e.g. Cattle, Poultry" style={{ flex: 1, minWidth: '200px', padding: '8px' }} onKeyDown={e => { if (e.key === 'Enter') handleAddAnimalType(e) }} />
-                          <button onClick={handleAddAnimalType} className="btn btn-primary" style={{ whiteSpace: 'nowrap' }}>Add Animal Type</button>
+                          <input type="text" value={newAnimalType} onChange={e => setNewAnimalType(e.target.value)} placeholder="e.g. Cattle, Poultry" style={{ flex: 1, minWidth: '200px', padding: '8px', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'text' }} onKeyDown={e => { if (e.key === 'Enter') handleAddAnimalType(e) }} disabled={currentUser?.role === 'Admin Viewer'} />
+                          <button onClick={handleAddAnimalType} className="btn btn-primary" style={{ whiteSpace: 'nowrap', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer' }} disabled={currentUser?.role === 'Admin Viewer'}>Add Animal Type</button>
                         </div>
                       </div>
                     )}
@@ -786,13 +789,13 @@ export default function App() {
                               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: 16 }}>
                                 {expenseCategories.map(c => (
                                   <span key={c} className="status-indicator" style={{ background: '#ffebee', color: '#c62828' }}>
-                                    {c} <button onClick={() => { dispatch(removeExpenseCategory(c)); dispatch(saveSettings()); }} style={{ border: 'none', background: 'transparent', cursor: 'pointer', marginLeft: 4, color: '#c62828' }}>x</button>
+                                    {c} <button onClick={() => { if (currentUser?.role !== 'Admin Viewer') { dispatch(removeExpenseCategory(c)); dispatch(saveSettings()); } }} style={{ border: 'none', background: 'transparent', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer', marginLeft: 4, color: '#c62828' }} disabled={currentUser?.role === 'Admin Viewer'}>x</button>
                                   </span>
                                 ))}
                               </div>
                               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', background: '#f5f7fa', padding: '10px', borderRadius: '4px', border: '1px solid var(--color-border)' }}>
-                                <input type="text" value={newExpenseCategory} onChange={e => setNewExpenseCategory(e.target.value)} placeholder="e.g. Utilities, Insurance" style={{ flex: 1, minWidth: '150px', padding: '8px' }} onKeyDown={e => { if (e.key === 'Enter') handleAddExpenseCategory(e) }} />
-                                <button onClick={handleAddExpenseCategory} className="btn" style={{ background: '#c62828', color: 'white', whiteSpace: 'nowrap' }}>Add</button>
+                                <input type="text" value={newExpenseCategory} onChange={e => setNewExpenseCategory(e.target.value)} placeholder="e.g. Utilities, Insurance" style={{ flex: 1, minWidth: '150px', padding: '8px', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'text' }} onKeyDown={e => { if (e.key === 'Enter') handleAddExpenseCategory(e) }} disabled={currentUser?.role === 'Admin Viewer'} />
+                                <button onClick={handleAddExpenseCategory} className="btn" style={{ background: '#c62828', color: 'white', whiteSpace: 'nowrap', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer' }} disabled={currentUser?.role === 'Admin Viewer'}>Add</button>
                               </div>
                             </div>
                           )}
@@ -801,13 +804,13 @@ export default function App() {
                               <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: 16 }}>
                                 {incomeCategories.map(c => (
                                   <span key={c} className="status-indicator" style={{ background: '#e8f5e9', color: '#2e7d32' }}>
-                                    {c} <button onClick={() => { dispatch(removeIncomeCategory(c)); dispatch(saveSettings()); }} style={{ border: 'none', background: 'transparent', cursor: 'pointer', marginLeft: 4, color: '#2e7d32' }}>x</button>
+                                    {c} <button onClick={() => { if (currentUser?.role !== 'Admin Viewer') { dispatch(removeIncomeCategory(c)); dispatch(saveSettings()); } }} style={{ border: 'none', background: 'transparent', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer', marginLeft: 4, color: '#2e7d32' }} disabled={currentUser?.role === 'Admin Viewer'}>x</button>
                                   </span>
                                 ))}
                               </div>
                               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', background: '#f5f7fa', padding: '10px', borderRadius: '4px', border: '1px solid var(--color-border)' }}>
-                                <input type="text" value={newIncomeCategory} onChange={e => setNewIncomeCategory(e.target.value)} placeholder="e.g. Contract Work" style={{ flex: 1, minWidth: '150px', padding: '8px' }} onKeyDown={e => { if (e.key === 'Enter') handleAddIncomeCategory(e) }} />
-                                <button onClick={handleAddIncomeCategory} className="btn" style={{ background: '#2e7d32', color: 'white', whiteSpace: 'nowrap' }}>Add</button>
+                                <input type="text" value={newIncomeCategory} onChange={e => setNewIncomeCategory(e.target.value)} placeholder="e.g. Contract Work" style={{ flex: 1, minWidth: '150px', padding: '8px', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'text' }} onKeyDown={e => { if (e.key === 'Enter') handleAddIncomeCategory(e) }} disabled={currentUser?.role === 'Admin Viewer'} />
+                                <button onClick={handleAddIncomeCategory} className="btn" style={{ background: '#2e7d32', color: 'white', whiteSpace: 'nowrap', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer' }} disabled={currentUser?.role === 'Admin Viewer'}>Add</button>
                               </div>
                             </div>
                           )}
@@ -841,8 +844,10 @@ export default function App() {
                         min="0.0001"
                         step="0.0001"
                         value={localGpsThreshold}
+                        disabled={currentUser?.role === 'Admin Viewer'}
                         onChange={(e) => setLocalGpsThreshold(e.target.value)}
                         onBlur={(e) => {
+                          if (currentUser?.role === 'Admin Viewer') return;
                           const num = Number(e.target.value);
                           if (!isNaN(num) && num > 0) {
                             dispatch(setGpsDistanceThreshold(num));
@@ -852,13 +857,13 @@ export default function App() {
                           }
                         }}
                         className="btn"
-                        style={{ display: 'block', marginTop: 8, padding: '8px', minWidth: '200px', cursor: 'text' }}
+                        style={{ display: 'block', marginTop: 8, padding: '8px', minWidth: '200px', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'text' }}
                       />
                       <span style={{ fontSize: '0.8rem', color: '#666' }}>Controls how many meters you must move before a new breadcrumb is captured.</span>
                     </div>
                     <div style={{ marginBottom: 16 }}>
                       <label>Polygon Draw Color</label>
-                      <input type="color" value={polygonColor} onChange={(e) => { dispatch(setPolygonColor(e.target.value)); dispatch(saveSettings()); }} style={{ display: 'block', marginTop: 8 }} />
+                      <input type="color" value={polygonColor} onChange={(e) => { if (currentUser?.role !== 'Admin Viewer') { dispatch(setPolygonColor(e.target.value)); dispatch(saveSettings()); } }} style={{ display: 'block', marginTop: 8, cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer' }} disabled={currentUser?.role === 'Admin Viewer'} />
                     </div>
                   </div>
                   <hr style={{ border: 'none', borderTop: '1px solid var(--color-border)', margin: '20px 0' }} />
@@ -874,10 +879,12 @@ export default function App() {
                           value={manualCoords}
                           onChange={(e) => setManualCoords(e.target.value)}
                           placeholder="e.g. 6.7319579, -10.8700117"
-                          style={{ flex: 1, minWidth: '200px', padding: '8px' }}
+                          style={{ flex: 1, minWidth: '200px', padding: '8px', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'text' }}
+                          disabled={currentUser?.role === 'Admin Viewer'}
                         />
                         <button
                           onClick={() => {
+                            if (currentUser?.role === 'Admin Viewer') return;
                             const parts = manualCoords.split(',');
                             if (parts.length === 2) {
                               const lat = parseFloat(parts[0].trim());
@@ -893,17 +900,20 @@ export default function App() {
                             }
                           }}
                           className="btn btn-primary"
-                          style={{ whiteSpace: 'nowrap' }}
+                          style={{ whiteSpace: 'nowrap', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer' }}
+                          disabled={currentUser?.role === 'Admin Viewer'}
                         >
                           Drop Pin
                         </button>
                       </div>
                     </div>
-                    <div style={{ marginTop: 8 }}>
-                      <MapSearchBox
-                        onLocationFound={(loc) => { dispatch(setMapCenter(loc)); dispatch(saveSettings()); }}
-                      />
-                    </div>
+                    {currentUser?.role !== 'Admin Viewer' && (
+                      <div style={{ marginTop: 8 }}>
+                        <MapSearchBox
+                          onLocationFound={(loc) => { dispatch(setMapCenter(loc)); dispatch(saveSettings()); }}
+                        />
+                      </div>
+                    )}
                     <div style={{ height: '300px', width: '100%', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--color-border)', marginTop: 8 }}>
                       <MapContainer center={mapCenter} zoom={mapZoom} maxZoom={24} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
                         <TileLayer attribution="Google Maps" url="https://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}&s=Ga" maxZoom={24} maxNativeZoom={20} />

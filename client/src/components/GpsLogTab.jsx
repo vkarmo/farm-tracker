@@ -41,7 +41,7 @@ export default function GpsLogTab() {
   const [flyTarget, setFlyTarget] = useState(null);
 
   // Authorization check
-  if (currentUser?.role !== 'Admin') {
+  if (currentUser?.role !== 'Admin' && currentUser?.role !== 'Admin Viewer') {
     return <div className="card" style={{ padding: 40, textAlign: 'center' }}>Unauthorized Access</div>;
   }
 
@@ -76,9 +76,11 @@ export default function GpsLogTab() {
     <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h2>User GPS Tracking Logs</h2>
-        <button onClick={handleClear} className="btn" style={{ background: '#ffebee', color: '#c62828', display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <Trash2 size={16} /> Purge Logs
-        </button>
+        {currentUser?.role !== 'Admin Viewer' && (
+          <button onClick={handleClear} className="btn" style={{ background: '#ffebee', color: '#c62828', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Trash2 size={16} /> Purge Logs
+          </button>
+        )}
       </div>
 
       <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'flex-end' }}>

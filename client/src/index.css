@@ -549,3 +549,12 @@ body.is-saved button[type="button"] {
   background-color: transparent !important;
   pointer-events: none;
 }
+
+/* Disabled interaction styles for inputs, buttons, and dropdowns inside role-viewer mode */
+.role-viewer input[disabled],
+.role-viewer button[disabled],
+.role-viewer select[disabled] {
+  cursor: not-allowed !important;
+  opacity: 0.6;
+  pointer-events: none !important;
+}

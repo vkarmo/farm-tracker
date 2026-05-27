@@ -34,13 +34,15 @@ export default function AdminTab() {
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
             {r.role === 'Admin' && <><Shield size={14} color="#d32f2f" /> <strong style={{ color: '#d32f2f' }}>Admin</strong></>}
+            {r.role === 'Admin Viewer' && <><Shield size={14} color="#757575" /> <strong>Admin Viewer</strong></>}
             {r.role === 'Staff' && <><User size={14} color="#1976d2" /> Staff</>}
             {r.role === 'Viewer' && <><User size={14} color="#757575" /> Viewer</>}
-            {!['Admin', 'Staff', 'Viewer'].includes(r.role) && <><User size={14} color="#1976d2" /> {r.role || 'Staff'}</>}
+            {!['Admin', 'Admin Viewer', 'Staff', 'Viewer'].includes(r.role) && <><User size={14} color="#1976d2" /> {r.role || 'Staff'}</>}
           </div>
           {r.email !== currentUser?.email && (
             <select 
               value={r.role || 'Staff'} 
+              disabled={currentUser?.role === 'Admin Viewer'}
               onClick={(e) => e.stopPropagation()}
               onChange={(e) => {
                 const newRole = e.target.value;
@@ -49,9 +51,10 @@ export default function AdminTab() {
                   dispatch(updateUserRole({ email: r.email, role: newRole }));
                 }
               }}
-              style={{ padding: '4px 8px', fontSize: '0.8rem', borderRadius: '4px', border: '1px solid #ccc', background: 'white', color: '#333', cursor: 'pointer' }}
+              style={{ padding: '4px 8px', fontSize: '0.8rem', borderRadius: '4px', border: '1px solid #ccc', background: 'white', color: '#333', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer' }}
             >
               <option value="Admin">Admin</option>
+              <option value="Admin Viewer">Admin Viewer</option>
               <option value="Staff">Staff</option>
               <option value="Viewer">Viewer</option>
             </select>
@@ -61,7 +64,7 @@ export default function AdminTab() {
     }
   ];
 
-  if (currentUser?.role !== 'Admin') {
+  if (currentUser?.role !== 'Admin' && currentUser?.role !== 'Admin Viewer') {
     return (
       <div className="card" style={{ textAlign: 'center', padding: '50px 20px', color: '#666' }}>
         <ShieldAlert size={48} color="#d32f2f" style={{ marginBottom: 20 }} />
@@ -83,30 +86,32 @@ export default function AdminTab() {
         As the Admin, you can permanently revoke their structural access tokens at any time.
       </p>
 
-      <form onSubmit={(e) => {
-        e.preventDefault();
-        if (!newEmail.trim() || !newEmail.includes('@gmail.com')) return alert("Enter a valid Google Mail address.");
-        const seedPayload = {
-          id: `u_${Date.now()}`,
-          name: newEmail.split('@')[0],
-          email: newEmail.toLowerCase().trim(),
-          role: 'Staff',
-          profilePic: `https://api.dicebear.com/7.x/initials/svg?seed=${newEmail}`
-        };
-        dispatch(queueAction({ type: 'users/upsertUser', payload: seedPayload, meta: { id: Date.now() } }));
-        // Also fast-update the local sync array
-        dispatch({ type: 'auth/setUsersList', payload: [...usersList, seedPayload] });
-        setNewEmail('');
-      }} style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
-        <input
-          type="email"
-          placeholder="New user gmail address (e.g., worker@gmail.com)"
-          value={newEmail}
-          onChange={e => setNewEmail(e.target.value)}
-          style={{ flex: 2 }}
-        />
-        <button type="submit" style={{ whiteSpace: 'nowrap', flex: 1 }} className="btn btn-primary">Whitelist User</button>
-      </form>
+      {currentUser?.role === 'Admin' && (
+        <form onSubmit={(e) => {
+          e.preventDefault();
+          if (!newEmail.trim() || !newEmail.includes('@gmail.com')) return alert("Enter a valid Google Mail address.");
+          const seedPayload = {
+            id: `u_${Date.now()}`,
+            name: newEmail.split('@')[0],
+            email: newEmail.toLowerCase().trim(),
+            role: 'Staff',
+            profilePic: `https://api.dicebear.com/7.x/initials/svg?seed=${newEmail}`
+          };
+          dispatch(queueAction({ type: 'users/upsertUser', payload: seedPayload, meta: { id: Date.now() } }));
+          // Also fast-update the local sync array
+          dispatch({ type: 'auth/setUsersList', payload: [...usersList, seedPayload] });
+          setNewEmail('');
+        }} style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px' }}>
+          <input
+            type="email"
+            placeholder="New user gmail address (e.g., worker@gmail.com)"
+            value={newEmail}
+            onChange={e => setNewEmail(e.target.value)}
+            style={{ flex: 2 }}
+          />
+          <button type="submit" style={{ whiteSpace: 'nowrap', flex: 1 }} className="btn btn-primary">Whitelist User</button>
+        </form>
+      )}
 
       <hr style={{ border: 'none', borderTop: '1px solid var(--color-border)', margin: '30px 0' }} />
 
@@ -114,7 +119,7 @@ export default function AdminTab() {
         data={usersList}
         columns={columns}
         onEdit={null} // We don't edit users manually, Google OAuth determines metadata
-        onDelete={(id) => {
+        onDelete={currentUser?.role === 'Admin Viewer' ? null : (id) => {
           // Identify the exact user ID internally assigned
           const target = usersList.find(u => u.id === id);
           if (target?.email === currentUser.email) {

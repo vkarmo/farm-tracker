@@ -25,7 +25,7 @@ export default function AccessControlTab() {
   const usersList = useSelector(state => state.auth?.usersList) || [];
   const currentUser = useSelector(state => state.auth?.currentUser);
 
-  if (currentUser?.role !== 'Admin') {
+  if (currentUser?.role !== 'Admin' && currentUser?.role !== 'Admin Viewer') {
     return (
       <div className="card" style={{ textAlign: 'center', padding: '50px 20px', color: '#666' }}>
         <ShieldAlert size={48} color="#d32f2f" style={{ marginBottom: 20 }} />
@@ -57,7 +57,7 @@ export default function AccessControlTab() {
     dispatch(queueAction({ type: 'users/updateUserAccess', payload: { email, allowedTabs: [] }, meta: { id: Date.now() } }));
   };
 
-  const staffUsers = usersList.filter(u => u.role !== 'Admin');
+  const staffUsers = usersList.filter(u => u.role !== 'Admin' && u.role !== 'Admin Viewer');
 
   return (
     <div className="card">
@@ -80,20 +80,21 @@ export default function AccessControlTab() {
                     <span style={{ wordBreak: 'break-word' }}>{user.name}</span> <span style={{ fontSize: '0.8rem', color: '#888', fontWeight: 'normal', wordBreak: 'break-all' }}>({user.email})</span>
                   </h3>
                   <div>
-                    <button onClick={() => handleEnableAll(user.email)} className="btn" style={{ fontSize: '0.75rem', padding: '4px 8px', marginRight: 6 }}>Enable All</button>
-                    <button onClick={() => handleDisableAll(user.email)} className="btn" style={{ fontSize: '0.75rem', padding: '4px 8px' }}>Disable All</button>
+                    <button onClick={() => handleEnableAll(user.email)} disabled={currentUser?.role === 'Admin Viewer'} className="btn" style={{ fontSize: '0.75rem', padding: '4px 8px', marginRight: 6, cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer' }}>Enable All</button>
+                    <button onClick={() => handleDisableAll(user.email)} disabled={currentUser?.role === 'Admin Viewer'} className="btn" style={{ fontSize: '0.75rem', padding: '4px 8px', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer' }}>Disable All</button>
                   </div>
                 </div>
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
                   {AVAILABLE_TABS.map(tab => {
                     const isAllowed = userAllowed.includes(tab.id);
                     return (
-                      <label key={tab.id} style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', padding: '8px 14px', background: isAllowed ? '#e8f5e9' : '#ffebee', border: `1px solid ${isAllowed ? '#c8e6c9' : '#ffcdd2'}`, borderRadius: '20px', fontSize: '0.85rem', transition: 'all 0.2s', whiteSpace: 'nowrap' }}>
+                      <label key={tab.id} style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer', padding: '8px 14px', background: isAllowed ? '#e8f5e9' : '#ffebee', border: `1px solid ${isAllowed ? '#c8e6c9' : '#ffcdd2'}`, borderRadius: '20px', fontSize: '0.85rem', transition: 'all 0.2s', whiteSpace: 'nowrap' }}>
                         <input
                           type="checkbox"
                           checked={isAllowed}
+                          disabled={currentUser?.role === 'Admin Viewer'}
                           onChange={() => handleToggleTab(user.email, userAllowed, tab.id)}
-                          style={{ margin: 0 }}
+                          style={{ margin: 0, cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer' }}
                         />
                         {tab.label}
                       </label>

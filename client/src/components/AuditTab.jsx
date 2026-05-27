@@ -8,6 +8,7 @@ import CrudTable from './CrudTable';
 export default function AuditTab() {
   const dispatch = useDispatch();
   const logs = useSelector(state => state.audit?.logs) || [];
+  const currentUser = useSelector(state => state.auth?.currentUser);
   const [filterDate, setFilterDate] = useState('All');
   const [filterUser, setFilterUser] = useState('All');
   const [filterAction, setFilterAction] = useState('All');
@@ -35,9 +36,11 @@ export default function AuditTab() {
     <div className="card">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <h2>System Audit Logs</h2>
-        <button onClick={handleClear} className="btn" style={{ background: '#ffebee', color: '#c62828', display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <Trash2 size={16} /> Clear Logs
-        </button>
+        {currentUser?.role !== 'Admin Viewer' && (
+          <button onClick={handleClear} className="btn" style={{ background: '#ffebee', color: '#c62828', display: 'flex', alignItems: 'center', gap: '6px' }}>
+            <Trash2 size={16} /> Clear Logs
+          </button>
+        )}
       </div>
 
       <div style={{ marginBottom: '16px', display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
