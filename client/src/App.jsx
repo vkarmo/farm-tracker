@@ -42,7 +42,7 @@ import PoiTab from './components/PoiTab';
 import SyncTab from './components/SyncTab';
 import AuditTab from './components/AuditTab';
 import GpsLogTab from './components/GpsLogTab';
-import { logout } from './store/authSlice';
+import { logout, stopImpersonating } from './store/authSlice';
 import { logAction } from './store/auditSlice';
 
 const MODULES = {
@@ -57,6 +57,7 @@ const MODULES = {
 export default function App() {
   const dispatch = useDispatch();
   const currentUser = useSelector(state => state.auth?.currentUser);
+  const originalAdmin = useSelector(state => state.auth?.originalAdmin);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
   const fields = useSelector(state => state.fields.data) || [];
@@ -425,7 +426,50 @@ export default function App() {
 
   return (
     <>
-      {showGpsPrompt && (
+      {originalAdmin && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: '40px',
+          background: 'linear-gradient(90deg, #1565c0, #f57c00)',
+          color: 'white',
+          zIndex: 10000,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          padding: '0 20px',
+          boxShadow: '0 2px 5px rgba(0,0,0,0.2)',
+          fontSize: '0.9rem',
+          fontWeight: '500'
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <span role="img" aria-label="simulation">👀</span>
+            <span>Simulation Mode: Viewing as <strong>{currentUser.name || currentUser.email}</strong> ({currentUser.role})</span>
+          </div>
+          <button 
+            type="button"
+            onClick={() => dispatch(stopImpersonating())}
+            className="btn"
+            style={{
+              background: 'white',
+              color: '#d32f2f',
+              border: 'none',
+              borderRadius: '4px',
+              padding: '4px 12px',
+              cursor: 'pointer',
+              fontWeight: '600',
+              fontSize: '0.8rem',
+              boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+            }}
+          >
+            Exit Simulation
+          </button>
+        </div>
+      )}
+      <div style={{ display: 'flex', flexDirection: 'column', minHeight: '100vh', marginTop: originalAdmin ? '40px' : '0' }}>
+        {showGpsPrompt && (
         <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'white', padding: '20px', textAlign: 'center' }}>
           <MapPin size={64} style={{ marginBottom: '24px', color: '#4caf50' }} />
           <h2 style={{ color: 'white', marginBottom: '16px' }}>Enable Mapping Features</h2>
@@ -935,6 +979,7 @@ export default function App() {
       {/* Global Save Indicator Toast */}
       <div className={`global-save-toast ${showSaveToast ? 'visible' : ''}`}>
         <Check size={20} /> {toastMessage}
+      </div>
       </div>
     </>
   );

@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { clearLocations } from '../store/gpsSlice';
 import { Trash2, Map, TrendingUp, List } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
 import CrudTable from './CrudTable';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import { MapFlyTo } from './MapSearchBox';
 import { Tractor } from 'lucide-react';
 import L from 'leaflet';
@@ -29,6 +29,26 @@ const redIcon = new L.Icon({
   shadowSize: [41, 41]
 });
 
+const activeIcon = new L.Icon({
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-green.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41]
+});
+
+function MapBoundsFitter({ points }) {
+  const map = useMap();
+  useEffect(() => {
+    if (points && points.length > 0) {
+      const bounds = points.map(p => [p.lat, p.lng]);
+      map.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 });
+    }
+  }, [points, map]);
+  return null;
+}
+
 export default function GpsLogTab() {
   const dispatch = useDispatch();
   const logs = useSelector(state => state.gps?.locations) || [];
@@ -39,6 +59,11 @@ export default function GpsLogTab() {
   const [selectedUser, setSelectedUser] = useState('All');
   const [activeView, setActiveView] = useState('list');
   const [flyTarget, setFlyTarget] = useState(null);
+  const [activeIndex, setActiveIndex] = useState(-1);
+
+  useEffect(() => {
+    setActiveIndex(-1);
+  }, [selectedUser]);
 
   // Authorization check
   if (currentUser?.role !== 'Admin' && currentUser?.role !== 'Admin Viewer') {
@@ -56,6 +81,22 @@ export default function GpsLogTab() {
   const filteredLogs = logs.filter(log => {
     return selectedUser === 'All' || (log.userEmail && log.userEmail.trim() === selectedUser);
   }).reverse(); // Newest first
+
+  const handleNextPoint = () => {
+    if (filteredLogs.length === 0) return;
+    const nextIdx = (activeIndex + 1) % filteredLogs.length;
+    setActiveIndex(nextIdx);
+    const p = filteredLogs[nextIdx];
+    setFlyTarget([p.lat, p.lng, Date.now()]);
+  };
+
+  const handlePrevPoint = () => {
+    if (filteredLogs.length === 0) return;
+    const prevIdx = activeIndex <= 0 ? filteredLogs.length - 1 : activeIndex - 1;
+    setActiveIndex(prevIdx);
+    const p = filteredLogs[prevIdx];
+    setFlyTarget([p.lat, p.lng, Date.now()]);
+  };
 
   const gpsColumns = [
     { key: 'timestamp', header: 'Timestamp', render: (r) => <span style={{ fontFamily: 'monospace', fontSize: '0.75rem', whiteSpace: 'nowrap' }}>{new Date(r.timestamp).toLocaleString()}</span> },
@@ -105,12 +146,61 @@ export default function GpsLogTab() {
         </div>
       </div>
 
+      {filteredLogs.length > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '15px', background: '#f9fbe7', padding: '12px 20px', borderRadius: '8px', border: '1px solid #d4e157', flexWrap: 'wrap' }}>
+          <div style={{ fontWeight: 600, fontSize: '0.9rem', color: '#558b2f' }}>
+            Point Navigation: {activeIndex === -1 ? 'None selected' : `Point ${activeIndex + 1} of ${filteredLogs.length}`}
+          </div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button 
+              type="button"
+              onClick={handlePrevPoint} 
+              className="btn" 
+              style={{ padding: '6px 12px', fontSize: '0.85rem', cursor: 'pointer' }}
+            >
+              &larr; Prev
+            </button>
+            <button 
+              type="button"
+              onClick={handleNextPoint} 
+              className="btn" 
+              style={{ padding: '6px 12px', fontSize: '0.85rem', cursor: 'pointer' }}
+            >
+              Next &rarr;
+            </button>
+            {activeIndex !== -1 && (
+              <button 
+                type="button"
+                onClick={() => { setActiveIndex(-1); }} 
+                className="btn" 
+                style={{ padding: '6px 12px', fontSize: '0.85rem', background: '#fff', color: '#666', border: '1px solid #ccc', cursor: 'pointer' }}
+              >
+                Clear Selection
+              </button>
+            )}
+          </div>
+          {activeIndex !== -1 && (
+            <div style={{ fontSize: '0.8rem', color: '#555', fontFamily: 'monospace' }}>
+              Lat: {filteredLogs[activeIndex].lat.toFixed(6)}, Lng: {filteredLogs[activeIndex].lng.toFixed(6)} | Time: {new Date(filteredLogs[activeIndex].timestamp).toLocaleTimeString()}
+            </div>
+          )}
+        </div>
+      )}
+
       {activeView === 'list' && (
         <CrudTable 
           data={filteredLogs}
           columns={gpsColumns}
           itemLabel="Coordinate"
           customTitle="GPS Breadcrumbs"
+          onEdit={(row) => {
+            const idx = filteredLogs.findIndex(l => l.id === row.id);
+            if (idx !== -1) {
+              setActiveIndex(idx);
+              setFlyTarget([row.lat, row.lng, Date.now()]);
+            }
+          }}
+          activeRowId={activeIndex !== -1 ? filteredLogs[activeIndex]?.id : null}
         />
       )}
 
@@ -142,18 +232,21 @@ export default function GpsLogTab() {
               style={{ height: '100%', width: '100%' }}
             >
               <MapResizer />
+              <MapBoundsFitter points={filteredLogs} />
               <MapFlyTo center={flyTarget} />
               <TileLayer attribution="Google Maps" url="https://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}&s=Ga" maxZoom={24} maxNativeZoom={20} />
-              {filteredLogs.map(log => {
+              {filteredLogs.map((log, index) => {
                 const d = new Date(log.timestamp);
                 const dateStr = `${(d.getMonth() + 1).toString().padStart(2, '0')}/${d.getDate().toString().padStart(2, '0')}/${d.getFullYear()}`;
+                const isActive = activeIndex === index;
 
                 return (
-                  <Marker key={log.id} position={[log.lat, log.lng]} icon={redIcon}>
+                  <Marker key={log.id} position={[log.lat, log.lng]} icon={isActive ? activeIcon : redIcon}>
                     <Popup>
                       <strong>{log.userEmail}</strong><br />
                       Date: {dateStr}<br />
-                      Time: {d.toLocaleTimeString()}
+                      Time: {d.toLocaleTimeString()}<br />
+                      {isActive && <strong style={{ color: '#2e7d32' }}>Active Selection</strong>}
                     </Popup>
                   </Marker>
                 );

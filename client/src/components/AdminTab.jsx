@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { fetchAllUsers, removeUserOffline, updateUserRole } from '../store/authSlice';
+import { fetchAllUsers, removeUserOffline, updateUserRole, impersonateUser } from '../store/authSlice';
 import { queueAction } from '../store/syncSlice';
-import { ShieldAlert, Trash2, Shield, User } from 'lucide-react';
+import { ShieldAlert, Trash2, Shield, User, Play } from 'lucide-react';
 import CrudTable from './CrudTable';
 
 
@@ -40,24 +40,38 @@ export default function AdminTab() {
             {!['Admin', 'Admin Viewer', 'Staff', 'Viewer'].includes(r.role) && <><User size={14} color="#1976d2" /> {r.role || 'Staff'}</>}
           </div>
           {r.email !== currentUser?.email && (
-            <select 
-              value={r.role || 'Staff'} 
-              disabled={currentUser?.role === 'Admin Viewer'}
-              onClick={(e) => e.stopPropagation()}
-              onChange={(e) => {
-                const newRole = e.target.value;
-                if (window.confirm(`Are you sure you want to change ${r.name || r.email}'s role to ${newRole}?`)) {
-                  dispatch(queueAction({ type: 'users/upsertUser', payload: { ...r, role: newRole }, meta: { id: Date.now() } }));
-                  dispatch(updateUserRole({ email: r.email, role: newRole }));
-                }
-              }}
-              style={{ padding: '4px 8px', fontSize: '0.8rem', borderRadius: '4px', border: '1px solid #ccc', background: 'white', color: '#333', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer' }}
-            >
-              <option value="Admin">Admin</option>
-              <option value="Admin Viewer">Admin Viewer</option>
-              <option value="Staff">Staff</option>
-              <option value="Viewer">Viewer</option>
-            </select>
+            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+              <select 
+                value={r.role || 'Staff'} 
+                disabled={currentUser?.role === 'Admin Viewer'}
+                onClick={(e) => e.stopPropagation()}
+                onChange={(e) => {
+                  const newRole = e.target.value;
+                  if (window.confirm(`Are you sure you want to change ${r.name || r.email}'s role to ${newRole}?`)) {
+                    dispatch(queueAction({ type: 'users/upsertUser', payload: { ...r, role: newRole }, meta: { id: Date.now() } }));
+                    dispatch(updateUserRole({ email: r.email, role: newRole }));
+                  }
+                }}
+                style={{ padding: '4px 8px', fontSize: '0.8rem', borderRadius: '4px', border: '1px solid #ccc', background: 'white', color: '#333', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer' }}
+              >
+                <option value="Admin">Admin</option>
+                <option value="Admin Viewer">Admin Viewer</option>
+                <option value="Staff">Staff</option>
+                <option value="Viewer">Viewer</option>
+              </select>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  dispatch(impersonateUser(r));
+                }}
+                className="btn"
+                style={{ padding: '4px 8px', fontSize: '0.75rem', background: '#e8f5e9', color: '#2e7d32', border: '1px solid #c8e6c9', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                title={`Simulate app as ${r.name || r.email}`}
+              >
+                <Play size={12} fill="#2e7d32" /> Simulate
+              </button>
+            </div>
           )}
         </div>
       )
@@ -85,6 +99,42 @@ export default function AdminTab() {
         Review and audit anyone authenticated to access offline payloads.
         As the Admin, you can permanently revoke their structural access tokens at any time.
       </p>
+
+      {/* Simulator Section */}
+      <div style={{ background: '#f9fbe7', border: '1px solid #d4e157', borderRadius: '8px', padding: '16px', marginBottom: '25px' }}>
+        <h3 style={{ margin: '0 0 8px 0', display: 'flex', alignItems: 'center', gap: '6px', color: '#558b2f' }}>
+          <Play size={18} fill="#558b2f" /> Simulation & Perspective Controls
+        </h3>
+        <p style={{ fontSize: '0.85rem', color: '#555', margin: '0 0 12px 0', lineHeight: '1.4' }}>
+          Instantly simulate the application perspective of generic user types to inspect access restrictions, budgets, and edit modes:
+        </p>
+        <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+          <button
+            type="button"
+            onClick={() => dispatch(impersonateUser({ id: 'sim_viewer', name: 'Simulated Viewer', email: 'viewer@simulation.local', role: 'Viewer', allowedTabs: ['dashboard', 'map', 'field', 'crop'] }))}
+            className="btn"
+            style={{ background: 'white', border: '1px solid #ccc', padding: '6px 12px', fontSize: '0.85rem', cursor: 'pointer' }}
+          >
+            Simulate Generic Viewer
+          </button>
+          <button
+            type="button"
+            onClick={() => dispatch(impersonateUser({ id: 'sim_admin_viewer', name: 'Simulated Admin Viewer', email: 'admin_viewer@simulation.local', role: 'Admin Viewer' }))}
+            className="btn"
+            style={{ background: 'white', border: '1px solid #ccc', padding: '6px 12px', fontSize: '0.85rem', cursor: 'pointer' }}
+          >
+            Simulate Generic Admin Viewer
+          </button>
+          <button
+            type="button"
+            onClick={() => dispatch(impersonateUser({ id: 'sim_staff', name: 'Simulated Staff', email: 'staff@simulation.local', role: 'Staff' }))}
+            className="btn"
+            style={{ background: 'white', border: '1px solid #ccc', padding: '6px 12px', fontSize: '0.85rem', cursor: 'pointer' }}
+          >
+            Simulate Generic Staff
+          </button>
+        </div>
+      </div>
 
       {currentUser?.role === 'Admin' && (
         <form onSubmit={(e) => {

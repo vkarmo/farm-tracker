@@ -4,14 +4,17 @@ export const authSlice = createSlice({
   name: 'auth',
   initialState: {
     currentUser: null,
+    originalAdmin: null,
     usersList: [] // For admin view cache
   },
   reducers: {
     login: (state, action) => {
       state.currentUser = action.payload;
+      state.originalAdmin = null;
     },
     logout: (state) => {
       state.currentUser = null;
+      state.originalAdmin = null;
     },
     setUsersList: (state, action) => {
       state.usersList = action.payload;
@@ -30,11 +33,23 @@ export const authSlice = createSlice({
       if (idx !== -1) {
         state.usersList[idx].role = action.payload.role;
       }
+    },
+    impersonateUser: (state, action) => {
+      if (!state.originalAdmin) {
+        state.originalAdmin = state.currentUser;
+      }
+      state.currentUser = action.payload;
+    },
+    stopImpersonating: (state) => {
+      if (state.originalAdmin) {
+        state.currentUser = state.originalAdmin;
+        state.originalAdmin = null;
+      }
     }
   }
 });
 
-export const { login, logout, setUsersList, removeUserOffline, updateUserAccess, updateUserRole } = authSlice.actions;
+export const { login, logout, setUsersList, removeUserOffline, updateUserAccess, updateUserRole, impersonateUser, stopImpersonating } = authSlice.actions;
 
 // Thunk to fetch users list for Admin
 export const fetchAllUsers = () => async (dispatch) => {
