@@ -40,6 +40,11 @@ body {
   background-color: rgb(179 179 142 / 19%);
 }
 
+.container.container-wide {
+  max-width: 1600px;
+  width: 95%;
+}
+
 header {
   background-color: var(--color-surface);
   box-shadow: var(--shadow-sm);
@@ -444,9 +449,7 @@ textarea[data-populated="true"]:not(:focus) {
   padding: 4px 8px;
   border-radius: 6px;
   border: 1px solid rgba(46, 125, 50, 0.2);
-  white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;
   max-width: 160px;
   transition: max-width 0.3s ease, padding 0.3s ease;
   cursor: default;
@@ -455,6 +458,12 @@ textarea[data-populated="true"]:not(:focus) {
 .db-info:hover,
 .db-info:focus-within {
   max-width: 400px;
+}
+
+.db-info span {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Global Saving Indicator & Button States */

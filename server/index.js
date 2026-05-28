@@ -147,7 +147,7 @@ app.get('/api/all-data', async (req, res) => {
        assignments: 'MATCH (n:TaskAssignment) RETURN n',
        employees: 'MATCH (n:Employee) RETURN n',
        financials: 'MATCH (n:Transaction) RETURN n',
-       budgets: 'MATCH (n:Budget) RETURN n',
+       budgets: 'MATCH (n:Budget) OPTIONAL MATCH (n)-[:CONTAINS]->(i:BudgetItem) RETURN n, collect(i) as items',
        incidents: 'MATCH (n:Incident) RETURN n',
        deadlines: 'MATCH (n:Deadline) RETURN n',
        gps: 'MATCH (n:GpsLog) RETURN n',
@@ -170,6 +170,10 @@ app.get('/api/all-data', async (req, res) => {
        const result = await session.run(query);
        data[key] = result.records.map(r => {
            const props = r.get('n').properties;
+           if (key === 'budgets') {
+               const itemsVal = r.get('items');
+               props.items = Array.isArray(itemsVal) ? itemsVal.map(i => i.properties) : [];
+           }
            // Parse JSON strings back to objects (e.g. polygon)
            if (props.polygon) {
                try { props.polygon = JSON.parse(props.polygon); } catch(e){}
@@ -300,10 +304,20 @@ app.post('/api/sync', async (req, res) => {
                   c.seedingRate = $seedingRate, c.targetYield = $targetYield,
                   c.phHi = toFloat($phHi), c.phLo = toFloat($phLo), c.pestIds = $pestIds
               WITH c 
+              OPTIONAL MATCH (c)-[r1:SOWN_IN]->() DELETE r1
+              WITH c
+              OPTIONAL MATCH (c)-[r2:PLANTED_IN]->() DELETE r2
+              WITH c
               OPTIONAL MATCH (n:NurseryBed {id: $fieldId}) 
               FOREACH (ignore IN CASE WHEN n IS NOT NULL THEN [1] ELSE [] END | MERGE (c)-[rel_new:SOWN_IN]->(n) SET rel_new.lastUpdatedBy = $userEmail)
+              WITH c
+              OPTIONAL MATCH (c)-[r3:AFFECTED_BY]->() DELETE r3
+              WITH c
+              UNWIND (CASE WHEN size($pestIdList) > 0 THEN $pestIdList ELSE [null] END) AS pId
+              OPTIONAL MATCH (p:Pest {id: pId})
+              FOREACH (ignore IN CASE WHEN p IS NOT NULL THEN [1] ELSE [] END | MERGE (c)-[rel_new:AFFECTED_BY]->(p) SET rel_new.lastUpdatedBy = $userEmail)
               SET c.lastUpdatedBy = $userEmail RETURN c
-            `, { userEmail, id, name, variety, fieldId, plantingDate, expectedHarvest, seedingRate, targetYield, sowType, phHi: phHi || null, phLo: phLo || null, pestIds: pestIds ? JSON.stringify(pestIds) : '[]' });
+            `, { userEmail, id, name, variety, fieldId, plantingDate, expectedHarvest, seedingRate, targetYield, sowType, phHi: phHi || null, phLo: phLo || null, pestIds: pestIds ? JSON.stringify(pestIds) : '[]', pestIdList: pestIds || [] });
           } else {
             await session.run(`
               MERGE (c:Crop {id: $id}) 
@@ -312,10 +326,20 @@ app.post('/api/sync', async (req, res) => {
                   c.seedingRate = $seedingRate, c.targetYield = $targetYield,
                   c.phHi = toFloat($phHi), c.phLo = toFloat($phLo), c.pestIds = $pestIds
               WITH c 
+              OPTIONAL MATCH (c)-[r1:SOWN_IN]->() DELETE r1
+              WITH c
+              OPTIONAL MATCH (c)-[r2:PLANTED_IN]->() DELETE r2
+              WITH c
               OPTIONAL MATCH (f:Field {id: $fieldId}) 
               FOREACH (ignore IN CASE WHEN f IS NOT NULL THEN [1] ELSE [] END | MERGE (c)-[rel_new:PLANTED_IN]->(f) SET rel_new.lastUpdatedBy = $userEmail)
+              WITH c
+              OPTIONAL MATCH (c)-[r3:AFFECTED_BY]->() DELETE r3
+              WITH c
+              UNWIND (CASE WHEN size($pestIdList) > 0 THEN $pestIdList ELSE [null] END) AS pId
+              OPTIONAL MATCH (p:Pest {id: pId})
+              FOREACH (ignore IN CASE WHEN p IS NOT NULL THEN [1] ELSE [] END | MERGE (c)-[rel_new:AFFECTED_BY]->(p) SET rel_new.lastUpdatedBy = $userEmail)
               SET c.lastUpdatedBy = $userEmail RETURN c
-            `, { userEmail, id, name, variety, fieldId, plantingDate, expectedHarvest, seedingRate, targetYield, sowType, phHi: phHi || null, phLo: phLo || null, pestIds: pestIds ? JSON.stringify(pestIds) : '[]' });
+            `, { userEmail, id, name, variety, fieldId, plantingDate, expectedHarvest, seedingRate, targetYield, sowType, phHi: phHi || null, phLo: phLo || null, pestIds: pestIds ? JSON.stringify(pestIds) : '[]', pestIdList: pestIds || [] });
           }
 
           results.push({ actionId: action.meta?.id, status: 'success' });
@@ -324,6 +348,8 @@ app.post('/api/sync', async (req, res) => {
           const { id, fieldId, transplantDate } = action.payload;
           await session.run(`
             MERGE (c:Crop {id: $id})
+            WITH c
+            OPTIONAL MATCH (c)-[r1:TRANSPLANTED_TO]->() DELETE r1
             WITH c
             OPTIONAL MATCH (f:Field {id: $fieldId})
             FOREACH (ignore IN CASE WHEN f IS NOT NULL THEN [1] ELSE [] END |
@@ -342,6 +368,8 @@ app.post('/api/sync', async (req, res) => {
                 l.tagNumber = $tagNumber, l.healthStatus = $healthStatus, l.fieldId = $fieldId, l.causeOfDeath = $causeOfDeath,
                 l.medicalRecords = $medicalRecords
             WITH l
+            OPTIONAL MATCH (l)-[r:LOCATED_IN]->() DELETE r
+            WITH l
             OPTIONAL MATCH (f:Field {id: $fieldId})
             FOREACH (ignoreMe IN CASE WHEN f IS NOT NULL THEN [1] ELSE [] END |
               MERGE (l)-[:LOCATED_IN]->(f)
@@ -358,8 +386,12 @@ app.post('/api/sync', async (req, res) => {
                 b.expectedDueDate = $expectedDueDate, b.status = $status, 
                 b.offspringCount = $offspringCount, b.notes = $notes
             WITH b
+            OPTIONAL MATCH (b)-[r1:HAS_MOTHER]->() DELETE r1
+            WITH b
             OPTIONAL MATCH (m:Livestock {id: $motherId})
             FOREACH (ignore IN CASE WHEN m IS NOT NULL THEN [1] ELSE [] END | MERGE (b)-[rel_new:HAS_MOTHER]->(m) SET rel_new.lastUpdatedBy = $userEmail)
+            WITH b
+            OPTIONAL MATCH (b)-[r2:HAS_FATHER]->() DELETE r2
             WITH b
             OPTIONAL MATCH (f:Livestock {id: $fatherId})
             FOREACH (ignore IN CASE WHEN f IS NOT NULL THEN [1] ELSE [] END | MERGE (b)-[rel_new:HAS_FATHER]->(f) SET rel_new.lastUpdatedBy = $userEmail)
@@ -375,8 +407,12 @@ app.post('/api/sync', async (req, res) => {
                 k.breed = $breed, k.fieldId = $fieldId, k.numberOfKits = $numberOfKits,
                 k.healthStatus = $healthStatus, k.notes = $notes
             WITH k
+            OPTIONAL MATCH (k)-[r1:BORN_FROM]->() DELETE r1
+            WITH k
             OPTIONAL MATCH (m:Livestock {id: $motherId})
             FOREACH (ignore IN CASE WHEN m IS NOT NULL THEN [1] ELSE [] END | MERGE (k)-[rel_new:BORN_FROM]->(m) SET rel_new.lastUpdatedBy = $userEmail)
+            WITH k
+            OPTIONAL MATCH (k)-[r2:LOCATED_IN]->() DELETE r2
             WITH k
             OPTIONAL MATCH (f:Field {id: $fieldId})
             FOREACH (ignore IN CASE WHEN f IS NOT NULL THEN [1] ELSE [] END | MERGE (k)-[rel_new:LOCATED_IN]->(f) SET rel_new.lastUpdatedBy = $userEmail)
@@ -389,6 +425,8 @@ app.post('/api/sync', async (req, res) => {
           await session.run(`
             MERGE (h:Harvest {id: $id})
             SET h.amount = toFloat($amount), h.unit = $unit, h.date = $date, h.cropId = $cropId
+            WITH h
+            OPTIONAL MATCH (h)-[r1:HARVESTED_FROM]->() DELETE r1
             WITH h
             OPTIONAL MATCH (c:Crop {id: $cropId})
             FOREACH (ignoreMe IN CASE WHEN c IS NOT NULL THEN [1] ELSE [] END |
@@ -427,9 +465,13 @@ app.post('/api/sync', async (req, res) => {
                 t.amountLd = $amountLd, t.exchangeRate = $exchangeRate,
                 t.date = $date, t.vendor = $vendor, t.notes = $notes, t.assetId = $assetId
             WITH t
+            OPTIONAL MATCH (t)-[r1:OF_CATEGORY]->() DELETE r1
+            WITH t
             OPTIONAL MATCH (c:TransactionCategory {name: $category})
             FOREACH (ignore IN CASE WHEN c IS NULL AND $category <> "" THEN [1] ELSE [] END | MERGE (newC:TransactionCategory {name: $category}) SET newC.lastUpdatedBy = $userEmail MERGE (t)-[r1:OF_CATEGORY]->(newC) SET r1.lastUpdatedBy = $userEmail)
             FOREACH (ignore IN CASE WHEN c IS NOT NULL THEN [1] ELSE [] END | MERGE (t)-[rel_new:OF_CATEGORY]->(c) SET rel_new.lastUpdatedBy = $userEmail)
+            WITH t
+            OPTIONAL MATCH (t)-[r2:RELATED_TO]->() DELETE r2
             WITH t
             OPTIONAL MATCH (asset {id: $assetId})
             FOREACH (ignoreMe IN CASE WHEN asset IS NOT NULL THEN [1] ELSE [] END |
@@ -444,6 +486,8 @@ app.post('/api/sync', async (req, res) => {
           await session.run(`
             MERGE (a:Activity {id: $id})
             SET a.type = $activityType, a.date = $date, a.plannedDate = $plannedDate, a.personResponsible = $personResponsible, a.notes = $notes, a.targetId = $targetId
+            WITH a
+            OPTIONAL MATCH (a)-[r1:PERFORMED_ON]->() DELETE r1
             WITH a
             OPTIONAL MATCH (target {id: $targetId})
             FOREACH (ignore IN CASE WHEN target IS NOT NULL THEN [1] ELSE [] END | MERGE (a)-[:PERFORMED_ON]->(target))
@@ -466,6 +510,8 @@ app.post('/api/sync', async (req, res) => {
             MERGE (i:BudgetItem {id: $item.id})
             SET i.category = $item.category, i.description = $item.description, 
                 i.amount = toFloat($item.amount), i.currency = $item.currency, i.status = $item.status
+            WITH i
+            OPTIONAL MATCH ()-[r1:CONTAINS]->(i) DELETE r1
             WITH i
             MATCH (b:Budget {id: $budgetId})
             MERGE (b)-[:CONTAINS]->(i)
@@ -514,14 +560,22 @@ app.post('/api/sync', async (req, res) => {
                 a.hours = toFloat($hours), a.task = $task, a.assignmentDate = $assignmentDate, a.completedDate = $completedDate,
                 a.planningId = $planningId
             WITH a
+            OPTIONAL MATCH (a)-[r1:ON_FIELD]->() DELETE r1
+            WITH a
             OPTIONAL MATCH (f:Field {id: $fieldId})
             FOREACH (ignore IN CASE WHEN f IS NOT NULL THEN [1] ELSE [] END | MERGE (a)-[rel_new:ON_FIELD]->(f) SET rel_new.lastUpdatedBy = $userEmail)
+            WITH a
+            OPTIONAL MATCH (a)-[r2:USES_EQUIPMENT]->() DELETE r2
             WITH a
             OPTIONAL MATCH (e:Equipment {id: $equipmentId})
             FOREACH (ignore IN CASE WHEN e IS NOT NULL THEN [1] ELSE [] END | MERGE (a)-[rel_new:USES_EQUIPMENT]->(e) SET rel_new.lastUpdatedBy = $userEmail)
             WITH a
+            OPTIONAL MATCH (a)-[r3:PART_OF_PLAN]->() DELETE r3
+            WITH a
             OPTIONAL MATCH (p {id: $planningId}) WHERE p:Goal OR p:Objective
             FOREACH (ignore IN CASE WHEN p IS NOT NULL THEN [1] ELSE [] END | MERGE (a)-[rel_new:PART_OF_PLAN]->(p) SET rel_new.lastUpdatedBy = $userEmail)
+            WITH a
+            OPTIONAL MATCH (a)-[r4:ASSIGNED_TO]->() DELETE r4
             WITH a
             UNWIND (CASE WHEN size($workerIdList) > 0 THEN $workerIdList ELSE [null] END) AS wId
             OPTIONAL MATCH (w:Employee {id: wId})
@@ -588,16 +642,65 @@ app.post('/api/sync', async (req, res) => {
           
           // Enforce relationships on generic updates
           if (properties.fieldId !== undefined) {
+            // 1. Crop: delete SOWN_IN, PLANTED_IN, then create correct relationship
+            await session.run(`
+              MATCH (n:Crop {id: $id})
+              OPTIONAL MATCH (n)-[r1:SOWN_IN]->() DELETE r1
+              WITH n
+              OPTIONAL MATCH (n)-[r2:PLANTED_IN]->() DELETE r2
+              WITH n
+              OPTIONAL MATCH (nb:NurseryBed {id: $fieldId})
+              FOREACH (ignore IN CASE WHEN nb IS NOT NULL AND n.sowType = "Nursery" THEN [1] ELSE [] END | MERGE (n)-[rel_new:SOWN_IN]->(nb) SET rel_new.lastUpdatedBy = $userEmail)
+              WITH n
+              OPTIONAL MATCH (f:Field {id: $fieldId})
+              FOREACH (ignore IN CASE WHEN f IS NOT NULL AND (n.sowType IS NULL OR n.sowType <> "Nursery") THEN [1] ELSE [] END | MERGE (n)-[rel_new:PLANTED_IN]->(f) SET rel_new.lastUpdatedBy = $userEmail)
+            `, { id, fieldId: properties.fieldId, userEmail });
+
+            // 2. Livestock / LivestockKit: delete LOCATED_IN, then create LOCATED_IN
             await session.run(`
               MATCH (n {id: $id})
+              WHERE n:Livestock OR n:LivestockKit
+              OPTIONAL MATCH (n)-[r:LOCATED_IN]->() DELETE r
+              WITH n
               OPTIONAL MATCH (f:Field {id: $fieldId})
               FOREACH (ignore IN CASE WHEN f IS NOT NULL THEN [1] ELSE [] END | MERGE (n)-[rel_new:LOCATED_IN]->(f) SET rel_new.lastUpdatedBy = $userEmail)
-            `, { userEmail, id, fieldId: properties.fieldId });
+            `, { id, fieldId: properties.fieldId, userEmail });
+
+            // 3. SoilTest: delete TESTED_ON, then create TESTED_ON
+            await session.run(`
+              MATCH (n:SoilTest {id: $id})
+              OPTIONAL MATCH (n)-[r:TESTED_ON]->() DELETE r
+              WITH n
+              OPTIONAL MATCH (f:Field {id: $fieldId})
+              FOREACH (ignore IN CASE WHEN f IS NOT NULL THEN [1] ELSE [] END | MERGE (n)-[rel_new:TESTED_ON]->(f) SET rel_new.lastUpdatedBy = $userEmail)
+            `, { id, fieldId: properties.fieldId, userEmail });
+
+            // 4. TaskAssignment: delete ON_FIELD, then create ON_FIELD
+            await session.run(`
+              MATCH (n:TaskAssignment {id: $id})
+              OPTIONAL MATCH (n)-[r:ON_FIELD]->() DELETE r
+              WITH n
+              OPTIONAL MATCH (f:Field {id: $fieldId})
+              FOREACH (ignore IN CASE WHEN f IS NOT NULL THEN [1] ELSE [] END | MERGE (n)-[rel_new:ON_FIELD]->(f) SET rel_new.lastUpdatedBy = $userEmail)
+            `, { id, fieldId: properties.fieldId, userEmail });
           }
           
+          if (properties.pestIds !== undefined) {
+            await session.run(`
+              MATCH (n:Crop {id: $id})
+              OPTIONAL MATCH (n)-[r:AFFECTED_BY]->() DELETE r
+              WITH n
+              UNWIND (CASE WHEN size($pestIds) > 0 THEN $pestIds ELSE [null] END) AS pId
+              OPTIONAL MATCH (p:Pest {id: pId})
+              FOREACH (ignore IN CASE WHEN p IS NOT NULL THEN [1] ELSE [] END | MERGE (n)-[rel_new:AFFECTED_BY]->(p) SET rel_new.lastUpdatedBy = $userEmail)
+            `, { id, pestIds: properties.pestIds || [], userEmail });
+          }
+
           if (properties.planningId !== undefined) {
             await session.run(`
-              MATCH (n {id: $id})
+              MATCH (n:TaskAssignment {id: $id})
+              OPTIONAL MATCH (n)-[r:PART_OF_PLAN]->() DELETE r
+              WITH n
               OPTIONAL MATCH (p {id: $planningId}) WHERE p:Goal OR p:Objective
               FOREACH (ignore IN CASE WHEN p IS NOT NULL THEN [1] ELSE [] END | MERGE (n)-[rel_new:PART_OF_PLAN]->(p) SET rel_new.lastUpdatedBy = $userEmail)
             `, { userEmail, id, planningId: properties.planningId });
@@ -606,10 +709,112 @@ app.post('/api/sync', async (req, res) => {
           if (properties.workerIds !== undefined) {
             await session.run(`
               MATCH (n {id: $id})
+              WHERE n:TaskAssignment OR n:Goal OR n:Objective
+              OPTIONAL MATCH (n)-[r:ASSIGNED_TO]->() DELETE r
+              WITH n
               UNWIND (CASE WHEN size($workerIds) > 0 THEN $workerIds ELSE [null] END) AS wId
               OPTIONAL MATCH (w:Employee {id: wId})
               FOREACH (ignore IN CASE WHEN w IS NOT NULL THEN [1] ELSE [] END | MERGE (n)-[rel_new:ASSIGNED_TO]->(w) SET rel_new.lastUpdatedBy = $userEmail)
             `, { userEmail, id, workerIds: properties.workerIds || [] });
+          }
+
+          if (properties.motherId !== undefined) {
+            await session.run(`
+              MATCH (n:LivestockKit {id: $id})
+              OPTIONAL MATCH (n)-[r:BORN_FROM]->() DELETE r
+              WITH n
+              OPTIONAL MATCH (m:Livestock {id: $motherId})
+              FOREACH (ignore IN CASE WHEN m IS NOT NULL THEN [1] ELSE [] END | MERGE (n)-[rel_new:BORN_FROM]->(m) SET rel_new.lastUpdatedBy = $userEmail)
+            `, { id, motherId: properties.motherId, userEmail });
+
+            await session.run(`
+              MATCH (n:BreedingEvent {id: $id})
+              OPTIONAL MATCH (n)-[r:HAS_MOTHER]->() DELETE r
+              WITH n
+              OPTIONAL MATCH (m:Livestock {id: $motherId})
+              FOREACH (ignore IN CASE WHEN m IS NOT NULL THEN [1] ELSE [] END | MERGE (n)-[rel_new:HAS_MOTHER]->(m) SET rel_new.lastUpdatedBy = $userEmail)
+            `, { id, motherId: properties.motherId, userEmail });
+          }
+
+          if (properties.fatherId !== undefined) {
+            await session.run(`
+              MATCH (n:BreedingEvent {id: $id})
+              OPTIONAL MATCH (n)-[r:HAS_FATHER]->() DELETE r
+              WITH n
+              OPTIONAL MATCH (f:Livestock {id: $fatherId})
+              FOREACH (ignore IN CASE WHEN f IS NOT NULL THEN [1] ELSE [] END | MERGE (n)-[rel_new:HAS_FATHER]->(f) SET rel_new.lastUpdatedBy = $userEmail)
+            `, { id, fatherId: properties.fatherId, userEmail });
+          }
+
+          if (properties.cropId !== undefined) {
+            await session.run(`
+              MATCH (n:Harvest {id: $id})
+              OPTIONAL MATCH (n)-[r:HARVESTED_FROM]->() DELETE r
+              WITH n
+              OPTIONAL MATCH (c:Crop {id: $cropId})
+              FOREACH (ignore IN CASE WHEN c IS NOT NULL THEN [1] ELSE [] END | MERGE (n)-[:HARVESTED_FROM]->(c))
+            `, { id, cropId: properties.cropId, userEmail });
+          }
+
+          if (properties.goalId !== undefined) {
+            await session.run(`
+              MATCH (o:Objective {id: $id})
+              OPTIONAL MATCH ()-[r:HAS_OBJECTIVE]->(o) DELETE r
+              WITH o
+              OPTIONAL MATCH (g:Goal {id: $goalId})
+              FOREACH (ignore IN CASE WHEN g IS NOT NULL THEN [1] ELSE [] END | MERGE (g)-[rel_new:HAS_OBJECTIVE]->(o) SET rel_new.lastUpdatedBy = $userEmail)
+            `, { id, goalId: properties.goalId, userEmail });
+          }
+
+          if (properties.parentGoalId !== undefined) {
+            await session.run(`
+              MATCH (g:Goal {id: $id})
+              OPTIONAL MATCH (g)-[r:PARENT_GOAL]->() DELETE r
+              WITH g
+              OPTIONAL MATCH (p:Goal {id: $parentGoalId})
+              FOREACH (ignore IN CASE WHEN p IS NOT NULL THEN [1] ELSE [] END | MERGE (g)-[rel_new:PARENT_GOAL]->(p) SET rel_new.lastUpdatedBy = $userEmail)
+            `, { id, parentGoalId: properties.parentGoalId, userEmail });
+          }
+
+          if (properties.category !== undefined) {
+            await session.run(`
+              MATCH (t:Transaction {id: $id})
+              OPTIONAL MATCH (t)-[r:OF_CATEGORY]->() DELETE r
+              WITH t
+              OPTIONAL MATCH (c:TransactionCategory {name: $category})
+              FOREACH (ignore IN CASE WHEN c IS NULL AND $category <> "" THEN [1] ELSE [] END | MERGE (newC:TransactionCategory {name: $category}) SET newC.lastUpdatedBy = $userEmail MERGE (t)-[r1:OF_CATEGORY]->(newC) SET r1.lastUpdatedBy = $userEmail)
+              FOREACH (ignore IN CASE WHEN c IS NOT NULL THEN [1] ELSE [] END | MERGE (t)-[rel_new:OF_CATEGORY]->(c) SET rel_new.lastUpdatedBy = $userEmail)
+            `, { id, category: properties.category, userEmail });
+          }
+
+          if (properties.assetId !== undefined) {
+            await session.run(`
+              MATCH (t:Transaction {id: $id})
+              OPTIONAL MATCH (t)-[r:RELATED_TO]->() DELETE r
+              WITH t
+              OPTIONAL MATCH (asset {id: $assetId})
+              FOREACH (ignoreMe IN CASE WHEN asset IS NOT NULL THEN [1] ELSE [] END | MERGE (t)-[r2:RELATED_TO]->(asset) SET r2.lastUpdatedBy = $userEmail)
+            `, { id, assetId: properties.assetId, userEmail });
+          }
+
+          if (properties.targetId !== undefined) {
+            await session.run(`
+              MATCH (a:Activity {id: $id})
+              OPTIONAL MATCH (a)-[r:PERFORMED_ON]->() DELETE r
+              WITH a
+              OPTIONAL MATCH (target {id: $targetId})
+              FOREACH (ignore IN CASE WHEN target IS NOT NULL THEN [1] ELSE [] END | MERGE (a)-[:PERFORMED_ON]->(target))
+            `, { id, targetId: properties.targetId, userEmail });
+          }
+
+          if (properties.equipmentId !== undefined) {
+            await session.run(`
+              MATCH (n:TaskAssignment {id: $id})
+              OPTIONAL MATCH (n)-[r:USES_EQUIPMENT]->() DELETE r
+              WITH n
+              OPTIONAL MATCH (e:Equipment {id: $equipmentId})
+              FOREACH (ignore IN CASE WHEN e IS NOT NULL THEN [1] ELSE [] END | MERGE (n)-[rel_new:USES_EQUIPMENT]->(e) SET rel_new.lastUpdatedBy = $userEmail)
+            `, { id, equipmentId: properties.equipmentId, userEmail });
           }
 
           results.push({ actionId: action.meta?.id, status: 'success' });
@@ -648,6 +853,8 @@ app.post('/api/sync', async (req, res) => {
             SET s.fieldId = $fieldId, s.description = $description,
                 s.testResults = $testResults, s.location = $location, s.drawColor = $drawColor
             WITH s
+            OPTIONAL MATCH (s)-[r1:TESTED_ON]->() DELETE r1
+            WITH s
             OPTIONAL MATCH (f:Field {id: $fieldId})
             FOREACH (ignore IN CASE WHEN f IS NOT NULL THEN [1] ELSE [] END | MERGE (s)-[rel_new:TESTED_ON]->(f) SET rel_new.lastUpdatedBy = $userEmail)
             SET s.lastUpdatedBy = $userEmail RETURN s
@@ -660,8 +867,12 @@ app.post('/api/sync', async (req, res) => {
             MERGE (g:Goal {id: $id})
             SET g.title = $title, g.fromDate = $fromDate, g.toDate = $toDate, g.workerIds = $workerIds, g.parentGoalId = $parentGoalId
             WITH g
+            OPTIONAL MATCH (g)-[r1:PARENT_GOAL]->() DELETE r1
+            WITH g
             OPTIONAL MATCH (p:Goal {id: $parentGoalId})
             FOREACH (ignore IN CASE WHEN p IS NOT NULL THEN [1] ELSE [] END | MERGE (g)-[rel_new:PARENT_GOAL]->(p) SET rel_new.lastUpdatedBy = $userEmail)
+            WITH g
+            OPTIONAL MATCH (g)-[r2:ASSIGNED_TO]->() DELETE r2
             WITH g
             UNWIND (CASE WHEN size($workerIdList) > 0 THEN $workerIdList ELSE [null] END) AS wId
             OPTIONAL MATCH (w:Employee {id: wId})
@@ -676,8 +887,12 @@ app.post('/api/sync', async (req, res) => {
             MERGE (o:Objective {id: $id})
             SET o.goalId = $goalId, o.title = $title, o.fromDate = $fromDate, o.toDate = $toDate, o.workerIds = $workerIds
             WITH o
+            OPTIONAL MATCH ()-[r1:HAS_OBJECTIVE]->(o) DELETE r1
+            WITH o
             OPTIONAL MATCH (g:Goal {id: $goalId})
             FOREACH (ignore IN CASE WHEN g IS NOT NULL THEN [1] ELSE [] END | MERGE (g)-[rel_new:HAS_OBJECTIVE]->(o) SET rel_new.lastUpdatedBy = $userEmail)
+            WITH o
+            OPTIONAL MATCH (o)-[r2:ASSIGNED_TO]->() DELETE r2
             WITH o
             UNWIND (CASE WHEN size($workerIdList) > 0 THEN $workerIdList ELSE [null] END) AS wId
             OPTIONAL MATCH (w:Employee {id: wId})

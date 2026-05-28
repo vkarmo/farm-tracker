@@ -248,7 +248,7 @@ export default function SoilTestingTab() {
                   </button>
                 )}
               </div>
-              <ResizableMapWrapper initialHeight={200} style={{ marginBottom: '15px' }}>
+              <ResizableMapWrapper initialHeight={500} style={{ marginBottom: '15px' }}>
                 <MapContainer key={editingId || 'new_test'} center={markerPosition || mapCenter} zoom={markerPosition ? 16 : mapZoom} maxZoom={24} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
                   <MapResizer />
                   <MapFlyTo center={searchResultCenter} />

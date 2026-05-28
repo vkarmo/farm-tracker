@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { MapContainer, TileLayer, Polygon, Popup, GeoJSON, Marker } from 'react-leaflet';
+import { MapResizer } from './components/ResizableMapWrapper';
 import { setMapCenter, setVisibleMapLayers, saveSettings } from './store/settingsSlice';
 import { kml } from '@tmcw/togeojson';
 import L from 'leaflet';
@@ -163,6 +164,7 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
       )}
 
       <MapContainer center={mapCenter} zoom={mapZoom} maxZoom={24} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
+        <MapResizer />
         <TileLayer
           attribution="Google Maps"
           url="https://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}&s=Ga"

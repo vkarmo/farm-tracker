@@ -6,6 +6,7 @@ import { addLocation } from './store/gpsSlice';
 import { queueAction, fetchInitialData } from './store/syncSlice';
 import { MapSearchBox, MapFlyTo, FarmLocationButton } from './components/MapSearchBox';
 import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import { MapResizer } from './components/ResizableMapWrapper';
 import 'leaflet/dist/leaflet.css';
 import { CACHE_NAME } from './config/cache';
 import packageJson from '../package.json';
@@ -632,7 +633,7 @@ export default function App() {
         )}
       </nav>
 
-      <main className={`container ${currentUser?.role === 'Viewer' || currentUser?.role === 'Admin Viewer' ? 'role-viewer' : ''}`} style={{ marginTop: '20px' }}>
+      <main className={`container ${['map', 'field', 'nursery', 'soilTests', 'equipment', 'gps', 'poi'].includes(activeTab) ? 'container-wide' : ''} ${currentUser?.role === 'Viewer' || currentUser?.role === 'Admin Viewer' ? 'role-viewer' : ''}`} style={{ marginTop: '20px' }}>
 
         {activeTab === 'dashboard' && <DashboardTab />}
         {activeTab === 'map' && (
@@ -960,6 +961,7 @@ export default function App() {
                     )}
                     <div style={{ height: '300px', width: '100%', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--color-border)', marginTop: 8 }}>
                       <MapContainer center={mapCenter} zoom={mapZoom} maxZoom={24} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
+                        <MapResizer />
                         <TileLayer attribution="Google Maps" url="https://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}&s=Ga" maxZoom={24} maxNativeZoom={20} />
                         <MapFlyTo center={mapCenter} />
                         <Marker position={mapCenter} />

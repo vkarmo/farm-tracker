@@ -144,7 +144,7 @@ export default function EquipmentTab() {
                 </button>
               )}
             </div>
-            <ResizableMapWrapper initialHeight={280} style={{ marginBottom: '15px' }}>
+            <ResizableMapWrapper initialHeight={500} style={{ marginBottom: '15px' }}>
               <MapContainer key={editingId || 'new'} center={gpsLocation || mapCenter} zoom={gpsLocation ? 16 : 14} maxZoom={24} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
                 <MapResizer />
                 <MapFlyTo center={searchResultCenter} />

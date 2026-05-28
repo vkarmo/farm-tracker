@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { fetchAllUsers, removeUserOffline, updateUserRole, impersonateUser } from '../store/authSlice';
 import { queueAction } from '../store/syncSlice';
-import { ShieldAlert, Trash2, Shield, User, Play } from 'lucide-react';
+import { ShieldAlert, Trash2, Shield, User, Play, Eye } from 'lucide-react';
 import CrudTable from './CrudTable';
 
 
@@ -66,10 +66,10 @@ export default function AdminTab() {
                   dispatch(impersonateUser(r));
                 }}
                 className="btn"
-                style={{ padding: '4px 8px', fontSize: '0.75rem', background: '#e8f5e9', color: '#2e7d32', border: '1px solid #c8e6c9', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px' }}
+                style={{ padding: '6px', background: '#e8f5e9', color: '#2e7d32', border: '1px solid #c8e6c9', borderRadius: '4px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
                 title={`Simulate app as ${r.name || r.email}`}
               >
-                <Play size={12} fill="#2e7d32" /> Simulate
+                <Eye size={16} />
               </button>
             </div>
           )}

@@ -140,7 +140,7 @@ export default function NurseryTab() {
                 />
               </div>
             </div>
-            <ResizableMapWrapper initialHeight={300} style={{ marginBottom: '15px' }}>
+            <ResizableMapWrapper initialHeight={500} style={{ marginBottom: '15px' }}>
               <MapContainer key={editingId || 'new'} center={latLngs.length > 0 ? latLngs[0] : mapCenter} zoom={latLngs.length > 0 ? 17 : mapZoom} maxZoom={24} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
                 <MapResizer />
                 <MapFlyTo center={searchResultCenter} />

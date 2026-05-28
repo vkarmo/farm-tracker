@@ -93,7 +93,7 @@ export default function LoginScreen() {
             <button 
               onClick={() => loginWithGoogle()}
               className="btn btn-primary"
-              style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 24px', fontSize: '1rem', background: 'white', color: '#757575', border: '1px solid #ddd', borderRadius: '4px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}
+              style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', padding: '12px 24px', fontSize: '1rem', background: 'white', color: '#757575', border: '1px solid #ddd', borderRadius: '4px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}
             >
               <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg" alt="Google Logo" style={{ width: '20px', height: '20px' }} />
               Sign in with Google
