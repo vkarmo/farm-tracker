@@ -226,27 +226,35 @@ export default function NurseryTab() {
                                  <div>Scene Date: {getDeterministicSceneDate(f.id, fieldImageryOffsets[f.id] || 0)}</div>
                                  <div>Cloud Cover: {getDeterministicCloudCover(f.id, fieldImageryOffsets[f.id] || 0)}%</div>
                                  
-                                 <div style={{ display: 'flex', gap: '4px', marginTop: '6px', alignItems: 'center', justifyContent: 'space-between' }}>
-                                   <button
-                                     type="button"
-                                     className="btn btn-secondary"
-                                     style={{ padding: '2px 4px', fontSize: '0.65rem', cursor: 'pointer', flex: 1 }}
-                                     onClick={() => setFieldImageryOffsets(prev => ({ ...prev, [f.id]: (prev[f.id] || 0) - 30 }))}
-                                   >
-                                     ← Older (30d)
-                                   </button>
-                                   <span style={{ fontWeight: 600, fontSize: '0.65rem', margin: '0 4px', minWidth: '45px', textAlign: 'center' }}>
+                                 <div style={{ display: 'flex', marginTop: '6px', alignItems: 'center', justifyContent: 'space-between' }}>
+                                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
+                                     <span style={{ fontSize: '0.62rem', fontWeight: 600, color: '#558b2f' }}>Older</span>
+                                     <button
+                                       type="button"
+                                       className="btn btn-secondary"
+                                       style={{ padding: '2px 8px', fontSize: '0.75rem', cursor: 'pointer', marginTop: '2px', width: '100%', lineHeight: 1 }}
+                                       onClick={() => setFieldImageryOffsets(prev => ({ ...prev, [f.id]: (prev[f.id] || 0) - 30 }))}
+                                     >
+                                       ←
+                                     </button>
+                                   </div>
+                                   
+                                   <span style={{ fontWeight: 700, fontSize: '0.68rem', margin: '0 8px', minWidth: '55px', textAlign: 'center', alignSelf: 'flex-end', marginBottom: '4px' }}>
                                      {(fieldImageryOffsets[f.id] || 0) === 0 ? 'Latest' : `${Math.abs(fieldImageryOffsets[f.id] || 0)}d ago`}
                                    </span>
-                                   <button
-                                     type="button"
-                                     className="btn btn-secondary"
-                                     style={{ padding: '2px 4px', fontSize: '0.65rem', cursor: 'pointer', flex: 1 }}
-                                     disabled={(fieldImageryOffsets[f.id] || 0) >= 0}
-                                     onClick={() => setFieldImageryOffsets(prev => ({ ...prev, [f.id]: (prev[f.id] || 0) + 30 }))}
-                                   >
-                                     Newer (30d) →
-                                   </button>
+
+                                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
+                                     <span style={{ fontSize: '0.62rem', fontWeight: 600, color: '#558b2f' }}>Newer</span>
+                                     <button
+                                       type="button"
+                                       className="btn btn-secondary"
+                                       style={{ padding: '2px 8px', fontSize: '0.75rem', cursor: 'pointer', marginTop: '2px', width: '100%', lineHeight: 1 }}
+                                       disabled={(fieldImageryOffsets[f.id] || 0) >= 0}
+                                       onClick={() => setFieldImageryOffsets(prev => ({ ...prev, [f.id]: (prev[f.id] || 0) + 30 }))}
+                                     >
+                                       →
+                                     </button>
+                                   </div>
                                  </div>
                                </div>
                              )}
