@@ -18,13 +18,19 @@ function initializeGee(creds) {
       return reject(new Error('Missing GEE credentials in App Settings.'));
     }
     
-    // Clean up private key newlines
-    const privateKeyCleaned = creds.private_key.replace(/\\n/g, '\n');
+    // Robust PEM private key reconstruction
+    let pk = creds.private_key.trim();
+    pk = pk.replace(/\\n/g, '\n');
+    let base64Body = pk
+      .replace('-----BEGIN PRIVATE KEY-----', '')
+      .replace('-----END PRIVATE KEY-----', '')
+      .trim();
+    const perfectPrivateKey = `-----BEGIN PRIVATE KEY-----\n${base64Body}\n-----END PRIVATE KEY-----`;
     
     ee.data.authenticateViaPrivateKey(
       {
         client_email: creds.client_email,
-        private_key: privateKeyCleaned
+        private_key: perfectPrivateKey
       },
       () => {
         ee.initialize(
@@ -176,6 +182,94 @@ app.post('/api/fields', async (req, res) => {
     res.json(field);
   } catch (err) {
     res.status(500).json({ error: err.message });
+  } finally {
+    await session.close();
+  }
+});
+
+// GEE Connection Test endpoint
+app.post('/api/gee/test-connection', async (req, res) => {
+  const session = driver.session();
+  try {
+    const { client_email, private_key, project_id } = req.body;
+    
+    let creds = { client_email, private_key, project_id };
+    
+    if (!creds.client_email || !creds.private_key || !creds.project_id) {
+      const result = await session.run("MATCH (n:GlobalSettings {id: 'default'}) RETURN n");
+      if (result.records.length > 0) {
+        const props = result.records[0].get('n').properties;
+        creds = {
+          client_email: props.geeClientEmail || creds.client_email,
+          private_key: props.geePrivateKey || creds.private_key,
+          project_id: props.geeProjectId || creds.project_id
+        };
+      }
+    }
+    
+    if (!creds.client_email || !creds.private_key || !creds.project_id) {
+      return res.status(400).json({ success: false, error: 'Credentials are not fully specified.' });
+    }
+    
+    let pk = creds.private_key.trim();
+    pk = pk.replace(/\\n/g, '\n');
+    let base64Body = pk
+      .replace('-----BEGIN PRIVATE KEY-----', '')
+      .replace('-----END PRIVATE KEY-----', '')
+      .trim();
+    const perfectPrivateKey = `-----BEGIN PRIVATE KEY-----\n${base64Body}\n-----END PRIVATE KEY-----`;
+    
+    console.info('[GEE Connection Test] Verifying credentials for service account:', creds.client_email);
+    
+    const verificationResult = await new Promise((resolve, reject) => {
+      ee.data.authenticateViaPrivateKey(
+        {
+          client_email: creds.client_email,
+          private_key: perfectPrivateKey
+        },
+        () => {
+          ee.initialize(
+            null,
+            creds.project_id,
+            () => {
+              try {
+                const planetScope = ee.ImageCollection('PL/PlanetScope/FOURBAND');
+                planetScope.size().evaluate((size, err) => {
+                  if (err) {
+                    console.warn('[GEE Connection Test] PlanetScope access warning:', err.message || err);
+                    resolve({
+                      success: true,
+                      planetScopeAccessible: false,
+                      message: 'Successfully authenticated with Google Earth Engine! However, access to the proprietary PlanetScope collection ("PL/PlanetScope/FOURBAND") was denied. Visual satellite and NDVI layers will fall back to local canvas simulations.'
+                    });
+                  } else {
+                    resolve({
+                      success: true,
+                      planetScopeAccessible: true,
+                      message: 'Successfully authenticated with Google Earth Engine! PlanetScope collection is fully authorized and accessible.'
+                    });
+                  }
+                });
+              } catch (ex) {
+                reject(ex);
+              }
+            },
+            (err) => {
+              reject(new Error(`Earth Engine initialization failed: ${err.message || err}`));
+            }
+          );
+        },
+        (err) => {
+          reject(new Error(`Earth Engine authentication failed: ${err.message || err}`));
+        }
+      );
+    });
+    
+    res.json(verificationResult);
+    
+  } catch (err) {
+    console.error('[GEE Connection Test] Failed:', err);
+    res.status(500).json({ success: false, error: err.message || 'Connection test failed.' });
   } finally {
     await session.close();
   }

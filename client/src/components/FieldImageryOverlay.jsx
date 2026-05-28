@@ -83,6 +83,9 @@ export default function FieldImageryOverlay({ polygon, indexType, dateOffset = 0
     let isMounted = true;
     setGeeLoading(true);
     setGeeError(false);
+    window.dispatchEvent(new CustomEvent('gee-status-change', {
+      detail: { fieldId, status: 'loading' }
+    }));
 
     fetch('/api/gee/tile-url', {
       method: 'POST',
@@ -98,7 +101,11 @@ export default function FieldImageryOverlay({ polygon, indexType, dateOffset = 0
     })
       .then(res => {
         if (!res.ok) {
-          throw new Error('Failed to fetch GEE tile URL');
+          return res.json().then(body => {
+            throw new Error(body.error || 'Failed to fetch GEE tile URL');
+          }).catch(e => {
+            throw new Error(e.message || 'Failed to fetch GEE tile URL');
+          });
         }
         return res.json();
       })
@@ -107,8 +114,14 @@ export default function FieldImageryOverlay({ polygon, indexType, dateOffset = 0
           if (data.urlTemplate) {
             setTileUrl(data.urlTemplate);
             setGeeError(false);
+            window.dispatchEvent(new CustomEvent('gee-status-change', {
+              detail: { fieldId, status: 'success' }
+            }));
           } else {
             setGeeError(true);
+            window.dispatchEvent(new CustomEvent('gee-status-change', {
+              detail: { fieldId, status: 'failed', error: 'No urlTemplate in GEE response.' }
+            }));
           }
         }
       })
@@ -116,6 +129,9 @@ export default function FieldImageryOverlay({ polygon, indexType, dateOffset = 0
         console.warn('GEE fetch error:', err);
         if (isMounted) {
           setGeeError(true);
+          window.dispatchEvent(new CustomEvent('gee-status-change', {
+            detail: { fieldId, status: 'failed', error: err.message || 'Failed to fetch GEE tiles' }
+          }));
         }
       })
       .finally(() => {

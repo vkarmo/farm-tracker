@@ -42,6 +42,16 @@ export default function NurseryTab() {
   const [searchResultCenter, setSearchResultCenter] = useState(null);
   const [fieldImagery, setFieldImagery] = useState({});
   const [fieldImageryOffsets, setFieldImageryOffsets] = useState({});
+  const [geeStatus, setGeeStatus] = useState({});
+
+  useEffect(() => {
+    const handler = (e) => {
+      const { fieldId, status, error } = e.detail;
+      setGeeStatus(prev => ({ ...prev, [fieldId]: { status, error } }));
+    };
+    window.addEventListener('gee-status-change', handler);
+    return () => window.removeEventListener('gee-status-change', handler);
+  }, []);
 
   const handleLocationFound = (loc) => {
     const newLoc = loc.length >= 3 ? loc : [loc[0], loc[1], Date.now()];
@@ -220,9 +230,24 @@ export default function NurseryTab() {
                             </div>
                              {fieldImagery[f.id] && fieldImagery[f.id] !== 'none' && (
                                <div style={{ marginTop: '8px', padding: '6px', background: '#f1f8e9', borderRadius: '4px', border: '1px solid #c5e1a5', fontSize: '0.72rem', color: '#33691e' }}>
-                                 <div style={{ fontWeight: 700, marginBottom: '2px' }}>
-                                   {fieldImagery[f.id] === 'CurrentSatellite' ? 'Current Satellite (High-Res)' : 'Sentinel-2 (10m Index)'}
-                                 </div>
+                                  <div style={{ fontWeight: 700, marginBottom: '2px' }}>
+                                    {fieldImagery[f.id] === 'CurrentSatellite' ? 'Current Satellite (High-Res)' : 'Sentinel-2 (10m Index)'}
+                                  </div>
+                                  {geeStatus[f.id] && geeStatus[f.id].status === 'failed' && (
+                                    <div style={{ marginTop: '4px', color: '#c62828', fontWeight: 600, fontSize: '0.65rem', lineHeight: '1.2' }}>
+                                      ⚠ GEE Failed: {geeStatus[f.id].error}. Showing simulation.
+                                    </div>
+                                  )}
+                                  {geeStatus[f.id] && geeStatus[f.id].status === 'success' && (
+                                    <div style={{ marginTop: '4px', color: '#2e7d32', fontWeight: 600, fontSize: '0.65rem', lineHeight: '1.2' }}>
+                                      ✓ Live Earth Engine imagery loaded.
+                                    </div>
+                                  )}
+                                  {geeStatus[f.id] && geeStatus[f.id].status === 'loading' && (
+                                    <div style={{ marginTop: '4px', color: '#1565c0', fontSize: '0.65rem', lineHeight: '1.2' }}>
+                                      Fetching GEE tiles...
+                                    </div>
+                                  )}
                                  <div>Scene Date: {getDeterministicSceneDate(f.id, fieldImageryOffsets[f.id] || 0)}</div>
                                  <div>Cloud Cover: {getDeterministicCloudCover(f.id, fieldImageryOffsets[f.id] || 0)}%</div>
                                  

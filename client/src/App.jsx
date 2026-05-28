@@ -97,6 +97,31 @@ export default function App() {
 
   const prevTotalQueued = useRef(totalActionsQueued);
 
+  const [geeTesting, setGeeTesting] = useState(false);
+  const [geeTestStatus, setGeeTestStatus] = useState(null);
+
+  const handleTestGeeConnection = async () => {
+    setGeeTesting(true);
+    setGeeTestStatus(null);
+    try {
+      const response = await fetch('/api/gee/test-connection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          client_email: geeClientEmail,
+          private_key: geePrivateKey,
+          project_id: geeProjectId
+        })
+      });
+      const data = await response.json();
+      setGeeTestStatus(data);
+    } catch (err) {
+      setGeeTestStatus({ success: false, error: err.message || 'Connection test request failed.' });
+    } finally {
+      setGeeTesting(false);
+    }
+  };
+
   // Global visual indicator for successful saves
   useEffect(() => {
     if (totalActionsQueued > prevTotalQueued.current) {
@@ -1034,6 +1059,22 @@ export default function App() {
                         className="btn"
                         style={{ display: 'block', marginTop: 8, padding: '8px', width: '100%', maxWidth: '500px', height: '120px', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'text', background: '#fff', border: '1px solid #ccc', fontFamily: 'monospace', fontSize: '0.8rem' }}
                       />
+                    </div>
+
+                    <div style={{ marginTop: 16 }}>
+                      <button
+                        onClick={handleTestGeeConnection}
+                        className="btn btn-primary"
+                        style={{ background: '#2e7d32', color: 'white', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', border: 'none', fontWeight: 600 }}
+                        disabled={geeTesting}
+                      >
+                        {geeTesting ? 'Testing Connection...' : 'Test Connection'}
+                      </button>
+                      {geeTestStatus && (
+                        <div style={{ marginTop: 12, padding: '10px', borderRadius: '4px', border: `1px solid ${geeTestStatus.success ? '#c5e1a5' : '#ffcdd2'}`, background: geeTestStatus.success ? '#f1f8e9' : '#ffebee', color: geeTestStatus.success ? '#33691e' : '#c62828', fontSize: '0.85rem' }}>
+                          {geeTestStatus.message || geeTestStatus.error}
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>

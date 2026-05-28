@@ -54,6 +54,17 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
   const [showLayers, setShowLayers] = useState(false);
   const [fieldImagery, setFieldImagery] = useState({});
   const [fieldImageryOffsets, setFieldImageryOffsets] = useState({});
+  const [geeStatus, setGeeStatus] = useState({});
+
+  useEffect(() => {
+    const handler = (e) => {
+      const { fieldId, status, error } = e.detail;
+      setGeeStatus(prev => ({ ...prev, [fieldId]: { status, error } }));
+    };
+    window.addEventListener('gee-status-change', handler);
+    return () => window.removeEventListener('gee-status-change', handler);
+  }, []);
+
   const visibleMapLayers = useSelector(state => state.settings?.visibleMapLayers) || ['fields', 'nurseries', 'pois', 'equipment', 'soilTests'];
   const selectedLayers = LAYER_OPTIONS.filter(opt => visibleMapLayers.includes(opt.value));
   
@@ -258,6 +269,21 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
                         <div style={{ fontWeight: 700, marginBottom: '2px' }}>
                           {fieldImagery[field.id] === 'CurrentSatellite' ? 'Current Satellite (High-Res)' : 'Sentinel-2 (10m Index)'}
                         </div>
+                        {geeStatus[field.id] && geeStatus[field.id].status === 'failed' && (
+                          <div style={{ marginTop: '4px', color: '#c62828', fontWeight: 600, fontSize: '0.65rem', lineHeight: '1.2' }}>
+                            ⚠ GEE Failed: {geeStatus[field.id].error}. Showing simulation.
+                          </div>
+                        )}
+                        {geeStatus[field.id] && geeStatus[field.id].status === 'success' && (
+                          <div style={{ marginTop: '4px', color: '#2e7d32', fontWeight: 600, fontSize: '0.65rem', lineHeight: '1.2' }}>
+                            ✓ Live Earth Engine imagery loaded.
+                          </div>
+                        )}
+                        {geeStatus[field.id] && geeStatus[field.id].status === 'loading' && (
+                          <div style={{ marginTop: '4px', color: '#1565c0', fontSize: '0.65rem', lineHeight: '1.2' }}>
+                            Fetching GEE tiles...
+                          </div>
+                        )}
                         <div>Scene Date: {getDeterministicSceneDate(field.id, fieldImageryOffsets[field.id] || 0)}</div>
                         <div>Cloud Cover: {getDeterministicCloudCover(field.id, fieldImageryOffsets[field.id] || 0)}%</div>
                         
