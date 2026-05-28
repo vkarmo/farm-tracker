@@ -53,6 +53,7 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
   const [flyTarget, setFlyTarget] = useState(null);
   const [showLayers, setShowLayers] = useState(false);
   const [fieldImagery, setFieldImagery] = useState({});
+  const [fieldImageryOffsets, setFieldImageryOffsets] = useState({});
   const visibleMapLayers = useSelector(state => state.settings?.visibleMapLayers) || ['fields', 'nurseries', 'pois', 'equipment', 'soilTests'];
   const selectedLayers = LAYER_OPTIONS.filter(opt => visibleMapLayers.includes(opt.value));
   
@@ -252,19 +253,48 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
                         <option value="TrueColor">True Color (RGB)</option>
                       </select>
                     </div>
-                    {fieldImagery[field.id] === 'CurrentSatellite' && (
+                    {fieldImagery[field.id] && fieldImagery[field.id] !== 'none' && (
                       <div style={{ marginTop: '8px', padding: '6px', background: '#f1f8e9', borderRadius: '4px', border: '1px solid #c5e1a5', fontSize: '0.72rem', color: '#33691e' }}>
-                        <div style={{ fontWeight: 700, marginBottom: '2px' }}>PlanetScope (3-5m Resolution)</div>
-                        <div>Scene Date: {getDeterministicSceneDate(field.id)}</div>
-                        <div>Cloud Cover: {getDeterministicCloudCover(field.id)}%</div>
-                        <div style={{ fontStyle: 'italic', fontSize: '0.68rem', marginTop: '2px', color: '#558b2f' }}>Restricted to ≤5m (Lowest clouds in 30 days)</div>
+                        <div style={{ fontWeight: 700, marginBottom: '2px' }}>
+                          {fieldImagery[field.id] === 'CurrentSatellite' ? 'Current Satellite (High-Res)' : 'Sentinel-2 (10m Index)'}
+                        </div>
+                        <div>Scene Date: {getDeterministicSceneDate(field.id, fieldImageryOffsets[field.id] || 0)}</div>
+                        <div>Cloud Cover: {getDeterministicCloudCover(field.id, fieldImageryOffsets[field.id] || 0)}%</div>
+                        
+                        <div style={{ display: 'flex', gap: '4px', marginTop: '6px', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <button
+                            type="button"
+                            className="btn btn-secondary"
+                            style={{ padding: '2px 4px', fontSize: '0.65rem', cursor: 'pointer', flex: 1 }}
+                            onClick={() => setFieldImageryOffsets(prev => ({ ...prev, [field.id]: (prev[field.id] || 0) - 30 }))}
+                          >
+                            ← Older (30d)
+                          </button>
+                          <span style={{ fontWeight: 600, fontSize: '0.65rem', margin: '0 4px', minWidth: '45px', textAlign: 'center' }}>
+                            {(fieldImageryOffsets[field.id] || 0) === 0 ? 'Latest' : `${Math.abs(fieldImageryOffsets[field.id] || 0)}d ago`}
+                          </span>
+                          <button
+                            type="button"
+                            className="btn btn-secondary"
+                            style={{ padding: '2px 4px', fontSize: '0.65rem', cursor: 'pointer', flex: 1 }}
+                            disabled={(fieldImageryOffsets[field.id] || 0) >= 0}
+                            onClick={() => setFieldImageryOffsets(prev => ({ ...prev, [field.id]: (prev[field.id] || 0) + 30 }))}
+                          >
+                            Newer (30d) →
+                          </button>
+                        </div>
                       </div>
                     )}
                   </div>
                 </Popup>
               </Polygon>
               {fieldImagery[field.id] && fieldImagery[field.id] !== 'none' && (
-                <FieldImageryOverlay polygon={positions} indexType={fieldImagery[field.id]} />
+                <FieldImageryOverlay 
+                  polygon={positions} 
+                  indexType={fieldImagery[field.id]} 
+                  dateOffset={fieldImageryOffsets[field.id] || 0}
+                  fieldId={field.id}
+                />
               )}
             </React.Fragment>
           );

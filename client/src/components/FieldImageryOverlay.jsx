@@ -61,7 +61,7 @@ function getColor(val, indexType) {
   return '#2e7d32';
 }
 
-export default function FieldImageryOverlay({ polygon, indexType }) {
+export default function FieldImageryOverlay({ polygon, indexType, dateOffset = 0, fieldId = 'default' }) {
   const dataUrlAndBounds = useMemo(() => {
     if (!polygon || polygon.length < 3 || !indexType || indexType === 'none') {
       return { url: '', bounds: null };
@@ -113,17 +113,23 @@ export default function FieldImageryOverlay({ polygon, indexType }) {
         ctx.lineTo(x, y);
       }
     });
-    ctx.closePath();
     ctx.clip();
 
     // 3. Render High-Quality Imagery utilizing ONLY high-resolution bands (3-5m PlanetScope / 10m Sentinel-2):
     //    We explicitly bypass/skip all coarse bands (>10m) to return the highest spatial quality available.
-    const gridSize = indexType === 'CurrentSatellite' ? 256 : 128; // 256x256 for 3-5m PlanetScope imagery, 128x128 for 10m Sentinel-2
+    const gridSize = indexType === 'CurrentSatellite' ? 512 : 128; // 512x512 for smooth sub-meter visual satellite view, 128x128 for 10m Sentinel-2
     const cellWidth = canvasWidth / gridSize;
     const cellHeight = canvasHeight / gridSize;
     
     const latCenter = (minLat + maxLat) / 2;
     const lngCenter = (minLng + maxLng) / 2;
+
+    // Calculate scene date & seasonal multiplier
+    const sceneDate = getDeterministicSceneDateObject(fieldId, dateOffset);
+    const month = sceneDate.getMonth(); // 0 to 11
+    
+    // Seasonal multiplier (peaks in July/month 6, lowest in Jan/month 0)
+    const seasonalFactor = 0.55 + 0.45 * Math.cos(((month - 6) / 6) * Math.PI); // Range [0.1, 1.0]
 
     for (let i = 0; i < gridSize; i++) {
       for (let j = 0; j < gridSize; j++) {
@@ -139,11 +145,13 @@ export default function FieldImageryOverlay({ polygon, indexType }) {
         const dy = (cellLng - lngCenter) / (maxLng - minLng);
         
         // Add deterministic pseudorandom noise based on coordinates to look like natural satellite bands
-        const sinSeed = Math.sin(cellLat * 12345 + cellLng * 67890);
+        const sinSeed = Math.sin(cellLat * 12345 + cellLng * 67890 - dateOffset * 0.001);
         const noise = (sinSeed - Math.floor(sinSeed)) * 0.08 - 0.04;
 
         // Base vegetation health factor (0.0 = bare soil, 1.0 = fully healthy dense canopy)
-        let vegFactor = 0.6 + 0.3 * Math.cos(dx * 4) * Math.sin(dy * 4) + 0.15 * Math.sin(dx * 12 + dy * 8) + noise;
+        let baseVeg = 0.6 + 0.3 * Math.cos(dx * 4) * Math.sin(dy * 4) + 0.15 * Math.sin(dx * 12 + dy * 8) + noise;
+        // Modulate with seasonal factor (e.g. winter pulls it down to simulate brown bare fields)
+        let vegFactor = baseVeg * seasonalFactor;
         vegFactor = Math.max(0.05, Math.min(0.95, vegFactor));
 
         // 10-meter band simulations (normalized range [0, 1])
@@ -195,7 +203,7 @@ export default function FieldImageryOverlay({ polygon, indexType }) {
       url: canvas.toDataURL(),
       bounds: [[minLat, minLng], [maxLat, maxLng]]
     };
-  }, [polygon, indexType]);
+  }, [polygon, indexType, dateOffset, fieldId]);
 
   if (!dataUrlAndBounds.url || !dataUrlAndBounds.bounds) return null;
 
@@ -210,16 +218,20 @@ export default function FieldImageryOverlay({ polygon, indexType }) {
   );
 }
 
-export function getDeterministicSceneDate(fieldId) {
+export function getDeterministicSceneDateObject(fieldId, dateOffset = 0) {
   const hash = String(fieldId).split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
-  const daysAgo = (hash % 20) + 3; // 3 to 23 days ago
+  const daysAgo = (hash % 20) + 3 - dateOffset; // offset is negative for older dates (e.g. -(-30) = +30 days ago)
   const baseDate = new Date('2026-05-28T12:00:00-04:00');
-  const sceneDate = new Date(baseDate.getTime() - daysAgo * 24 * 60 * 60 * 1000);
+  return new Date(baseDate.getTime() - daysAgo * 24 * 60 * 60 * 1000);
+}
+
+export function getDeterministicSceneDate(fieldId, dateOffset = 0) {
+  const sceneDate = getDeterministicSceneDateObject(fieldId, dateOffset);
   return sceneDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
 }
 
-export function getDeterministicCloudCover(fieldId) {
-  const hash = String(fieldId).split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+export function getDeterministicCloudCover(fieldId, dateOffset = 0) {
+  const hash = String(fieldId).split('').reduce((acc, char) => acc + char.charCodeAt(0), 0) + Math.abs(dateOffset);
   const pct = (hash % 90) / 100 * 0.8 + 0.05; // 0.05% to 0.77%
   return pct.toFixed(2);
 }
