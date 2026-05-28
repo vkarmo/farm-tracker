@@ -1,5 +1,6 @@
 import React, { useMemo, useState, useEffect } from 'react';
 import { ImageOverlay, TileLayer } from 'react-leaflet';
+import { useSelector } from 'react-redux';
 
 export function isPointInPolygon(point, vs) {
   const x = point[0];
@@ -65,18 +66,12 @@ export default function FieldImageryOverlay({ polygon, indexType, dateOffset = 0
   const [tileUrl, setTileUrl] = useState(null);
   const [geeLoading, setGeeLoading] = useState(false);
   const [geeError, setGeeError] = useState(false);
+  const geeScale = useSelector(state => state.settings?.geeScale || 3);
 
   useEffect(() => {
     if (!polygon || polygon.length < 3 || !indexType || indexType === 'none') {
       setTileUrl(null);
       setGeeError(false);
-      return;
-    }
-
-    if (indexType !== 'CurrentSatellite' && indexType !== 'NDVI') {
-      // For other types, fall back to canvas simulation
-      setTileUrl(null);
-      setGeeError(true);
       return;
     }
 
@@ -96,7 +91,8 @@ export default function FieldImageryOverlay({ polygon, indexType, dateOffset = 0
         polygon,
         indexType,
         dateOffset,
-        fieldId
+        fieldId,
+        geeScale
       })
     })
       .then(res => {
@@ -143,7 +139,7 @@ export default function FieldImageryOverlay({ polygon, indexType, dateOffset = 0
     return () => {
       isMounted = false;
     };
-  }, [polygon, indexType, dateOffset, fieldId]);
+  }, [polygon, indexType, dateOffset, fieldId, geeScale]);
 
   const dataUrlAndBounds = useMemo(() => {
     // If successfully using GEE tiles, skip canvas generation
@@ -205,7 +201,7 @@ export default function FieldImageryOverlay({ polygon, indexType, dateOffset = 0
 
     // 3. Render High-Quality Imagery utilizing ONLY high-resolution bands (3-5m PlanetScope / 10m Sentinel-2):
     //    We explicitly bypass/skip all coarse bands (>10m) to return the highest spatial quality available.
-    const gridSize = indexType === 'CurrentSatellite' ? 512 : 128; // 512x512 for smooth sub-meter visual satellite view, 128x128 for 10m Sentinel-2
+    const gridSize = (indexType === 'CurrentSatellite' || indexType === 'TrueColor' || indexType === 'NDVI') ? 512 : 256;
     const cellWidth = canvasWidth / gridSize;
     const cellHeight = canvasHeight / gridSize;
     

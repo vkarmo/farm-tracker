@@ -1,12 +1,23 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { fetchFields } from './store/fieldsSlice';
-import { addUnit, removeUnit, addJobTitle, removeJobTitle, addExpenseCategory, removeExpenseCategory, addIncomeCategory, removeIncomeCategory, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold, setAppName, addAnimalType, removeAnimalType, saveSettings, setGeeClientEmail, setGeePrivateKey, setGeeProjectId } from './store/settingsSlice';
+import { addUnit, removeUnit, addJobTitle, removeJobTitle, addExpenseCategory, removeExpenseCategory, addIncomeCategory, removeIncomeCategory, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold, setAppName, addAnimalType, removeAnimalType, saveSettings, setGeeClientEmail, setGeePrivateKey, setGeeProjectId, setGeeScale } from './store/settingsSlice';
 import { addLocation } from './store/gpsSlice';
 import { queueAction, fetchInitialData } from './store/syncSlice';
 import { MapSearchBox, MapFlyTo, FarmLocationButton } from './components/MapSearchBox';
-import { MapContainer, TileLayer, Marker, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, useMapEvents, Polygon, useMap } from 'react-leaflet';
+import FieldImageryOverlay from './components/FieldImageryOverlay';
 import { MapResizer } from './components/ResizableMapWrapper';
+
+function SettingsMapBoundsFitter({ polygon }) {
+  const map = useMap();
+  React.useEffect(() => {
+    if (polygon && polygon.length >= 3) {
+      map.fitBounds(polygon);
+    }
+  }, [map, polygon]);
+  return null;
+}
 import 'leaflet/dist/leaflet.css';
 import { CACHE_NAME } from './config/cache';
 import packageJson from '../package.json';
@@ -80,6 +91,7 @@ export default function App() {
   const geeClientEmail = useSelector(state => state.settings?.geeClientEmail) || '';
   const geePrivateKey = useSelector(state => state.settings?.geePrivateKey) || '';
   const geeProjectId = useSelector(state => state.settings?.geeProjectId) || '';
+  const geeScale = useSelector(state => state.settings?.geeScale) || 3;
   const lastGpsLocation = useSelector(state => {
     const locs = state.gps?.locations || [];
     return locs.length > 0 ? locs[locs.length - 1] : null;
@@ -99,6 +111,18 @@ export default function App() {
 
   const [geeTesting, setGeeTesting] = useState(false);
   const [geeTestStatus, setGeeTestStatus] = useState(null);
+  const [testFieldId, setTestFieldId] = useState('');
+  const [testIndexType, setTestIndexType] = useState('CurrentSatellite');
+  const [testGeeStatus, setTestGeeStatus] = useState({});
+
+  useEffect(() => {
+    const handler = (e) => {
+      const { fieldId, status, error } = e.detail;
+      setTestGeeStatus(prev => ({ ...prev, [fieldId]: { status, error } }));
+    };
+    window.addEventListener('gee-status-change', handler);
+    return () => window.removeEventListener('gee-status-change', handler);
+  }, []);
 
   const handleTestGeeConnection = async () => {
     setGeeTesting(true);
@@ -1061,6 +1085,25 @@ export default function App() {
                       />
                     </div>
 
+                    <div style={{ marginBottom: 16 }}>
+                      <label style={{ fontWeight: '600', display: 'block', marginBottom: '8px' }}>Imagery Resolution Scale (meters/pixel)</label>
+                      <input
+                        type="number"
+                        min="0.5"
+                        max="50"
+                        step="0.5"
+                        value={geeScale}
+                        onChange={(e) => { dispatch(setGeeScale(parseFloat(e.target.value) || 3)); dispatch(saveSettings()); }}
+                        disabled={currentUser?.role === 'Admin Viewer'}
+                        placeholder="e.g. 3"
+                        className="btn"
+                        style={{ display: 'block', marginTop: 8, padding: '8px', width: '100%', maxWidth: '500px', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'text', background: '#fff', border: '1px solid #ccc' }}
+                      />
+                      <small style={{ display: 'block', marginTop: '6px', color: '#666', fontSize: '0.8rem', lineHeight: '1.4' }}>
+                        Controls how close to the ground the Google Earth Engine satellite imagery is rendered. A lower value (recommended 5m or less) produces higher resolution details.
+                      </small>
+                    </div>
+
                     <div style={{ marginTop: 16 }}>
                       <button
                         onClick={handleTestGeeConnection}
@@ -1075,6 +1118,109 @@ export default function App() {
                           {geeTestStatus.message || geeTestStatus.error}
                         </div>
                       )}
+                    </div>
+
+                    {/* GEE Live Field Tester Section */}
+                    <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px solid #eee' }}>
+                      <h3 style={{ marginTop: 0, fontSize: '1.1rem', color: '#333' }}>Live Field Imagery Tester</h3>
+                      
+                      <div style={{ display: 'flex', gap: '15px', marginBottom: '15px', flexWrap: 'wrap' }}>
+                        <div style={{ flex: 1, minWidth: '200px' }}>
+                          <label style={{ fontWeight: '600', display: 'block', marginBottom: '8px', fontSize: '0.9rem' }}>Select Field to Test</label>
+                          <select
+                            value={testFieldId}
+                            onChange={(e) => setTestFieldId(e.target.value)}
+                            style={{ padding: '8px', width: '100%', border: '1px solid #ccc', borderRadius: '4px', background: 'white' }}
+                          >
+                            <option value="">-- Choose a Field --</option>
+                            {fields.map(f => (
+                              <option key={f.id} value={f.id}>{f.name || f.id}</option>
+                            ))}
+                          </select>
+                        </div>
+                        
+                        <div style={{ flex: 1, minWidth: '200px' }}>
+                          <label style={{ fontWeight: '600', display: 'block', marginBottom: '8px', fontSize: '0.9rem' }}>Select Index (Unpersisted)</label>
+                          <select
+                            value={testIndexType}
+                            onChange={(e) => setTestIndexType(e.target.value)}
+                            style={{ padding: '8px', width: '100%', border: '1px solid #ccc', borderRadius: '4px', background: 'white' }}
+                            disabled={!testFieldId}
+                          >
+                            <option value="CurrentSatellite">Current Satellite (High-Res RGB)</option>
+                            <option value="NDVI">NDVI (Vegetation Index)</option>
+                            <option value="NDWI">NDWI (Water Index)</option>
+                            <option value="EVI">EVI (Enhanced Vegetation)</option>
+                            <option value="SoilMoisture">Soil Moisture</option>
+                            <option value="FalseColor">False Color (Biomass)</option>
+                            <option value="TrueColor">True Color (RGB)</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      {(() => {
+                        const selectedField = fields.find(f => f.id === testFieldId);
+                        if (!selectedField) return null;
+                        
+                        // Parse polygon if it's a string
+                        let polyCoords = null;
+                        if (selectedField.polygon) {
+                          try {
+                            polyCoords = typeof selectedField.polygon === 'string' 
+                              ? JSON.parse(selectedField.polygon) 
+                              : selectedField.polygon;
+                          } catch (e) {
+                            console.error('Failed to parse field polygon', e);
+                          }
+                        }
+                        
+                        if (!polyCoords || !Array.isArray(polyCoords) || polyCoords.length < 3) {
+                          return <div style={{ color: '#c62828', fontSize: '0.85rem' }}>Selected field does not have valid polygon coordinates.</div>;
+                        }
+                        
+                        // Get status from testGeeStatus state
+                        const statusObj = testGeeStatus[selectedField.id] || {};
+                        
+                        return (
+                          <div style={{ marginTop: '15px' }}>
+                            {/* GEE loading/success/error status indicator */}
+                            <div style={{ marginBottom: '10px', padding: '8px', borderRadius: '4px', fontSize: '0.85rem', fontWeight: 600, 
+                              background: statusObj.status === 'success' ? '#e8f5e9' : statusObj.status === 'failed' ? '#ffebee' : '#e3f2fd',
+                              color: statusObj.status === 'success' ? '#2e7d32' : statusObj.status === 'failed' ? '#c62828' : '#1565c0',
+                              border: `1px solid ${statusObj.status === 'success' ? '#a5d6a7' : statusObj.status === 'failed' ? '#ef9a9a' : '#90caf9'}`
+                            }}>
+                              {statusObj.status === 'loading' && '⌛ Fetching GEE tiles...'}
+                              {statusObj.status === 'success' && '✓ Live GEE tiles successfully loaded.'}
+                              {statusObj.status === 'failed' && `⚠ GEE Request Failed: ${statusObj.error || 'Unknown error'}. Showing fallback simulation.`}
+                              {!statusObj.status && 'Preparing GEE request...'}
+                            </div>
+
+                            <div style={{ height: '300px', width: '100%', border: '1px solid #ccc', borderRadius: '8px', overflow: 'hidden', position: 'relative' }}>
+                              <MapContainer
+                                center={mapCenter}
+                                zoom={mapZoom}
+                                style={{ height: '100%', width: '100%' }}
+                              >
+                                <TileLayer
+                                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                                />
+                                <Polygon
+                                  positions={polyCoords}
+                                  pathOptions={{ color: '#2e7d32', fillOpacity: 0.1 }}
+                                />
+                                <FieldImageryOverlay
+                                  polygon={polyCoords}
+                                  indexType={testIndexType}
+                                  dateOffset={0}
+                                  fieldId={selectedField.id}
+                                />
+                                <SettingsMapBoundsFitter polygon={polyCoords} />
+                              </MapContainer>
+                            </div>
+                          </div>
+                        );
+                      })()}
                     </div>
                   </div>
                 </div>

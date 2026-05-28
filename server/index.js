@@ -18,14 +18,7 @@ function initializeGee(creds) {
       return reject(new Error('Missing GEE credentials in App Settings.'));
     }
     
-    // Robust PEM private key reconstruction
-    let pk = creds.private_key.trim();
-    pk = pk.replace(/\\n/g, '\n');
-    let base64Body = pk
-      .replace('-----BEGIN PRIVATE KEY-----', '')
-      .replace('-----END PRIVATE KEY-----', '')
-      .trim();
-    const perfectPrivateKey = `-----BEGIN PRIVATE KEY-----\n${base64Body}\n-----END PRIVATE KEY-----`;
+    const perfectPrivateKey = creds.private_key;
     
     ee.data.authenticateViaPrivateKey(
       {
@@ -211,13 +204,7 @@ app.post('/api/gee/test-connection', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Credentials are not fully specified.' });
     }
     
-    let pk = creds.private_key.trim();
-    pk = pk.replace(/\\n/g, '\n');
-    let base64Body = pk
-      .replace('-----BEGIN PRIVATE KEY-----', '')
-      .replace('-----END PRIVATE KEY-----', '')
-      .trim();
-    const perfectPrivateKey = `-----BEGIN PRIVATE KEY-----\n${base64Body}\n-----END PRIVATE KEY-----`;
+    const perfectPrivateKey = creds.private_key;
     
     console.info('[GEE Connection Test] Verifying credentials for service account:', creds.client_email);
     
@@ -233,20 +220,20 @@ app.post('/api/gee/test-connection', async (req, res) => {
             creds.project_id,
             () => {
               try {
-                const planetScope = ee.ImageCollection('PL/PlanetScope/FOURBAND');
-                planetScope.size().evaluate((size, err) => {
+                const s2Collection = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED');
+                s2Collection.size().evaluate((size, err) => {
                   if (err) {
-                    console.warn('[GEE Connection Test] PlanetScope access warning:', err.message || err);
+                    console.warn('[GEE Connection Test] Sentinel-2 access warning:', err.message || err);
                     resolve({
                       success: true,
-                      planetScopeAccessible: false,
-                      message: 'Successfully authenticated with Google Earth Engine! However, access to the proprietary PlanetScope collection ("PL/PlanetScope/FOURBAND") was denied. Visual satellite and NDVI layers will fall back to local canvas simulations.'
+                      s2Accessible: false,
+                      message: 'Successfully authenticated with Google Earth Engine! However, access to the public Sentinel-2 collection ("COPERNICUS/S2_SR_HARMONIZED") was denied. Visual satellite and index layers will fall back to local canvas simulations.'
                     });
                   } else {
                     resolve({
                       success: true,
-                      planetScopeAccessible: true,
-                      message: 'Successfully authenticated with Google Earth Engine! PlanetScope collection is fully authorized and accessible.'
+                      s2Accessible: true,
+                      message: 'Successfully authenticated with Google Earth Engine! Sentinel-2 collection is fully authorized and accessible.'
                     });
                   }
                 });
@@ -279,7 +266,7 @@ app.post('/api/gee/test-connection', async (req, res) => {
 app.post('/api/gee/tile-url', async (req, res) => {
   const session = driver.session();
   try {
-    const { polygon, indexType, dateOffset, fieldId } = req.body;
+    const { polygon, indexType, dateOffset, fieldId, geeScale } = req.body;
     
     // 1. Fetch credentials from settings
     const result = await session.run("MATCH (n:GlobalSettings {id: 'default'}) RETURN n");
@@ -297,6 +284,9 @@ app.post('/api/gee/tile-url', async (req, res) => {
     if (!creds.client_email || !creds.private_key || !creds.project_id) {
       return res.status(400).json({ error: 'Google Earth Engine credentials are not fully configured in settings.' });
     }
+    
+    // Determine the scale in meters (recommended 5m or less)
+    const scaleValue = parseFloat(geeScale) || parseFloat(props.geeScale) || 3.0;
     
     // 2. Initialize Earth Engine
     await initializeGee(creds);
@@ -326,13 +316,13 @@ app.post('/api/gee/tile-url', async (req, res) => {
     const startDateStr = start.toISOString().split('T')[0];
     const endDateStr = end.toISOString().split('T')[0];
     
-    // 5. Load and filter PlanetScope Collection
-    let collection = ee.ImageCollection('PL/PlanetScope/FOURBAND')
+    // 5. Load and filter Sentinel-2 Collection
+    let collection = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
       .filterBounds(geometry)
       .filterDate(startDateStr, endDateStr);
       
     // Sort by lowest cloud cover
-    let sorted = collection.sort('cloud_percent');
+    let sorted = collection.sort('CLOUDY_PIXEL_PERCENTAGE');
     
     // Get the size of collection asynchronously
     const count = await new Promise((resolve, reject) => {
@@ -343,7 +333,7 @@ app.post('/api/gee/tile-url', async (req, res) => {
     });
     
     if (count === 0) {
-      return res.status(404).json({ error: 'No PlanetScope imagery found for the specified bounds and date range.' });
+      return res.status(404).json({ error: 'No Sentinel-2 imagery found for the specified bounds and date range.' });
     }
     
     const firstImage = sorted.first();
@@ -353,18 +343,60 @@ app.post('/api/gee/tile-url', async (req, res) => {
     let visParams;
     
     if (indexType === 'NDVI') {
-      // Calculate NDVI: (B4 - B3) / (B4 + B3)
-      const ndvi = firstImage.normalizedDifference(['B4', 'B3']).rename('NDVI');
-      processedImage = ndvi.select(['NDVI']).clip(geometry);
+      // Calculate NDVI: (B8 - B4) / (B8 + B4)
+      const ndvi = firstImage.normalizedDifference(['B8', 'B4']).rename('NDVI');
+      processedImage = ndvi.select(['NDVI']).resample('bicubic').reproject({ crs: 'EPSG:3857', scale: scaleValue }).clip(geometry);
       visParams = {
         min: 0.0,
         max: 1.0,
         palette: ['FFFFFF', 'CE7E45', 'DF923D', 'F1B555', 'FCD163', '99B718', '74A025', '3B8E1D', '257D06', '166D05', '0C2C07']
       };
+    } else if (indexType === 'NDWI') {
+      // McFeeters NDWI: (Green - NIR) / (Green + NIR) -> B3 - B8
+      const ndwi = firstImage.normalizedDifference(['B3', 'B8']).rename('NDWI');
+      processedImage = ndwi.select(['NDWI']).resample('bicubic').reproject({ crs: 'EPSG:3857', scale: scaleValue }).clip(geometry);
+      visParams = {
+        min: -0.5,
+        max: 0.5,
+        palette: ['#8d6e63', '#ffeb3b', '#80deea', '#29b6f6', '#0288d1']
+      };
+    } else if (indexType === 'EVI') {
+      // EVI = 2.5 * (B8 - B4) / (B8 + 6 * B4 - 7.5 * B2 + 1)
+      const evi = firstImage.expression(
+        '2.5 * ((NIR - RED) / (NIR + 6.0 * RED - 7.5 * BLUE + 1.0))', {
+          'NIR': firstImage.select('B8'),
+          'RED': firstImage.select('B4'),
+          'BLUE': firstImage.select('B2')
+        }
+      ).rename('EVI');
+      processedImage = evi.select(['EVI']).resample('bicubic').reproject({ crs: 'EPSG:3857', scale: scaleValue }).clip(geometry);
+      visParams = {
+        min: 0.0,
+        max: 1.0,
+        palette: ['#FFFFFF', '#DF923D', '#FCD163', '#74A025', '#166D05']
+      };
+    } else if (indexType === 'SoilMoisture') {
+      // NDMI = (NIR - SWIR) / (NIR + SWIR) -> B8 - B11
+      const ndmi = firstImage.normalizedDifference(['B8', 'B11']).rename('SoilMoisture');
+      processedImage = ndmi.select(['SoilMoisture']).resample('bicubic').reproject({ crs: 'EPSG:3857', scale: scaleValue }).clip(geometry);
+      visParams = {
+        min: -0.3,
+        max: 0.3,
+        palette: ['#a1887f', '#e0f7fa', '#4dd0e1', '#00796b']
+      };
+    } else if (indexType === 'FalseColor') {
+      // False Color Infrared (B8, B4, B3)
+      const fc = firstImage.select(['B8', 'B4', 'B3']);
+      processedImage = fc.resample('bicubic').reproject({ crs: 'EPSG:3857', scale: scaleValue }).clip(geometry);
+      visParams = {
+        min: 0,
+        max: 3000,
+        gamma: 1.4
+      };
     } else {
-      // Default or CurrentSatellite (RGB: B3, B2, B1)
-      const rgb = firstImage.select(['B3', 'B2', 'B1']);
-      processedImage = rgb.clip(geometry);
+      // Default, CurrentSatellite or TrueColor (RGB: B4, B3, B2)
+      const rgb = firstImage.select(['B4', 'B3', 'B2']);
+      processedImage = rgb.resample('bicubic').reproject({ crs: 'EPSG:3857', scale: scaleValue }).clip(geometry);
       visParams = {
         min: 0,
         max: 3000,
