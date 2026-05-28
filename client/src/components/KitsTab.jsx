@@ -75,31 +75,33 @@ export default function KitsTab() {
         </div>
       </div>
 
-      <table className="table">
-        <thead>
-          <tr><th>Pairing</th><th>Birth Date</th><th>Born</th><th>Survivors</th><th>Weaning</th><th>Notes</th><th>Actions</th></tr>
-        </thead>
-        <tbody>
-          {kits.length === 0 && <tr><td colSpan="7" style={{ textAlign: 'center', padding: 16 }}>No kit records yet</td></tr>}
-          {kits.map(k => {
-            const pair = pairings.find(p => p.id === k.pairingId);
-            return (
-              <tr key={k.id}>
-                <td>{pair ? `${pair.doeId} × ${pair.buckId}` : k.pairingId}</td>
-                <td>{k.birthDate}</td>
-                <td>{k.count}</td>
-                <td>{k.survivors}</td>
-                <td>{k.weaningDate || '-'}</td>
-                <td>{k.notes || '-'}</td>
-                <td>
-                  <button className="btn" onClick={() => handleEdit(k)}>Edit</button>
-                  <button className="btn" onClick={() => handleDelete(k.id)} style={{ marginLeft: 4 }}>Delete</button>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+      <div className="table-scroll-wrapper">
+        <table className="table">
+          <thead>
+            <tr><th>Pairing</th><th>Birth Date</th><th>Born</th><th>Survivors</th><th>Weaning</th><th>Notes</th><th>Actions</th></tr>
+          </thead>
+          <tbody>
+            {kits.length === 0 && <tr><td colSpan="7" style={{ textAlign: 'center', padding: 16 }}>No kit records yet</td></tr>}
+            {kits.map(k => {
+              const pair = pairings.find(p => p.id === k.pairingId);
+              return (
+                <tr key={k.id}>
+                  <td>{pair ? `${pair.doeId} × ${pair.buckId}` : k.pairingId}</td>
+                  <td>{k.birthDate}</td>
+                  <td>{k.count}</td>
+                  <td>{k.survivors}</td>
+                  <td>{k.weaningDate || '-'}</td>
+                  <td>{k.notes || '-'}</td>
+                  <td>
+                    <button className="btn" onClick={() => handleEdit(k)}>Edit</button>
+                    <button className="btn" onClick={() => handleDelete(k.id)} style={{ marginLeft: 4 }}>Delete</button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

@@ -29,7 +29,10 @@ export const CurrentLocationButton = ({ onLocationFound, disabled }) => {
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setIsLocating(false);
-        const { latitude, longitude } = pos.coords;
+        const { latitude, longitude, accuracy } = pos.coords;
+        if (accuracy !== undefined && accuracy !== null && accuracy > 100) {
+          console.warn(`Manual locate accuracy is low: ${accuracy.toFixed(1)}m (expected <= 100m)`);
+        }
         if (onLocationFound) onLocationFound([latitude, longitude, Date.now()]);
       },
       (err) => {
@@ -118,7 +121,11 @@ export const MapSearchBox = ({ onLocationFound, onClear, polygon, setPolygon, ac
       if ('geolocation' in navigator) {
         watchIdRef.current = navigator.geolocation.watchPosition(
           (pos) => {
-            const { latitude, longitude } = pos.coords;
+            const { latitude, longitude, accuracy } = pos.coords;
+            if (accuracy !== undefined && accuracy !== null && accuracy > 30) {
+              console.warn(`GPS tracker skipped point due to low accuracy: ${accuracy.toFixed(1)}m (threshold is 30m)`);
+              return;
+            }
             const now = Date.now();
             if (!lastPointRef.current) {
               onLocationFoundRef.current([latitude, longitude, now]);
@@ -132,7 +139,7 @@ export const MapSearchBox = ({ onLocationFound, onClear, polygon, setPolygon, ac
             }
           },
           (err) => console.error("Geolocation watch error:", err),
-          { enableHighAccuracy: true, maximumAge: 0 }
+          { enableHighAccuracy: true, maximumAge: 0, timeout: 30000 }
         );
       } else {
         alert("Geolocation is not supported by your browser");
@@ -268,14 +275,17 @@ export const MapSearchBox = ({ onLocationFound, onClear, polygon, setPolygon, ac
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         setIsLocating(false);
-        const { latitude, longitude } = pos.coords;
+        const { latitude, longitude, accuracy } = pos.coords;
+        if (accuracy !== undefined && accuracy !== null && accuracy > 100) {
+          console.warn(`Manual locate accuracy is low: ${accuracy.toFixed(1)}m (expected <= 100m)`);
+        }
         if (onLocationFoundRef.current) onLocationFoundRef.current([latitude, longitude, Date.now()]);
       },
       (err) => {
         setIsLocating(false);
         alert('Could not find your location. Please check browser permissions.');
       },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+      { enableHighAccuracy: true, timeout: 30000, maximumAge: 0 }
     );
   };
 

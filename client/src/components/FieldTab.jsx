@@ -5,7 +5,8 @@ import { updateField, addField, deleteField } from '../store/fieldsSlice';
 import { CheckCircle2, Target, X, PlusCircle, Copy, Lightbulb } from 'lucide-react';
 import CrudTable from './CrudTable';
 import RecommendationViewer from './RecommendationViewer';
-import { MapContainer, TileLayer, Polygon, Marker, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Polygon, Marker, Popup, useMapEvents } from 'react-leaflet';
+import FieldImageryOverlay, { getDeterministicSceneDate, getDeterministicCloudCover } from './FieldImageryOverlay';
 import ResizableMapWrapper, { MapResizer } from './ResizableMapWrapper';
 import { MapSearchBox, MapFlyTo, FarmLocationButton } from './MapSearchBox';
 import area from '@turf/area';
@@ -41,6 +42,7 @@ export default function FieldTab() {
   const [searchResultCenter, setSearchResultCenter] = useState(null);
   const [showRecommendations, setShowRecommendations] = useState(false);
   const [showRecAlert, setShowRecAlert] = useState(false);
+  const [fieldImagery, setFieldImagery] = useState({});
 
   const handleLocationFound = (loc) => {
     const newLoc = loc.length >= 3 ? loc : [loc[0], loc[1], Date.now()];
@@ -195,9 +197,45 @@ export default function FieldTab() {
                   <Marker key={`pin_${idx}`} position={pos} />
                 ))}
                 {latLngs.length > 0 && (
-                  <Polygon positions={latLngs} pathOptions={{ color: formData.drawColor || polygonColor }} />
+                  <React.Fragment>
+                    <Polygon positions={latLngs} pathOptions={{ color: formData.drawColor || polygonColor }}>
+                      <Popup>
+                        <div style={{ minWidth: '200px' }}>
+                          <strong>Active Field: {formData.name || 'Unnamed'}</strong>
+                          <div style={{ marginTop: '8px' }}>
+                            <label style={{ fontSize: '0.8rem', fontWeight: 600, display: 'block', marginBottom: '4px' }}>Field Imagery:</label>
+                            <select 
+                              value={fieldImagery[editingId || 'active'] || 'none'} 
+                              onChange={(e) => setFieldImagery(prev => ({ ...prev, [editingId || 'active']: e.target.value }))}
+                              style={{ padding: '4px', fontSize: '0.8rem', borderRadius: '4px', width: '100%', background: 'white' }}
+                            >
+                              <option value="none">None (Standard)</option>
+                              <option value="CurrentSatellite">Current Satellite View</option>
+                              <option value="NDVI">NDVI (Vegetation Index)</option>
+                              <option value="NDWI">NDWI (Water Index)</option>
+                              <option value="EVI">EVI (Enhanced Vegetation)</option>
+                              <option value="SoilMoisture">Soil Moisture</option>
+                              <option value="FalseColor">False Color (Biomass)</option>
+                              <option value="TrueColor">True Color (RGB)</option>
+                            </select>
+                          </div>
+                          {fieldImagery[editingId || 'active'] === 'CurrentSatellite' && (
+                            <div style={{ marginTop: '8px', padding: '6px', background: '#f1f8e9', borderRadius: '4px', border: '1px solid #c5e1a5', fontSize: '0.72rem', color: '#33691e' }}>
+                              <div style={{ fontWeight: 700, marginBottom: '2px' }}>PlanetScope (3-5m Resolution)</div>
+                              <div>Scene Date: {getDeterministicSceneDate(editingId || 'active')}</div>
+                              <div>Cloud Cover: {getDeterministicCloudCover(editingId || 'active')}%</div>
+                              <div style={{ fontStyle: 'italic', fontSize: '0.68rem', marginTop: '2px', color: '#558b2f' }}>Restricted to ≤5m (Lowest clouds in 30 days)</div>
+                            </div>
+                          )}
+                        </div>
+                      </Popup>
+                    </Polygon>
+                    {fieldImagery[editingId || 'active'] && fieldImagery[editingId || 'active'] !== 'none' && (
+                      <FieldImageryOverlay polygon={latLngs} indexType={fieldImagery[editingId || 'active']} />
+                    )}
+                  </React.Fragment>
                 )}
-                {/* Render existing saved fields (clickable for editing) */}
+                {/* Render existing saved fields (clickable for editing/imagery) */}
                 {fields.filter(f => f.id !== editingId).map(field => {
                   let positions = [];
                   if (field.polygon) {
@@ -206,25 +244,66 @@ export default function FieldTab() {
                   if (positions.length === 0) return null;
                   const isBg = editingId !== null || polygonPositions.length > 0;
                   return (
-                    <Polygon
-                      key={field.id}
-                      positions={positions}
-                      pathOptions={{
-                        color: field.drawColor || polygonColor,
-                        weight: isBg ? 1 : 2,
-                        fillOpacity: isBg ? 0.05 : 0.3,
-                        dashArray: isBg ? '5,5' : undefined,
-                        bubblingMouseEvents: false
-                      }}
-                      interactive={!isBg}
-                      eventHandlers={{
-                        click: (e) => {
-                          e.originalEvent.stopPropagation();
-                          if (isBg) return;
-                          handleEdit(field);
-                        }
-                      }}
-                    />
+                    <React.Fragment key={field.id}>
+                      <Polygon
+                        positions={positions}
+                        pathOptions={{
+                          color: field.drawColor || polygonColor,
+                          weight: isBg ? 1 : 2,
+                          fillOpacity: isBg ? 0.05 : 0.3,
+                          dashArray: isBg ? '5,5' : undefined,
+                          bubblingMouseEvents: false
+                        }}
+                        interactive={true}
+                      >
+                        <Popup>
+                          <div style={{ minWidth: '200px' }}>
+                            <strong>{field.name}</strong><br/>
+                            Area: {field.area} ac<br/>
+                            <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                              <div>
+                                <label style={{ fontSize: '0.8rem', fontWeight: 600, display: 'block', marginBottom: '4px' }}>Field Imagery:</label>
+                                <select 
+                                  value={fieldImagery[field.id] || 'none'} 
+                                  onChange={(e) => setFieldImagery(prev => ({ ...prev, [field.id]: e.target.value }))}
+                                  style={{ padding: '4px', fontSize: '0.8rem', borderRadius: '4px', width: '100%', background: 'white' }}
+                                >
+                                  <option value="none">None (Standard)</option>
+                                  <option value="CurrentSatellite">Current Satellite View</option>
+                                  <option value="NDVI">NDVI (Vegetation Index)</option>
+                                  <option value="NDWI">NDWI (Water Index)</option>
+                                  <option value="EVI">EVI (Enhanced Vegetation)</option>
+                                  <option value="SoilMoisture">Soil Moisture</option>
+                                  <option value="FalseColor">False Color (Biomass)</option>
+                                  <option value="TrueColor">True Color (RGB)</option>
+                                </select>
+                              </div>
+                              {fieldImagery[field.id] === 'CurrentSatellite' && (
+                                <div style={{ padding: '6px', background: '#f1f8e9', borderRadius: '4px', border: '1px solid #c5e1a5', fontSize: '0.72rem', color: '#33691e' }}>
+                                  <div style={{ fontWeight: 700, marginBottom: '2px' }}>PlanetScope (3-5m Resolution)</div>
+                                  <div>Scene Date: {getDeterministicSceneDate(field.id)}</div>
+                                  <div>Cloud Cover: {getDeterministicCloudCover(field.id)}%</div>
+                                  <div style={{ fontStyle: 'italic', fontSize: '0.68rem', marginTop: '2px', color: '#558b2f' }}>Restricted to ≤5m (Lowest clouds in 30 days)</div>
+                                </div>
+                              )}
+                              {!isBg && (
+                                <button 
+                                  type="button" 
+                                  className="btn" 
+                                  style={{ padding: '4px 8px', fontSize: '0.85rem', width: '100%' }}
+                                  onClick={() => handleEdit(field)}
+                                >
+                                  Edit Field Details
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        </Popup>
+                      </Polygon>
+                      {fieldImagery[field.id] && fieldImagery[field.id] !== 'none' && (
+                        <FieldImageryOverlay polygon={positions} indexType={fieldImagery[field.id]} />
+                      )}
+                    </React.Fragment>
                   );
                 })}
                 {/* Render nurseries for context (unclickable) */}

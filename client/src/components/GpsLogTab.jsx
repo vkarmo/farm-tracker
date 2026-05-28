@@ -38,14 +38,16 @@ const activeIcon = new L.Icon({
   shadowSize: [41, 41]
 });
 
-function MapBoundsFitter({ points }) {
+function MapBoundsFitter({ points, selectedUser }) {
   const map = useMap();
   useEffect(() => {
-    if (points && points.length > 0) {
+    if (selectedUser === 'All') {
+      map.setView([20, 0], 2);
+    } else if (points && points.length > 0) {
       const bounds = points.map(p => [p.lat, p.lng]);
       map.fitBounds(bounds, { padding: [50, 50], maxZoom: 16 });
     }
-  }, [points, map]);
+  }, [points, selectedUser, map]);
   return null;
 }
 
@@ -232,7 +234,7 @@ export default function GpsLogTab() {
               style={{ height: '100%', width: '100%' }}
             >
               <MapResizer />
-              <MapBoundsFitter points={filteredLogs} />
+              <MapBoundsFitter points={filteredLogs} selectedUser={selectedUser} />
               <MapFlyTo center={flyTarget} />
               <TileLayer attribution="Google Maps" url="https://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}&s=Ga" maxZoom={24} maxNativeZoom={20} />
               {filteredLogs.map((log, index) => {

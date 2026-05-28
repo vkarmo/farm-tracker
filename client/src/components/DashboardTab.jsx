@@ -278,22 +278,34 @@ export default function DashboardTab() {
 
       {/* 1. Global Metric Cards */}
       <div style={{ width: '100%' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '10px' }}>
-          <div style={{ background: 'white', borderRadius: '12px', padding: '12px', border: '1px solid #efefef', display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{ padding: 10, borderRadius: '50%', background: netGross >= 0 ? '#2e7d32' : '#d32f2f', color: 'white', display: 'flex' }}><DollarSign size={20} /></div>
-            <div><div style={{ fontSize: '0.75rem', color: '#666', whiteSpace: 'nowrap' }}>NET BALANCE</div><div style={{ fontSize: '1.25rem', fontWeight: 700 }}>${netGross.toFixed(2)}</div></div>
+        <div className="metric-grid">
+          <div className="metric-card">
+            <div style={{ padding: 10, borderRadius: '50%', background: netGross >= 0 ? '#2e7d32' : '#d32f2f', color: 'white', display: 'flex', flexShrink: 0 }}><DollarSign size={20} /></div>
+            <div className="metric-card-content">
+              <div className="metric-card-title">NET BALANCE</div>
+              <div className="metric-card-value">${netGross.toFixed(2)}</div>
+            </div>
           </div>
-          <div style={{ background: 'white', borderRadius: '12px', padding: '12px', border: '1px solid #efefef', display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{ padding: 10, borderRadius: '50%', background: '#1565c0', color: 'white', display: 'flex' }}><Layers size={20} /></div>
-            <div><div style={{ fontSize: '0.75rem', color: '#666' }}>ACREAGE</div><div style={{ fontSize: '1.25rem', fontWeight: 700 }}>{totalAcres.toFixed(1)} ac</div></div>
+          <div className="metric-card">
+            <div style={{ padding: 10, borderRadius: '50%', background: '#1565c0', color: 'white', display: 'flex', flexShrink: 0 }}><Layers size={20} /></div>
+            <div className="metric-card-content">
+              <div className="metric-card-title">ACREAGE</div>
+              <div className="metric-card-value">{totalAcres.toFixed(1)} ac</div>
+            </div>
           </div>
-          <div style={{ background: 'white', borderRadius: '12px', padding: '12px', border: '1px solid #efefef', display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{ padding: 10, borderRadius: '50%', background: '#f57c00', color: 'white', display: 'flex' }}><Rabbit size={20} /></div>
-            <div><div style={{ fontSize: '0.75rem', color: '#666' }}>LIVESTOCK</div><div style={{ fontSize: '1.25rem', fontWeight: 700 }}>{activeLivestock.length}</div></div>
+          <div className="metric-card">
+            <div style={{ padding: 10, borderRadius: '50%', background: '#f57c00', color: 'white', display: 'flex', flexShrink: 0 }}><Rabbit size={20} /></div>
+            <div className="metric-card-content">
+              <div className="metric-card-title">LIVESTOCK</div>
+              <div className="metric-card-value">{activeLivestock.length}</div>
+            </div>
           </div>
-          <div style={{ background: 'white', borderRadius: '12px', padding: '12px', border: '1px solid #efefef', display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <div style={{ padding: 10, borderRadius: '50%', background: '#6a1b9a', color: 'white', display: 'flex' }}><TrendingUp size={20} /></div>
-            <div><div style={{ fontSize: '0.75rem', color: '#666' }}>CROPS</div><div style={{ fontSize: '1.25rem', fontWeight: 700 }}>{activeCrops.length}</div></div>
+          <div className="metric-card">
+            <div style={{ padding: 10, borderRadius: '50%', background: '#6a1b9a', color: 'white', display: 'flex', flexShrink: 0 }}><TrendingUp size={20} /></div>
+            <div className="metric-card-content">
+              <div className="metric-card-title">CROPS</div>
+              <div className="metric-card-value">{activeCrops.length}</div>
+            </div>
           </div>
         </div>
       </div>
@@ -390,7 +402,7 @@ export default function DashboardTab() {
                 <label style={{ fontWeight: 600, fontSize: '0.9rem', color: '#555' }}>To:</label>
                 <input type="date" value={harvestToDate} onChange={e => setHarvestToDate(e.target.value)} style={{ padding: '6px', borderRadius: '4px', border: '1px solid #ccc' }} />
               </div>
-              <div style={{ minWidth: '300px' }}>
+              <div style={{ minWidth: '200px', flex: '1 1 200px' }}>
                 <Select
                   isMulti
                   placeholder="Filter by specific crops..."

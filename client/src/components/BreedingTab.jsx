@@ -73,31 +73,33 @@ export default function BreedingTab() {
         </div>
       </div>
 
-      <table className="table">
-        <thead>
-          <tr><th>Doe</th><th>Buck</th><th>Paired</th><th>Expected</th><th>Notes</th><th>Actions</th></tr>
-        </thead>
-        <tbody>
-          {pairings.length === 0 && <tr><td colSpan="6" style={{ textAlign: 'center', padding: 16 }}>No pairings yet</td></tr>}
-          {pairings.map(p => {
-            const doe = livestock.find(l => l.id === p.doeId);
-            const buck = livestock.find(l => l.id === p.buckId);
-            return (
-              <tr key={p.id}>
-                <td>{doe ? (doe.tagNumber || doe.id) : p.doeId}</td>
-                <td>{buck ? (buck.tagNumber || buck.id) : p.buckId}</td>
-                <td>{p.pairedDate}</td>
-                <td>{p.expectedKindling || '-'}</td>
-                <td>{p.notes || '-'}</td>
-                <td>
-                  <button className="btn" onClick={() => handleEdit(p)}>Edit</button>
-                  <button className="btn" onClick={() => handleDelete(p.id)} style={{ marginLeft: 4 }}>Delete</button>
-                </td>
-              </tr>
-            );
-          })}
-        </tbody>
-      </table>
+      <div className="table-scroll-wrapper">
+        <table className="table">
+          <thead>
+            <tr><th>Doe</th><th>Buck</th><th>Paired</th><th>Expected</th><th>Notes</th><th>Actions</th></tr>
+          </thead>
+          <tbody>
+            {pairings.length === 0 && <tr><td colSpan="6" style={{ textAlign: 'center', padding: 16 }}>No pairings yet</td></tr>}
+            {pairings.map(p => {
+              const doe = livestock.find(l => l.id === p.doeId);
+              const buck = livestock.find(l => l.id === p.buckId);
+              return (
+                <tr key={p.id}>
+                  <td>{doe ? (doe.tagNumber || doe.id) : p.doeId}</td>
+                  <td>{buck ? (buck.tagNumber || buck.id) : p.buckId}</td>
+                  <td>{p.pairedDate}</td>
+                  <td>{p.expectedKindling || '-'}</td>
+                  <td>{p.notes || '-'}</td>
+                  <td>
+                    <button className="btn" onClick={() => handleEdit(p)}>Edit</button>
+                    <button className="btn" onClick={() => handleDelete(p.id)} style={{ marginLeft: 4 }}>Delete</button>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

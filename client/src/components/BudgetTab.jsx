@@ -440,7 +440,7 @@ export default function BudgetTab() {
             {showExpenseReview && pendingLedgerExpenses.length > 0 && (
               <div style={{ marginTop: 20, background: '#ffffff', padding: 15, borderRadius: 8, border: '1px solid #bbdefb' }}>
                 <h4 style={{ marginBottom: 15, color: '#0d47a1' }}>Pending Review: Generated Ledger Items</h4>
-                <div style={{ maxHeight: 300, overflowY: 'auto', marginBottom: 15 }}>
+                <div style={{ maxHeight: 300, overflowY: 'auto', overflowX: 'auto', width: '100%', marginBottom: 15 }}>
                   <table className="table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
                     <thead>
                       <tr style={{ borderBottom: '2px solid #e0e0e0', textAlign: 'left' }}>

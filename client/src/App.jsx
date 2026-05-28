@@ -281,7 +281,14 @@ export default function App() {
     };
 
     const processGpsPosition = (position) => {
-      const { latitude, longitude, altitude } = position.coords;
+      const { latitude, longitude, altitude, accuracy } = position.coords;
+
+      // Filter out low accuracy points (e.g. > 30 meters) to avoid GPS drifting/jumping
+      if (accuracy !== undefined && accuracy !== null && accuracy > 30) {
+        console.warn(`GPS tracking point skipped due to low accuracy: ${accuracy.toFixed(1)}m (threshold is 30m)`);
+        return;
+      }
+
       const lastLoc = lastSavedLocRef.current;
 
       let shouldSave = false;
@@ -320,7 +327,7 @@ export default function App() {
     const watchId = navigator.geolocation.watchPosition(
       processGpsPosition,
       (error) => console.warn('GPS tracking error:', error),
-      { enableHighAccuracy: true, maximumAge: 10000, timeout: 5000 }
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 30000 }
     );
 
     // 2. Poll explicitly every 2 minutes for stationary heartbeats
@@ -328,7 +335,7 @@ export default function App() {
       navigator.geolocation.getCurrentPosition(
         processGpsPosition,
         (error) => console.warn('GPS heartbeat error:', error),
-        { enableHighAccuracy: true, maximumAge: 10000, timeout: 5000 }
+        { enableHighAccuracy: true, maximumAge: 0, timeout: 30000 }
       );
     }, 2 * 60 * 1000);
 

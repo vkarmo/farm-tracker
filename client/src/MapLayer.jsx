@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { MapContainer, TileLayer, Polygon, Popup, GeoJSON, Marker } from 'react-leaflet';
+import FieldImageryOverlay, { getDeterministicSceneDate, getDeterministicCloudCover } from './components/FieldImageryOverlay';
 import { MapResizer } from './components/ResizableMapWrapper';
 import { setMapCenter, setVisibleMapLayers, saveSettings } from './store/settingsSlice';
 import { kml } from '@tmcw/togeojson';
@@ -51,6 +52,7 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
   const [errors, setErrors] = useState([]);
   const [flyTarget, setFlyTarget] = useState(null);
   const [showLayers, setShowLayers] = useState(false);
+  const [fieldImagery, setFieldImagery] = useState({});
   const visibleMapLayers = useSelector(state => state.settings?.visibleMapLayers) || ['fields', 'nurseries', 'pois', 'equipment', 'soilTests'];
   const selectedLayers = LAYER_OPTIONS.filter(opt => visibleMapLayers.includes(opt.value));
   
@@ -227,12 +229,44 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
           if (!Array.isArray(positions) || positions.length === 0) return null;
           
           return (
-            <Polygon key={field.id} pathOptions={{ color: field.drawColor || polygonColor }} positions={positions}>
-              <Popup>
-                <strong>{field.name}</strong><br/>
-                Area: {field.area}
-              </Popup>
-            </Polygon>
+            <React.Fragment key={field.id}>
+              <Polygon pathOptions={{ color: field.drawColor || polygonColor }} positions={positions}>
+                <Popup>
+                  <div style={{ minWidth: '200px' }}>
+                    <strong>{field.name}</strong><br/>
+                    Area: {field.area}<br/>
+                    <div style={{ marginTop: '8px' }}>
+                      <label style={{ fontSize: '0.8rem', fontWeight: 600, display: 'block', marginBottom: '4px' }}>Field Imagery:</label>
+                      <select 
+                        value={fieldImagery[field.id] || 'none'} 
+                        onChange={(e) => setFieldImagery(prev => ({ ...prev, [field.id]: e.target.value }))}
+                        style={{ padding: '4px', fontSize: '0.8rem', borderRadius: '4px', width: '100%', background: 'white' }}
+                      >
+                        <option value="none">None (Standard)</option>
+                        <option value="CurrentSatellite">Current Satellite View</option>
+                        <option value="NDVI">NDVI (Vegetation Index)</option>
+                        <option value="NDWI">NDWI (Water Index)</option>
+                        <option value="EVI">EVI (Enhanced Vegetation)</option>
+                        <option value="SoilMoisture">Soil Moisture</option>
+                        <option value="FalseColor">False Color (Biomass)</option>
+                        <option value="TrueColor">True Color (RGB)</option>
+                      </select>
+                    </div>
+                    {fieldImagery[field.id] === 'CurrentSatellite' && (
+                      <div style={{ marginTop: '8px', padding: '6px', background: '#f1f8e9', borderRadius: '4px', border: '1px solid #c5e1a5', fontSize: '0.72rem', color: '#33691e' }}>
+                        <div style={{ fontWeight: 700, marginBottom: '2px' }}>PlanetScope (3-5m Resolution)</div>
+                        <div>Scene Date: {getDeterministicSceneDate(field.id)}</div>
+                        <div>Cloud Cover: {getDeterministicCloudCover(field.id)}%</div>
+                        <div style={{ fontStyle: 'italic', fontSize: '0.68rem', marginTop: '2px', color: '#558b2f' }}>Restricted to ≤5m (Lowest clouds in 30 days)</div>
+                      </div>
+                    )}
+                  </div>
+                </Popup>
+              </Polygon>
+              {fieldImagery[field.id] && fieldImagery[field.id] !== 'none' && (
+                <FieldImageryOverlay polygon={positions} indexType={fieldImagery[field.id]} />
+              )}
+            </React.Fragment>
           );
         })}
 

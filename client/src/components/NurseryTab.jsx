@@ -5,7 +5,8 @@ import { addBed, deleteBed } from '../store/nurserySlice';
 import { transplantCrop } from '../store/assetsSlice';
 import { Box, MoveRight, X, Copy } from 'lucide-react';
 import CrudTable from './CrudTable';
-import { MapContainer, TileLayer, Polygon, Marker, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Polygon, Marker, Popup, useMapEvents } from 'react-leaflet';
+import FieldImageryOverlay, { getDeterministicSceneDate, getDeterministicCloudCover } from './FieldImageryOverlay';
 import ResizableMapWrapper, { MapResizer } from './ResizableMapWrapper';
 import { MapSearchBox, MapFlyTo, FarmLocationButton } from './MapSearchBox';
 import area from '@turf/area';
@@ -39,6 +40,7 @@ export default function NurseryTab() {
   const [transplantFieldId, setTransplantFieldId] = useState('');
   const [polygonPositions, setPolygonPositions] = useState([]);
   const [searchResultCenter, setSearchResultCenter] = useState(null);
+  const [fieldImagery, setFieldImagery] = useState({});
 
   const handleLocationFound = (loc) => {
     const newLoc = loc.length >= 3 ? loc : [loc[0], loc[1], Date.now()];
@@ -177,12 +179,60 @@ export default function NurseryTab() {
                     />
                   );
                 })}
-                {/* Render fields for context (unclickable) */}
+                {/* Render fields for context (interactive for imagery toggle) */}
                 {fields.map(f => {
                   let positions = [];
                   if (f.polygon) { try { positions = typeof f.polygon === 'string' ? JSON.parse(f.polygon) : f.polygon; } catch(e){} }
                   if (positions.length === 0) return null;
-                  return <Polygon key={f.id} positions={positions} pathOptions={{ color: f.drawColor || '#ffffff', weight: 1, dashArray: '5,5', fillOpacity: 0.1 }} interactive={false} />;
+                  return (
+                    <React.Fragment key={f.id}>
+                      <Polygon 
+                        positions={positions} 
+                        pathOptions={{ 
+                          color: f.drawColor || '#ffffff', 
+                          weight: 1, 
+                          dashArray: '5,5', 
+                          fillOpacity: fieldImagery[f.id] && fieldImagery[f.id] !== 'none' ? 0.0 : 0.1 
+                        }} 
+                        interactive={true}
+                      >
+                        <Popup>
+                          <div style={{ minWidth: '200px' }}>
+                            <strong>{f.name}</strong><br/>
+                            Area: {f.area} ac<br/>
+                            <div style={{ marginTop: '8px' }}>
+                              <label style={{ fontSize: '0.8rem', fontWeight: 600, display: 'block', marginBottom: '4px' }}>Field Imagery:</label>
+                              <select 
+                                value={fieldImagery[f.id] || 'none'} 
+                                onChange={(e) => setFieldImagery(prev => ({ ...prev, [f.id]: e.target.value }))}
+                                style={{ padding: '4px', fontSize: '0.8rem', borderRadius: '4px', width: '100%', background: 'white' }}
+                              >
+                                <option value="none">None (Standard)</option>
+                                <option value="CurrentSatellite">Current Satellite View</option>
+                                <option value="NDVI">NDVI (Vegetation Index)</option>
+                                <option value="NDWI">NDWI (Water Index)</option>
+                                <option value="EVI">EVI (Enhanced Vegetation)</option>
+                                <option value="SoilMoisture">Soil Moisture</option>
+                                <option value="FalseColor">False Color (Biomass)</option>
+                                <option value="TrueColor">True Color (RGB)</option>
+                              </select>
+                            </div>
+                            {fieldImagery[f.id] === 'CurrentSatellite' && (
+                              <div style={{ marginTop: '8px', padding: '6px', background: '#f1f8e9', borderRadius: '4px', border: '1px solid #c5e1a5', fontSize: '0.72rem', color: '#33691e' }}>
+                                <div style={{ fontWeight: 700, marginBottom: '2px' }}>PlanetScope (3-5m Resolution)</div>
+                                <div>Scene Date: {getDeterministicSceneDate(f.id)}</div>
+                                <div>Cloud Cover: {getDeterministicCloudCover(f.id)}%</div>
+                                <div style={{ fontStyle: 'italic', fontSize: '0.68rem', marginTop: '2px', color: '#558b2f' }}>Restricted to ≤5m (Lowest clouds in 30 days)</div>
+                              </div>
+                            )}
+                          </div>
+                        </Popup>
+                      </Polygon>
+                      {fieldImagery[f.id] && fieldImagery[f.id] !== 'none' && (
+                        <FieldImageryOverlay polygon={positions} indexType={fieldImagery[f.id]} />
+                      )}
+                    </React.Fragment>
+                  );
                 })}
                 {/* Render POIs for context (unclickable) */}
                 {pois.map(p => {
