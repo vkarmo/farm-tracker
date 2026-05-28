@@ -322,7 +322,7 @@ export const MapSearchBox = ({ onLocationFound, onClear, polygon, setPolygon, ac
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '8px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '8px' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem' }}>
         <label htmlFor="snapGapInput" style={{ fontWeight: 500 }}>Snap Gap(meters):</label>
         <input 
@@ -337,100 +337,99 @@ export const MapSearchBox = ({ onLocationFound, onClear, polygon, setPolygon, ac
           min="1"
         />
       </div>
-      <div className="map-toolbar-container" style={{ display: 'flex', gap: '8px', flexWrap: 'nowrap', overflowX: 'auto', paddingBottom: '4px', WebkitOverflowScrolling: 'touch', alignItems: 'center' }}>
+
+      {/* Row 1: Extended Search Input & Add Pin button */}
+      <div style={{ display: 'flex', gap: '8px', width: '100%' }}>
+        <input
+          type="text"
+          placeholder="Search/Coords..."
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(e); }}
+          style={{ flex: 1, padding: '6px 8px', fontSize: '0.85rem', borderRadius: '4px', border: '1px solid #ccc' }}
+        />
+        <button 
+          type="button" 
+          onClick={handleSearch} 
+          disabled={gpsOn}
+          className="btn map-toolbar-btn" 
+          style={{ flexShrink: 0, padding: '6px 10px', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: gpsOn ? 0.5 : 1, cursor: gpsOn ? 'not-allowed' : 'pointer' }}
+          title="Add Pin"
+        >
+          <Plus size={16} />
+        </button>
+      </div>
+
+      {/* Row 2: Gold Toolbar Buttons underneath the search input */}
+      <div className="map-toolbar-container" style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', paddingBottom: '4px', alignItems: 'center' }}>
+        <CurrentLocationButton disabled={gpsOn} onLocationFound={(loc) => { if (onLocationFoundRef.current) onLocationFoundRef.current(loc); }} />
         
-        <div style={{ display: 'flex', gap: '8px', flex: '0 0 140px' }}>
-          <input
-            type="text"
-            placeholder="Search/Coords..."
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            onKeyDown={(e) => { if (e.key === 'Enter') handleSearch(e); }}
-            style={{ flex: 1, minWidth: 0, padding: '6px 8px', fontSize: '0.85rem', borderRadius: '4px', border: '1px solid #ccc' }}
-          />
+        <button
+          type="button"
+          onClick={() => {
+            if (globalMapCenter && onLocationFoundRef.current) {
+              onLocationFoundRef.current([globalMapCenter[0], globalMapCenter[1], Date.now()]);
+            }
+          }}
+          disabled={gpsOn}
+          className="btn map-toolbar-btn"
+          style={{ flexShrink: 0, padding: '6px 10px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: gpsOn ? 0.5 : 1, cursor: gpsOn ? 'not-allowed' : 'pointer' }}
+          title="Go to Farm Base"
+        >
+          <Tractor size={16} />
+        </button>
+        <button 
+          type="button" 
+          onClick={() => setGpsOn(!gpsOn)}
+          className={`btn map-toolbar-btn ${gpsOn ? 'active' : ''}`}
+          style={{ 
+            flexShrink: 0,
+            padding: '6px 10px', fontSize: '0.85rem', 
+            display: 'flex', alignItems: 'center', gap: '4px',
+            cursor: 'pointer'
+          }}
+        >
+          <MapIcon size={16} /> {gpsOn ? 'GPS ON' : 'GPS OFF'}
+        </button>
+        {onClear !== undefined && (
           <button 
             type="button" 
-            onClick={handleSearch} 
-            disabled={gpsOn}
+            onClick={onClear || (() => {})} 
+            disabled={gpsOn || !onClear}
             className="btn map-toolbar-btn" 
-            style={{ flexShrink: 0, padding: '6px 10px', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: gpsOn ? 0.5 : 1, cursor: gpsOn ? 'not-allowed' : 'pointer' }}
-            title="Add Pin"
+            style={{ flexShrink: 0, padding: '6px 10px', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: (gpsOn || !onClear) ? 0.5 : 1, cursor: (gpsOn || !onClear) ? 'not-allowed' : 'pointer' }}
+            title="Clear Drawing / Pin Drop"
           >
-            <Plus size={16} />
+             <Eraser size={16} />
           </button>
-        </div>
-
-        <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
-          <CurrentLocationButton disabled={gpsOn} onLocationFound={(loc) => { if (onLocationFoundRef.current) onLocationFoundRef.current(loc); }} />
-          
-          <button
-            type="button"
-            onClick={() => {
-              if (globalMapCenter && onLocationFoundRef.current) {
-                onLocationFoundRef.current([globalMapCenter[0], globalMapCenter[1], Date.now()]);
-              }
-            }}
-            disabled={gpsOn}
-            className="btn map-toolbar-btn"
-            style={{ flexShrink: 0, padding: '6px 10px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: gpsOn ? 0.5 : 1, cursor: gpsOn ? 'not-allowed' : 'pointer' }}
-            title="Go to Farm Base"
-          >
-            <Tractor size={16} />
-          </button>
+        )}
+        {polygon !== undefined && setPolygon !== undefined && (
           <button 
             type="button" 
-            onClick={() => setGpsOn(!gpsOn)}
-            className={`btn map-toolbar-btn ${gpsOn ? 'active' : ''}`}
-            style={{ 
-              flexShrink: 0,
-              padding: '6px 10px', fontSize: '0.85rem', 
-              display: 'flex', alignItems: 'center', gap: '4px',
-              cursor: 'pointer'
-            }}
+            onClick={handleSnap} 
+            disabled={gpsOn || polygon.length === 0}
+            className="btn map-toolbar-btn" 
+            style={{ flexShrink: 0, padding: '6px 10px', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: (gpsOn || polygon.length === 0) ? 0.5 : 1, cursor: (gpsOn || polygon.length === 0) ? 'not-allowed' : 'pointer' }}
+            title={`Snap boundaries to nearest polygons (within ${snapGap}m)`}
           >
-            <MapIcon size={16} /> {gpsOn ? 'GPS ON' : 'GPS OFF'}
+             <Magnet size={16} />
           </button>
-          {onClear !== undefined && (
-            <button 
-              type="button" 
-              onClick={onClear || (() => {})} 
-              disabled={gpsOn || !onClear}
-              className="btn map-toolbar-btn" 
-              style={{ flexShrink: 0, padding: '6px 10px', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: (gpsOn || !onClear) ? 0.5 : 1, cursor: (gpsOn || !onClear) ? 'not-allowed' : 'pointer' }}
-              title="Clear Drawing / Pin Drop"
-            >
-               <Eraser size={16} />
-            </button>
-          )}
-          {polygon !== undefined && setPolygon !== undefined && (
-            <button 
-              type="button" 
-              onClick={handleSnap} 
-              disabled={gpsOn || polygon.length === 0}
-              className="btn map-toolbar-btn" 
-              style={{ flexShrink: 0, padding: '6px 10px', display: 'flex', alignItems: 'center', justifyContent: 'center', opacity: (gpsOn || polygon.length === 0) ? 0.5 : 1, cursor: (gpsOn || polygon.length === 0) ? 'not-allowed' : 'pointer' }}
-              title={`Snap boundaries to nearest polygons (within ${snapGap}m)`}
-            >
-               <Magnet size={16} />
-            </button>
-          )}
-          {polygon !== undefined && polygon.length > 0 && (
-            <button 
-              type="button" 
-              className="btn map-toolbar-btn" 
-              style={{ flexShrink: 0, padding: '6px 10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-              onClick={() => {
-                const str = '[' + polygon.map(p => `(${p[0]}, ${p[1]})`).join(',\n') + ']';
-                navigator.clipboard.writeText(str);
-                window.dispatchEvent(new CustomEvent('show-toast', { detail: 'Coordinates copied to clipboard!' }));
-              }} 
-              title="Copy Coordinates to Clipboard"
-            >
-              <Copy size={16} />
-            </button>
-          )}
-        </div>
-
+        )}
+        {polygon !== undefined && polygon.length > 0 && (
+          <button 
+            type="button" 
+            className="btn map-toolbar-btn" 
+            style={{ flexShrink: 0, padding: '6px 10px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+            onClick={() => {
+              const str = '[' + polygon.map(p => `(${p[0]}, ${p[1]})`).join(',\n') + ']';
+              navigator.clipboard.writeText(str);
+              window.dispatchEvent(new CustomEvent('show-toast', { detail: 'Coordinates copied to clipboard!' }));
+            }} 
+            title="Copy Coordinates to Clipboard"
+          >
+            <Copy size={16} />
+          </button>
+        )}
       </div>
       {gpsOn && (
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '0.85rem' }}>
