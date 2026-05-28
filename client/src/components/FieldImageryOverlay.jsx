@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { ImageOverlay } from 'react-leaflet';
+import React, { useMemo, useState, useEffect } from 'react';
+import { ImageOverlay, TileLayer } from 'react-leaflet';
 
 export function isPointInPolygon(point, vs) {
   const x = point[0];
@@ -62,7 +62,79 @@ function getColor(val, indexType) {
 }
 
 export default function FieldImageryOverlay({ polygon, indexType, dateOffset = 0, fieldId = 'default' }) {
+  const [tileUrl, setTileUrl] = useState(null);
+  const [geeLoading, setGeeLoading] = useState(false);
+  const [geeError, setGeeError] = useState(false);
+
+  useEffect(() => {
+    if (!polygon || polygon.length < 3 || !indexType || indexType === 'none') {
+      setTileUrl(null);
+      setGeeError(false);
+      return;
+    }
+
+    if (indexType !== 'CurrentSatellite' && indexType !== 'NDVI') {
+      // For other types, fall back to canvas simulation
+      setTileUrl(null);
+      setGeeError(true);
+      return;
+    }
+
+    let isMounted = true;
+    setGeeLoading(true);
+    setGeeError(false);
+
+    fetch('/api/gee/tile-url', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        polygon,
+        indexType,
+        dateOffset,
+        fieldId
+      })
+    })
+      .then(res => {
+        if (!res.ok) {
+          throw new Error('Failed to fetch GEE tile URL');
+        }
+        return res.json();
+      })
+      .then(data => {
+        if (isMounted) {
+          if (data.urlTemplate) {
+            setTileUrl(data.urlTemplate);
+            setGeeError(false);
+          } else {
+            setGeeError(true);
+          }
+        }
+      })
+      .catch(err => {
+        console.warn('GEE fetch error:', err);
+        if (isMounted) {
+          setGeeError(true);
+        }
+      })
+      .finally(() => {
+        if (isMounted) {
+          setGeeLoading(false);
+        }
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [polygon, indexType, dateOffset, fieldId]);
+
   const dataUrlAndBounds = useMemo(() => {
+    // If successfully using GEE tiles, skip canvas generation
+    if (!geeError && tileUrl) {
+      return { url: '', bounds: null };
+    }
+
     if (!polygon || polygon.length < 3 || !indexType || indexType === 'none') {
       return { url: '', bounds: null };
     }
@@ -203,7 +275,20 @@ export default function FieldImageryOverlay({ polygon, indexType, dateOffset = 0
       url: canvas.toDataURL(),
       bounds: [[minLat, minLng], [maxLat, maxLng]]
     };
-  }, [polygon, indexType, dateOffset, fieldId]);
+  }, [polygon, indexType, dateOffset, fieldId, geeError, tileUrl]);
+
+  if (indexType === 'none') return null;
+
+  if (!geeError && tileUrl) {
+    return (
+      <TileLayer
+        url={tileUrl}
+        opacity={0.85}
+        maxZoom={24}
+        maxNativeZoom={20}
+      />
+    );
+  }
 
   if (!dataUrlAndBounds.url || !dataUrlAndBounds.bounds) return null;
 

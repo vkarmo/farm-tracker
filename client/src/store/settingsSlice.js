@@ -18,6 +18,9 @@ export const settingsSlice = createSlice({
     animalTypes: ['Cattle', 'Goat', 'Poultry', 'Sheep', 'Swine'],
     visibleMapLayers: ['fields', 'nurseries', 'pois', 'equipment', 'soilTests'],
     snapGap: 5,
+    geeClientEmail: '',
+    geePrivateKey: '',
+    geeProjectId: '',
   },
   reducers: {
     addUnit: (state, action) => {
@@ -104,11 +107,20 @@ export const settingsSlice = createSlice({
     },
     setSnapGap: (state, action) => {
       state.snapGap = action.payload;
+    },
+    setGeeClientEmail: (state, action) => {
+      state.geeClientEmail = action.payload;
+    },
+    setGeePrivateKey: (state, action) => {
+      state.geePrivateKey = action.payload;
+    },
+    setGeeProjectId: (state, action) => {
+      state.geeProjectId = action.payload;
     }
   }
 });
 
-export const { addUnit, removeUnit, addJobTitle, removeJobTitle, addExpenseCategory, removeExpenseCategory, addIncomeCategory, removeIncomeCategory, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold, setAppName, addAnimalType, removeAnimalType, setAllSettings, setVisibleMapLayers, setSnapGap } = settingsSlice.actions;
+export const { addUnit, removeUnit, addJobTitle, removeJobTitle, addExpenseCategory, removeExpenseCategory, addIncomeCategory, removeIncomeCategory, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold, setAppName, addAnimalType, removeAnimalType, setAllSettings, setVisibleMapLayers, setSnapGap, setGeeClientEmail, setGeePrivateKey, setGeeProjectId } = settingsSlice.actions;
 
 export const saveSettings = () => (dispatch, getState) => {
   const settings = getState().settings;

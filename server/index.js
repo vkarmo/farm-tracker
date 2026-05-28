@@ -2,6 +2,53 @@ const express = require('express');
 const cors = require('cors');
 const neo4j = require('neo4j-driver');
 require('dotenv').config();
+const ee = require('@google/earthengine');
+
+let currentGeeCredsStr = '';
+let geeInitialized = false;
+
+function initializeGee(creds) {
+  const credsStr = JSON.stringify(creds);
+  if (geeInitialized && currentGeeCredsStr === credsStr) {
+    return Promise.resolve();
+  }
+  
+  return new Promise((resolve, reject) => {
+    if (!creds.client_email || !creds.private_key || !creds.project_id) {
+      return reject(new Error('Missing GEE credentials in App Settings.'));
+    }
+    
+    // Clean up private key newlines
+    const privateKeyCleaned = creds.private_key.replace(/\\n/g, '\n');
+    
+    ee.data.authenticateViaPrivateKey(
+      {
+        client_email: creds.client_email,
+        private_key: privateKeyCleaned
+      },
+      () => {
+        ee.initialize(
+          null,
+          creds.project_id,
+          () => {
+            console.log('Earth Engine initialized successfully.');
+            geeInitialized = true;
+            currentGeeCredsStr = credsStr;
+            resolve();
+          },
+          (err) => {
+            console.error('Earth Engine initialization failed:', err);
+            reject(new Error(`Earth Engine initialization failed: ${err.message || err}`));
+          }
+        );
+      },
+      (err) => {
+        console.error('Earth Engine authentication failed:', err);
+        reject(new Error(`Earth Engine authentication failed: ${err.message || err}`));
+      }
+    );
+  });
+}
 
 const app = express();
 const port = process.env.PORT || 3001;
@@ -129,6 +176,132 @@ app.post('/api/fields', async (req, res) => {
     res.json(field);
   } catch (err) {
     res.status(500).json({ error: err.message });
+  } finally {
+    await session.close();
+  }
+});
+
+// GEE Tile URL proxy/endpoint
+app.post('/api/gee/tile-url', async (req, res) => {
+  const session = driver.session();
+  try {
+    const { polygon, indexType, dateOffset, fieldId } = req.body;
+    
+    // 1. Fetch credentials from settings
+    const result = await session.run("MATCH (n:GlobalSettings {id: 'default'}) RETURN n");
+    if (result.records.length === 0) {
+      return res.status(404).json({ error: 'Global settings not found.' });
+    }
+    
+    const props = result.records[0].get('n').properties;
+    const creds = {
+      client_email: props.geeClientEmail || '',
+      private_key: props.geePrivateKey || '',
+      project_id: props.geeProjectId || ''
+    };
+    
+    if (!creds.client_email || !creds.private_key || !creds.project_id) {
+      return res.status(400).json({ error: 'Google Earth Engine credentials are not fully configured in settings.' });
+    }
+    
+    // 2. Initialize Earth Engine
+    await initializeGee(creds);
+    
+    // 3. Format polygon coordinates for Earth Engine (Leaflet uses [lat, lng], GEE uses [lng, lat])
+    if (!Array.isArray(polygon) || polygon.length < 3) {
+      return res.status(400).json({ error: 'Invalid or incomplete polygon coordinates.' });
+    }
+    const coords = polygon.map(pt => [pt[1], pt[0]]);
+    // Ensure polygon is closed
+    if (coords[0][0] !== coords[coords.length - 1][0] || coords[0][1] !== coords[coords.length - 1][1]) {
+      coords.push(coords[0]);
+    }
+    
+    const geometry = ee.Geometry.Polygon([coords]);
+    
+    // 4. Determine scene target date and time window
+    const hash = String(fieldId || 'default').split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    const daysAgo = (hash % 20) + 3 - (Number(dateOffset) || 0);
+    const baseDate = new Date('2026-05-28T12:00:00-04:00');
+    const targetDate = new Date(baseDate.getTime() - daysAgo * 24 * 60 * 60 * 1000);
+    
+    // Create a 60-day window centered on the target date
+    const start = new Date(targetDate.getTime() - 30 * 24 * 60 * 60 * 1000);
+    const end = new Date(targetDate.getTime() + 30 * 24 * 60 * 60 * 1000);
+    
+    const startDateStr = start.toISOString().split('T')[0];
+    const endDateStr = end.toISOString().split('T')[0];
+    
+    // 5. Load and filter PlanetScope Collection
+    let collection = ee.ImageCollection('PL/PlanetScope/FOURBAND')
+      .filterBounds(geometry)
+      .filterDate(startDateStr, endDateStr);
+      
+    // Sort by lowest cloud cover
+    let sorted = collection.sort('cloud_percent');
+    
+    // Get the size of collection asynchronously
+    const count = await new Promise((resolve, reject) => {
+      sorted.size().evaluate((c, err) => {
+        if (err) reject(err);
+        else resolve(c);
+      });
+    });
+    
+    if (count === 0) {
+      return res.status(404).json({ error: 'No PlanetScope imagery found for the specified bounds and date range.' });
+    }
+    
+    const firstImage = sorted.first();
+    
+    // 6. Process image based on index type
+    let processedImage;
+    let visParams;
+    
+    if (indexType === 'NDVI') {
+      // Calculate NDVI: (B4 - B3) / (B4 + B3)
+      const ndvi = firstImage.normalizedDifference(['B4', 'B3']).rename('NDVI');
+      processedImage = ndvi.select(['NDVI']).clip(geometry);
+      visParams = {
+        min: 0.0,
+        max: 1.0,
+        palette: ['FFFFFF', 'CE7E45', 'DF923D', 'F1B555', 'FCD163', '99B718', '74A025', '3B8E1D', '257D06', '166D05', '0C2C07']
+      };
+    } else {
+      // Default or CurrentSatellite (RGB: B3, B2, B1)
+      const rgb = firstImage.select(['B3', 'B2', 'B1']);
+      processedImage = rgb.clip(geometry);
+      visParams = {
+        min: 0,
+        max: 3000,
+        gamma: 1.4
+      };
+    }
+    
+    // 7. Obtain map ID and token
+    const mapInfo = await new Promise((resolve, reject) => {
+      processedImage.getMap(visParams, (info, err) => {
+        if (err) reject(err);
+        else resolve(info);
+      });
+    });
+    
+    if (!mapInfo || !mapInfo.mapid) {
+      return res.status(500).json({ error: 'Failed to retrieve Map ID from Earth Engine.' });
+    }
+    
+    // Construct tile URL template
+    const urlTemplate = `https://earthengine.googleapis.com/v1/projects/${creds.project_id}/maps/${mapInfo.mapid}/tiles/{z}/{x}/{y}`;
+    
+    res.json({
+      urlTemplate,
+      mapid: mapInfo.mapid,
+      token: mapInfo.token || ''
+    });
+    
+  } catch (err) {
+    console.error('GEE endpoint error:', err);
+    res.status(500).json({ error: err.message || 'Internal server error processing GEE imagery.' });
   } finally {
     await session.close();
   }

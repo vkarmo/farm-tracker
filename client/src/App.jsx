@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { fetchFields } from './store/fieldsSlice';
-import { addUnit, removeUnit, addJobTitle, removeJobTitle, addExpenseCategory, removeExpenseCategory, addIncomeCategory, removeIncomeCategory, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold, setAppName, addAnimalType, removeAnimalType, saveSettings } from './store/settingsSlice';
+import { addUnit, removeUnit, addJobTitle, removeJobTitle, addExpenseCategory, removeExpenseCategory, addIncomeCategory, removeIncomeCategory, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold, setAppName, addAnimalType, removeAnimalType, saveSettings, setGeeClientEmail, setGeePrivateKey, setGeeProjectId } from './store/settingsSlice';
 import { addLocation } from './store/gpsSlice';
 import { queueAction, fetchInitialData } from './store/syncSlice';
 import { MapSearchBox, MapFlyTo, FarmLocationButton } from './components/MapSearchBox';
@@ -77,6 +77,9 @@ export default function App() {
   const mapCenter = useSelector(state => state.settings?.mapCenter) || [51.505, -0.09];
   const mapZoom = useSelector(state => state.settings?.mapZoom) || 13;
   const gpsDistanceThreshold = useSelector(state => state.settings?.gpsDistanceThreshold) || 10;
+  const geeClientEmail = useSelector(state => state.settings?.geeClientEmail) || '';
+  const geePrivateKey = useSelector(state => state.settings?.geePrivateKey) || '';
+  const geeProjectId = useSelector(state => state.settings?.geeProjectId) || '';
   const lastGpsLocation = useSelector(state => {
     const locs = state.gps?.locations || [];
     return locs.length > 0 ? locs[locs.length - 1] : null;
@@ -88,7 +91,7 @@ export default function App() {
   const totalActionsQueued = useSelector(state => state.sync.totalActionsQueued || 0);
 
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [openSettings, setOpenSettings] = useState({ general: true, dropdown: false, map: false, units: false, jobs: false, animals: false, ledgers: false });
+  const [openSettings, setOpenSettings] = useState({ general: true, dropdown: false, map: false, units: false, jobs: false, animals: false, ledgers: false, gee: false });
   const [showSaveToast, setShowSaveToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("Record Saved Successfully");
 
@@ -974,6 +977,63 @@ export default function App() {
                         <Marker position={mapCenter} />
                         <LocationMarker />
                       </MapContainer>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Google Earth Engine Settings Card */}
+            <div style={{ marginBottom: 15, border: '1px solid var(--color-border)', borderRadius: '8px', overflow: 'hidden' }}>
+              <button
+                onClick={() => setOpenSettings({ ...openSettings, gee: !openSettings.gee })}
+                style={{ width: '100%', padding: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f5f7fa', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '1.1rem', color: '#333' }}
+              >
+                Google Earth Engine Settings
+                {openSettings.gee ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
+              </button>
+
+              {openSettings.gee && (
+                <div style={{ padding: '20px', background: 'white' }}>
+                  <div style={{ marginBottom: 20 }}>
+                    <h3 style={{ marginTop: 0 }}>Service Account Credentials</h3>
+                    
+                    <div style={{ marginBottom: 16 }}>
+                      <label style={{ fontWeight: '600', display: 'block', marginBottom: '8px' }}>Project ID</label>
+                      <input
+                        type="text"
+                        value={geeProjectId || ''}
+                        onChange={(e) => { dispatch(setGeeProjectId(e.target.value)); dispatch(saveSettings()); }}
+                        disabled={currentUser?.role === 'Admin Viewer'}
+                        placeholder="e.g. my-earth-engine-project"
+                        className="btn"
+                        style={{ display: 'block', marginTop: 8, padding: '8px', width: '100%', maxWidth: '500px', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'text', background: '#fff', border: '1px solid #ccc' }}
+                      />
+                    </div>
+
+                    <div style={{ marginBottom: 16 }}>
+                      <label style={{ fontWeight: '600', display: 'block', marginBottom: '8px' }}>Client Email</label>
+                      <input
+                        type="email"
+                        value={geeClientEmail || ''}
+                        onChange={(e) => { dispatch(setGeeClientEmail(e.target.value)); dispatch(saveSettings()); }}
+                        disabled={currentUser?.role === 'Admin Viewer'}
+                        placeholder="e.g. service-account@project.iam.gserviceaccount.com"
+                        className="btn"
+                        style={{ display: 'block', marginTop: 8, padding: '8px', width: '100%', maxWidth: '500px', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'text', background: '#fff', border: '1px solid #ccc' }}
+                      />
+                    </div>
+
+                    <div style={{ marginBottom: 16 }}>
+                      <label style={{ fontWeight: '600', display: 'block', marginBottom: '8px' }}>Private Key</label>
+                      <textarea
+                        value={geePrivateKey || ''}
+                        onChange={(e) => { dispatch(setGeePrivateKey(e.target.value)); dispatch(saveSettings()); }}
+                        disabled={currentUser?.role === 'Admin Viewer'}
+                        placeholder="-----BEGIN PRIVATE KEY-----\n...\n-----END PRIVATE KEY-----"
+                        className="btn"
+                        style={{ display: 'block', marginTop: 8, padding: '8px', width: '100%', maxWidth: '500px', height: '120px', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'text', background: '#fff', border: '1px solid #ccc', fontFamily: 'monospace', fontSize: '0.8rem' }}
+                      />
                     </div>
                   </div>
                 </div>
