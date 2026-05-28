@@ -241,7 +241,7 @@ export default function GpsLogTab() {
                 const isActive = activeIndex === index;
 
                 return (
-                  <Marker key={log.id} position={[log.lat, log.lng]} icon={isActive ? activeIcon : redIcon}>
+                  <Marker key={log.id} position={[log.lat, log.lng]} icon={isActive ? activeIcon : redIcon} zIndexOffset={isActive ? 1000 : 0}>
                     <Popup>
                       <strong>{log.userEmail}</strong><br />
                       Date: {dateStr}<br />
