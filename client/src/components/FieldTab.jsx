@@ -46,6 +46,12 @@ export default function FieldTab() {
   const [fieldImageryOffsets, setFieldImageryOffsets] = useState({});
   const [geeStatus, setGeeStatus] = useState({});
 
+  const activeId = editingId || 'active';
+  const showActiveImagery = fieldImagery[activeId] && fieldImagery[activeId] !== 'none';
+  const isActiveLoaded = geeStatus[activeId]?.status === 'success' || geeStatus[activeId]?.status === 'failed';
+  const makeActiveTransparent = showActiveImagery && isActiveLoaded;
+
+
   useEffect(() => {
     const handler = (e) => {
       const { fieldId, status, error } = e.detail;
@@ -209,7 +215,15 @@ export default function FieldTab() {
                 ))}
                 {latLngs.length > 0 && (
                   <React.Fragment>
-                    <Polygon positions={latLngs} pathOptions={{ color: formData.drawColor || polygonColor }}>
+                    <Polygon 
+                      key={`active-field-poly_${makeActiveTransparent}`}
+                      positions={latLngs} 
+                      pathOptions={{ 
+                        color: formData.drawColor || polygonColor,
+                        fill: !makeActiveTransparent,
+                        fillOpacity: makeActiveTransparent ? 0.0 : 0.2
+                      }}
+                    >
                       <Popup>
                         <div style={{ minWidth: '200px' }}>
                           <strong>Active Field: {formData.name || 'Unnamed'}</strong>
@@ -306,14 +320,20 @@ export default function FieldTab() {
                   }
                   if (positions.length === 0) return null;
                   const isBg = editingId !== null || polygonPositions.length > 0;
+                  const showImagery = fieldImagery[field.id] && fieldImagery[field.id] !== 'none';
+                  const isLoaded = geeStatus[field.id]?.status === 'success' || geeStatus[field.id]?.status === 'failed';
+                  const makeTransparent = showImagery && isLoaded;
+
                   return (
                     <React.Fragment key={field.id}>
                       <Polygon
+                        key={`${field.id}_${makeTransparent}`}
                         positions={positions}
                         pathOptions={{
                           color: field.drawColor || polygonColor,
                           weight: isBg ? 1 : 2,
-                          fillOpacity: isBg ? 0.05 : 0.3,
+                          fill: !makeTransparent,
+                          fillOpacity: makeTransparent ? 0.0 : (isBg ? 0.05 : 0.3),
                           dashArray: isBg ? '5,5' : undefined,
                           bubblingMouseEvents: false
                         }}

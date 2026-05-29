@@ -240,9 +240,21 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
           }
           if (!Array.isArray(positions) || positions.length === 0) return null;
           
-          return (
-            <React.Fragment key={field.id}>
-              <Polygon pathOptions={{ color: field.drawColor || polygonColor }} positions={positions}>
+              const showImagery = fieldImagery[field.id] && fieldImagery[field.id] !== 'none';
+              const isLoaded = geeStatus[field.id]?.status === 'success' || geeStatus[field.id]?.status === 'failed';
+              const makeTransparent = showImagery && isLoaded;
+
+              return (
+                <React.Fragment key={field.id}>
+                  <Polygon 
+                    key={`${field.id}_${makeTransparent}`}
+                    pathOptions={{ 
+                      color: field.drawColor || polygonColor,
+                      fill: !makeTransparent,
+                      fillOpacity: makeTransparent ? 0.0 : 0.2
+                    }} 
+                    positions={positions}
+                  >
                 <Popup>
                   <div style={{ minWidth: '200px' }}>
                     <strong>{field.name}</strong><br/>

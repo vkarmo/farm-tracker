@@ -78,6 +78,10 @@ export default function FieldImageryOverlay({ polygon, indexType, dateOffset = 0
     return polygon;
   }, [polygon]);
 
+  const polygonHash = useMemo(() => {
+    return JSON.stringify(sanitizedPolygon);
+  }, [sanitizedPolygon]);
+
   useEffect(() => {
     if (!sanitizedPolygon || sanitizedPolygon.length < 3 || !indexType || indexType === 'none') {
       setTileUrl(null);
@@ -149,11 +153,11 @@ export default function FieldImageryOverlay({ polygon, indexType, dateOffset = 0
     return () => {
       isMounted = false;
     };
-  }, [sanitizedPolygon, indexType, dateOffset, fieldId, geeScale]);
+  }, [polygonHash, indexType, dateOffset, fieldId, geeScale]);
 
   const dataUrlAndBounds = useMemo(() => {
-    // If successfully using GEE tiles, skip canvas generation
-    if (!geeError && tileUrl) {
+    // Only generate fallback canvas simulation if GEE has explicitly failed
+    if (!geeError) {
       return { url: '', bounds: null };
     }
 

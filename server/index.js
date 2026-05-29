@@ -355,6 +355,7 @@ app.post('/api/gee/tile-url', async (req, res) => {
     }
     
     const firstImage = sorted.first();
+    const baseImage = firstImage.resample('bicubic');
     
     // 6. Process image based on index type
     let processedImage;
@@ -362,8 +363,8 @@ app.post('/api/gee/tile-url', async (req, res) => {
     
     if (indexType === 'NDVI') {
       // Calculate NDVI: (B8 - B4) / (B8 + B4)
-      const ndvi = firstImage.normalizedDifference(['B8', 'B4']).rename('NDVI');
-      processedImage = ndvi.select(['NDVI']).resample('bicubic').reproject({ crs: 'EPSG:3857', scale: scaleValue }).clip(geometry);
+      const ndvi = baseImage.normalizedDifference(['B8', 'B4']).rename('NDVI');
+      processedImage = ndvi.select(['NDVI']).reproject({ crs: 'EPSG:3857', scale: scaleValue }).resample('bicubic').clip(geometry);
       visParams = {
         min: 0.0,
         max: 1.0,
@@ -371,8 +372,8 @@ app.post('/api/gee/tile-url', async (req, res) => {
       };
     } else if (indexType === 'NDWI') {
       // McFeeters NDWI: (Green - NIR) / (Green + NIR) -> B3 - B8
-      const ndwi = firstImage.normalizedDifference(['B3', 'B8']).rename('NDWI');
-      processedImage = ndwi.select(['NDWI']).resample('bicubic').reproject({ crs: 'EPSG:3857', scale: scaleValue }).clip(geometry);
+      const ndwi = baseImage.normalizedDifference(['B3', 'B8']).rename('NDWI');
+      processedImage = ndwi.select(['NDWI']).reproject({ crs: 'EPSG:3857', scale: scaleValue }).resample('bicubic').clip(geometry);
       visParams = {
         min: -0.5,
         max: 0.5,
@@ -380,14 +381,14 @@ app.post('/api/gee/tile-url', async (req, res) => {
       };
     } else if (indexType === 'EVI') {
       // EVI = 2.5 * (B8 - B4) / (B8 + 6 * B4 - 7.5 * B2 + 1)
-      const evi = firstImage.expression(
+      const evi = baseImage.expression(
         '2.5 * ((NIR - RED) / (NIR + 6.0 * RED - 7.5 * BLUE + 1.0))', {
-          'NIR': firstImage.select('B8'),
-          'RED': firstImage.select('B4'),
-          'BLUE': firstImage.select('B2')
+          'NIR': baseImage.select('B8'),
+          'RED': baseImage.select('B4'),
+          'BLUE': baseImage.select('B2')
         }
       ).rename('EVI');
-      processedImage = evi.select(['EVI']).resample('bicubic').reproject({ crs: 'EPSG:3857', scale: scaleValue }).clip(geometry);
+      processedImage = evi.select(['EVI']).reproject({ crs: 'EPSG:3857', scale: scaleValue }).resample('bicubic').clip(geometry);
       visParams = {
         min: 0.0,
         max: 1.0,
@@ -395,8 +396,8 @@ app.post('/api/gee/tile-url', async (req, res) => {
       };
     } else if (indexType === 'SoilMoisture') {
       // NDMI = (NIR - SWIR) / (NIR + SWIR) -> B8 - B11
-      const ndmi = firstImage.normalizedDifference(['B8', 'B11']).rename('SoilMoisture');
-      processedImage = ndmi.select(['SoilMoisture']).resample('bicubic').reproject({ crs: 'EPSG:3857', scale: scaleValue }).clip(geometry);
+      const ndmi = baseImage.normalizedDifference(['B8', 'B11']).rename('SoilMoisture');
+      processedImage = ndmi.select(['SoilMoisture']).reproject({ crs: 'EPSG:3857', scale: scaleValue }).resample('bicubic').clip(geometry);
       visParams = {
         min: -0.3,
         max: 0.3,
@@ -404,8 +405,8 @@ app.post('/api/gee/tile-url', async (req, res) => {
       };
     } else if (indexType === 'FalseColor') {
       // False Color Infrared (B8, B4, B3)
-      const fc = firstImage.select(['B8', 'B4', 'B3']);
-      processedImage = fc.resample('bicubic').reproject({ crs: 'EPSG:3857', scale: scaleValue }).clip(geometry);
+      const fc = baseImage.select(['B8', 'B4', 'B3']);
+      processedImage = fc.reproject({ crs: 'EPSG:3857', scale: scaleValue }).resample('bicubic').clip(geometry);
       visParams = {
         min: 0,
         max: 3000,
@@ -413,8 +414,8 @@ app.post('/api/gee/tile-url', async (req, res) => {
       };
     } else {
       // Default, CurrentSatellite or TrueColor (RGB: B4, B3, B2)
-      const rgb = firstImage.select(['B4', 'B3', 'B2']);
-      processedImage = rgb.resample('bicubic').reproject({ crs: 'EPSG:3857', scale: scaleValue }).clip(geometry);
+      const rgb = baseImage.select(['B4', 'B3', 'B2']);
+      processedImage = rgb.reproject({ crs: 'EPSG:3857', scale: scaleValue }).resample('bicubic').clip(geometry);
       visParams = {
         min: 0,
         max: 3000,

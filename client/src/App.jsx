@@ -1221,17 +1221,31 @@ export default function App() {
                                 style={{ height: '100%', width: '100%' }}
                               >
                                 <TileLayer
-                                  attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                                  url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                                  attribution="Google Maps"
+                                  url="https://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}&s=Ga"
+                                  maxZoom={24}
+                                  maxNativeZoom={20}
                                 />
-                                <Polygon
-                                  positions={
-                                    Array.isArray(polyCoords) && polyCoords.length > 0 && Array.isArray(polyCoords[0]) && Array.isArray(polyCoords[0][0])
-                                      ? polyCoords[0]
-                                      : polyCoords
-                                  }
-                                  pathOptions={{ color: '#2e7d32', fillOpacity: 0.1 }}
-                                />
+                                {(() => {
+                                  const showImagery = testIndexType !== 'none';
+                                  const isLoaded = testGeeStatus[selectedField.id]?.status === 'success' || testGeeStatus[selectedField.id]?.status === 'failed';
+                                  const makeTransparent = showImagery && isLoaded;
+                                  return (
+                                    <Polygon
+                                      key={`${selectedField.id}_${makeTransparent}`}
+                                      positions={
+                                        Array.isArray(polyCoords) && polyCoords.length > 0 && Array.isArray(polyCoords[0]) && Array.isArray(polyCoords[0][0])
+                                          ? polyCoords[0]
+                                          : polyCoords
+                                      }
+                                      pathOptions={{ 
+                                         color: selectedField.drawColor || polygonColor, 
+                                         fill: !makeTransparent,
+                                         fillOpacity: makeTransparent ? 0.0 : 0.1 
+                                       }}
+                                    />
+                                  );
+                                })()}
                                 <FieldImageryOverlay
                                   polygon={polyCoords}
                                   indexType={testIndexType}

@@ -279,15 +279,22 @@ export default function SoilTestingTab() {
                     let positions = [];
                     if (f.polygon) { try { positions = typeof f.polygon === 'string' ? JSON.parse(f.polygon) : f.polygon; } catch(e){} }
                     if (positions.length === 0) return null;
+
+                    const showImagery = fieldImagery[f.id] && fieldImagery[f.id] !== 'none';
+                    const isLoaded = geeStatus[f.id]?.status === 'success' || geeStatus[f.id]?.status === 'failed';
+                    const makeTransparent = showImagery && isLoaded;
+
                     return (
                       <React.Fragment key={f.id}>
                         <Polygon 
+                          key={`${f.id}_${makeTransparent}`}
                           positions={positions} 
                           pathOptions={{ 
                             color: f.drawColor || '#ffffff', 
                             weight: 1, 
                             dashArray: '5,5', 
-                            fillOpacity: fieldImagery[f.id] && fieldImagery[f.id] !== 'none' ? 0.0 : 0.1 
+                            fill: !makeTransparent,
+                            fillOpacity: makeTransparent ? 0.0 : 0.1 
                           }} 
                           interactive={true}
                         >
