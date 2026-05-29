@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { fetchFields } from './store/fieldsSlice';
-import { addUnit, removeUnit, addJobTitle, removeJobTitle, addExpenseCategory, removeExpenseCategory, addIncomeCategory, removeIncomeCategory, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold, setAppName, addAnimalType, removeAnimalType, saveSettings, setGeeClientEmail, setGeePrivateKey, setGeeProjectId, setGeeScale } from './store/settingsSlice';
+import { addUnit, removeUnit, addJobTitle, removeJobTitle, addExpenseCategory, removeExpenseCategory, addIncomeCategory, removeIncomeCategory, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold, setAppName, addAnimalType, removeAnimalType, saveSettings, setGeeClientEmail, setGeePrivateKey, setGeeProjectId, setGeeScale, setOwmApiKey } from './store/settingsSlice';
 import { addLocation } from './store/gpsSlice';
 import { queueAction, fetchInitialData } from './store/syncSlice';
 import { MapSearchBox, MapFlyTo, FarmLocationButton } from './components/MapSearchBox';
@@ -97,6 +97,7 @@ export default function App() {
   const geePrivateKey = useSelector(state => state.settings?.geePrivateKey) || '';
   const geeProjectId = useSelector(state => state.settings?.geeProjectId) || '';
   const geeScale = useSelector(state => state.settings?.geeScale) || 3;
+  const owmApiKey = useSelector(state => state.settings?.owmApiKey) || '';
   const lastGpsLocation = useSelector(state => {
     const locs = state.gps?.locations || [];
     return locs.length > 0 ? locs[locs.length - 1] : null;
@@ -108,7 +109,7 @@ export default function App() {
   const totalActionsQueued = useSelector(state => state.sync.totalActionsQueued || 0);
 
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [openSettings, setOpenSettings] = useState({ general: true, dropdown: false, map: false, units: false, jobs: false, animals: false, ledgers: false, gee: false });
+  const [openSettings, setOpenSettings] = useState({ general: true, dropdown: false, map: false, units: false, jobs: false, animals: false, ledgers: false, gee: false, owm: false });
   const [showSaveToast, setShowSaveToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("Record Saved Successfully");
 
@@ -1260,6 +1261,42 @@ export default function App() {
                           </div>
                         );
                       })()}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* OpenWeatherMap Settings Card */}
+            <div style={{ marginBottom: 15, border: '1px solid var(--color-border)', borderRadius: '8px', overflow: 'hidden' }}>
+              <button
+                onClick={() => setOpenSettings({ ...openSettings, owm: !openSettings.owm })}
+                type="button"
+                style={{ width: '100%', padding: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f5f7fa', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '1.1rem', color: '#333' }}
+              >
+                OpenWeatherMap Settings
+                {openSettings.owm ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
+              </button>
+
+              {openSettings.owm && (
+                <div style={{ padding: '20px', background: 'white' }}>
+                  <div style={{ marginBottom: 20 }}>
+                    <h3 style={{ marginTop: 0 }}>Weather Map Tile Configuration</h3>
+                    
+                    <div style={{ marginBottom: 16 }}>
+                      <label style={{ fontWeight: '600', display: 'block', marginBottom: '8px' }}>OpenWeatherMap API Key (appid)</label>
+                      <input
+                        type="password"
+                        value={owmApiKey || ''}
+                        onChange={(e) => { dispatch(setOwmApiKey(e.target.value)); dispatch(saveSettings()); }}
+                        disabled={currentUser?.role === 'Admin Viewer'}
+                        placeholder="e.g. 32-character hex API key"
+                        className="btn"
+                        style={{ display: 'block', marginTop: 8, padding: '8px', width: '100%', maxWidth: '500px', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'text', background: '#fff', border: '1px solid #ccc' }}
+                      />
+                      <small style={{ display: 'block', marginTop: '6px', color: '#666', fontSize: '0.8rem', lineHeight: '1.4' }}>
+                        Required for displaying weather maps (Clouds, Precipitation, Temperature, Wind Speed, Sea Level Pressure) as layers on the farm map. Get your free API key at <a href="https://openweathermap.org" target="_blank" rel="noopener noreferrer" style={{ color: '#2e7d32', textDecoration: 'underline' }}>openweathermap.org</a>.
+                      </small>
                     </div>
                   </div>
                 </div>

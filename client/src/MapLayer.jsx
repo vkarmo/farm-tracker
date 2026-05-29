@@ -276,61 +276,81 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
                         <option value="SoilMoisture">Soil Moisture</option>
                         <option value="FalseColor">False Color (Biomass)</option>
                         <option value="TrueColor">True Color (RGB)</option>
+                        <option value="OWM_Clouds">Weather: Clouds (OpenWeather)</option>
+                        <option value="OWM_Precipitation">Weather: Precipitation (OpenWeather)</option>
+                        <option value="OWM_Temperature">Weather: Temperature (OpenWeather)</option>
+                        <option value="OWM_Wind">Weather: Wind Speed (OpenWeather)</option>
+                        <option value="OWM_Pressure">Weather: Sea Level Pressure (OpenWeather)</option>
                       </select>
                     </div>
                     {fieldImagery[field.id] && fieldImagery[field.id] !== 'none' && (
                       <div style={{ marginTop: '8px', padding: '6px', background: '#f1f8e9', borderRadius: '4px', border: '1px solid #c5e1a5', fontSize: '0.72rem', color: '#33691e' }}>
                         <div style={{ fontWeight: 700, marginBottom: '2px' }}>
-                          {fieldImagery[field.id] === 'CurrentSatellite' ? 'Current Satellite (High-Res)' : 'Sentinel-2 (10m Index)'}
+                          {fieldImagery[field.id] === 'OWM_Clouds' ? 'Weather: Clouds' :
+                           fieldImagery[field.id] === 'OWM_Precipitation' ? 'Weather: Precipitation' :
+                           fieldImagery[field.id] === 'OWM_Temperature' ? 'Weather: Temperature' :
+                           fieldImagery[field.id] === 'OWM_Wind' ? 'Weather: Wind Speed' :
+                           fieldImagery[field.id] === 'OWM_Pressure' ? 'Weather: Sea Level Pressure' :
+                           fieldImagery[field.id] === 'CurrentSatellite' ? 'Current Satellite (High-Res)' : 'Sentinel-2 (10m Index)'}
                         </div>
                         {geeStatus[field.id] && geeStatus[field.id].status === 'failed' && (
                           <div style={{ marginTop: '4px', color: '#c62828', fontWeight: 600, fontSize: '0.65rem', lineHeight: '1.2' }}>
-                            ⚠ GEE Failed: {geeStatus[field.id].error}. Showing simulation.
+                            {fieldImagery[field.id].startsWith('OWM_') 
+                              ? `⚠ Weather Map Failed: ${geeStatus[field.id].error}` 
+                              : `⚠ GEE Failed: ${geeStatus[field.id].error}. Showing simulation.`}
                           </div>
                         )}
                         {geeStatus[field.id] && geeStatus[field.id].status === 'success' && (
                           <div style={{ marginTop: '4px', color: '#2e7d32', fontWeight: 600, fontSize: '0.65rem', lineHeight: '1.2' }}>
-                            ✓ Live Earth Engine imagery loaded.
+                            {fieldImagery[field.id].startsWith('OWM_') 
+                              ? '✓ Live weather overlay loaded.' 
+                              : '✓ Live Earth Engine imagery loaded.'}
                           </div>
                         )}
                         {geeStatus[field.id] && geeStatus[field.id].status === 'loading' && (
                           <div style={{ marginTop: '4px', color: '#1565c0', fontSize: '0.65rem', lineHeight: '1.2' }}>
-                            Fetching GEE tiles...
+                            {fieldImagery[field.id].startsWith('OWM_') 
+                              ? 'Fetching weather overlay tiles...' 
+                              : 'Fetching GEE tiles...'}
                           </div>
                         )}
-                        <div>Scene Date: {getDeterministicSceneDate(field.id, fieldImageryOffsets[field.id] || 0)}</div>
-                        <div>Cloud Cover: {getDeterministicCloudCover(field.id, fieldImageryOffsets[field.id] || 0)}%</div>
-                        
-                        <div style={{ display: 'flex', marginTop: '6px', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
-                            <span style={{ fontSize: '0.62rem', fontWeight: 600, color: '#558b2f' }}>Older</span>
-                            <button
-                              type="button"
-                              className="btn btn-secondary"
-                              style={{ padding: '2px 8px', fontSize: '0.75rem', cursor: 'pointer', marginTop: '2px', width: '100%', lineHeight: 1 }}
-                              onClick={() => setFieldImageryOffsets(prev => ({ ...prev, [field.id]: (prev[field.id] || 0) - 30 }))}
-                            >
-                              ←
-                            </button>
-                          </div>
-                          
-                          <span style={{ fontWeight: 700, fontSize: '0.68rem', margin: '0 8px', minWidth: '55px', textAlign: 'center', alignSelf: 'flex-end', marginBottom: '4px' }}>
-                            {(fieldImageryOffsets[field.id] || 0) === 0 ? 'Latest' : `${Math.abs(fieldImageryOffsets[field.id] || 0)}d ago`}
-                          </span>
+                        {!fieldImagery[field.id]?.startsWith('OWM_') && (
+                          <>
+                            <div>Scene Date: {getDeterministicSceneDate(field.id, fieldImageryOffsets[field.id] || 0)}</div>
+                            <div>Cloud Cover: {getDeterministicCloudCover(field.id, fieldImageryOffsets[field.id] || 0)}%</div>
+                            
+                            <div style={{ display: 'flex', marginTop: '6px', alignItems: 'center', justifyContent: 'space-between' }}>
+                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
+                                <span style={{ fontSize: '0.62rem', fontWeight: 600, color: '#558b2f' }}>Older</span>
+                                <button
+                                  type="button"
+                                  className="btn btn-secondary"
+                                  style={{ padding: '2px 8px', fontSize: '0.75rem', cursor: 'pointer', marginTop: '2px', width: '100%', lineHeight: 1 }}
+                                  onClick={() => setFieldImageryOffsets(prev => ({ ...prev, [field.id]: (prev[field.id] || 0) - 30 }))}
+                                >
+                                  ←
+                                </button>
+                              </div>
+                              
+                              <span style={{ fontWeight: 700, fontSize: '0.68rem', margin: '0 8px', minWidth: '55px', textAlign: 'center', alignSelf: 'flex-end', marginBottom: '4px' }}>
+                                {(fieldImageryOffsets[field.id] || 0) === 0 ? 'Latest' : `${Math.abs(fieldImageryOffsets[field.id] || 0)}d ago`}
+                              </span>
 
-                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
-                            <span style={{ fontSize: '0.62rem', fontWeight: 600, color: '#558b2f' }}>Newer</span>
-                            <button
-                              type="button"
-                              className="btn btn-secondary"
-                              style={{ padding: '2px 8px', fontSize: '0.75rem', cursor: 'pointer', marginTop: '2px', width: '100%', lineHeight: 1 }}
-                              disabled={(fieldImageryOffsets[field.id] || 0) >= 0}
-                              onClick={() => setFieldImageryOffsets(prev => ({ ...prev, [field.id]: (prev[field.id] || 0) + 30 }))}
-                            >
-                              →
-                            </button>
-                          </div>
-                        </div>
+                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
+                                <span style={{ fontSize: '0.62rem', fontWeight: 600, color: '#558b2f' }}>Newer</span>
+                                <button
+                                  type="button"
+                                  className="btn btn-secondary"
+                                  style={{ padding: '2px 8px', fontSize: '0.75rem', cursor: 'pointer', marginTop: '2px', width: '100%', lineHeight: 1 }}
+                                  disabled={(fieldImageryOffsets[field.id] || 0) >= 0}
+                                  onClick={() => setFieldImageryOffsets(prev => ({ ...prev, [field.id]: (prev[field.id] || 0) + 30 }))}
+                                >
+                                  →
+                                </button>
+                              </div>
+                            </div>
+                          </>
+                        )}
                       </div>
                     )}
                   </div>

@@ -67,6 +67,7 @@ export default function FieldImageryOverlay({ polygon, indexType, dateOffset = 0
   const [geeLoading, setGeeLoading] = useState(false);
   const [geeError, setGeeError] = useState(false);
   const geeScale = useSelector(state => state.settings?.geeScale || 3);
+  const owmApiKey = useSelector(state => state.settings?.owmApiKey || '');
 
   // Robust polygon coordinate unnesting for Leaflet / GeoJSON coordinates
   const sanitizedPolygon = useMemo(() => {
@@ -86,6 +87,24 @@ export default function FieldImageryOverlay({ polygon, indexType, dateOffset = 0
     if (!sanitizedPolygon || sanitizedPolygon.length < 3 || !indexType || indexType === 'none') {
       setTileUrl(null);
       setGeeError(false);
+      return;
+    }
+
+    const isOwm = indexType.startsWith('OWM_');
+    if (isOwm) {
+      setTileUrl(null);
+      setGeeLoading(false);
+      if (!owmApiKey) {
+        setGeeError(true);
+        window.dispatchEvent(new CustomEvent('gee-status-change', {
+          detail: { fieldId, status: 'failed', error: 'OpenWeatherMap API Key is not configured.' }
+        }));
+      } else {
+        setGeeError(false);
+        window.dispatchEvent(new CustomEvent('gee-status-change', {
+          detail: { fieldId, status: 'loading' }
+        }));
+      }
       return;
     }
 
@@ -168,7 +187,7 @@ export default function FieldImageryOverlay({ polygon, indexType, dateOffset = 0
         clearTimeout(fallbackTimeout);
       }
     };
-  }, [polygonHash, indexType, dateOffset, fieldId, geeScale]);
+  }, [polygonHash, indexType, dateOffset, fieldId, geeScale, owmApiKey]);
 
   const dataUrlAndBounds = useMemo(() => {
     // Only generate fallback canvas simulation if GEE has explicitly failed
@@ -319,6 +338,36 @@ export default function FieldImageryOverlay({ polygon, indexType, dateOffset = 0
   }, [sanitizedPolygon, indexType, dateOffset, fieldId, geeError, tileUrl]);
 
   if (indexType === 'none') return null;
+
+  const isOwm = indexType && indexType.startsWith('OWM_');
+  if (isOwm) {
+    if (!owmApiKey) return null;
+    const owmLayerMap = {
+      OWM_Clouds: 'clouds_new',
+      OWM_Precipitation: 'precipitation_new',
+      OWM_Temperature: 'temp_new',
+      OWM_Wind: 'wind_new',
+      OWM_Pressure: 'pressure_new'
+    };
+    const owmLayerName = owmLayerMap[indexType];
+    const owmTileUrl = `https://tile.openweathermap.org/map/${owmLayerName}/{z}/{x}/{y}.png?appid=${owmApiKey}`;
+    return (
+      <TileLayer
+        key={owmTileUrl}
+        url={owmTileUrl}
+        opacity={0.8}
+        maxZoom={18}
+        maxNativeZoom={18}
+        eventHandlers={{
+          load: () => {
+            window.dispatchEvent(new CustomEvent('gee-status-change', {
+              detail: { fieldId, status: 'success' }
+            }));
+          }
+        }}
+      />
+    );
+  }
 
   if (!geeError && tileUrl) {
     return (
