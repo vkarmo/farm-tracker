@@ -184,7 +184,7 @@ app.post('/api/fields', async (req, res) => {
 app.post('/api/gee/test-connection', async (req, res) => {
   const session = driver.session();
   try {
-    const { client_email, private_key, project_id } = req.body;
+    const { client_email, private_key, project_id, polygon } = req.body;
     
     let creds = { client_email, private_key, project_id };
     
@@ -220,8 +220,22 @@ app.post('/api/gee/test-connection', async (req, res) => {
             creds.project_id,
             () => {
               try {
-                const s2Collection = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED');
-                s2Collection.size().evaluate((size, err) => {
+                let s2Collection = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED');
+                if (polygon) {
+                  let sanitizedPolygon = polygon;
+                  if (Array.isArray(polygon) && polygon.length > 0 && Array.isArray(polygon[0]) && Array.isArray(polygon[0][0])) {
+                    sanitizedPolygon = polygon[0];
+                  }
+                  if (Array.isArray(sanitizedPolygon) && sanitizedPolygon.length >= 3) {
+                    const coords = sanitizedPolygon.map(pt => [pt[1], pt[0]]);
+                    if (coords[0][0] !== coords[coords.length - 1][0] || coords[0][1] !== coords[coords.length - 1][1]) {
+                      coords.push(coords[0]);
+                    }
+                    const geometry = ee.Geometry.Polygon([coords]);
+                    s2Collection = s2Collection.filterBounds(geometry);
+                  }
+                }
+                s2Collection.limit(1).size().evaluate((size, err) => {
                   if (err) {
                     console.warn('[GEE Connection Test] Sentinel-2 access warning:', err.message || err);
                     resolve({
@@ -292,10 +306,14 @@ app.post('/api/gee/tile-url', async (req, res) => {
     await initializeGee(creds);
     
     // 3. Format polygon coordinates for Earth Engine (Leaflet uses [lat, lng], GEE uses [lng, lat])
-    if (!Array.isArray(polygon) || polygon.length < 3) {
+    let sanitizedPolygon = polygon;
+    if (Array.isArray(polygon) && polygon.length > 0 && Array.isArray(polygon[0]) && Array.isArray(polygon[0][0])) {
+      sanitizedPolygon = polygon[0];
+    }
+    if (!Array.isArray(sanitizedPolygon) || sanitizedPolygon.length < 3) {
       return res.status(400).json({ error: 'Invalid or incomplete polygon coordinates.' });
     }
-    const coords = polygon.map(pt => [pt[1], pt[0]]);
+    const coords = sanitizedPolygon.map(pt => [pt[1], pt[0]]);
     // Ensure polygon is closed
     if (coords[0][0] !== coords[coords.length - 1][0] || coords[0][1] !== coords[coords.length - 1][1]) {
       coords.push(coords[0]);
@@ -416,8 +434,8 @@ app.post('/api/gee/tile-url', async (req, res) => {
       return res.status(500).json({ error: 'Failed to retrieve Map ID from Earth Engine.' });
     }
     
-    // Construct tile URL template
-    const urlTemplate = `https://earthengine.googleapis.com/v1/projects/${creds.project_id}/maps/${mapInfo.mapid}/tiles/{z}/{x}/{y}`;
+    // Construct tile URL template using urlFormat provided by GEE or fallback if not present
+    const urlTemplate = mapInfo.urlFormat || `https://earthengine.googleapis.com/v1/projects/${creds.project_id}/maps/${mapInfo.mapid}/tiles/{z}/{x}/{y}`;
     
     res.json({
       urlTemplate,

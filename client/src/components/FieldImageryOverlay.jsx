@@ -68,8 +68,18 @@ export default function FieldImageryOverlay({ polygon, indexType, dateOffset = 0
   const [geeError, setGeeError] = useState(false);
   const geeScale = useSelector(state => state.settings?.geeScale || 3);
 
+  // Robust polygon coordinate unnesting for Leaflet / GeoJSON coordinates
+  const sanitizedPolygon = useMemo(() => {
+    if (!Array.isArray(polygon) || polygon.length === 0) return [];
+    // If it's double-nested (e.g. [[[lat, lng], ...]]), extract the inner ring
+    if (Array.isArray(polygon[0]) && Array.isArray(polygon[0][0])) {
+      return polygon[0];
+    }
+    return polygon;
+  }, [polygon]);
+
   useEffect(() => {
-    if (!polygon || polygon.length < 3 || !indexType || indexType === 'none') {
+    if (!sanitizedPolygon || sanitizedPolygon.length < 3 || !indexType || indexType === 'none') {
       setTileUrl(null);
       setGeeError(false);
       return;
@@ -88,7 +98,7 @@ export default function FieldImageryOverlay({ polygon, indexType, dateOffset = 0
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        polygon,
+        polygon: sanitizedPolygon,
         indexType,
         dateOffset,
         fieldId,
@@ -139,7 +149,7 @@ export default function FieldImageryOverlay({ polygon, indexType, dateOffset = 0
     return () => {
       isMounted = false;
     };
-  }, [polygon, indexType, dateOffset, fieldId, geeScale]);
+  }, [sanitizedPolygon, indexType, dateOffset, fieldId, geeScale]);
 
   const dataUrlAndBounds = useMemo(() => {
     // If successfully using GEE tiles, skip canvas generation
@@ -147,7 +157,7 @@ export default function FieldImageryOverlay({ polygon, indexType, dateOffset = 0
       return { url: '', bounds: null };
     }
 
-    if (!polygon || polygon.length < 3 || !indexType || indexType === 'none') {
+    if (!sanitizedPolygon || sanitizedPolygon.length < 3 || !indexType || indexType === 'none') {
       return { url: '', bounds: null };
     }
 
@@ -155,7 +165,7 @@ export default function FieldImageryOverlay({ polygon, indexType, dateOffset = 0
     let minLat = Infinity, maxLat = -Infinity;
     let minLng = Infinity, maxLng = -Infinity;
     
-    for (const pt of polygon) {
+    for (const pt of sanitizedPolygon) {
       const lat = pt[0];
       const lng = pt[1];
       if (lat < minLat) minLat = lat;
@@ -188,7 +198,7 @@ export default function FieldImageryOverlay({ polygon, indexType, dateOffset = 0
     };
 
     ctx.beginPath();
-    polygon.forEach((pt, idx) => {
+    sanitizedPolygon.forEach((pt, idx) => {
       const x = getCanvasX(pt[1]);
       const y = getCanvasY(pt[0]);
       if (idx === 0) {
@@ -287,13 +297,14 @@ export default function FieldImageryOverlay({ polygon, indexType, dateOffset = 0
       url: canvas.toDataURL(),
       bounds: [[minLat, minLng], [maxLat, maxLng]]
     };
-  }, [polygon, indexType, dateOffset, fieldId, geeError, tileUrl]);
+  }, [sanitizedPolygon, indexType, dateOffset, fieldId, geeError, tileUrl]);
 
   if (indexType === 'none') return null;
 
   if (!geeError && tileUrl) {
     return (
       <TileLayer
+        key={tileUrl}
         url={tileUrl}
         opacity={0.85}
         maxZoom={24}

@@ -12,8 +12,13 @@ import { MapResizer } from './components/ResizableMapWrapper';
 function SettingsMapBoundsFitter({ polygon }) {
   const map = useMap();
   React.useEffect(() => {
-    if (polygon && polygon.length >= 3) {
-      map.fitBounds(polygon);
+    if (!polygon) return;
+    let flatPoints = polygon;
+    if (Array.isArray(polygon) && polygon.length > 0 && Array.isArray(polygon[0]) && Array.isArray(polygon[0][0])) {
+      flatPoints = polygon[0];
+    }
+    if (Array.isArray(flatPoints) && flatPoints.length >= 3) {
+      map.fitBounds(flatPoints);
     }
   }, [map, polygon]);
   return null;
@@ -128,13 +133,27 @@ export default function App() {
     setGeeTesting(true);
     setGeeTestStatus(null);
     try {
+      // Find selected test field if any and extract polygon boundaries
+      const selectedField = fields.find(f => f.id === testFieldId);
+      let testPolygon = null;
+      if (selectedField && selectedField.polygon) {
+        try {
+          testPolygon = typeof selectedField.polygon === 'string'
+            ? JSON.parse(selectedField.polygon)
+            : selectedField.polygon;
+        } catch (e) {
+          console.error('Failed to parse selected test field polygon', e);
+        }
+      }
+
       const response = await fetch('/api/gee/test-connection', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           client_email: geeClientEmail,
           private_key: geePrivateKey,
-          project_id: geeProjectId
+          project_id: geeProjectId,
+          polygon: testPolygon
         })
       });
       const data = await response.json();
@@ -1206,7 +1225,11 @@ export default function App() {
                                   url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
                                 />
                                 <Polygon
-                                  positions={polyCoords}
+                                  positions={
+                                    Array.isArray(polyCoords) && polyCoords.length > 0 && Array.isArray(polyCoords[0]) && Array.isArray(polyCoords[0][0])
+                                      ? polyCoords[0]
+                                      : polyCoords
+                                  }
                                   pathOptions={{ color: '#2e7d32', fillOpacity: 0.1 }}
                                 />
                                 <FieldImageryOverlay
