@@ -90,6 +90,9 @@ export default function FieldImageryOverlay({ polygon, indexType, dateOffset = 0
       return;
     }
 
+    let isMounted = true;
+    let fallbackTimeout = null;
+
     const isOwm = indexType.startsWith('OWM_');
     if (isOwm) {
       setTileUrl(null);
@@ -104,18 +107,26 @@ export default function FieldImageryOverlay({ polygon, indexType, dateOffset = 0
         window.dispatchEvent(new CustomEvent('gee-status-change', {
           detail: { fieldId, status: 'loading' }
         }));
+
+        fallbackTimeout = setTimeout(() => {
+          if (isMounted) {
+            window.dispatchEvent(new CustomEvent('gee-status-change', {
+              detail: { fieldId, status: 'success' }
+            }));
+          }
+        }, 5500);
       }
-      return;
+      return () => {
+        isMounted = false;
+        if (fallbackTimeout) clearTimeout(fallbackTimeout);
+      };
     }
 
-    let isMounted = true;
     setGeeLoading(true);
     setGeeError(false);
     window.dispatchEvent(new CustomEvent('gee-status-change', {
       detail: { fieldId, status: 'loading' }
     }));
-
-    let fallbackTimeout = null;
 
     fetch('/api/gee/tile-url', {
       method: 'POST',
@@ -356,7 +367,7 @@ export default function FieldImageryOverlay({ polygon, indexType, dateOffset = 0
         key={owmTileUrl}
         url={owmTileUrl}
         opacity={0.8}
-        maxZoom={18}
+        maxZoom={24}
         maxNativeZoom={18}
         eventHandlers={{
           load: () => {

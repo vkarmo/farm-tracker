@@ -1167,13 +1167,23 @@ export default function App() {
                             style={{ padding: '8px', width: '100%', border: '1px solid #ccc', borderRadius: '4px', background: 'white' }}
                             disabled={!testFieldId}
                           >
-                            <option value="CurrentSatellite">Current Satellite (High-Res RGB)</option>
-                            <option value="NDVI">NDVI (Vegetation Index)</option>
-                            <option value="NDWI">NDWI (Water Index)</option>
-                            <option value="EVI">EVI (Enhanced Vegetation)</option>
-                            <option value="SoilMoisture">Soil Moisture</option>
-                            <option value="FalseColor">False Color (Biomass)</option>
-                            <option value="TrueColor">True Color (RGB)</option>
+                            <option value="none">None (Standard)</option>
+                            <optgroup label="Satellite Indices">
+                              <option value="CurrentSatellite">Current Satellite (High-Res RGB)</option>
+                              <option value="NDVI">NDVI (Vegetation Index)</option>
+                              <option value="NDWI">NDWI (Water Index)</option>
+                              <option value="EVI">EVI (Enhanced Vegetation)</option>
+                              <option value="SoilMoisture">Soil Moisture</option>
+                              <option value="FalseColor">False Color (Biomass)</option>
+                              <option value="TrueColor">True Color (RGB)</option>
+                            </optgroup>
+                            <optgroup label="Weather Map Overlays">
+                              <option value="OWM_Clouds">Weather: Clouds (OpenWeather)</option>
+                              <option value="OWM_Precipitation">Weather: Precipitation (OpenWeather)</option>
+                              <option value="OWM_Temperature">Weather: Temperature (OpenWeather)</option>
+                              <option value="OWM_Wind">Weather: Wind Speed (OpenWeather)</option>
+                              <option value="OWM_Pressure">Weather: Sea Level Pressure (OpenWeather)</option>
+                            </optgroup>
                           </select>
                         </div>
                       </div>
@@ -1209,10 +1219,10 @@ export default function App() {
                               color: statusObj.status === 'success' ? '#2e7d32' : statusObj.status === 'failed' ? '#c62828' : '#1565c0',
                               border: `1px solid ${statusObj.status === 'success' ? '#a5d6a7' : statusObj.status === 'failed' ? '#ef9a9a' : '#90caf9'}`
                             }}>
-                              {statusObj.status === 'loading' && '⌛ Fetching GEE tiles...'}
-                              {statusObj.status === 'success' && '✓ Live GEE tiles successfully loaded.'}
-                              {statusObj.status === 'failed' && `⚠ GEE Request Failed: ${statusObj.error || 'Unknown error'}. Showing fallback simulation.`}
-                              {!statusObj.status && 'Preparing GEE request...'}
+                              {statusObj.status === 'loading' && (testIndexType.startsWith('OWM_') ? '⌛ Fetching weather overlay tiles...' : '⌛ Fetching GEE tiles...')}
+                              {statusObj.status === 'success' && (testIndexType.startsWith('OWM_') ? '✓ Live weather overlay successfully loaded.' : '✓ Live GEE tiles successfully loaded.')}
+                              {statusObj.status === 'failed' && (testIndexType.startsWith('OWM_') ? `⚠ Weather Map Request Failed: ${statusObj.error || 'Unknown error'}.` : `⚠ GEE Request Failed: ${statusObj.error || 'Unknown error'}. Showing fallback simulation.`)}
+                              {!statusObj.status && (testIndexType.startsWith('OWM_') ? 'Preparing Weather Map request...' : 'Preparing GEE request...')}
                             </div>
 
                             <div style={{ height: '300px', width: '100%', border: '1px solid #ccc', borderRadius: '8px', overflow: 'hidden', position: 'relative' }}>

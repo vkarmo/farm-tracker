@@ -237,18 +237,22 @@ export default function FieldTab() {
                               style={{ padding: '4px', fontSize: '0.8rem', borderRadius: '4px', width: '100%', background: 'white' }}
                             >
                               <option value="none">None (Standard)</option>
-                              <option value="CurrentSatellite">Current Satellite View</option>
-                              <option value="NDVI">NDVI (Vegetation Index)</option>
-                              <option value="NDWI">NDWI (Water Index)</option>
-                              <option value="EVI">EVI (Enhanced Vegetation)</option>
-                              <option value="SoilMoisture">Soil Moisture</option>
-                              <option value="FalseColor">False Color (Biomass)</option>
-                              <option value="TrueColor">True Color (RGB)</option>
-                              <option value="OWM_Clouds">Weather: Clouds (OpenWeather)</option>
-                              <option value="OWM_Precipitation">Weather: Precipitation (OpenWeather)</option>
-                              <option value="OWM_Temperature">Weather: Temperature (OpenWeather)</option>
-                              <option value="OWM_Wind">Weather: Wind Speed (OpenWeather)</option>
-                              <option value="OWM_Pressure">Weather: Sea Level Pressure (OpenWeather)</option>
+                              <optgroup label="Satellite Indices">
+                                <option value="CurrentSatellite">Current Satellite View</option>
+                                <option value="NDVI">NDVI (Vegetation Index)</option>
+                                <option value="NDWI">NDWI (Water Index)</option>
+                                <option value="EVI">EVI (Enhanced Vegetation)</option>
+                                <option value="SoilMoisture">Soil Moisture</option>
+                                <option value="FalseColor">False Color (Biomass)</option>
+                                <option value="TrueColor">True Color (RGB)</option>
+                              </optgroup>
+                              <optgroup label="Weather Map Overlays">
+                                <option value="OWM_Clouds">Weather: Clouds (OpenWeather)</option>
+                                <option value="OWM_Precipitation">Weather: Precipitation (OpenWeather)</option>
+                                <option value="OWM_Temperature">Weather: Temperature (OpenWeather)</option>
+                                <option value="OWM_Wind">Weather: Wind Speed (OpenWeather)</option>
+                                <option value="OWM_Pressure">Weather: Sea Level Pressure (OpenWeather)</option>
+                              </optgroup>
                             </select>
                           </div>
                           {fieldImagery[editingId || 'active'] && fieldImagery[editingId || 'active'] !== 'none' && (
@@ -375,18 +379,22 @@ export default function FieldTab() {
                                   style={{ padding: '4px', fontSize: '0.8rem', borderRadius: '4px', width: '100%', background: 'white' }}
                                 >
                                   <option value="none">None (Standard)</option>
-                                  <option value="CurrentSatellite">Current Satellite View</option>
-                                  <option value="NDVI">NDVI (Vegetation Index)</option>
-                                  <option value="NDWI">NDWI (Water Index)</option>
-                                  <option value="EVI">EVI (Enhanced Vegetation)</option>
-                                  <option value="SoilMoisture">Soil Moisture</option>
-                                  <option value="FalseColor">False Color (Biomass)</option>
-                                  <option value="TrueColor">True Color (RGB)</option>
-                                  <option value="OWM_Clouds">Weather: Clouds (OpenWeather)</option>
-                                  <option value="OWM_Precipitation">Weather: Precipitation (OpenWeather)</option>
-                                  <option value="OWM_Temperature">Weather: Temperature (OpenWeather)</option>
-                                  <option value="OWM_Wind">Weather: Wind Speed (OpenWeather)</option>
-                                  <option value="OWM_Pressure">Weather: Sea Level Pressure (OpenWeather)</option>
+                                  <optgroup label="Satellite Indices">
+                                    <option value="CurrentSatellite">Current Satellite View</option>
+                                    <option value="NDVI">NDVI (Vegetation Index)</option>
+                                    <option value="NDWI">NDWI (Water Index)</option>
+                                    <option value="EVI">EVI (Enhanced Vegetation)</option>
+                                    <option value="SoilMoisture">Soil Moisture</option>
+                                    <option value="FalseColor">False Color (Biomass)</option>
+                                    <option value="TrueColor">True Color (RGB)</option>
+                                  </optgroup>
+                                  <optgroup label="Weather Map Overlays">
+                                    <option value="OWM_Clouds">Weather: Clouds (OpenWeather)</option>
+                                    <option value="OWM_Precipitation">Weather: Precipitation (OpenWeather)</option>
+                                    <option value="OWM_Temperature">Weather: Temperature (OpenWeather)</option>
+                                    <option value="OWM_Wind">Weather: Wind Speed (OpenWeather)</option>
+                                    <option value="OWM_Pressure">Weather: Sea Level Pressure (OpenWeather)</option>
+                                  </optgroup>
                                 </select>
                               </div>
                               {fieldImagery[field.id] && fieldImagery[field.id] !== 'none' && (
