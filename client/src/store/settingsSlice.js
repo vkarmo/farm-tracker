@@ -49,6 +49,10 @@ export const settingsSlice = createSlice({
     themeFontSizeCardTitleCapitalize: false,
     themeFontSizeTabsBold: false,
     themeFontSizeTabsCapitalize: false,
+    themeFontImager: 'System Default',
+    themeFontSizeImager: '0.72rem',
+    themeFontImagerBold: false,
+    themeFontImagerCapitalize: false,
   },
   reducers: {
     addUnit: (state, action) => {
@@ -228,11 +232,23 @@ export const settingsSlice = createSlice({
     },
     setThemeFontSizeTabsCapitalize: (state, action) => {
       state.themeFontSizeTabsCapitalize = action.payload;
+    },
+    setThemeFontImager: (state, action) => {
+      state.themeFontImager = action.payload;
+    },
+    setThemeFontSizeImager: (state, action) => {
+      state.themeFontSizeImager = action.payload;
+    },
+    setThemeFontImagerBold: (state, action) => {
+      state.themeFontImagerBold = action.payload;
+    },
+    setThemeFontImagerCapitalize: (state, action) => {
+      state.themeFontImagerCapitalize = action.payload;
     }
   }
 });
 
-export const { addUnit, removeUnit, addJobTitle, removeJobTitle, addExpenseCategory, removeExpenseCategory, addIncomeCategory, removeIncomeCategory, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold, setAppName, addAnimalType, removeAnimalType, setAllSettings, setVisibleMapLayers, setSnapGap, setGeeClientEmail, setGeePrivateKey, setGeeProjectId, setGeeScale, setOwmApiKey, setThemeAppBgColor, setThemeCardBgColor, setThemeCardBorderColor, setThemeCardBorderThickness, setThemeAppBorderColor, setThemeAppBorderThickness, setThemeFontName, setThemeFontSizeBase, setThemeFontSizeCardTitle, setThemeFontSizeTabs, setThemeColorPrimary, setThemeColorCardTitle, setThemeColorTabsActiveBg, setThemeColorTabsActiveText, setThemeColorTabsInactiveBg, setThemeColorTabsInactiveText, setThemeFontAppName, setThemeFontSizeAppName, setThemeFontAppNameBold, setThemeFontAppNameCapitalize, setThemeFontSizeBaseBold, setThemeFontSizeBaseCapitalize, setThemeFontSizeCardTitleBold, setThemeFontSizeCardTitleCapitalize, setThemeFontSizeTabsBold, setThemeFontSizeTabsCapitalize } = settingsSlice.actions;
+export const { addUnit, removeUnit, addJobTitle, removeJobTitle, addExpenseCategory, removeExpenseCategory, addIncomeCategory, removeIncomeCategory, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold, setAppName, addAnimalType, removeAnimalType, setAllSettings, setVisibleMapLayers, setSnapGap, setGeeClientEmail, setGeePrivateKey, setGeeProjectId, setGeeScale, setOwmApiKey, setThemeAppBgColor, setThemeCardBgColor, setThemeCardBorderColor, setThemeCardBorderThickness, setThemeAppBorderColor, setThemeAppBorderThickness, setThemeFontName, setThemeFontSizeBase, setThemeFontSizeCardTitle, setThemeFontSizeTabs, setThemeColorPrimary, setThemeColorCardTitle, setThemeColorTabsActiveBg, setThemeColorTabsActiveText, setThemeColorTabsInactiveBg, setThemeColorTabsInactiveText, setThemeFontAppName, setThemeFontSizeAppName, setThemeFontAppNameBold, setThemeFontAppNameCapitalize, setThemeFontSizeBaseBold, setThemeFontSizeBaseCapitalize, setThemeFontSizeCardTitleBold, setThemeFontSizeCardTitleCapitalize, setThemeFontSizeTabsBold, setThemeFontSizeTabsCapitalize, setThemeFontImager, setThemeFontSizeImager, setThemeFontImagerBold, setThemeFontImagerCapitalize } = settingsSlice.actions;
 
 export const saveSettings = () => (dispatch, getState) => {
   const settings = getState().settings;

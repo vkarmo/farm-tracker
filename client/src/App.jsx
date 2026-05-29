@@ -97,7 +97,6 @@ export default function App() {
   const geePrivateKey = useSelector(state => state.settings?.geePrivateKey) || '';
   const geeProjectId = useSelector(state => state.settings?.geeProjectId) || '';
   const geeScale = useSelector(state => state.settings?.geeScale) || 3;
-  const owmApiKey = useSelector(state => state.settings?.owmApiKey) || '';
   const themeAppBgColor = useSelector(state => state.settings?.themeAppBgColor) || '#eeeef1';
   const themeCardBgColor = useSelector(state => state.settings?.themeCardBgColor) || '#ffffff';
   const themeCardBorderColor = useSelector(state => state.settings?.themeCardBorderColor) || '#e0e0e0';
@@ -124,6 +123,10 @@ export default function App() {
   const themeFontSizeCardTitleCapitalize = useSelector(state => state.settings?.themeFontSizeCardTitleCapitalize) || false;
   const themeFontSizeTabsBold = useSelector(state => state.settings?.themeFontSizeTabsBold) || false;
   const themeFontSizeTabsCapitalize = useSelector(state => state.settings?.themeFontSizeTabsCapitalize) || false;
+  const themeFontImager = useSelector(state => state.settings?.themeFontImager) || 'System Default';
+  const themeFontSizeImager = useSelector(state => state.settings?.themeFontSizeImager) || '0.72rem';
+  const themeFontImagerBold = useSelector(state => state.settings?.themeFontImagerBold) || false;
+  const themeFontImagerCapitalize = useSelector(state => state.settings?.themeFontImagerCapitalize) || false;
   const lastGpsLocation = useSelector(state => {
     const locs = state.gps?.locations || [];
     return locs.length > 0 ? locs[locs.length - 1] : null;
@@ -535,6 +538,7 @@ export default function App() {
       <style>{`
         ${themeFontName && themeFontName !== 'System Default' ? `@import url('https://fonts.googleapis.com/css2?family=${themeFontName.replace(/ /g, '+')}:wght@300;400;500;600;700&display=swap');` : ''}
         ${themeFontAppName && themeFontAppName !== 'System Default' && themeFontAppName !== themeFontName ? `@import url('https://fonts.googleapis.com/css2?family=${themeFontAppName.replace(/ /g, '+')}:wght@300;400;500;600;700&display=swap');` : ''}
+        ${themeFontImager && themeFontImager !== 'System Default' && themeFontImager !== themeFontName && themeFontImager !== themeFontAppName ? `@import url('https://fonts.googleapis.com/css2?family=${themeFontImager.replace(/ /g, '+')}:wght@300;400;500;600;700&display=swap');` : ''}
 
         :root {
           --color-primary: ${themeColorPrimary} !important;
@@ -603,6 +607,18 @@ export default function App() {
         }
         .list-item {
           border-bottom: ${themeAppBorderThickness} solid var(--color-border) !important;
+        }
+        .imager-select-label {
+          font-family: ${themeFontImager && themeFontImager !== 'System Default' ? `'${themeFontImager}', sans-serif` : `'-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'`} !important;
+          font-size: ${themeFontSizeImager} !important;
+          font-weight: ${themeFontImagerBold ? 'bold' : 'normal'} !important;
+          text-transform: ${themeFontImagerCapitalize ? 'uppercase' : 'none'} !important;
+        }
+        .imager-select {
+          font-family: ${themeFontImager && themeFontImager !== 'System Default' ? `'${themeFontImager}', sans-serif` : `'-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'`} !important;
+          font-size: ${themeFontSizeImager} !important;
+          font-weight: ${themeFontImagerBold ? 'bold' : 'normal'} !important;
+          text-transform: ${themeFontImagerCapitalize ? 'uppercase' : 'none'} !important;
         }
       `}</style>
       {originalAdmin && (
@@ -1292,6 +1308,69 @@ export default function App() {
                             </label>
                           </div>
                         </div>
+
+                        {/* Imager Dropdown Font Settings */}
+                        <div className="form-group">
+                          <label style={{ fontWeight: '600' }}>Imager Dropdown Font Name</label>
+                          <select
+                            value={themeFontImager}
+                            onChange={(e) => { dispatch(setThemeFontImager(e.target.value)); dispatch(saveSettings()); }}
+                            disabled={currentUser?.role === 'Admin Viewer'}
+                            style={{ display: 'block', marginTop: 8, padding: '8px', width: '100%', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer', background: '#fff', border: '1px solid #ccc', borderRadius: '4px' }}
+                          >
+                            <option value="System Default">System Default (Inter / sans-serif)</option>
+                            <option value="Inter">Inter</option>
+                            <option value="Roboto">Roboto</option>
+                            <option value="Outfit">Outfit</option>
+                            <option value="Poppins">Poppins</option>
+                            <option value="Open Sans">Open Sans</option>
+                            <option value="Montserrat">Montserrat</option>
+                            <option value="Lato">Lato</option>
+                            <option value="Playfair Display">Playfair Display (Serif)</option>
+                            <option value="Roboto Mono">Roboto Mono (Monospace)</option>
+                          </select>
+                        </div>
+
+                        <div className="form-group">
+                          <label style={{ fontWeight: '600' }}>Imager Dropdown Font Size</label>
+                          <select
+                            value={themeFontSizeImager}
+                            onChange={(e) => { dispatch(setThemeFontSizeImager(e.target.value)); dispatch(saveSettings()); }}
+                            disabled={currentUser?.role === 'Admin Viewer'}
+                            style={{ display: 'block', marginTop: 8, padding: '8px', width: '100%', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer', background: '#fff', border: '1px solid #ccc', borderRadius: '4px' }}
+                          >
+                            <option value="0.65rem">0.65rem</option>
+                            <option value="0.70rem">0.70rem</option>
+                            <option value="0.72rem">0.72rem (Default)</option>
+                            <option value="0.75rem">0.75rem</option>
+                            <option value="0.8rem">0.8rem</option>
+                            <option value="0.85rem">0.85rem</option>
+                            <option value="0.9rem">0.9rem</option>
+                            <option value="1.0rem">1.0rem</option>
+                          </select>
+                          <div style={{ display: 'flex', gap: '16px', marginTop: '10px' }}>
+                            <label style={{ display: 'flex', alignItems: 'center', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer', fontSize: '0.85rem', fontWeight: '500' }}>
+                              <input
+                                type="checkbox"
+                                checked={themeFontImagerBold}
+                                onChange={(e) => { dispatch(setThemeFontImagerBold(e.target.checked)); dispatch(saveSettings()); }}
+                                disabled={currentUser?.role === 'Admin Viewer'}
+                                style={{ width: '16px', height: '16px', margin: '0 8px 0 0', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer' }}
+                              />
+                              Bold
+                            </label>
+                            <label style={{ display: 'flex', alignItems: 'center', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer', fontSize: '0.85rem', fontWeight: '500' }}>
+                              <input
+                                type="checkbox"
+                                checked={themeFontImagerCapitalize}
+                                onChange={(e) => { dispatch(setThemeFontImagerCapitalize(e.target.checked)); dispatch(saveSettings()); }}
+                                disabled={currentUser?.role === 'Admin Viewer'}
+                                style={{ width: '16px', height: '16px', margin: '0 8px 0 0', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer' }}
+                              />
+                              Capitalize
+                            </label>
+                          </div>
+                        </div>
                       </div>
                     </div>
 
@@ -1802,29 +1881,32 @@ export default function App() {
                           </div>
 
                           <div style={{ flex: 1, minWidth: '200px' }}>
-                            <label style={{ fontWeight: '600', display: 'block', marginBottom: '8px', fontSize: '0.9rem' }}>Select Index (Unpersisted)</label>
+                            <label className="imager-select-label" style={{ fontWeight: '600', display: 'block', marginBottom: '8px', fontSize: '0.9rem' }}>Select Index (Unpersisted)</label>
                             <select
+                              className="imager-select"
                               value={testIndexType}
                               onChange={(e) => setTestIndexType(e.target.value)}
                               style={{ padding: '8px', fontSize: '0.85rem', width: '100%', border: '1px solid #ccc', borderRadius: '4px', background: 'white' }}
                               disabled={!testFieldId}
                             >
+                              <option value="Elevation">Elevation (Topography)</option>
                               <option value="none">None (Standard)</option>
                               <optgroup label="Satellite Indices">
                                 <option value="CurrentSatellite">Current Satellite (High-Res RGB)</option>
+                                <option value="TrueColor">True Color (RGB)</option>
                                 <option value="NDVI">NDVI (Vegetation Index)</option>
                                 <option value="NDWI">NDWI (Water Index)</option>
                                 <option value="EVI">EVI (Enhanced Vegetation)</option>
                                 <option value="SoilMoisture">Soil Moisture</option>
                                 <option value="FalseColor">False Color (Biomass)</option>
-                                <option value="TrueColor">True Color (RGB)</option>
                               </optgroup>
-                              <optgroup label="Weather Map Overlays">
-                                <option value="OWM_Clouds">Weather: Clouds (OpenWeather)</option>
-                                <option value="OWM_Precipitation">Weather: Precipitation (OpenWeather)</option>
-                                <option value="OWM_Temperature">Weather: Temperature (OpenWeather)</option>
-                                <option value="OWM_Wind">Weather: Wind Speed (OpenWeather)</option>
-                                <option value="OWM_Pressure">Weather: Sea Level Pressure (OpenWeather)</option>
+                              <optgroup label="Weather Map Overlays (GEE)">
+                                <option value="GEE_Temp">Weather: Temperature (GEE GFS)</option>
+                                <option value="GEE_Precip">Weather: Precipitation (GEE GFS)</option>
+                                <option value="GEE_Wind">Weather: Wind Speed (GEE GFS)</option>
+                                <option value="GEE_Humidity">Weather: Relative Humidity (GEE GFS)</option>
+                                <option value="GEE_Clouds">Weather: Total Cloud Cover (GEE GFS)</option>
+                                <option value="GEE_Pressure">Weather: Sea Level Pressure (GEE GFS)</option>
                               </optgroup>
                             </select>
                           </div>
@@ -1862,10 +1944,10 @@ export default function App() {
                                 color: statusObj.status === 'success' ? '#2e7d32' : statusObj.status === 'failed' ? '#c62828' : '#1565c0',
                                 border: `1px solid ${statusObj.status === 'success' ? '#a5d6a7' : statusObj.status === 'failed' ? '#ef9a9a' : '#90caf9'}`
                               }}>
-                                {statusObj.status === 'loading' && (testIndexType.startsWith('OWM_') ? '⌛ Fetching weather overlay tiles...' : '⌛ Fetching GEE tiles...')}
-                                {statusObj.status === 'success' && (testIndexType.startsWith('OWM_') ? '✓ Live weather overlay successfully loaded.' : '✓ Live GEE tiles successfully loaded.')}
-                                {statusObj.status === 'failed' && (testIndexType.startsWith('OWM_') ? `⚠ Weather Map Request Failed: ${statusObj.error || 'Unknown error'}.` : `⚠ GEE Request Failed: ${statusObj.error || 'Unknown error'}. Showing fallback simulation.`)}
-                                {!statusObj.status && (testIndexType.startsWith('OWM_') ? 'Preparing Weather Map request...' : 'Preparing GEE request...')}
+                                {statusObj.status === 'loading' && '⌛ Fetching GEE tiles...'}
+                                {statusObj.status === 'success' && '✓ Live GEE tiles successfully loaded.'}
+                                {statusObj.status === 'failed' && `⚠ GEE Request Failed: ${statusObj.error || 'Unknown error'}. Showing fallback simulation.`}
+                                {!statusObj.status && 'Preparing GEE request...'}
                               </div>
 
                               <div style={{ height: '300px', width: '100%', border: '1px solid #ccc', borderRadius: '8px', overflow: 'hidden', position: 'relative' }}>
@@ -1920,41 +2002,7 @@ export default function App() {
                 )}
               </div>
 
-              {/* OpenWeatherMap Settings Card */}
-              <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 0 }}>
-                <button
-                  onClick={() => setOpenSettings({ ...openSettings, owm: !openSettings.owm })}
-                  type="button"
-                  style={{ width: '100%', padding: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f5f7fa', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '1.1rem', color: '#333' }}
-                >
-                  OpenWeatherMap Settings
-                  {openSettings.owm ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
-                </button>
 
-                {openSettings.owm && (
-                  <div style={{ padding: '20px', background: 'var(--color-surface)' }}>
-                    <div style={{ marginBottom: 20 }}>
-                      <h3 style={{ marginTop: 0 }}>Weather Map Tile Configuration</h3>
-
-                      <div style={{ marginBottom: 16 }}>
-                        <label style={{ fontWeight: '600', display: 'block', marginBottom: '8px' }}>OpenWeatherMap API Key (appid)</label>
-                        <input
-                          type="password"
-                          value={owmApiKey || ''}
-                          onChange={(e) => { dispatch(setOwmApiKey(e.target.value)); dispatch(saveSettings()); }}
-                          disabled={currentUser?.role === 'Admin Viewer'}
-                          placeholder="e.g. 32-character hex API key"
-                          className="btn"
-                          style={{ display: 'block', marginTop: 8, padding: '8px', width: '100%', maxWidth: '500px', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'text', background: '#fff', border: '1px solid #ccc' }}
-                        />
-                        <small style={{ display: 'block', marginTop: '6px', color: '#666', fontSize: '0.8rem', lineHeight: '1.4' }}>
-                          Required for displaying weather maps (Clouds, Precipitation, Temperature, Wind Speed, Sea Level Pressure) as layers on the farm map. Get your free API key at <a href="https://openweathermap.org" target="_blank" rel="noopener noreferrer" style={{ color: '#2e7d32', textDecoration: 'underline' }}>openweathermap.org</a>.
-                        </small>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
 
             </div>
           )}

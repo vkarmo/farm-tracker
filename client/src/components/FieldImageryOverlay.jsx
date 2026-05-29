@@ -59,6 +59,57 @@ function getColor(val, indexType) {
     if (val < 0.6) return '#5e8a31'; // Natural crop light green
     return '#2e5c10'; // Natural crop deep forest green
   }
+  if (indexType === 'Elevation') {
+    if (val < 0.1) return '#08306b'; // Deep water blue
+    if (val < 0.25) return '#006837'; // Dark green valley
+    if (val < 0.4) return '#31a354'; // Green mid-low
+    if (val < 0.55) return '#78c679'; // Green mid
+    if (val < 0.7) return '#c2e699'; // Light green
+    if (val < 0.8) return '#fee08b'; // Soft yellow hill
+    if (val < 0.9) return '#fdae61'; // Light orange ridge
+    return '#a50026'; // Red peak
+  }
+  if (indexType === 'GEE_Temp') {
+    if (val < 0.2) return '#0000ff'; // Dark Blue (cold)
+    if (val < 0.4) return '#00ffff'; // Cyan
+    if (val < 0.55) return '#00ff00'; // Green
+    if (val < 0.7) return '#ffff00'; // Yellow
+    if (val < 0.85) return '#ffaa00'; // Orange
+    return '#ff0000'; // Red (hot)
+  }
+  if (indexType === 'GEE_Precip') {
+    if (val < 0.1) return '#ffffff'; // No rain
+    if (val < 0.3) return '#e0f7fa'; // Very light rain
+    if (val < 0.6) return '#80deea'; // Light rain
+    if (val < 0.8) return '#0097a7'; // Moderate rain
+    return '#0d47a1'; // Heavy rain
+  }
+  if (indexType === 'GEE_Wind') {
+    if (val < 0.2) return '#ffffff'; // Calm
+    if (val < 0.4) return '#b3e5fc'; // Light breeze
+    if (val < 0.6) return '#29b6f6'; // Moderate wind
+    if (val < 0.8) return '#0288d1'; // Strong wind
+    return '#d50000'; // Gale/danger
+  }
+  if (indexType === 'GEE_Humidity') {
+    if (val < 0.3) return '#d7ccc8'; // Dry (brown)
+    if (val < 0.5) return '#f5f5f5'; // Normal (white)
+    if (val < 0.7) return '#b2ebf2'; // Moist (light cyan)
+    if (val < 0.9) return '#4dd0e1'; // Very moist (cyan)
+    return '#006064'; // Wet/saturation (dark cyan)
+  }
+  if (indexType === 'GEE_Clouds') {
+    if (val < 0.25) return '#b3e5fc'; // Clear sky (blue)
+    if (val < 0.5) return '#ffffff'; // Scattered clouds (white)
+    if (val < 0.75) return '#e0e0e0'; // Broken clouds (light grey)
+    return '#9e9e9e'; // Overcast (grey)
+  }
+  if (indexType === 'GEE_Pressure') {
+    if (val < 0.25) return '#311b92'; // Deep purple low
+    if (val < 0.5) return '#d1c4e9'; // Light purple
+    if (val < 0.75) return '#fff9c4'; // Light yellow
+    return '#fbc02d'; // Yellow high
+  }
   return '#2e7d32';
 }
 
@@ -67,7 +118,6 @@ export default function FieldImageryOverlay({ polygon, indexType, dateOffset = 0
   const [geeLoading, setGeeLoading] = useState(false);
   const [geeError, setGeeError] = useState(false);
   const geeScale = useSelector(state => state.settings?.geeScale || 3);
-  const owmApiKey = useSelector(state => state.settings?.owmApiKey || '');
 
   // Robust polygon coordinate unnesting for Leaflet / GeoJSON coordinates
   const sanitizedPolygon = useMemo(() => {
@@ -92,35 +142,6 @@ export default function FieldImageryOverlay({ polygon, indexType, dateOffset = 0
 
     let isMounted = true;
     let fallbackTimeout = null;
-
-    const isOwm = indexType.startsWith('OWM_');
-    if (isOwm) {
-      setTileUrl(null);
-      setGeeLoading(false);
-      if (!owmApiKey) {
-        setGeeError(true);
-        window.dispatchEvent(new CustomEvent('gee-status-change', {
-          detail: { fieldId, status: 'failed', error: 'OpenWeatherMap API Key is not configured.' }
-        }));
-      } else {
-        setGeeError(false);
-        window.dispatchEvent(new CustomEvent('gee-status-change', {
-          detail: { fieldId, status: 'loading' }
-        }));
-
-        fallbackTimeout = setTimeout(() => {
-          if (isMounted) {
-            window.dispatchEvent(new CustomEvent('gee-status-change', {
-              detail: { fieldId, status: 'success' }
-            }));
-          }
-        }, 5500);
-      }
-      return () => {
-        isMounted = false;
-        if (fallbackTimeout) clearTimeout(fallbackTimeout);
-      };
-    }
 
     setGeeLoading(true);
     setGeeError(false);
@@ -198,7 +219,7 @@ export default function FieldImageryOverlay({ polygon, indexType, dateOffset = 0
         clearTimeout(fallbackTimeout);
       }
     };
-  }, [polygonHash, indexType, dateOffset, fieldId, geeScale, owmApiKey]);
+  }, [polygonHash, indexType, dateOffset, fieldId, geeScale]);
 
   const dataUrlAndBounds = useMemo(() => {
     // Only generate fallback canvas simulation if GEE has explicitly failed
@@ -304,7 +325,33 @@ export default function FieldImageryOverlay({ polygon, indexType, dateOffset = 0
         const b2 = 0.1 + 0.3 * (1.0 - vegFactor); // Band 2 (Blue, 10m) - generally low reflectance
 
         let val = 0.5;
-        if (indexType === 'NDVI') {
+        if (indexType === 'Elevation') {
+          // Simulate elevation using coordinates: center is highest, edges are lowest, plus some diagonal slopes
+          const distanceToCenter = Math.sqrt(dx * dx + dy * dy);
+          let baseElev = 1.0 - distanceToCenter; // Peak in center
+          // Add a diagonal slope
+          baseElev = baseElev * 0.7 + (dx + dy + 1.0) * 0.15;
+          // Add noise
+          val = baseElev + noise * 0.5;
+        } else if (indexType === 'GEE_Temp') {
+          // Horizontal gradient + weather noise
+          val = 0.5 + 0.1 * dy + noise * 0.5;
+        } else if (indexType === 'GEE_Precip') {
+          // Patchy rain areas
+          val = Math.max(0, 0.2 + 0.4 * Math.sin(dx * 5) + noise * 1.5);
+        } else if (indexType === 'GEE_Wind') {
+          // Wind speed gust
+          val = 0.4 + 0.3 * Math.cos(dy * 3) + noise * 1.2;
+        } else if (indexType === 'GEE_Humidity') {
+          // Humidity bands
+          val = 0.6 + 0.25 * Math.sin(dx * 4 + dy * 2) + noise * 0.5;
+        } else if (indexType === 'GEE_Clouds') {
+          // Clouds gradient
+          val = 0.5 + 0.4 * Math.sin(dx * 3 - dy * 3) + noise * 0.5;
+        } else if (indexType === 'GEE_Pressure') {
+          // Pressure cells
+          val = 0.5 + 0.2 * dx + noise * 0.2;
+        } else if (indexType === 'NDVI') {
           // NDVI = (NIR - Red) / (NIR + Red)
           val = (b8 - b4) / (b8 + b4 + 0.0001);
           // Scale from [-1, 1] range to [0, 1] range for getColor
@@ -349,36 +396,6 @@ export default function FieldImageryOverlay({ polygon, indexType, dateOffset = 0
   }, [sanitizedPolygon, indexType, dateOffset, fieldId, geeError, tileUrl]);
 
   if (indexType === 'none') return null;
-
-  const isOwm = indexType && indexType.startsWith('OWM_');
-  if (isOwm) {
-    if (!owmApiKey) return null;
-    const owmLayerMap = {
-      OWM_Clouds: 'clouds_new',
-      OWM_Precipitation: 'precipitation_new',
-      OWM_Temperature: 'temp_new',
-      OWM_Wind: 'wind_new',
-      OWM_Pressure: 'pressure_new'
-    };
-    const owmLayerName = owmLayerMap[indexType];
-    const owmTileUrl = `https://tile.openweathermap.org/map/${owmLayerName}/{z}/{x}/{y}.png?appid=${owmApiKey}`;
-    return (
-      <TileLayer
-        key={owmTileUrl}
-        url={owmTileUrl}
-        opacity={0.8}
-        maxZoom={24}
-        maxNativeZoom={18}
-        eventHandlers={{
-          load: () => {
-            window.dispatchEvent(new CustomEvent('gee-status-change', {
-              detail: { fieldId, status: 'success' }
-            }));
-          }
-        }}
-      />
-    );
-  }
 
   if (!geeError && tileUrl) {
     return (

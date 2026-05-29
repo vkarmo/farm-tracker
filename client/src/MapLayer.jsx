@@ -262,66 +262,65 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
                     <strong>{field.name}</strong><br/>
                     Area: {field.area}<br/>
                     <div style={{ marginTop: '8px' }}>
-                      <label style={{ fontSize: '0.72rem', fontWeight: 600, display: 'block', marginBottom: '4px' }}>Field Imagery:</label>
+                      <label className="imager-select-label" style={{ fontSize: '0.72rem', fontWeight: 600, display: 'block', marginBottom: '4px' }}>Field Imagery:</label>
                       <select 
+                        className="imager-select"
                         value={fieldImagery[field.id] || 'none'} 
                         onChange={(e) => setFieldImagery(prev => ({ ...prev, [field.id]: e.target.value }))}
                         style={{ padding: '4px', fontSize: '0.72rem', borderRadius: '4px', width: '100%', background: 'white' }}
                       >
+                        <option value="Elevation">Elevation (Topography)</option>
                         <option value="none">None (Standard)</option>
                         <optgroup label="Satellite Indices">
                           <option value="CurrentSatellite">Current Satellite View</option>
+                          <option value="TrueColor">True Color (RGB)</option>
                           <option value="NDVI">NDVI (Vegetation Index)</option>
                           <option value="NDWI">NDWI (Water Index)</option>
                           <option value="EVI">EVI (Enhanced Vegetation)</option>
                           <option value="SoilMoisture">Soil Moisture</option>
                           <option value="FalseColor">False Color (Biomass)</option>
-                          <option value="TrueColor">True Color (RGB)</option>
                         </optgroup>
-                        <optgroup label="Weather Map Overlays">
-                          <option value="OWM_Clouds">Weather: Clouds (OpenWeather)</option>
-                          <option value="OWM_Precipitation">Weather: Precipitation (OpenWeather)</option>
-                          <option value="OWM_Temperature">Weather: Temperature (OpenWeather)</option>
-                          <option value="OWM_Wind">Weather: Wind Speed (OpenWeather)</option>
-                          <option value="OWM_Pressure">Weather: Sea Level Pressure (OpenWeather)</option>
+                        <optgroup label="Weather Map Overlays (GEE)">
+                          <option value="GEE_Temp">Weather: Temperature (GEE GFS)</option>
+                          <option value="GEE_Precip">Weather: Precipitation (GEE GFS)</option>
+                          <option value="GEE_Wind">Weather: Wind Speed (GEE GFS)</option>
+                          <option value="GEE_Humidity">Weather: Relative Humidity (GEE GFS)</option>
+                          <option value="GEE_Clouds">Weather: Total Cloud Cover (GEE GFS)</option>
+                          <option value="GEE_Pressure">Weather: Sea Level Pressure (GEE GFS)</option>
                         </optgroup>
                       </select>
                     </div>
                     {fieldImagery[field.id] && fieldImagery[field.id] !== 'none' && (
                       <div style={{ marginTop: '8px', padding: '6px', background: '#f1f8e9', borderRadius: '4px', border: '1px solid #c5e1a5', fontSize: '0.72rem', color: '#33691e' }}>
                         <div style={{ fontWeight: 700, marginBottom: '2px' }}>
-                          {fieldImagery[field.id] === 'OWM_Clouds' ? 'Weather: Clouds' :
-                           fieldImagery[field.id] === 'OWM_Precipitation' ? 'Weather: Precipitation' :
-                           fieldImagery[field.id] === 'OWM_Temperature' ? 'Weather: Temperature' :
-                           fieldImagery[field.id] === 'OWM_Wind' ? 'Weather: Wind Speed' :
-                           fieldImagery[field.id] === 'OWM_Pressure' ? 'Weather: Sea Level Pressure' :
-                           fieldImagery[field.id] === 'CurrentSatellite' ? 'Current Satellite (High-Res)' : 'Sentinel-2 (10m Index)'}
+                          {fieldImagery[field.id] === 'GEE_Clouds' ? 'Weather: Clouds (GEE)' :
+                           fieldImagery[field.id] === 'GEE_Precip' ? 'Weather: Precipitation (GEE)' :
+                           fieldImagery[field.id] === 'GEE_Temp' ? 'Weather: Temperature (GEE)' :
+                           fieldImagery[field.id] === 'GEE_Wind' ? 'Weather: Wind Speed (GEE)' :
+                           fieldImagery[field.id] === 'GEE_Humidity' ? 'Weather: Relative Humidity (GEE)' :
+                           fieldImagery[field.id] === 'GEE_Pressure' ? 'Weather: Sea Level Pressure (GEE)' :
+                           fieldImagery[field.id] === 'CurrentSatellite' ? 'Current Satellite (High-Res)' :
+                           fieldImagery[field.id] === 'Elevation' ? 'Elevation (Topography)' : 'Sentinel-2 (10m Index)'}
                         </div>
                         {geeStatus[field.id] && geeStatus[field.id].status === 'failed' && (
                           <div style={{ marginTop: '4px', color: '#c62828', fontWeight: 600, fontSize: '0.65rem', lineHeight: '1.2' }}>
-                            {fieldImagery[field.id].startsWith('OWM_') 
-                              ? `⚠ Weather Map Failed: ${geeStatus[field.id].error}` 
-                              : `⚠ GEE Failed: ${geeStatus[field.id].error}. Showing simulation.`}
+                            {`⚠ GEE Failed: ${geeStatus[field.id].error}. Showing simulation.`}
                           </div>
                         )}
                         {geeStatus[field.id] && geeStatus[field.id].status === 'success' && (
                           <div style={{ marginTop: '4px', color: '#2e7d32', fontWeight: 600, fontSize: '0.65rem', lineHeight: '1.2' }}>
-                            {fieldImagery[field.id].startsWith('OWM_') 
-                              ? '✓ Live weather overlay loaded.' 
-                              : '✓ Live Earth Engine imagery loaded.'}
+                            ✓ Live Earth Engine imagery loaded.
                           </div>
                         )}
                         {geeStatus[field.id] && geeStatus[field.id].status === 'loading' && (
                           <div style={{ marginTop: '4px', color: '#1565c0', fontSize: '0.65rem', lineHeight: '1.2' }}>
-                            {fieldImagery[field.id].startsWith('OWM_') 
-                              ? 'Fetching weather overlay tiles...' 
-                              : 'Fetching GEE tiles...'}
+                            Fetching GEE tiles...
                           </div>
                         )}
-                        {!fieldImagery[field.id]?.startsWith('OWM_') && (
-                          <>
-                            <div>Scene Date: {getDeterministicSceneDate(field.id, fieldImageryOffsets[field.id] || 0)}</div>
-                            <div>Cloud Cover: {getDeterministicCloudCover(field.id, fieldImageryOffsets[field.id] || 0)}%</div>
+                        <div>Scene Date: {getDeterministicSceneDate(field.id, fieldImageryOffsets[field.id] || 0)}</div>
+                        {!['GEE_Temp', 'GEE_Precip', 'GEE_Wind', 'GEE_Humidity', 'GEE_Clouds', 'GEE_Pressure'].includes(fieldImagery[field.id]) && (
+                          <div>Cloud Cover: {getDeterministicCloudCover(field.id, fieldImageryOffsets[field.id] || 0)}%</div>
+                        )}
                             
                             <div style={{ display: 'flex', marginTop: '6px', alignItems: 'center', justifyContent: 'space-between' }}>
                               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
@@ -353,12 +352,10 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
                                 </button>
                               </div>
                             </div>
-                          </>
+                          </div>
                         )}
                       </div>
-                    )}
-                  </div>
-                </Popup>
+                    </Popup>
               </Polygon>
               {fieldImagery[field.id] && fieldImagery[field.id] !== 'none' && (
                 <FieldImageryOverlay 

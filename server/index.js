@@ -334,34 +334,148 @@ app.post('/api/gee/tile-url', async (req, res) => {
     const startDateStr = start.toISOString().split('T')[0];
     const endDateStr = end.toISOString().split('T')[0];
     
-    // 5. Load and filter Sentinel-2 Collection
-    let collection = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
-      .filterBounds(geometry)
-      .filterDate(startDateStr, endDateStr);
+    let baseImage = null;
+    const isGeeWeather = ['GEE_Temp', 'GEE_Precip', 'GEE_Wind', 'GEE_Humidity', 'GEE_Clouds', 'GEE_Pressure'].includes(indexType);
+
+    if (indexType !== 'Elevation' && !isGeeWeather) {
+      // 5. Load and filter Sentinel-2 Collection
+      let collection = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
+        .filterBounds(geometry)
+        .filterDate(startDateStr, endDateStr);
+        
+      // Sort by lowest cloud cover
+      let sorted = collection.sort('CLOUDY_PIXEL_PERCENTAGE');
       
-    // Sort by lowest cloud cover
-    let sorted = collection.sort('CLOUDY_PIXEL_PERCENTAGE');
-    
-    // Get the size of collection asynchronously
-    const count = await new Promise((resolve, reject) => {
-      sorted.size().evaluate((c, err) => {
-        if (err) reject(err);
-        else resolve(c);
+      // Get the size of collection asynchronously
+      const count = await new Promise((resolve, reject) => {
+        sorted.size().evaluate((c, err) => {
+          if (err) reject(err);
+          else resolve(c);
+        });
       });
-    });
-    
-    if (count === 0) {
-      return res.status(404).json({ error: 'No Sentinel-2 imagery found for the specified bounds and date range.' });
+      
+      if (count === 0) {
+        return res.status(404).json({ error: 'No Sentinel-2 imagery found for the specified bounds and date range.' });
+      }
+      
+      const firstImage = sorted.first();
+      baseImage = firstImage.resample('bicubic');
     }
-    
-    const firstImage = sorted.first();
-    const baseImage = firstImage.resample('bicubic');
     
     // 6. Process image based on index type
     let processedImage;
     let visParams;
     
-    if (indexType === 'NDVI') {
+    if (isGeeWeather) {
+      // Load NOAA GFS Collection
+      let gfsCollection = ee.ImageCollection('NOAA/GFS0P25')
+        .filterBounds(geometry)
+        .filterDate(startDateStr, endDateStr)
+        .filter(ee.Filter.eq('forecast_hours', 0))
+        .sort('system:time_start', false);
+        
+      const count = await new Promise((resolve, reject) => {
+        gfsCollection.size().evaluate((c, err) => {
+          if (err) reject(err);
+          else resolve(c);
+        });
+      });
+      
+      if (count === 0) {
+        return res.status(404).json({ error: 'No GEE weather reanalysis data found for the specified bounds and date range.' });
+      }
+      
+      const weatherImage = gfsCollection.first();
+      
+      if (indexType === 'GEE_Temp') {
+        const temp = weatherImage.select('temperature_2m_above_ground');
+        processedImage = temp.reproject({ crs: 'EPSG:3857', scale: scaleValue }).clip(geometry);
+        visParams = {
+          min: 263.15, // -10C
+          max: 313.15, // 40C
+          palette: ['#0000ff', '#00ffff', '#00ff00', '#ffff00', '#ffaa00', '#ff0000']
+        };
+      } else if (indexType === 'GEE_Precip') {
+        const precip = weatherImage.select('precipitation_rate_surface');
+        processedImage = precip.reproject({ crs: 'EPSG:3857', scale: scaleValue }).clip(geometry);
+        visParams = {
+          min: 0.0,
+          max: 0.0005,
+          palette: ['#ffffff', '#e0f7fa', '#80deea', '#0097a7', '#0d47a1']
+        };
+      } else if (indexType === 'GEE_Wind') {
+        const uWind = weatherImage.select('u_component_of_wind_10m_above_ground');
+        const vWind = weatherImage.select('v_component_of_wind_10m_above_ground');
+        const windSpeed = uWind.multiply(uWind).add(vWind.multiply(vWind)).sqrt().rename('wind_speed');
+        processedImage = windSpeed.reproject({ crs: 'EPSG:3857', scale: scaleValue }).clip(geometry);
+        visParams = {
+          min: 0.0,
+          max: 15.0,
+          palette: ['#ffffff', '#b3e5fc', '#29b6f6', '#0288d1', '#d50000']
+        };
+      } else if (indexType === 'GEE_Humidity') {
+        const hum = weatherImage.select('relative_humidity_2m_above_ground');
+        processedImage = hum.reproject({ crs: 'EPSG:3857', scale: scaleValue }).clip(geometry);
+        visParams = {
+          min: 20.0,
+          max: 100.0,
+          palette: ['#d7ccc8', '#f5f5f5', '#b2ebf2', '#4dd0e1', '#00acc1', '#006064']
+        };
+      } else if (indexType === 'GEE_Clouds') {
+        const clouds = weatherImage.select('total_cloud_cover_entire_atmosphere');
+        processedImage = clouds.reproject({ crs: 'EPSG:3857', scale: scaleValue }).clip(geometry);
+        visParams = {
+          min: 0.0,
+          max: 100.0,
+          palette: ['#b3e5fc', '#ffffff', '#e0e0e0', '#9e9e9e']
+        };
+      } else if (indexType === 'GEE_Pressure') {
+        const pressure = weatherImage.select('mean_sea_level_pressure');
+        processedImage = pressure.reproject({ crs: 'EPSG:3857', scale: scaleValue }).clip(geometry);
+        visParams = {
+          min: 98000,
+          max: 103000,
+          palette: ['#311b92', '#512da8', '#d1c4e9', '#fff9c4', '#fbc02d', '#f57f17']
+        };
+      }
+    } else if (indexType === 'Elevation') {
+      const srtm = ee.Image('USGS/SRTMGL1_003');
+      const elevation = srtm.select('elevation');
+      
+      const stats = elevation.reduceRegion({
+        reducer: ee.Reducer.minMax(),
+        geometry: geometry,
+        scale: 30,
+        maxPixels: 1e9
+      });
+      
+      const minMax = await new Promise((resolve) => {
+        stats.evaluate((val, err) => {
+          if (err || !val) {
+            resolve({ min: 0, max: 500 });
+          } else {
+            resolve({
+              min: val.elevation_min !== undefined ? val.elevation_min : 0,
+              max: val.elevation_max !== undefined ? val.elevation_max : 500
+            });
+          }
+        });
+      });
+      
+      let visMin = minMax.min;
+      let visMax = minMax.max;
+      if (visMin === visMax) {
+        visMin -= 1;
+        visMax += 1;
+      }
+      
+      processedImage = elevation.reproject({ crs: 'EPSG:3857', scale: scaleValue }).clip(geometry);
+      visParams = {
+        min: visMin,
+        max: visMax,
+        palette: ['#08306b', '#006837', '#31a354', '#78c679', '#c2e699', '#fee08b', '#fdae61', '#f46d43', '#d73027', '#a50026']
+      };
+    } else if (indexType === 'NDVI') {
       // Calculate NDVI: (B8 - B4) / (B8 + B4)
       const ndvi = baseImage.normalizedDifference(['B8', 'B4']).rename('NDVI');
       processedImage = ndvi.select(['NDVI']).reproject({ crs: 'EPSG:3857', scale: scaleValue }).resample('bicubic').clip(geometry);
