@@ -230,11 +230,11 @@ export default function FieldTab() {
                         <div style={{ minWidth: '200px' }}>
                           <strong>Active Field: {formData.name || 'Unnamed'}</strong>
                           <div style={{ marginTop: '8px' }}>
-                            <label style={{ fontSize: '0.8rem', fontWeight: 600, display: 'block', marginBottom: '4px' }}>Field Imagery:</label>
+                            <label style={{ fontSize: '0.72rem', fontWeight: 600, display: 'block', marginBottom: '4px' }}>Field Imagery:</label>
                             <select 
                               value={fieldImagery[editingId || 'active'] || 'none'} 
                               onChange={(e) => setFieldImagery(prev => ({ ...prev, [editingId || 'active']: e.target.value }))}
-                              style={{ padding: '4px', fontSize: '0.8rem', borderRadius: '4px', width: '100%', background: 'white' }}
+                              style={{ padding: '4px', fontSize: '0.72rem', borderRadius: '4px', width: '100%', background: 'white' }}
                             >
                               <option value="none">None (Standard)</option>
                               <optgroup label="Satellite Indices">
@@ -372,11 +372,11 @@ export default function FieldTab() {
                             Area: {field.area} ac<br/>
                             <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                               <div>
-                                <label style={{ fontSize: '0.8rem', fontWeight: 600, display: 'block', marginBottom: '4px' }}>Field Imagery:</label>
+                                <label style={{ fontSize: '0.72rem', fontWeight: 600, display: 'block', marginBottom: '4px' }}>Field Imagery:</label>
                                 <select 
                                   value={fieldImagery[field.id] || 'none'} 
                                   onChange={(e) => setFieldImagery(prev => ({ ...prev, [field.id]: e.target.value }))}
-                                  style={{ padding: '4px', fontSize: '0.8rem', borderRadius: '4px', width: '100%', background: 'white' }}
+                                  style={{ padding: '4px', fontSize: '0.72rem', borderRadius: '4px', width: '100%', background: 'white' }}
                                 >
                                   <option value="none">None (Standard)</option>
                                   <optgroup label="Satellite Indices">

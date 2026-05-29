@@ -262,11 +262,11 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
                     <strong>{field.name}</strong><br/>
                     Area: {field.area}<br/>
                     <div style={{ marginTop: '8px' }}>
-                      <label style={{ fontSize: '0.8rem', fontWeight: 600, display: 'block', marginBottom: '4px' }}>Field Imagery:</label>
+                      <label style={{ fontSize: '0.72rem', fontWeight: 600, display: 'block', marginBottom: '4px' }}>Field Imagery:</label>
                       <select 
                         value={fieldImagery[field.id] || 'none'} 
                         onChange={(e) => setFieldImagery(prev => ({ ...prev, [field.id]: e.target.value }))}
-                        style={{ padding: '4px', fontSize: '0.8rem', borderRadius: '4px', width: '100%', background: 'white' }}
+                        style={{ padding: '4px', fontSize: '0.72rem', borderRadius: '4px', width: '100%', background: 'white' }}
                       >
                         <option value="none">None (Standard)</option>
                         <optgroup label="Satellite Indices">

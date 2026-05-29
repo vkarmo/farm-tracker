@@ -1164,7 +1164,7 @@ export default function App() {
                           <select
                             value={testIndexType}
                             onChange={(e) => setTestIndexType(e.target.value)}
-                            style={{ padding: '8px', width: '100%', border: '1px solid #ccc', borderRadius: '4px', background: 'white' }}
+                            style={{ padding: '8px', fontSize: '0.85rem', width: '100%', border: '1px solid #ccc', borderRadius: '4px', background: 'white' }}
                             disabled={!testFieldId}
                           >
                             <option value="none">None (Standard)</option>
