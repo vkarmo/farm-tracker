@@ -168,7 +168,7 @@ export default function NurseryTab() {
                   <Marker key={`pin_${idx}`} position={pos} />
                 ))}
                 {latLngs.length > 0 && (
-                  <Polygon positions={latLngs} pathOptions={{ color: bedData.drawColor || polygonColor }} />
+                  <Polygon positions={latLngs} pathOptions={{ color: bedData.drawColor || polygonColor, weight: 1.5, opacity: 0.6 }} />
                 )}
                 {/* Render existing saved beds (clickable for editing) */}
                 {nurseries.filter(b => b.id !== editingId).map(bed => {
@@ -181,7 +181,7 @@ export default function NurseryTab() {
                     <Polygon 
                       key={bed.id} 
                       positions={positions} 
-                      pathOptions={{ color: bed.drawColor || polygonColor, weight: 2, fillOpacity: 0.4, bubblingMouseEvents: false }} 
+                      pathOptions={{ color: bed.drawColor || polygonColor, weight: 1.2, opacity: 0.6, fillOpacity: 0.4, bubblingMouseEvents: false }} 
                       eventHandlers={{ click: (e) => {
                         e.originalEvent.stopPropagation();
                         if (editingId || polygonPositions.length > 0) return;
@@ -207,7 +207,8 @@ export default function NurseryTab() {
                         positions={positions} 
                         pathOptions={{ 
                           color: f.drawColor || '#ffffff', 
-                          weight: 1, 
+                          weight: 0.8, 
+                          opacity: 0.5,
                           dashArray: '5,5', 
                           fill: !makeTransparent,
                           fillOpacity: makeTransparent ? 0.0 : 0.1 
@@ -309,7 +310,7 @@ export default function NurseryTab() {
                   let positions = [];
                   if (p.points) { try { positions = typeof p.points === 'string' ? JSON.parse(p.points) : p.points; } catch(e){} }
                   if (positions.length === 0) return null;
-                  return <Polygon key={p.id} positions={positions} pathOptions={{ color: 'purple', weight: 1, dashArray: '5,5', fillOpacity: 0.1 }} interactive={false} />;
+                  return <Polygon key={p.id} positions={positions} pathOptions={{ color: 'purple', weight: 0.8, opacity: 0.5, dashArray: '5,5', fillOpacity: 0.1 }} interactive={false} />;
                 })}
               </MapContainer>
             </ResizableMapWrapper>

@@ -291,7 +291,8 @@ export default function SoilTestingTab() {
                           positions={positions} 
                           pathOptions={{ 
                             color: f.drawColor || '#ffffff', 
-                            weight: 1, 
+                            weight: 0.8, 
+                            opacity: 0.5,
                             dashArray: '5,5', 
                             fill: !makeTransparent,
                             fillOpacity: makeTransparent ? 0.0 : 0.1 
@@ -394,7 +395,7 @@ export default function SoilTestingTab() {
                     let positions = [];
                     if (n.polygon) { try { positions = typeof n.polygon === 'string' ? JSON.parse(n.polygon) : n.polygon; } catch(e){} }
                     if (positions.length === 0) return null;
-                    return <Polygon key={n.id} positions={positions} pathOptions={{ color: n.drawColor || 'orange', weight: 1, dashArray: '5,5', fillOpacity: 0.1 }} interactive={false} />;
+                    return <Polygon key={n.id} positions={positions} pathOptions={{ color: n.drawColor || 'orange', weight: 0.8, opacity: 0.5, dashArray: '5,5', fillOpacity: 0.1 }} interactive={false} />;
                   })}
 
                   {/* Render POIs for context (unclickable) */}
@@ -404,7 +405,7 @@ export default function SoilTestingTab() {
                     if (!existingPts || existingPts.length === 0) return null;
                     const mappedPts = existingPts.map(pt => [pt[0], pt[1]]);
                     if (mappedPts.length > 2) {
-                       return <Polygon key={p.id} positions={mappedPts} pathOptions={{ color: p.drawColor || polygonColor, weight: 1, dashArray: '5,5', fillOpacity: 0.1 }} interactive={false} />
+                       return <Polygon key={p.id} positions={mappedPts} pathOptions={{ color: p.drawColor || polygonColor, weight: 0.8, opacity: 0.5, dashArray: '5,5', fillOpacity: 0.1 }} interactive={false} />
                     } else if (mappedPts.length > 1) {
                        return <Polyline key={p.id} positions={mappedPts} pathOptions={{ color: p.drawColor || polygonColor, weight: 2, dashArray: '5,5' }} interactive={false} />
                     } else {

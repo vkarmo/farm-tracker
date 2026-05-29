@@ -1240,6 +1240,8 @@ export default function App() {
                                       }
                                       pathOptions={{ 
                                          color: selectedField.drawColor || polygonColor, 
+                                         weight: 1.5,
+                                         opacity: 0.6,
                                          fill: !makeTransparent,
                                          fillOpacity: makeTransparent ? 0.0 : 0.1 
                                        }}

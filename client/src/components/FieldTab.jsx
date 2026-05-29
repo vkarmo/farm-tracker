@@ -220,6 +220,8 @@ export default function FieldTab() {
                       positions={latLngs} 
                       pathOptions={{ 
                         color: formData.drawColor || polygonColor,
+                        weight: 1.5,
+                        opacity: 0.6,
                         fill: !makeActiveTransparent,
                         fillOpacity: makeActiveTransparent ? 0.0 : 0.2
                       }}
@@ -331,7 +333,8 @@ export default function FieldTab() {
                         positions={positions}
                         pathOptions={{
                           color: field.drawColor || polygonColor,
-                          weight: isBg ? 1 : 2,
+                          weight: isBg ? 0.8 : 1.5,
+                          opacity: 0.6,
                           fill: !makeTransparent,
                           fillOpacity: makeTransparent ? 0.0 : (isBg ? 0.05 : 0.3),
                           dashArray: isBg ? '5,5' : undefined,
@@ -446,14 +449,14 @@ export default function FieldTab() {
                   let positions = [];
                   if (n.polygon) { try { positions = typeof n.polygon === 'string' ? JSON.parse(n.polygon) : n.polygon; } catch (e) { } }
                   if (positions.length === 0) return null;
-                  return <Polygon key={n.id} positions={positions} pathOptions={{ color: n.drawColor || 'orange', weight: 1, dashArray: '5,5', fillOpacity: 0.1 }} interactive={false} />;
+                  return <Polygon key={n.id} positions={positions} pathOptions={{ color: n.drawColor || 'orange', weight: 0.8, opacity: 0.5, dashArray: '5,5', fillOpacity: 0.1 }} interactive={false} />;
                 })}
                 {/* Render POIs for context (unclickable) */}
                 {pois.map(p => {
                   let positions = [];
                   if (p.points) { try { positions = typeof p.points === 'string' ? JSON.parse(p.points) : p.points; } catch (e) { } }
                   if (positions.length === 0) return null;
-                  return <Polygon key={p.id} positions={positions} pathOptions={{ color: 'purple', weight: 1, dashArray: '5,5', fillOpacity: 0.1 }} interactive={false} />;
+                  return <Polygon key={p.id} positions={positions} pathOptions={{ color: 'purple', weight: 0.8, opacity: 0.5, dashArray: '5,5', fillOpacity: 0.1 }} interactive={false} />;
                 })}
               </MapContainer>
             </ResizableMapWrapper>

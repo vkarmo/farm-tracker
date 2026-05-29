@@ -10,7 +10,7 @@ export function isPointInPolygon(point, vs) {
     const xi = vs[i][0], yi = vs[i][1];
     const xj = vs[j][0], yj = vs[j][1];
     const intersect = ((yi > y) !== (yj > y))
-        && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+      && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
     if (intersect) inside = !inside;
   }
   return inside;
@@ -124,8 +124,9 @@ export default function FieldImageryOverlay({ polygon, indexType, dateOffset = 0
           if (data.urlTemplate) {
             setTileUrl(data.urlTemplate);
             setGeeError(false);
+            // GEE URL template received, keep status 'loading' until TileLayer load event fires
             window.dispatchEvent(new CustomEvent('gee-status-change', {
-              detail: { fieldId, status: 'success' }
+              detail: { fieldId, status: 'loading' }
             }));
           } else {
             setGeeError(true);
@@ -168,7 +169,7 @@ export default function FieldImageryOverlay({ polygon, indexType, dateOffset = 0
     // 1. Compute Bounding Box
     let minLat = Infinity, maxLat = -Infinity;
     let minLng = Infinity, maxLng = -Infinity;
-    
+
     for (const pt of sanitizedPolygon) {
       const lat = pt[0];
       const lng = pt[1];
@@ -195,7 +196,7 @@ export default function FieldImageryOverlay({ polygon, indexType, dateOffset = 0
       const denom = maxLng - minLng;
       return denom === 0 ? 0 : ((lng - minLng) / denom) * canvasWidth;
     };
-    
+
     const getCanvasY = (lat) => {
       const denom = maxLat - minLat;
       return denom === 0 ? 0 : (1.0 - (lat - minLat) / denom) * canvasHeight;
@@ -218,14 +219,14 @@ export default function FieldImageryOverlay({ polygon, indexType, dateOffset = 0
     const gridSize = (indexType === 'CurrentSatellite' || indexType === 'TrueColor' || indexType === 'NDVI') ? 512 : 256;
     const cellWidth = canvasWidth / gridSize;
     const cellHeight = canvasHeight / gridSize;
-    
+
     const latCenter = (minLat + maxLat) / 2;
     const lngCenter = (minLng + maxLng) / 2;
 
     // Calculate scene date & seasonal multiplier
     const sceneDate = getDeterministicSceneDateObject(fieldId, dateOffset);
     const month = sceneDate.getMonth(); // 0 to 11
-    
+
     // Seasonal multiplier (peaks in July/month 6, lowest in Jan/month 0)
     const seasonalFactor = 0.55 + 0.45 * Math.cos(((month - 6) / 6) * Math.PI); // Range [0.1, 1.0]
 
@@ -241,7 +242,7 @@ export default function FieldImageryOverlay({ polygon, indexType, dateOffset = 0
 
         const dx = (cellLat - latCenter) / (maxLat - minLat);
         const dy = (cellLng - lngCenter) / (maxLng - minLng);
-        
+
         // Add deterministic pseudorandom noise based on coordinates to look like natural satellite bands
         const sinSeed = Math.sin(cellLat * 12345 + cellLng * 67890 - dateOffset * 0.001);
         const noise = (sinSeed - Math.floor(sinSeed)) * 0.08 - 0.04;
@@ -276,7 +277,7 @@ export default function FieldImageryOverlay({ polygon, indexType, dateOffset = 0
         } else if (indexType === 'SoilMoisture') {
           // Bypassing SWIR (20m), estimate soil moisture index based on soil reflectance difference (B3/B8/B4)
           // Moist soil is darker (lower reflectance in visible and NIR)
-          const dryness = 0.3 * b4 + 0.7 * b8; 
+          const dryness = 0.3 * b4 + 0.7 * b8;
           val = 1.0 - dryness;
         } else if (indexType === 'FalseColor') {
           // False Color composite: B8 (NIR) is rendered red, B4 (Red) is rendered green, B3 (Green) is rendered blue.
@@ -313,6 +314,13 @@ export default function FieldImageryOverlay({ polygon, indexType, dateOffset = 0
         opacity={0.85}
         maxZoom={24}
         maxNativeZoom={20}
+        eventHandlers={{
+          load: () => {
+            window.dispatchEvent(new CustomEvent('gee-status-change', {
+              detail: { fieldId, status: 'success' }
+            }));
+          }
+        }}
       />
     );
   }
@@ -323,8 +331,8 @@ export default function FieldImageryOverlay({ polygon, indexType, dateOffset = 0
     <ImageOverlay
       bounds={dataUrlAndBounds.bounds}
       url={dataUrlAndBounds.url}
-      opacity={0.75}
-      interactive={false}
+      opacity={1.0}
+      interactive={true}
       bubblingMouseEvents={true}
     />
   );

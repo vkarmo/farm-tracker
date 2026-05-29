@@ -221,7 +221,7 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
           }
           if (!Array.isArray(positions) || positions.length === 0) return null;
           return (
-            <Polygon key={bed.id} pathOptions={{ color: bed.drawColor || polygonColor, weight: 2, fillOpacity: 0.4 }} positions={positions}>
+            <Polygon key={bed.id} pathOptions={{ color: bed.drawColor || polygonColor, weight: 1.2, opacity: 0.6, fillOpacity: 0.4 }} positions={positions}>
               <Popup>
                 <strong>Nursery: {bed.name}</strong><br/>
                 Capacity: {bed.capacity} plugs
@@ -250,6 +250,8 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
                     key={`${field.id}_${makeTransparent}`}
                     pathOptions={{ 
                       color: field.drawColor || polygonColor,
+                      weight: 1.5,
+                      opacity: 0.6,
                       fill: !makeTransparent,
                       fillOpacity: makeTransparent ? 0.0 : 0.2
                     }} 
@@ -355,7 +357,7 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
           if (!Array.isArray(positions) || positions.length < 3) return null;
           const mappedPts = positions.map(pt => [pt[0], pt[1]]);
           return (
-            <Polygon key={poi.id} pathOptions={{ color: poi.drawColor || polygonColor, weight: 2, fillOpacity: 0.5 }} positions={mappedPts}>
+            <Polygon key={poi.id} pathOptions={{ color: poi.drawColor || polygonColor, weight: 1.2, opacity: 0.6, fillOpacity: 0.5 }} positions={mappedPts}>
               <Popup>
                 <strong>POI: {poi.name}</strong><br/>
                 {poi.type}

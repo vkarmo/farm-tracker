@@ -162,8 +162,8 @@ export default function PoiTab() {
           <MapFlyTo center={searchResultCenter} />
           <ClickToDrawComponent points={points} setPoints={setPoints} setCenter={setSearchResultCenter} />
 
-          {latLngs.length > 2 && <Polygon positions={latLngs} pathOptions={{ color: formData.drawColor || polygonColor, weight: 2, fillOpacity: 0.3 }} />}
-          {latLngs.length > 1 && latLngs.length <= 2 && <Polyline positions={latLngs} pathOptions={{ color: formData.drawColor || polygonColor, weight: 3 }} />}
+          {latLngs.length > 2 && <Polygon positions={latLngs} pathOptions={{ color: formData.drawColor || polygonColor, weight: 1.5, opacity: 0.6, fillOpacity: 0.3 }} />}
+          {latLngs.length > 1 && latLngs.length <= 2 && <Polyline positions={latLngs} pathOptions={{ color: formData.drawColor || polygonColor, weight: 2, opacity: 0.7 }} />}
           {latLngs.map((pos, idx) => (
             <Marker key={idx} position={pos} opacity={0.8} />
           ))}
@@ -182,9 +182,9 @@ export default function PoiTab() {
             };
 
             if (mappedPts.length > 2) {
-              return <Polygon key={p.id} positions={mappedPts} pathOptions={{ color: p.drawColor || polygonColor, weight: 1, fillOpacity: 0.1, bubblingMouseEvents: false }} eventHandlers={{ click: handleClick }} />
+              return <Polygon key={p.id} positions={mappedPts} pathOptions={{ color: p.drawColor || polygonColor, weight: 1.2, opacity: 0.6, fillOpacity: 0.1, bubblingMouseEvents: false }} eventHandlers={{ click: handleClick }} />
             } else if (mappedPts.length > 1) {
-              return <Polyline key={p.id} positions={mappedPts} pathOptions={{ color: p.drawColor || polygonColor, weight: 2, bubblingMouseEvents: false }} eventHandlers={{ click: handleClick }} />
+              return <Polyline key={p.id} positions={mappedPts} pathOptions={{ color: p.drawColor || polygonColor, weight: 1.5, opacity: 0.6, bubblingMouseEvents: false }} eventHandlers={{ click: handleClick }} />
             } else {
               return <Marker key={p.id} position={mappedPts[0]} opacity={0.5} bubblingMouseEvents={false} eventHandlers={{ click: handleClick }} />
             }
@@ -195,7 +195,7 @@ export default function PoiTab() {
             let positions = [];
             if (f.polygon) { try { positions = typeof f.polygon === 'string' ? JSON.parse(f.polygon) : f.polygon; } catch (e) { } }
             if (positions.length === 0) return null;
-            return <Polygon key={f.id} positions={positions} pathOptions={{ color: f.drawColor || '#ffffff', weight: 1, dashArray: '5,5', fillOpacity: 0.1 }} interactive={false} />;
+            return <Polygon key={f.id} positions={positions} pathOptions={{ color: f.drawColor || '#ffffff', weight: 0.8, opacity: 0.5, dashArray: '5,5', fillOpacity: 0.1 }} interactive={false} />;
           })}
 
           {/* Render nurseries for context (unclickable) */}
@@ -203,7 +203,7 @@ export default function PoiTab() {
             let positions = [];
             if (n.polygon) { try { positions = typeof n.polygon === 'string' ? JSON.parse(n.polygon) : n.polygon; } catch (e) { } }
             if (positions.length === 0) return null;
-            return <Polygon key={n.id} positions={positions} pathOptions={{ color: n.drawColor || 'orange', weight: 1, dashArray: '5,5', fillOpacity: 0.1 }} interactive={false} />;
+            return <Polygon key={n.id} positions={positions} pathOptions={{ color: n.drawColor || 'orange', weight: 0.8, opacity: 0.5, dashArray: '5,5', fillOpacity: 0.1 }} interactive={false} />;
           })}
 
         </MapContainer>
