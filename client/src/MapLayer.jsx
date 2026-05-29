@@ -247,12 +247,12 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
               return (
                 <React.Fragment key={field.id}>
                   <Polygon 
-                    key={`${field.id}_${makeTransparent}`}
+                    key={field.id}
                     pathOptions={{ 
                       color: field.drawColor || polygonColor,
                       weight: 1.5,
                       opacity: 0.6,
-                      fill: !makeTransparent,
+                      fill: true,
                       fillOpacity: makeTransparent ? 0.0 : 0.2
                     }} 
                     positions={positions}

@@ -436,12 +436,36 @@ app.post('/api/gee/tile-url', async (req, res) => {
     }
     
     // Construct tile URL template using urlFormat provided by GEE or fallback if not present
-    const urlTemplate = mapInfo.urlFormat || `https://earthengine.googleapis.com/v1/projects/${creds.project_id}/maps/${mapInfo.mapid}/tiles/{z}/{x}/{y}`;
+    let urlTemplate = mapInfo.urlFormat || `https://earthengine.googleapis.com/v1/projects/${creds.project_id}/maps/${mapInfo.mapid}/tiles/{z}/{x}/{y}`;
+    
+    // Normalize urlTemplate to ensure it always starts with the absolute domain
+    const v1Index = urlTemplate.indexOf('/v1/projects/');
+    if (v1Index !== -1) {
+      urlTemplate = 'https://earthengine.googleapis.com' + urlTemplate.substring(v1Index);
+    } else if (!urlTemplate.startsWith('http://') && !urlTemplate.startsWith('https://')) {
+      urlTemplate = 'https://earthengine.googleapis.com/' + urlTemplate.replace(/^\/+/, '');
+    }
+
+    // Retrieve token (fall back to active service account oauth token if mapInfo.token is empty)
+    let authToken = mapInfo.token || '';
+    let paramName = 'token';
+    
+    if (!authToken) {
+      const rawToken = ee.data.getAuthToken();
+      authToken = rawToken ? rawToken.replace(/^Bearer\s+/i, '') : '';
+      paramName = 'access_token';
+    }
+    
+    // Append GEE map authentication token if it's not already in the URL
+    if (authToken && !urlTemplate.includes('token=') && !urlTemplate.includes('access_token=')) {
+      const separator = urlTemplate.includes('?') ? '&' : '?';
+      urlTemplate += `${separator}${paramName}=${authToken}`;
+    }
     
     res.json({
       urlTemplate,
       mapid: mapInfo.mapid,
-      token: mapInfo.token || ''
+      token: authToken
     });
     
   } catch (err) {

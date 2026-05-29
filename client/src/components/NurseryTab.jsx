@@ -203,14 +203,14 @@ export default function NurseryTab() {
                   return (
                     <React.Fragment key={f.id}>
                       <Polygon 
-                        key={`${f.id}_${makeTransparent}`}
+                        key={f.id}
                         positions={positions} 
                         pathOptions={{ 
                           color: f.drawColor || '#ffffff', 
                           weight: 0.8, 
                           opacity: 0.5,
                           dashArray: '5,5', 
-                          fill: !makeTransparent,
+                          fill: true,
                           fillOpacity: makeTransparent ? 0.0 : 0.1 
                         }} 
                         interactive={true}

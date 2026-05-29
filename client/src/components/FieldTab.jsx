@@ -216,13 +216,13 @@ export default function FieldTab() {
                 {latLngs.length > 0 && (
                   <React.Fragment>
                     <Polygon 
-                      key={`active-field-poly_${makeActiveTransparent}`}
+                      key="active-field-poly"
                       positions={latLngs} 
                       pathOptions={{ 
                         color: formData.drawColor || polygonColor,
                         weight: 1.5,
                         opacity: 0.6,
-                        fill: !makeActiveTransparent,
+                        fill: true,
                         fillOpacity: makeActiveTransparent ? 0.0 : 0.2
                       }}
                     >
@@ -329,13 +329,13 @@ export default function FieldTab() {
                   return (
                     <React.Fragment key={field.id}>
                       <Polygon
-                        key={`${field.id}_${makeTransparent}`}
+                        key={field.id}
                         positions={positions}
                         pathOptions={{
                           color: field.drawColor || polygonColor,
                           weight: isBg ? 0.8 : 1.5,
                           opacity: 0.6,
-                          fill: !makeTransparent,
+                          fill: true,
                           fillOpacity: makeTransparent ? 0.0 : (isBg ? 0.05 : 0.3),
                           dashArray: isBg ? '5,5' : undefined,
                           bubblingMouseEvents: false

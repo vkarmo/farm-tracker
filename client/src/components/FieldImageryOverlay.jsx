@@ -96,6 +96,8 @@ export default function FieldImageryOverlay({ polygon, indexType, dateOffset = 0
       detail: { fieldId, status: 'loading' }
     }));
 
+    let fallbackTimeout = null;
+
     fetch('/api/gee/tile-url', {
       method: 'POST',
       headers: {
@@ -128,6 +130,15 @@ export default function FieldImageryOverlay({ polygon, indexType, dateOffset = 0
             window.dispatchEvent(new CustomEvent('gee-status-change', {
               detail: { fieldId, status: 'loading' }
             }));
+
+            // Fallback timeout of 5.5 seconds to force success state if load event is missed
+            fallbackTimeout = setTimeout(() => {
+              if (isMounted) {
+                window.dispatchEvent(new CustomEvent('gee-status-change', {
+                  detail: { fieldId, status: 'success' }
+                }));
+              }
+            }, 5500);
           } else {
             setGeeError(true);
             window.dispatchEvent(new CustomEvent('gee-status-change', {
@@ -153,6 +164,9 @@ export default function FieldImageryOverlay({ polygon, indexType, dateOffset = 0
 
     return () => {
       isMounted = false;
+      if (fallbackTimeout) {
+        clearTimeout(fallbackTimeout);
+      }
     };
   }, [polygonHash, indexType, dateOffset, fieldId, geeScale]);
 

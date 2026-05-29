@@ -1232,7 +1232,7 @@ export default function App() {
                                   const makeTransparent = showImagery && isLoaded;
                                   return (
                                     <Polygon
-                                      key={`${selectedField.id}_${makeTransparent}`}
+                                      key={selectedField.id}
                                       positions={
                                         Array.isArray(polyCoords) && polyCoords.length > 0 && Array.isArray(polyCoords[0]) && Array.isArray(polyCoords[0][0])
                                           ? polyCoords[0]
@@ -1242,7 +1242,7 @@ export default function App() {
                                          color: selectedField.drawColor || polygonColor, 
                                          weight: 1.5,
                                          opacity: 0.6,
-                                         fill: !makeTransparent,
+                                         fill: true,
                                          fillOpacity: makeTransparent ? 0.0 : 0.1 
                                        }}
                                     />
