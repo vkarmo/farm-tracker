@@ -101,9 +101,9 @@ export default function App() {
   const themeAppBgColor = useSelector(state => state.settings?.themeAppBgColor) || '#eeeef1';
   const themeCardBgColor = useSelector(state => state.settings?.themeCardBgColor) || '#ffffff';
   const themeCardBorderColor = useSelector(state => state.settings?.themeCardBorderColor) || '#e0e0e0';
-  const themeCardBorderThickness = useSelector(state => state.settings?.themeCardBorderThickness) || '1px';
+  const themeCardBorderThickness = useSelector(state => state.settings?.themeCardBorderThickness) || '0.50px';
   const themeAppBorderColor = useSelector(state => state.settings?.themeAppBorderColor) || '#363535';
-  const themeAppBorderThickness = useSelector(state => state.settings?.themeAppBorderThickness) || '1px';
+  const themeAppBorderThickness = useSelector(state => state.settings?.themeAppBorderThickness) || '0.50px';
   const lastGpsLocation = useSelector(state => {
     const locs = state.gps?.locations || [];
     return locs.length > 0 ? locs[locs.length - 1] : null;
@@ -749,7 +749,7 @@ export default function App() {
         )}
       </nav>
 
-      <main className={`container ${['map', 'field', 'nursery', 'soilTests', 'equipment', 'gps', 'poi'].includes(activeTab) ? 'container-wide' : ''} ${currentUser?.role === 'Viewer' || currentUser?.role === 'Admin Viewer' ? 'role-viewer' : ''}`} style={{ marginTop: '20px' }}>
+      <main className={`container ${['map', 'field', 'nursery', 'soilTests', 'equipment', 'gps', 'poi', 'settings'].includes(activeTab) ? 'container-wide' : ''} ${currentUser?.role === 'Viewer' || currentUser?.role === 'Admin Viewer' ? 'role-viewer' : ''}`} style={{ marginTop: '20px' }}>
 
         {activeTab === 'dashboard' && <DashboardTab />}
         {activeTab === 'map' && (
@@ -787,13 +787,14 @@ export default function App() {
         {activeTab === 'gps' && <GpsLogTab />}
 
         {activeTab === 'settings' && (currentUser?.role === 'Admin' || currentUser?.role === 'Admin Viewer') && (
-          <div className="card">
-            <h2>App Settings</h2>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            <h2 style={{ marginBottom: 0, marginTop: 0 }}>App Settings</h2>
 
             {/* General Card */}
-            <div style={{ marginBottom: 15, border: '1px solid var(--color-border)', borderRadius: '8px', overflow: 'hidden' }}>
+            <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 0 }}>
               <button
                 onClick={() => setOpenSettings({ ...openSettings, general: !openSettings.general })}
+                type="button"
                 style={{ width: '100%', padding: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f5f7fa', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '1.1rem', color: '#333' }}
               >
                 General Settings
@@ -801,7 +802,7 @@ export default function App() {
               </button>
 
               {openSettings.general && (
-                <div style={{ padding: '20px', background: 'white' }}>
+                <div style={{ padding: '20px', background: 'var(--color-surface)' }}>
                   <div style={{ marginBottom: 20 }}>
                     <h3 style={{ marginTop: 0 }}>App Identity</h3>
                     <div style={{ marginBottom: 16 }}>
@@ -836,10 +837,167 @@ export default function App() {
               )}
             </div>
 
+            {/* Theme & Border Settings Card */}
+            <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 0 }}>
+              <button
+                onClick={() => setOpenSettings({ ...openSettings, theme: !openSettings.theme })}
+                type="button"
+                style={{ width: '100%', padding: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f5f7fa', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '1.1rem', color: '#333' }}
+              >
+                Theme & Border Settings
+                {openSettings.theme ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
+              </button>
+
+              {openSettings.theme && (
+                <div style={{ padding: '20px', background: 'var(--color-surface)' }}>
+                  <div style={{ marginBottom: 20 }}>
+                    <h3 style={{ marginTop: 0 }}>Color Customization</h3>
+                    <p style={{ fontSize: '0.8rem', color: '#666', marginBottom: 16 }}>Configure colors and borders across the entire application interface.</p>
+                    
+                    <div className="form-grid">
+                      {/* App Background Color */}
+                      <div className="form-group">
+                        <label style={{ fontWeight: '600' }}>App Background Color</label>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: 8 }}>
+                          <input
+                            type="color"
+                            value={themeAppBgColor}
+                            onChange={(e) => { dispatch(setThemeAppBgColor(e.target.value)); dispatch(saveSettings()); }}
+                            disabled={currentUser?.role === 'Admin Viewer'}
+                            style={{ cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer' }}
+                          />
+                          <input
+                            type="text"
+                            value={themeAppBgColor}
+                            onChange={(e) => { dispatch(setThemeAppBgColor(e.target.value)); dispatch(saveSettings()); }}
+                            disabled={currentUser?.role === 'Admin Viewer'}
+                            style={{ padding: '8px', width: '100px', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'text', background: '#fff', border: '1px solid #ccc', borderRadius: '4px' }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Card Background Color */}
+                      <div className="form-group">
+                        <label style={{ fontWeight: '600' }}>Card Background Color</label>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: 8 }}>
+                          <input
+                            type="color"
+                            value={themeCardBgColor}
+                            onChange={(e) => { dispatch(setThemeCardBgColor(e.target.value)); dispatch(saveSettings()); }}
+                            disabled={currentUser?.role === 'Admin Viewer'}
+                            style={{ cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer' }}
+                          />
+                          <input
+                            type="text"
+                            value={themeCardBgColor}
+                            onChange={(e) => { dispatch(setThemeCardBgColor(e.target.value)); dispatch(saveSettings()); }}
+                            disabled={currentUser?.role === 'Admin Viewer'}
+                            style={{ padding: '8px', width: '100px', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'text', background: '#fff', border: '1px solid #ccc', borderRadius: '4px' }}
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <hr style={{ border: 'none', borderTop: '1px solid var(--color-border)', margin: '20px 0' }} />
+
+                  <div style={{ marginBottom: 20 }}>
+                    <h3 style={{ marginTop: 0 }}>Border Customization</h3>
+                    <div className="form-grid">
+                      {/* Card Border Color */}
+                      <div className="form-group">
+                        <label style={{ fontWeight: '600' }}>Card Border Color</label>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: 8 }}>
+                          <input
+                            type="color"
+                            value={themeCardBorderColor}
+                            onChange={(e) => { dispatch(setThemeCardBorderColor(e.target.value)); dispatch(saveSettings()); }}
+                            disabled={currentUser?.role === 'Admin Viewer'}
+                            style={{ cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer' }}
+                          />
+                          <input
+                            type="text"
+                            value={themeCardBorderColor}
+                            onChange={(e) => { dispatch(setThemeCardBorderColor(e.target.value)); dispatch(saveSettings()); }}
+                            disabled={currentUser?.role === 'Admin Viewer'}
+                            style={{ padding: '8px', width: '100px', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'text', background: '#fff', border: '1px solid #ccc', borderRadius: '4px' }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Card Border Thickness */}
+                      <div className="form-group">
+                        <label style={{ fontWeight: '600' }}>Card Border Thickness</label>
+                        <select
+                          value={themeCardBorderThickness}
+                          onChange={(e) => { dispatch(setThemeCardBorderThickness(e.target.value)); dispatch(saveSettings()); }}
+                          disabled={currentUser?.role === 'Admin Viewer'}
+                          style={{ display: 'block', marginTop: 8, padding: '8px', width: '100%', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer', background: '#fff', border: '1px solid #ccc', borderRadius: '4px' }}
+                        >
+                          <option value="0.10px">0.10px</option>
+                          <option value="0.25px">0.25px</option>
+                          <option value="0.50px">0.50px (Default)</option>
+                          <option value="0.75px">0.75px</option>
+                          <option value="1px">1px</option>
+                          <option value="2px">2px</option>
+                          <option value="3px">3px</option>
+                          <option value="4px">4px</option>
+                          <option value="5px">5px</option>
+                        </select>
+                      </div>
+
+                      {/* App Border Color */}
+                      <div className="form-group">
+                        <label style={{ fontWeight: '600' }}>App Border Color (Inputs, Tables, Lists)</label>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: 8 }}>
+                          <input
+                            type="color"
+                            value={themeAppBorderColor}
+                            onChange={(e) => { dispatch(setThemeAppBorderColor(e.target.value)); dispatch(saveSettings()); }}
+                            disabled={currentUser?.role === 'Admin Viewer'}
+                            style={{ cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer' }}
+                          />
+                          <input
+                            type="text"
+                            value={themeAppBorderColor}
+                            onChange={(e) => { dispatch(setThemeAppBorderColor(e.target.value)); dispatch(saveSettings()); }}
+                            disabled={currentUser?.role === 'Admin Viewer'}
+                            style={{ padding: '8px', width: '100px', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'text', background: '#fff', border: '1px solid #ccc', borderRadius: '4px' }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* App Border Thickness */}
+                      <div className="form-group">
+                        <label style={{ fontWeight: '600' }}>App Border Thickness</label>
+                        <select
+                          value={themeAppBorderThickness}
+                          onChange={(e) => { dispatch(setThemeAppBorderThickness(e.target.value)); dispatch(saveSettings()); }}
+                          disabled={currentUser?.role === 'Admin Viewer'}
+                          style={{ display: 'block', marginTop: 8, padding: '8px', width: '100%', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer', background: '#fff', border: '1px solid #ccc', borderRadius: '4px' }}
+                        >
+                          <option value="0.10px">0.10px</option>
+                          <option value="0.25px">0.25px</option>
+                          <option value="0.50px">0.50px (Default)</option>
+                          <option value="0.75px">0.75px</option>
+                          <option value="1px">1px</option>
+                          <option value="2px">2px</option>
+                          <option value="3px">3px</option>
+                          <option value="4px">4px</option>
+                          <option value="5px">5px</option>
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
             {/* Dropdown Data Card */}
-            <div style={{ marginBottom: 15, border: '1px solid var(--color-border)', borderRadius: '8px', overflow: 'hidden' }}>
+            <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 0 }}>
               <button
                 onClick={() => setOpenSettings({ ...openSettings, dropdown: !openSettings.dropdown })}
+                type="button"
                 style={{ width: '100%', padding: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f5f7fa', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '1.1rem', color: '#333' }}
               >
                 Dropdown Data
@@ -847,12 +1005,13 @@ export default function App() {
               </button>
 
               {openSettings.dropdown && (
-                <div style={{ padding: '20px', background: 'white', display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                <div style={{ padding: '20px', background: 'var(--color-surface)', display: 'flex', flexDirection: 'column', gap: '15px' }}>
 
-                  {/* Units Toggle */}
+                  {/* Measurement Units Toggle */}
                   <div style={{ border: '1px solid #eee', borderRadius: '6px', overflow: 'hidden' }}>
                     <button
                       onClick={() => setOpenSettings({ ...openSettings, units: !openSettings.units })}
+                      type="button"
                       style={{ width: '100%', padding: '10px 15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fafafa', border: 'none', cursor: 'pointer', fontWeight: 600 }}
                     >
                       Measurement Units
@@ -879,6 +1038,7 @@ export default function App() {
                   <div style={{ border: '1px solid #eee', borderRadius: '6px', overflow: 'hidden' }}>
                     <button
                       onClick={() => setOpenSettings({ ...openSettings, jobs: !openSettings.jobs })}
+                      type="button"
                       style={{ width: '100%', padding: '10px 15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fafafa', border: 'none', cursor: 'pointer', fontWeight: 600 }}
                     >
                       Job Titles
@@ -905,6 +1065,7 @@ export default function App() {
                   <div style={{ border: '1px solid #eee', borderRadius: '6px', overflow: 'hidden' }}>
                     <button
                       onClick={() => setOpenSettings({ ...openSettings, animals: !openSettings.animals })}
+                      type="button"
                       style={{ width: '100%', padding: '10px 15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fafafa', border: 'none', cursor: 'pointer', fontWeight: 600 }}
                     >
                       Livestock Animal Types
@@ -931,6 +1092,7 @@ export default function App() {
                   <div style={{ border: '1px solid #eee', borderRadius: '6px', overflow: 'hidden' }}>
                     <button
                       onClick={() => setOpenSettings({ ...openSettings, ledgers: !openSettings.ledgers })}
+                      type="button"
                       style={{ width: '100%', padding: '10px 15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#fafafa', border: 'none', cursor: 'pointer', fontWeight: 600 }}
                     >
                       Ledger Categories
@@ -985,9 +1147,10 @@ export default function App() {
             </div>
 
             {/* Map Settings Card */}
-            <div style={{ marginBottom: 15, border: '1px solid var(--color-border)', borderRadius: '8px', overflow: 'hidden' }}>
+            <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 0 }}>
               <button
                 onClick={() => setOpenSettings({ ...openSettings, map: !openSettings.map })}
+                type="button"
                 style={{ width: '100%', padding: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f5f7fa', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '1.1rem', color: '#333' }}
               >
                 Map Settings
@@ -995,7 +1158,7 @@ export default function App() {
               </button>
 
               {openSettings.map && (
-                <div style={{ padding: '20px', background: 'white' }}>
+                <div style={{ padding: '20px', background: 'var(--color-surface)' }}>
                   <div style={{ marginBottom: 20 }}>
                     <h3 style={{ marginTop: 0 }}>Map Preferences</h3>
                     <div style={{ marginBottom: 16 }}>
@@ -1090,9 +1253,10 @@ export default function App() {
             </div>
 
             {/* Google Earth Engine Settings Card */}
-            <div style={{ marginBottom: 15, border: '1px solid var(--color-border)', borderRadius: '8px', overflow: 'hidden' }}>
+            <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 0 }}>
               <button
                 onClick={() => setOpenSettings({ ...openSettings, gee: !openSettings.gee })}
+                type="button"
                 style={{ width: '100%', padding: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f5f7fa', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '1.1rem', color: '#333' }}
               >
                 Google Earth Engine Settings
@@ -1100,7 +1264,7 @@ export default function App() {
               </button>
 
               {openSettings.gee && (
-                <div style={{ padding: '20px', background: 'white' }}>
+                <div style={{ padding: '20px', background: 'var(--color-surface)' }}>
                   <div style={{ marginBottom: 20 }}>
                     <h3 style={{ marginTop: 0 }}>Service Account Credentials</h3>
                     
@@ -1315,7 +1479,7 @@ export default function App() {
             </div>
 
             {/* OpenWeatherMap Settings Card */}
-            <div style={{ marginBottom: 15, border: '1px solid var(--color-border)', borderRadius: '8px', overflow: 'hidden' }}>
+            <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 0 }}>
               <button
                 onClick={() => setOpenSettings({ ...openSettings, owm: !openSettings.owm })}
                 type="button"
@@ -1326,7 +1490,7 @@ export default function App() {
               </button>
 
               {openSettings.owm && (
-                <div style={{ padding: '20px', background: 'white' }}>
+                <div style={{ padding: '20px', background: 'var(--color-surface)' }}>
                   <div style={{ marginBottom: 20 }}>
                     <h3 style={{ marginTop: 0 }}>Weather Map Tile Configuration</h3>
                     
@@ -1344,154 +1508,6 @@ export default function App() {
                       <small style={{ display: 'block', marginTop: '6px', color: '#666', fontSize: '0.8rem', lineHeight: '1.4' }}>
                         Required for displaying weather maps (Clouds, Precipitation, Temperature, Wind Speed, Sea Level Pressure) as layers on the farm map. Get your free API key at <a href="https://openweathermap.org" target="_blank" rel="noopener noreferrer" style={{ color: '#2e7d32', textDecoration: 'underline' }}>openweathermap.org</a>.
                       </small>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Theme & Border Settings Card */}
-            <div style={{ marginBottom: 15, border: '1px solid var(--color-border)', borderRadius: '8px', overflow: 'hidden' }}>
-              <button
-                onClick={() => setOpenSettings({ ...openSettings, theme: !openSettings.theme })}
-                type="button"
-                style={{ width: '100%', padding: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f5f7fa', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '1.1rem', color: '#333' }}
-              >
-                Theme & Border Settings
-                {openSettings.theme ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
-              </button>
-
-              {openSettings.theme && (
-                <div style={{ padding: '20px', background: 'white' }}>
-                  <div style={{ marginBottom: 20 }}>
-                    <h3 style={{ marginTop: 0 }}>Color Customization</h3>
-                    <p style={{ fontSize: '0.8rem', color: '#666', marginBottom: 16 }}>Configure colors and borders across the entire application interface.</p>
-                    
-                    <div className="form-grid">
-                      {/* App Background Color */}
-                      <div className="form-group">
-                        <label style={{ fontWeight: '600' }}>App Background Color</label>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: 8 }}>
-                          <input
-                            type="color"
-                            value={themeAppBgColor}
-                            onChange={(e) => { dispatch(setThemeAppBgColor(e.target.value)); dispatch(saveSettings()); }}
-                            disabled={currentUser?.role === 'Admin Viewer'}
-                            style={{ cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer' }}
-                          />
-                          <input
-                            type="text"
-                            value={themeAppBgColor}
-                            onChange={(e) => { dispatch(setThemeAppBgColor(e.target.value)); dispatch(saveSettings()); }}
-                            disabled={currentUser?.role === 'Admin Viewer'}
-                            style={{ padding: '8px', width: '100px', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'text', background: '#fff', border: '1px solid #ccc', borderRadius: '4px' }}
-                          />
-                        </div>
-                      </div>
-
-                      {/* Card Background Color */}
-                      <div className="form-group">
-                        <label style={{ fontWeight: '600' }}>Card Background Color</label>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: 8 }}>
-                          <input
-                            type="color"
-                            value={themeCardBgColor}
-                            onChange={(e) => { dispatch(setThemeCardBgColor(e.target.value)); dispatch(saveSettings()); }}
-                            disabled={currentUser?.role === 'Admin Viewer'}
-                            style={{ cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer' }}
-                          />
-                          <input
-                            type="text"
-                            value={themeCardBgColor}
-                            onChange={(e) => { dispatch(setThemeCardBgColor(e.target.value)); dispatch(saveSettings()); }}
-                            disabled={currentUser?.role === 'Admin Viewer'}
-                            style={{ padding: '8px', width: '100px', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'text', background: '#fff', border: '1px solid #ccc', borderRadius: '4px' }}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <hr style={{ border: 'none', borderTop: '1px solid var(--color-border)', margin: '20px 0' }} />
-
-                  <div style={{ marginBottom: 20 }}>
-                    <h3 style={{ marginTop: 0 }}>Border Customization</h3>
-                    <div className="form-grid">
-                      {/* Card Border Color */}
-                      <div className="form-group">
-                        <label style={{ fontWeight: '600' }}>Card Border Color</label>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: 8 }}>
-                          <input
-                            type="color"
-                            value={themeCardBorderColor}
-                            onChange={(e) => { dispatch(setThemeCardBorderColor(e.target.value)); dispatch(saveSettings()); }}
-                            disabled={currentUser?.role === 'Admin Viewer'}
-                            style={{ cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer' }}
-                          />
-                          <input
-                            type="text"
-                            value={themeCardBorderColor}
-                            onChange={(e) => { dispatch(setThemeCardBorderColor(e.target.value)); dispatch(saveSettings()); }}
-                            disabled={currentUser?.role === 'Admin Viewer'}
-                            style={{ padding: '8px', width: '100px', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'text', background: '#fff', border: '1px solid #ccc', borderRadius: '4px' }}
-                          />
-                        </div>
-                      </div>
-
-                      {/* Card Border Thickness */}
-                      <div className="form-group">
-                        <label style={{ fontWeight: '600' }}>Card Border Thickness</label>
-                        <select
-                          value={themeCardBorderThickness}
-                          onChange={(e) => { dispatch(setThemeCardBorderThickness(e.target.value)); dispatch(saveSettings()); }}
-                          disabled={currentUser?.role === 'Admin Viewer'}
-                          style={{ display: 'block', marginTop: 8, padding: '8px', width: '100%', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer', background: '#fff', border: '1px solid #ccc', borderRadius: '4px' }}
-                        >
-                          <option value="1px">1px (Default)</option>
-                          <option value="2px">2px</option>
-                          <option value="3px">3px</option>
-                          <option value="4px">4px</option>
-                          <option value="5px">5px</option>
-                        </select>
-                      </div>
-
-                      {/* App Border Color */}
-                      <div className="form-group">
-                        <label style={{ fontWeight: '600' }}>App Border Color (Inputs, Tables, Lists)</label>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: 8 }}>
-                          <input
-                            type="color"
-                            value={themeAppBorderColor}
-                            onChange={(e) => { dispatch(setThemeAppBorderColor(e.target.value)); dispatch(saveSettings()); }}
-                            disabled={currentUser?.role === 'Admin Viewer'}
-                            style={{ cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer' }}
-                          />
-                          <input
-                            type="text"
-                            value={themeAppBorderColor}
-                            onChange={(e) => { dispatch(setThemeAppBorderColor(e.target.value)); dispatch(saveSettings()); }}
-                            disabled={currentUser?.role === 'Admin Viewer'}
-                            style={{ padding: '8px', width: '100px', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'text', background: '#fff', border: '1px solid #ccc', borderRadius: '4px' }}
-                          />
-                        </div>
-                      </div>
-
-                      {/* App Border Thickness */}
-                      <div className="form-group">
-                        <label style={{ fontWeight: '600' }}>App Border Thickness</label>
-                        <select
-                          value={themeAppBorderThickness}
-                          onChange={(e) => { dispatch(setThemeAppBorderThickness(e.target.value)); dispatch(saveSettings()); }}
-                          disabled={currentUser?.role === 'Admin Viewer'}
-                          style={{ display: 'block', marginTop: 8, padding: '8px', width: '100%', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer', background: '#fff', border: '1px solid #ccc', borderRadius: '4px' }}
-                        >
-                          <option value="1px">1px (Default)</option>
-                          <option value="2px">2px</option>
-                          <option value="3px">3px</option>
-                          <option value="4px">4px</option>
-                          <option value="5px">5px</option>
-                        </select>
-                      </div>
                     </div>
                   </div>
                 </div>

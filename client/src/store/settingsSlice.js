@@ -26,9 +26,9 @@ export const settingsSlice = createSlice({
     themeAppBgColor: '#eeeef1',
     themeCardBgColor: '#ffffff',
     themeCardBorderColor: '#e0e0e0',
-    themeCardBorderThickness: '1px',
+    themeCardBorderThickness: '0.50px',
     themeAppBorderColor: '#363535',
-    themeAppBorderThickness: '1px',
+    themeAppBorderThickness: '0.50px',
   },
   reducers: {
     addUnit: (state, action) => {
