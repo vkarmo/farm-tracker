@@ -389,7 +389,7 @@ app.post('/api/gee/tile-url', async (req, res) => {
       
       if (indexType === 'GEE_Temp') {
         const temp = weatherImage.select('temperature_2m_above_ground');
-        processedImage = temp.reproject({ crs: 'EPSG:3857', scale: scaleValue }).clip(geometry);
+        processedImage = temp.resample('bicubic').reproject({ crs: 'EPSG:3857', scale: scaleValue }).clip(geometry);
         visParams = {
           min: 263.15, // -10C
           max: 313.15, // 40C
@@ -397,7 +397,7 @@ app.post('/api/gee/tile-url', async (req, res) => {
         };
       } else if (indexType === 'GEE_Precip') {
         const precip = weatherImage.select('precipitation_rate_surface');
-        processedImage = precip.reproject({ crs: 'EPSG:3857', scale: scaleValue }).clip(geometry);
+        processedImage = precip.resample('bicubic').reproject({ crs: 'EPSG:3857', scale: scaleValue }).clip(geometry);
         visParams = {
           min: 0.0,
           max: 0.0005,
@@ -407,7 +407,7 @@ app.post('/api/gee/tile-url', async (req, res) => {
         const uWind = weatherImage.select('u_component_of_wind_10m_above_ground');
         const vWind = weatherImage.select('v_component_of_wind_10m_above_ground');
         const windSpeed = uWind.multiply(uWind).add(vWind.multiply(vWind)).sqrt().rename('wind_speed');
-        processedImage = windSpeed.reproject({ crs: 'EPSG:3857', scale: scaleValue }).clip(geometry);
+        processedImage = windSpeed.resample('bicubic').reproject({ crs: 'EPSG:3857', scale: scaleValue }).clip(geometry);
         visParams = {
           min: 0.0,
           max: 15.0,
@@ -415,7 +415,7 @@ app.post('/api/gee/tile-url', async (req, res) => {
         };
       } else if (indexType === 'GEE_Humidity') {
         const hum = weatherImage.select('relative_humidity_2m_above_ground');
-        processedImage = hum.reproject({ crs: 'EPSG:3857', scale: scaleValue }).clip(geometry);
+        processedImage = hum.resample('bicubic').reproject({ crs: 'EPSG:3857', scale: scaleValue }).clip(geometry);
         visParams = {
           min: 20.0,
           max: 100.0,
@@ -423,7 +423,7 @@ app.post('/api/gee/tile-url', async (req, res) => {
         };
       } else if (indexType === 'GEE_Clouds') {
         const clouds = weatherImage.select('total_cloud_cover_entire_atmosphere');
-        processedImage = clouds.reproject({ crs: 'EPSG:3857', scale: scaleValue }).clip(geometry);
+        processedImage = clouds.resample('bicubic').reproject({ crs: 'EPSG:3857', scale: scaleValue }).clip(geometry);
         visParams = {
           min: 0.0,
           max: 100.0,
@@ -431,7 +431,7 @@ app.post('/api/gee/tile-url', async (req, res) => {
         };
       } else if (indexType === 'GEE_Pressure') {
         const pressure = weatherImage.select('mean_sea_level_pressure');
-        processedImage = pressure.reproject({ crs: 'EPSG:3857', scale: scaleValue }).clip(geometry);
+        processedImage = pressure.resample('bicubic').reproject({ crs: 'EPSG:3857', scale: scaleValue }).clip(geometry);
         visParams = {
           min: 98000,
           max: 103000,
@@ -439,13 +439,15 @@ app.post('/api/gee/tile-url', async (req, res) => {
         };
       }
     } else if (indexType === 'Elevation') {
-      const srtm = ee.Image('USGS/SRTMGL1_003');
-      const elevation = srtm.select('elevation');
+      const usgs3dep1m = ee.ImageCollection('USGS/3DEP/1m').mosaic();
+      const usgs3dep10m = ee.ImageCollection('USGS/3DEP/10m').mosaic();
+      const srtm = ee.Image('USGS/SRTMGL1_003').select('elevation');
+      const elevation = usgs3dep1m.unmask(usgs3dep10m).unmask(srtm).select(['elevation']);
       
       const stats = elevation.reduceRegion({
         reducer: ee.Reducer.minMax(),
         geometry: geometry,
-        scale: 30,
+        scale: scaleValue < 10 ? Math.max(1, scaleValue) : 10,
         maxPixels: 1e9
       });
       
@@ -469,7 +471,7 @@ app.post('/api/gee/tile-url', async (req, res) => {
         visMax += 1;
       }
       
-      processedImage = elevation.reproject({ crs: 'EPSG:3857', scale: scaleValue }).clip(geometry);
+      processedImage = elevation.resample('bicubic').reproject({ crs: 'EPSG:3857', scale: scaleValue }).clip(geometry);
       visParams = {
         min: visMin,
         max: visMax,
@@ -478,7 +480,7 @@ app.post('/api/gee/tile-url', async (req, res) => {
     } else if (indexType === 'NDVI') {
       // Calculate NDVI: (B8 - B4) / (B8 + B4)
       const ndvi = baseImage.normalizedDifference(['B8', 'B4']).rename('NDVI');
-      processedImage = ndvi.select(['NDVI']).reproject({ crs: 'EPSG:3857', scale: scaleValue }).resample('bicubic').clip(geometry);
+      processedImage = ndvi.select(['NDVI']).resample('bicubic').reproject({ crs: 'EPSG:3857', scale: scaleValue }).clip(geometry);
       visParams = {
         min: 0.0,
         max: 1.0,
@@ -487,7 +489,7 @@ app.post('/api/gee/tile-url', async (req, res) => {
     } else if (indexType === 'NDWI') {
       // McFeeters NDWI: (Green - NIR) / (Green + NIR) -> B3 - B8
       const ndwi = baseImage.normalizedDifference(['B3', 'B8']).rename('NDWI');
-      processedImage = ndwi.select(['NDWI']).reproject({ crs: 'EPSG:3857', scale: scaleValue }).resample('bicubic').clip(geometry);
+      processedImage = ndwi.select(['NDWI']).resample('bicubic').reproject({ crs: 'EPSG:3857', scale: scaleValue }).clip(geometry);
       visParams = {
         min: -0.5,
         max: 0.5,
@@ -502,7 +504,7 @@ app.post('/api/gee/tile-url', async (req, res) => {
           'BLUE': baseImage.select('B2')
         }
       ).rename('EVI');
-      processedImage = evi.select(['EVI']).reproject({ crs: 'EPSG:3857', scale: scaleValue }).resample('bicubic').clip(geometry);
+      processedImage = evi.select(['EVI']).resample('bicubic').reproject({ crs: 'EPSG:3857', scale: scaleValue }).clip(geometry);
       visParams = {
         min: 0.0,
         max: 1.0,
@@ -511,7 +513,7 @@ app.post('/api/gee/tile-url', async (req, res) => {
     } else if (indexType === 'SoilMoisture') {
       // NDMI = (NIR - SWIR) / (NIR + SWIR) -> B8 - B11
       const ndmi = baseImage.normalizedDifference(['B8', 'B11']).rename('SoilMoisture');
-      processedImage = ndmi.select(['SoilMoisture']).reproject({ crs: 'EPSG:3857', scale: scaleValue }).resample('bicubic').clip(geometry);
+      processedImage = ndmi.select(['SoilMoisture']).resample('bicubic').reproject({ crs: 'EPSG:3857', scale: scaleValue }).clip(geometry);
       visParams = {
         min: -0.3,
         max: 0.3,
@@ -520,7 +522,7 @@ app.post('/api/gee/tile-url', async (req, res) => {
     } else if (indexType === 'FalseColor') {
       // False Color Infrared (B8, B4, B3)
       const fc = baseImage.select(['B8', 'B4', 'B3']);
-      processedImage = fc.reproject({ crs: 'EPSG:3857', scale: scaleValue }).resample('bicubic').clip(geometry);
+      processedImage = fc.resample('bicubic').reproject({ crs: 'EPSG:3857', scale: scaleValue }).clip(geometry);
       visParams = {
         min: 0,
         max: 3000,
@@ -529,7 +531,7 @@ app.post('/api/gee/tile-url', async (req, res) => {
     } else {
       // Default, CurrentSatellite or TrueColor (RGB: B4, B3, B2)
       const rgb = baseImage.select(['B4', 'B3', 'B2']);
-      processedImage = rgb.reproject({ crs: 'EPSG:3857', scale: scaleValue }).resample('bicubic').clip(geometry);
+      processedImage = rgb.resample('bicubic').reproject({ crs: 'EPSG:3857', scale: scaleValue }).clip(geometry);
       visParams = {
         min: 0,
         max: 3000,

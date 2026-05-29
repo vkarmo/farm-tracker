@@ -36,6 +36,8 @@ export default function SoilTestingTab() {
   const mapCenter = useSelector(state => state.settings?.mapCenter) || [51.505, -0.09];
   const mapZoom = useSelector(state => state.settings?.mapZoom) || 13;
   const polygonColor = useSelector(state => state.settings?.polygonColor) || '#ffffff';
+  const themeFontImagerCapitalize = useSelector(state => state.settings?.themeFontImagerCapitalize) || false;
+  const formatLabel = (txt) => themeFontImagerCapitalize ? txt.toUpperCase() : txt;
 
   const [testData, setTestData] = useState(INIT_TEST_STATE);
   const [editingId, setEditingId] = useState(null);
@@ -304,31 +306,31 @@ export default function SoilTestingTab() {
                               <strong>{f.name}</strong><br/>
                               Area: {f.area} ac<br/>
                               <div style={{ marginTop: '8px' }}>
-                                <label className="imager-select-label" style={{ fontSize: '0.72rem', fontWeight: 600, display: 'block', marginBottom: '4px' }}>Field Imagery:</label>
+                                <label className="imager-select-label" style={{ display: 'block', marginBottom: '4px' }}>{formatLabel("Field Imagery:")}</label>
                                 <select 
                                   className="imager-select"
                                   value={fieldImagery[f.id] || 'none'} 
                                   onChange={(e) => setFieldImagery(prev => ({ ...prev, [f.id]: e.target.value }))}
-                                  style={{ padding: '4px', fontSize: '0.72rem', borderRadius: '4px', width: '100%', background: 'white' }}
+                                  style={{ padding: '4px', borderRadius: '4px', width: '100%', background: 'white' }}
                                 >
-                                  <option value="Elevation">Elevation (Topography)</option>
-                                  <option value="none">None (Standard)</option>
-                                  <optgroup label="Satellite Indices">
-                                    <option value="CurrentSatellite">Current Satellite View</option>
-                                    <option value="TrueColor">True Color (RGB)</option>
-                                    <option value="NDVI">NDVI (Vegetation Index)</option>
-                                    <option value="NDWI">NDWI (Water Index)</option>
-                                    <option value="EVI">EVI (Enhanced Vegetation)</option>
-                                    <option value="SoilMoisture">Soil Moisture</option>
-                                    <option value="FalseColor">False Color (Biomass)</option>
+                                  <option value="Elevation">{formatLabel("Elevation (Topography)")}</option>
+                                  <option value="none">{formatLabel("None (Standard)")}</option>
+                                  <optgroup label={formatLabel("Satellite Indices")}>
+                                    <option value="CurrentSatellite">{formatLabel("Current Satellite View")}</option>
+                                    <option value="TrueColor">{formatLabel("True Color (RGB)")}</option>
+                                    <option value="NDVI">{formatLabel("NDVI (Vegetation Index)")}</option>
+                                    <option value="NDWI">{formatLabel("NDWI (Water Index)")}</option>
+                                    <option value="EVI">{formatLabel("EVI (Enhanced Vegetation)")}</option>
+                                    <option value="SoilMoisture">{formatLabel("Soil Moisture")}</option>
+                                    <option value="FalseColor">{formatLabel("False Color (Biomass)")}</option>
                                   </optgroup>
-                                  <optgroup label="Weather Map Overlays (GEE)">
-                                    <option value="GEE_Temp">Weather: Temperature (GEE GFS)</option>
-                                    <option value="GEE_Precip">Weather: Precipitation (GEE GFS)</option>
-                                    <option value="GEE_Wind">Weather: Wind Speed (GEE GFS)</option>
-                                    <option value="GEE_Humidity">Weather: Relative Humidity (GEE GFS)</option>
-                                    <option value="GEE_Clouds">Weather: Total Cloud Cover (GEE GFS)</option>
-                                    <option value="GEE_Pressure">Weather: Sea Level Pressure (GEE GFS)</option>
+                                  <optgroup label={formatLabel("Weather Map Overlays (GEE)")}>
+                                    <option value="GEE_Temp">{formatLabel("Weather: Temperature (GEE GFS)")}</option>
+                                    <option value="GEE_Precip">{formatLabel("Weather: Precipitation (GEE GFS)")}</option>
+                                    <option value="GEE_Wind">{formatLabel("Weather: Wind Speed (GEE GFS)")}</option>
+                                    <option value="GEE_Humidity">{formatLabel("Weather: Relative Humidity (GEE GFS)")}</option>
+                                    <option value="GEE_Clouds">{formatLabel("Weather: Total Cloud Cover (GEE GFS)")}</option>
+                                    <option value="GEE_Pressure">{formatLabel("Weather: Sea Level Pressure (GEE GFS)")}</option>
                                   </optgroup>
                                 </select>
                               </div>

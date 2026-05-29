@@ -44,7 +44,6 @@ import LivestockDiseaseTab from './components/LivestockDiseaseTab';
 import PestTab from './components/PestTab';
 import FinanceTab from './components/FinanceTab';
 import BudgetTab from './components/BudgetTab';
-// import ActivityTab from './components/ActivityTab';
 import DeadlineTab from './components/DeadlineTab';
 import IncidentTab from './components/IncidentTab';
 import LoginScreen from './components/LoginScreen';
@@ -127,6 +126,7 @@ export default function App() {
   const themeFontSizeImager = useSelector(state => state.settings?.themeFontSizeImager) || '0.72rem';
   const themeFontImagerBold = useSelector(state => state.settings?.themeFontImagerBold) || false;
   const themeFontImagerCapitalize = useSelector(state => state.settings?.themeFontImagerCapitalize) || false;
+  const formatImagerLabel = (txt) => themeFontImagerCapitalize ? txt.toUpperCase() : txt;
   const lastGpsLocation = useSelector(state => {
     const locs = state.gps?.locations || [];
     return locs.length > 0 ? locs[locs.length - 1] : null;
@@ -558,6 +558,9 @@ export default function App() {
         }
         input, select, textarea, button {
           font-family: ${themeFontName && themeFontName !== 'System Default' ? `'${themeFontName}', sans-serif` : `'-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'`} !important;
+          font-size: inherit !important;
+          font-weight: inherit !important;
+          text-transform: inherit !important;
         }
         header h1 {
           font-family: ${themeFontAppName && themeFontAppName !== 'System Default' ? `'${themeFontAppName}', sans-serif` : `'-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'`} !important;
@@ -614,7 +617,9 @@ export default function App() {
           font-weight: ${themeFontImagerBold ? 'bold' : 'normal'} !important;
           text-transform: ${themeFontImagerCapitalize ? 'uppercase' : 'none'} !important;
         }
-        .imager-select {
+        .imager-select,
+        .imager-select option,
+        .imager-select optgroup {
           font-family: ${themeFontImager && themeFontImager !== 'System Default' ? `'${themeFontImager}', sans-serif` : `'-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'`} !important;
           font-size: ${themeFontSizeImager} !important;
           font-weight: ${themeFontImagerBold ? 'bold' : 'normal'} !important;
@@ -1881,32 +1886,32 @@ export default function App() {
                           </div>
 
                           <div style={{ flex: 1, minWidth: '200px' }}>
-                            <label className="imager-select-label" style={{ fontWeight: '600', display: 'block', marginBottom: '8px', fontSize: '0.9rem' }}>Select Index (Unpersisted)</label>
+                            <label className="imager-select-label" style={{ display: 'block', marginBottom: '8px' }}>{formatImagerLabel("Select Index (Unpersisted)")}</label>
                             <select
                               className="imager-select"
                               value={testIndexType}
                               onChange={(e) => setTestIndexType(e.target.value)}
-                              style={{ padding: '8px', fontSize: '0.85rem', width: '100%', border: '1px solid #ccc', borderRadius: '4px', background: 'white' }}
+                              style={{ padding: '8px', width: '100%', border: '1px solid #ccc', borderRadius: '4px', background: 'white' }}
                               disabled={!testFieldId}
                             >
-                              <option value="Elevation">Elevation (Topography)</option>
-                              <option value="none">None (Standard)</option>
-                              <optgroup label="Satellite Indices">
-                                <option value="CurrentSatellite">Current Satellite (High-Res RGB)</option>
-                                <option value="TrueColor">True Color (RGB)</option>
-                                <option value="NDVI">NDVI (Vegetation Index)</option>
-                                <option value="NDWI">NDWI (Water Index)</option>
-                                <option value="EVI">EVI (Enhanced Vegetation)</option>
-                                <option value="SoilMoisture">Soil Moisture</option>
-                                <option value="FalseColor">False Color (Biomass)</option>
+                              <option value="Elevation">{formatImagerLabel("Elevation (Topography)")}</option>
+                              <option value="none">{formatImagerLabel("None (Standard)")}</option>
+                              <optgroup label={formatImagerLabel("Satellite Indices")}>
+                                <option value="CurrentSatellite">{formatImagerLabel("Current Satellite (High-Res RGB)")}</option>
+                                <option value="TrueColor">{formatImagerLabel("True Color (RGB)")}</option>
+                                <option value="NDVI">{formatImagerLabel("NDVI (Vegetation Index)")}</option>
+                                <option value="NDWI">{formatImagerLabel("NDWI (Water Index)")}</option>
+                                <option value="EVI">{formatImagerLabel("EVI (Enhanced Vegetation)")}</option>
+                                <option value="SoilMoisture">{formatImagerLabel("Soil Moisture")}</option>
+                                <option value="FalseColor">{formatImagerLabel("False Color (Biomass)")}</option>
                               </optgroup>
-                              <optgroup label="Weather Map Overlays (GEE)">
-                                <option value="GEE_Temp">Weather: Temperature (GEE GFS)</option>
-                                <option value="GEE_Precip">Weather: Precipitation (GEE GFS)</option>
-                                <option value="GEE_Wind">Weather: Wind Speed (GEE GFS)</option>
-                                <option value="GEE_Humidity">Weather: Relative Humidity (GEE GFS)</option>
-                                <option value="GEE_Clouds">Weather: Total Cloud Cover (GEE GFS)</option>
-                                <option value="GEE_Pressure">Weather: Sea Level Pressure (GEE GFS)</option>
+                              <optgroup label={formatImagerLabel("Weather Map Overlays (GEE)")}>
+                                <option value="GEE_Temp">{formatImagerLabel("Weather: Temperature (GEE GFS)")}</option>
+                                <option value="GEE_Precip">{formatImagerLabel("Weather: Precipitation (GEE GFS)")}</option>
+                                <option value="GEE_Wind">{formatImagerLabel("Weather: Wind Speed (GEE GFS)")}</option>
+                                <option value="GEE_Humidity">{formatImagerLabel("Weather: Relative Humidity (GEE GFS)")}</option>
+                                <option value="GEE_Clouds">{formatImagerLabel("Weather: Total Cloud Cover (GEE GFS)")}</option>
+                                <option value="GEE_Pressure">{formatImagerLabel("Weather: Sea Level Pressure (GEE GFS)")}</option>
                               </optgroup>
                             </select>
                           </div>
