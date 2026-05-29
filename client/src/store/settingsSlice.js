@@ -23,6 +23,12 @@ export const settingsSlice = createSlice({
     geeProjectId: '',
     geeScale: 3,
     owmApiKey: '',
+    themeAppBgColor: '#eeeef1',
+    themeCardBgColor: '#ffffff',
+    themeCardBorderColor: '#e0e0e0',
+    themeCardBorderThickness: '1px',
+    themeAppBorderColor: '#363535',
+    themeAppBorderThickness: '1px',
   },
   reducers: {
     addUnit: (state, action) => {
@@ -124,11 +130,29 @@ export const settingsSlice = createSlice({
     },
     setOwmApiKey: (state, action) => {
       state.owmApiKey = action.payload;
+    },
+    setThemeAppBgColor: (state, action) => {
+      state.themeAppBgColor = action.payload;
+    },
+    setThemeCardBgColor: (state, action) => {
+      state.themeCardBgColor = action.payload;
+    },
+    setThemeCardBorderColor: (state, action) => {
+      state.themeCardBorderColor = action.payload;
+    },
+    setThemeCardBorderThickness: (state, action) => {
+      state.themeCardBorderThickness = action.payload;
+    },
+    setThemeAppBorderColor: (state, action) => {
+      state.themeAppBorderColor = action.payload;
+    },
+    setThemeAppBorderThickness: (state, action) => {
+      state.themeAppBorderThickness = action.payload;
     }
   }
 });
 
-export const { addUnit, removeUnit, addJobTitle, removeJobTitle, addExpenseCategory, removeExpenseCategory, addIncomeCategory, removeIncomeCategory, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold, setAppName, addAnimalType, removeAnimalType, setAllSettings, setVisibleMapLayers, setSnapGap, setGeeClientEmail, setGeePrivateKey, setGeeProjectId, setGeeScale, setOwmApiKey } = settingsSlice.actions;
+export const { addUnit, removeUnit, addJobTitle, removeJobTitle, addExpenseCategory, removeExpenseCategory, addIncomeCategory, removeIncomeCategory, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold, setAppName, addAnimalType, removeAnimalType, setAllSettings, setVisibleMapLayers, setSnapGap, setGeeClientEmail, setGeePrivateKey, setGeeProjectId, setGeeScale, setOwmApiKey, setThemeAppBgColor, setThemeCardBgColor, setThemeCardBorderColor, setThemeCardBorderThickness, setThemeAppBorderColor, setThemeAppBorderThickness } = settingsSlice.actions;
 
 export const saveSettings = () => (dispatch, getState) => {
   const settings = getState().settings;
