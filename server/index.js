@@ -338,10 +338,11 @@ app.post('/api/gee/tile-url', async (req, res) => {
     const isGeeWeather = ['GEE_Temp', 'GEE_Precip', 'GEE_Wind', 'GEE_Humidity', 'GEE_Clouds', 'GEE_Pressure'].includes(indexType);
 
     if (indexType !== 'Elevation' && !isGeeWeather) {
-      // 5. Load and filter Sentinel-2 Collection
+      // 5. Load and filter Sentinel-2 Collection (select only B2, B3, B4, B8, B11 for high resolution & speed)
       let collection = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
         .filterBounds(geometry)
-        .filterDate(startDateStr, endDateStr);
+        .filterDate(startDateStr, endDateStr)
+        .select(['B2', 'B3', 'B4', 'B8', 'B11']);
         
       // Sort by lowest cloud cover
       let sorted = collection.sort('CLOUDY_PIXEL_PERCENTAGE');
@@ -439,10 +440,12 @@ app.post('/api/gee/tile-url', async (req, res) => {
         };
       }
     } else if (indexType === 'Elevation') {
-      const usgs3dep1m = ee.ImageCollection('USGS/3DEP/1m').mosaic();
-      const usgs3dep10m = ee.ImageCollection('USGS/3DEP/10m').mosaic();
-      const srtm = ee.Image('USGS/SRTMGL1_003').select('elevation');
-      const elevation = usgs3dep1m.unmask(usgs3dep10m).unmask(srtm).select(['elevation']);
+      // Resample individual datasets to bicubic before mosaicking to preserve projection details
+      const usgs3dep1m = ee.ImageCollection('USGS/3DEP/1m').map(img => img.resample('bicubic')).mosaic();
+      const usgs3dep10m = ee.Image('USGS/3DEP/10m').resample('bicubic');
+      const srtm = ee.Image('USGS/SRTMGL1_003').select('elevation').resample('bicubic');
+      // unmask() loses default projection info, so we assign srtm's projection as the default for the composite
+      const elevation = usgs3dep1m.unmask(usgs3dep10m).unmask(srtm).select(['elevation']).setDefaultProjection(srtm.projection());
       
       const stats = elevation.reduceRegion({
         reducer: ee.Reducer.minMax(),
@@ -586,7 +589,8 @@ app.post('/api/gee/tile-url', async (req, res) => {
     
   } catch (err) {
     console.error('GEE endpoint error:', err);
-    res.status(500).json({ error: err.message || 'Internal server error processing GEE imagery.' });
+    const errMsg = typeof err === 'string' ? err : (err?.message || err?.error || String(err));
+    res.status(500).json({ error: errMsg || 'Internal server error processing GEE imagery.' });
   } finally {
     await session.close();
   }

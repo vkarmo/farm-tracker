@@ -49,10 +49,10 @@ export const settingsSlice = createSlice({
     themeFontSizeCardTitleCapitalize: false,
     themeFontSizeTabsBold: false,
     themeFontSizeTabsCapitalize: false,
-    themeFontImager: 'System Default',
+    themeFontImager: 'Roboto',
     themeFontSizeImager: '0.72rem',
     themeFontImagerBold: false,
-    themeFontImagerCapitalize: false,
+    themeFontImagerCapitalize: true,
   },
   reducers: {
     addUnit: (state, action) => {
