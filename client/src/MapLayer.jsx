@@ -76,6 +76,22 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
     dispatch(saveSettings());
   };
 
+  const getCommonImagery = () => {
+    if (!fields || fields.length === 0) return 'none';
+    const firstVal = fieldImagery[fields[0].id] || 'none';
+    const allSame = fields.every(f => (fieldImagery[f.id] || 'none') === firstVal);
+    return allSame ? firstVal : 'mixed';
+  };
+  const commonImagery = getCommonImagery();
+
+  const handleGlobalImageryChange = (val) => {
+    const newFieldImagery = {};
+    fields.forEach(field => {
+      newFieldImagery[field.id] = val;
+    });
+    setFieldImagery(newFieldImagery);
+  };
+
   // Fetch and parse KML URLs into GeoJSON
   useEffect(() => {
     const fetchKMLs = async () => {
@@ -145,30 +161,66 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
             />
           </div>
         )}
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-          <button
-            type="button"
-            onClick={() => setShowLayers(!showLayers)}
-            className={`btn map-toolbar-btn ${showLayers ? 'active' : ''}`}
-            style={{ padding: '6px 12px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-            title="Toggle Map Layers"
-          >
-            <Layers size={16} />
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              if (mapCenter) {
-                setFlyTarget([mapCenter[0], mapCenter[1], Date.now()]);
-              }
-            }}
-            className="btn map-toolbar-btn"
-            style={{ padding: '6px 12px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-            title="Go to Farm Base"
-          >
-            <Tractor size={16} />
-          </button>
-          <CurrentLocationButton onLocationFound={(loc) => setFlyTarget(loc)} />
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <label className="imager-select-label" style={{ fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
+              {formatLabel("Global Overlay:")}
+            </label>
+            <select 
+              className="imager-select"
+              value={commonImagery} 
+              onChange={(e) => handleGlobalImageryChange(e.target.value)}
+              style={{ padding: '6px 12px', borderRadius: '4px', background: 'white', fontSize: '0.85rem', border: '1px solid var(--color-border)' }}
+            >
+              {commonImagery === 'mixed' && (
+                <option value="mixed" disabled>{formatLabel("-- Mixed Overlays --")}</option>
+              )}
+              <option value="none">{formatLabel("None (Standard)")}</option>
+              <option value="Elevation">{formatLabel("Elevation (Topography)")}</option>
+              <optgroup label={formatLabel("Satellite Indices")}>
+                <option value="CurrentSatellite">{formatLabel("Current Satellite View")}</option>
+                <option value="TrueColor">{formatLabel("True Color (RGB)")}</option>
+                <option value="NDVI">{formatLabel("NDVI (Vegetation Index)")}</option>
+                <option value="NDWI">{formatLabel("NDWI (Water Index)")}</option>
+                <option value="EVI">{formatLabel("EVI (Enhanced Vegetation)")}</option>
+                <option value="SoilMoisture">{formatLabel("Soil Moisture")}</option>
+                <option value="FalseColor">{formatLabel("False Color (Biomass)")}</option>
+              </optgroup>
+              <optgroup label={formatLabel("Weather Map Overlays (GEE)")}>
+                <option value="GEE_Temp">{formatLabel("Weather: Temperature (GEE GFS)")}</option>
+                <option value="GEE_Precip">{formatLabel("Weather: Precipitation (GEE GFS)")}</option>
+                <option value="GEE_Wind">{formatLabel("Weather: Wind Speed (GEE GFS)")}</option>
+                <option value="GEE_Humidity">{formatLabel("Weather: Relative Humidity (GEE GFS)")}</option>
+                <option value="GEE_Clouds">{formatLabel("Weather: Total Cloud Cover (GEE GFS)")}</option>
+                <option value="GEE_Pressure">{formatLabel("Weather: Sea Level Pressure (GEE GFS)")}</option>
+              </optgroup>
+            </select>
+          </div>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
+              type="button"
+              onClick={() => setShowLayers(!showLayers)}
+              className={`btn map-toolbar-btn ${showLayers ? 'active' : ''}`}
+              style={{ padding: '6px 12px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+              title="Toggle Map Layers"
+            >
+              <Layers size={16} />
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (mapCenter) {
+                  setFlyTarget([mapCenter[0], mapCenter[1], Date.now()]);
+                }
+              }}
+              className="btn map-toolbar-btn"
+              style={{ padding: '6px 12px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+              title="Go to Farm Base"
+            >
+              <Tractor size={16} />
+            </button>
+            <CurrentLocationButton onLocationFound={(loc) => setFlyTarget(loc)} />
+          </div>
         </div>
       </div>
       <div style={{ flex: 1, minHeight: 0, width: '100%', borderRadius: 'var(--radius-md)', overflow: 'hidden', zIndex: 0, position: 'relative' }}>
