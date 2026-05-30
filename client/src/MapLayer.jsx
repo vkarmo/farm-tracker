@@ -57,6 +57,8 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
   const [fieldImagery, setFieldImagery] = useState({});
   const [fieldImageryOffsets, setFieldImageryOffsets] = useState({});
   const [geeStatus, setGeeStatus] = useState({});
+  const [strokeEnabled, setStrokeEnabled] = useState(true);
+  const [useCommonColor, setUseCommonColor] = useState(false);
 
   useEffect(() => {
     const handler = (e) => {
@@ -162,39 +164,61 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
           </div>
         )}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <label className="imager-select-label" style={{ fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
-              {formatLabel("Global Overlay:")}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <label className="imager-select-label" style={{ fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
+                {formatLabel("Global Overlay:")}
+              </label>
+              <select 
+                className="imager-select"
+                value={commonImagery} 
+                onChange={(e) => handleGlobalImageryChange(e.target.value)}
+                style={{ padding: '6px 12px', borderRadius: '4px', background: 'white', fontSize: '0.85rem', border: '1px solid var(--color-border)' }}
+              >
+                {commonImagery === 'mixed' && (
+                  <option value="mixed" disabled>{formatLabel("-- Mixed Overlays --")}</option>
+                )}
+                <option value="none">{formatLabel("None (Standard)")}</option>
+                <option value="Elevation">{formatLabel("Elevation (Topography)")}</option>
+                <optgroup label={formatLabel("Satellite Indices")}>
+                  <option value="CurrentSatellite">{formatLabel("Current Satellite View")}</option>
+                  <option value="TrueColor">{formatLabel("True Color (RGB)")}</option>
+                  <option value="NDVI">{formatLabel("NDVI (Vegetation Index)")}</option>
+                  <option value="NDWI">{formatLabel("NDWI (Water Index)")}</option>
+                  <option value="EVI">{formatLabel("EVI (Enhanced Vegetation)")}</option>
+                  <option value="SoilMoisture">{formatLabel("Soil Moisture")}</option>
+                  <option value="FalseColor">{formatLabel("False Color (Biomass)")}</option>
+                </optgroup>
+                <optgroup label={formatLabel("Weather Map Overlays (GEE)")}>
+                  <option value="GEE_Temp">{formatLabel("Weather: Temperature (GEE GFS)")}</option>
+                  <option value="GEE_Precip">{formatLabel("Weather: Precipitation (GEE GFS)")}</option>
+                  <option value="GEE_Wind">{formatLabel("Weather: Wind Speed (GEE GFS)")}</option>
+                  <option value="GEE_Humidity">{formatLabel("Weather: Relative Humidity (GEE GFS)")}</option>
+                  <option value="GEE_Clouds">{formatLabel("Weather: Total Cloud Cover (GEE GFS)")}</option>
+                  <option value="GEE_Pressure">{formatLabel("Weather: Sea Level Pressure (GEE GFS)")}</option>
+                </optgroup>
+              </select>
+            </div>
+            
+            <label className="imager-select-label" style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem', cursor: 'pointer', userSelect: 'none' }}>
+              <input 
+                type="checkbox" 
+                checked={strokeEnabled} 
+                onChange={(e) => setStrokeEnabled(e.target.checked)} 
+                style={{ cursor: 'pointer' }}
+              />
+              {formatLabel("Show Borders")}
             </label>
-            <select 
-              className="imager-select"
-              value={commonImagery} 
-              onChange={(e) => handleGlobalImageryChange(e.target.value)}
-              style={{ padding: '6px 12px', borderRadius: '4px', background: 'white', fontSize: '0.85rem', border: '1px solid var(--color-border)' }}
-            >
-              {commonImagery === 'mixed' && (
-                <option value="mixed" disabled>{formatLabel("-- Mixed Overlays --")}</option>
-              )}
-              <option value="none">{formatLabel("None (Standard)")}</option>
-              <option value="Elevation">{formatLabel("Elevation (Topography)")}</option>
-              <optgroup label={formatLabel("Satellite Indices")}>
-                <option value="CurrentSatellite">{formatLabel("Current Satellite View")}</option>
-                <option value="TrueColor">{formatLabel("True Color (RGB)")}</option>
-                <option value="NDVI">{formatLabel("NDVI (Vegetation Index)")}</option>
-                <option value="NDWI">{formatLabel("NDWI (Water Index)")}</option>
-                <option value="EVI">{formatLabel("EVI (Enhanced Vegetation)")}</option>
-                <option value="SoilMoisture">{formatLabel("Soil Moisture")}</option>
-                <option value="FalseColor">{formatLabel("False Color (Biomass)")}</option>
-              </optgroup>
-              <optgroup label={formatLabel("Weather Map Overlays (GEE)")}>
-                <option value="GEE_Temp">{formatLabel("Weather: Temperature (GEE GFS)")}</option>
-                <option value="GEE_Precip">{formatLabel("Weather: Precipitation (GEE GFS)")}</option>
-                <option value="GEE_Wind">{formatLabel("Weather: Wind Speed (GEE GFS)")}</option>
-                <option value="GEE_Humidity">{formatLabel("Weather: Relative Humidity (GEE GFS)")}</option>
-                <option value="GEE_Clouds">{formatLabel("Weather: Total Cloud Cover (GEE GFS)")}</option>
-                <option value="GEE_Pressure">{formatLabel("Weather: Sea Level Pressure (GEE GFS)")}</option>
-              </optgroup>
-            </select>
+            
+            <label className="imager-select-label" style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem', cursor: 'pointer', userSelect: 'none' }}>
+              <input 
+                type="checkbox" 
+                checked={useCommonColor} 
+                onChange={(e) => setUseCommonColor(e.target.checked)} 
+                style={{ cursor: 'pointer' }}
+              />
+              {formatLabel("Common Color")}
+            </label>
           </div>
           <div style={{ display: 'flex', gap: '8px' }}>
             <button
@@ -275,7 +299,17 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
           }
           if (!Array.isArray(positions) || positions.length === 0) return null;
           return (
-            <Polygon key={bed.id} pathOptions={{ color: bed.drawColor || polygonColor, weight: 1.2, opacity: 0.6, fillOpacity: 0.4 }} positions={positions}>
+            <Polygon 
+              key={bed.id} 
+              pathOptions={{ 
+                stroke: strokeEnabled,
+                color: useCommonColor ? polygonColor : (bed.drawColor || polygonColor), 
+                weight: 1.2, 
+                opacity: 0.6, 
+                fillOpacity: 0.4 
+              }} 
+              positions={positions}
+            >
               <Popup>
                 <strong>Nursery: {bed.name}</strong><br/>
                 Capacity: {bed.capacity} plugs
@@ -303,7 +337,8 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
                   <Polygon 
                     key={field.id}
                     pathOptions={{ 
-                      color: field.drawColor || polygonColor,
+                      stroke: strokeEnabled,
+                      color: useCommonColor ? polygonColor : (field.drawColor || polygonColor),
                       weight: 1.5,
                       opacity: 0.6,
                       fill: true,
@@ -432,7 +467,17 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
           if (!Array.isArray(positions) || positions.length < 3) return null;
           const mappedPts = positions.map(pt => [pt[0], pt[1]]);
           return (
-            <Polygon key={poi.id} pathOptions={{ color: poi.drawColor || polygonColor, weight: 1.2, opacity: 0.6, fillOpacity: 0.5 }} positions={mappedPts}>
+            <Polygon 
+              key={poi.id} 
+              pathOptions={{ 
+                stroke: strokeEnabled,
+                color: useCommonColor ? polygonColor : (poi.drawColor || polygonColor), 
+                weight: 1.2, 
+                opacity: 0.6, 
+                fillOpacity: 0.5 
+              }} 
+              positions={mappedPts}
+            >
               <Popup>
                 <strong>POI: {poi.name}</strong><br/>
                 {poi.type}
