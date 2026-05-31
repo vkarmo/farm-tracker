@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Search, Edit2, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
 
-export default function CrudTable({ data, columns, onEdit, onDelete, itemLabel = 'Item', customTitle, rowStyle, defaultSort, maxHeight, activeRowId }) {
+export default function CrudTable({ data, columns, onEdit, onDelete, itemLabel = 'Item', customTitle, rowStyle, defaultSort, maxHeight, activeRowId, hideTitle }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState(defaultSort || { key: 'updatedAt', direction: 'desc' });
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
@@ -67,7 +67,9 @@ export default function CrudTable({ data, columns, onEdit, onDelete, itemLabel =
   return (
     <div style={{ marginTop: '20px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', flexWrap: 'wrap', gap: '10px' }}>
-        <h3 style={{ margin: 0 }}>{customTitle || `Active ${itemLabel}s`}</h3>
+        {!hideTitle && (
+          <h3 style={{ margin: 0 }}>{customTitle || `Active ${itemLabel}s`}</h3>
+        )}
         
         <div style={{ position: 'relative', width: '250px', maxWidth: '100%' }}>
           <Search size={16} style={{ position: 'absolute', left: '10px', top: '10px', color: '#888' }} />

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { MapContainer, TileLayer, Polygon, Popup, GeoJSON, Marker } from 'react-leaflet';
 import FieldImageryOverlay, { getDeterministicSceneDate, getDeterministicCloudCover } from './components/FieldImageryOverlay';
@@ -7,7 +7,7 @@ import { setMapCenter, setVisibleMapLayers, saveSettings } from './store/setting
 import { kml } from '@tmcw/togeojson';
 import L from 'leaflet';
 import { CurrentLocationButton, MapFlyTo } from './components/MapSearchBox';
-import { Tractor, Sliders, X } from 'lucide-react';
+import { Tractor, Sliders, X, Sun, Cloud, CloudRain, Wind, Thermometer, Droplet, Clock, AlertTriangle, ShieldCheck, AlertCircle, Info, ChevronDown, ChevronUp } from 'lucide-react';
 import Select from 'react-select';
 
 // Create a custom orange icon for Hard Assets
@@ -58,6 +58,8 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
   const [geeStatus, setGeeStatus] = useState({});
   const [strokeEnabled, setStrokeEnabled] = useState(true);
   const [useCommonColor, setUseCommonColor] = useState(false);
+  const [fieldWeather, setFieldWeather] = useState({});
+  const weatherFetchCache = useRef(new Set());
 
   // Floating Filter Panel state
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(() => {
@@ -146,6 +148,60 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
     window.addEventListener('gee-status-change', handler);
     return () => window.removeEventListener('gee-status-change', handler);
   }, []);
+
+  // Weather GEE data fetching effect
+  useEffect(() => {
+    if (!fields || fields.length === 0) return;
+
+    fields.forEach(field => {
+      const activeImagery = fieldImagery[field.id] || 'none';
+      const isWeather = activeImagery === 'GEE_Weather';
+      if (!isWeather) return;
+
+      const dateOffset = fieldImageryOffsets[field.id] || 0;
+      const key = `${field.id}_${dateOffset}`;
+
+      if (weatherFetchCache.current.has(key)) return;
+      weatherFetchCache.current.add(key);
+
+      setFieldWeather(prev => ({
+        ...prev,
+        [key]: { loading: true, error: null, data: null }
+      }));
+
+      let polygonCoords = [];
+      if (field.polygon) {
+        try {
+          polygonCoords = typeof field.polygon === 'string' ? JSON.parse(field.polygon) : field.polygon;
+        } catch (e) {}
+      }
+
+      fetch('/api/gee/weather', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ polygon: polygonCoords, dateOffset })
+      })
+        .then(res => {
+          if (!res.ok) throw new Error('Failed to fetch weather');
+          return res.json();
+        })
+        .then(data => {
+          setFieldWeather(prev => ({
+            ...prev,
+            [key]: { loading: false, error: null, data }
+          }));
+        })
+        .catch(err => {
+          console.error('[Weather Fetch Error]:', err);
+          // Remove from cache to allow retrying
+          weatherFetchCache.current.delete(key);
+          setFieldWeather(prev => ({
+            ...prev,
+            [key]: { loading: false, error: err.message || 'Error fetching weather data', data: null }
+          }));
+        });
+    });
+  }, [fields, fieldImagery, fieldImageryOffsets]);
 
   const visibleMapLayers = useSelector(state => state.settings?.visibleMapLayers) || ['fields', 'nurseries', 'pois', 'equipment', 'soilTests'];
 
@@ -351,6 +407,15 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
     );
   };
 
+  const activeWeatherField = fields.find(field => {
+    const activeImagery = fieldImagery[field.id] || 'none';
+    return activeImagery === 'GEE_Weather';
+  });
+  const activeWeatherOffset = activeWeatherField ? (fieldImageryOffsets[activeWeatherField.id] || 0) : 0;
+  const activeWeatherKey = activeWeatherField ? `${activeWeatherField.id}_${activeWeatherOffset}` : '';
+  const activeWeatherDataState = fieldWeather[activeWeatherKey];
+  const activeWeatherData = activeWeatherDataState?.data;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Static Toolbar matching other maps */}
@@ -387,6 +452,7 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
           {errors.map((err, i) => <div key={i}>{err}</div>)}
         </div>
       )}
+
 
 
       {/* Floating Filter Panel (Top-Right, shows when open) */}
@@ -450,16 +516,99 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
                   <option value="SoilMoisture">{formatLabel("Soil Moisture")}</option>
                   <option value="FalseColor">{formatLabel("False Color (Biomass)")}</option>
                 </optgroup>
-                <optgroup label={formatLabel("Weather Map Overlays (GEE)")}>
-                  <option value="GEE_Temp">{formatLabel("Weather: Temperature (GEE GFS)")}</option>
-                  <option value="GEE_Precip">{formatLabel("Weather: Precipitation (GEE GFS)")}</option>
-                  <option value="GEE_Wind">{formatLabel("Weather: Wind Speed (GEE GFS)")}</option>
-                  <option value="GEE_Humidity">{formatLabel("Weather: Relative Humidity (GEE GFS)")}</option>
-                  <option value="GEE_Clouds">{formatLabel("Weather: Total Cloud Cover (GEE GFS)")}</option>
-                  <option value="GEE_Pressure">{formatLabel("Weather: Sea Level Pressure (GEE GFS)")}</option>
-                </optgroup>
+                <option value="GEE_Weather">{formatLabel("Weather Forecast (GEE GFS)")}</option>
               </select>
             </div>
+
+            {commonImagery === 'GEE_Weather' && activeWeatherData && (
+              <div style={{ marginTop: '8px', padding: '10px', background: 'rgba(51,105,30,0.05)', borderRadius: '8px', border: '1px solid rgba(51,105,30,0.2)', color: '#1b5e20', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(51,105,30,0.15)', paddingBottom: '6px' }}>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 700 }}>Farm Weather Report</span>
+                  <span style={{ fontSize: '0.58rem', background: activeWeatherData.isSimulated ? '#fff3e0' : '#e8f5e9', padding: '1px 4px', borderRadius: '3px', color: activeWeatherData.isSimulated ? '#e65100' : '#2e7d32', fontWeight: 600 }}>
+                    {activeWeatherData.isSimulated ? 'Simulated' : 'GEE GFS'}
+                  </span>
+                </div>
+                
+                {/* Metrics Grid */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '4px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', background: 'white', padding: '4px', borderRadius: '6px', border: '1px solid rgba(0,0,0,0.05)' }}>
+                    <Thermometer size={14} color="#e65100" />
+                    <span style={{ fontSize: '0.55rem', color: '#757575' }}>Temp</span>
+                    <span style={{ fontSize: '0.72rem', fontWeight: 700, textAlign: 'center', lineHeight: 1.1 }}>{Math.round(activeWeatherData.temperature * 1.8 + 32)}°F <br/><span style={{ fontSize: '0.55rem', fontWeight: 'normal', color: '#666' }}>({activeWeatherData.temperature}°C)</span></span>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', background: 'white', padding: '4px', borderRadius: '6px', border: '1px solid rgba(0,0,0,0.05)' }}>
+                    <CloudRain size={14} color="#1565c0" />
+                    <span style={{ fontSize: '0.55rem', color: '#757575' }}>Rain</span>
+                    <span style={{ fontSize: '0.72rem', fontWeight: 700, marginTop: '2px' }}>{activeWeatherData.precipitation} mm</span>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', background: 'white', padding: '4px', borderRadius: '6px', border: '1px solid rgba(0,0,0,0.05)' }}>
+                    <Wind size={14} color="#0288d1" />
+                    <span style={{ fontSize: '0.55rem', color: '#757575' }}>Wind</span>
+                    <span style={{ fontSize: '0.72rem', fontWeight: 700, textAlign: 'center', lineHeight: 1.1 }}>{Math.round(activeWeatherData.windSpeed * 3.6)} km/h <br/><span style={{ fontSize: '0.55rem', fontWeight: 'normal', color: '#666' }}>({activeWeatherData.windSpeed} m/s)</span></span>
+                  </div>
+                </div>
+
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.68rem', background: 'white', padding: '4px 8px', borderRadius: '6px', border: '1px solid rgba(0,0,0,0.05)' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                    <Droplet size={10} color="#00acc1" />
+                    <span>Hum: <strong>{activeWeatherData.humidity}%</strong></span>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                    <Cloud size={10} color="#546e7a" />
+                    <span>Clouds: <strong>{activeWeatherData.clouds}%</strong></span>
+                  </div>
+                </div>
+
+                <div style={{ fontSize: '0.62rem', color: '#555', lineHeight: '1.2' }}>
+                  <div><strong>Forecast:</strong> {activeWeatherData.dateStr}</div>
+                  <div><strong>Duration:</strong> {activeWeatherData.duration}</div>
+                </div>
+
+                {/* Agricultural Advisories */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', borderTop: '1px solid rgba(51,105,30,0.1)', paddingTop: '6px' }}>
+                  <span style={{ fontSize: '0.68rem', fontWeight: 700, display: 'flex', alignItems: 'center', gap: '3px' }}>
+                    <Info size={12} /> Agricultural Impact:
+                  </span>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', maxHeight: '80px', overflowY: 'auto' }}>
+                    {(() => {
+                      const alerts = [];
+                      const w = activeWeatherData;
+
+                      if (w.windSpeed > 5.0) {
+                        alerts.push({ text: `High wind drift risk (${Math.round(w.windSpeed * 3.6)} km/h / ${w.windSpeed} m/s). Avoid pesticide spraying.`, color: '#d84315' });
+                      } else if (w.windSpeed < 1.0) {
+                        alerts.push({ text: `Calm wind (${Math.round(w.windSpeed * 3.6)} km/h / ${w.windSpeed} m/s). Thermal inversion risk.`, color: '#ef6c00' });
+                      } else {
+                        alerts.push({ text: `Optimal wind spraying window (${Math.round(w.windSpeed * 3.6)} km/h).`, color: '#2e7d32' });
+                      }
+
+                      if (w.temperature < 2.0) {
+                        alerts.push({ text: `Frost Alert: Low temp (${Math.round(w.temperature * 1.8 + 32)}°F / ${w.temperature}°C). Cover sensitive crops.`, color: '#c62828' });
+                      } else if (w.temperature > 32.0) {
+                        alerts.push({ text: `Heat Alert: High temp (${Math.round(w.temperature * 1.8 + 32)}°F / ${w.temperature}°C). Elevate irrigation.`, color: '#c62828' });
+                      }
+
+                      if (w.precipitation > 0.1) {
+                        alerts.push({ text: `Rain detected (${w.precipitation} mm/h). Pause scheduled irrigation.`, color: '#1565c0' });
+                      } else if (w.humidity < 35.0) {
+                        alerts.push({ text: `Dry Air Alert (${w.humidity}%). Monitor soil moisture profiles.`, color: '#ef6c00' });
+                      }
+
+                      if (w.humidity > 85.0 && w.temperature >= 18.0 && w.temperature <= 28.0) {
+                        alerts.push({ text: `Warm & humid. Fungal infection risk.`, color: '#c62828' });
+                      }
+
+                      return alerts.map((alert, idx) => (
+                        <div key={idx} style={{ fontSize: '0.62rem', color: alert.color, display: 'flex', gap: '3px', alignItems: 'flex-start' }}>
+                          <span>•</span>
+                          <span>{alert.text}</span>
+                        </div>
+                      ));
+                    })()}
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginTop: '4px' }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', cursor: 'pointer', margin: 0 }}>
@@ -652,11 +801,14 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
                       <select 
                         className="imager-select"
                         value={fieldImagery[field.id] || 'none'} 
-                        onChange={(e) => setFieldImagery(prev => ({ ...prev, [field.id]: e.target.value }))}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          setFieldImagery(prev => ({ ...prev, [field.id]: val }));
+                        }}
                         style={{ padding: '4px', borderRadius: '4px', width: '100%', background: 'white' }}
                       >
-                        <option value="Elevation">{formatLabel("Elevation (Topography)")}</option>
                         <option value="none">{formatLabel("None (Standard)")}</option>
+                        <option value="Elevation">{formatLabel("Elevation (Topography)")}</option>
                         <optgroup label={formatLabel("Satellite Indices")}>
                           <option value="CurrentSatellite">{formatLabel("Current Satellite View")}</option>
                           <option value="TrueColor">{formatLabel("True Color (RGB)")}</option>
@@ -666,46 +818,91 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
                           <option value="SoilMoisture">{formatLabel("Soil Moisture")}</option>
                           <option value="FalseColor">{formatLabel("False Color (Biomass)")}</option>
                         </optgroup>
-                        <optgroup label={formatLabel("Weather Map Overlays (GEE)")}>
-                          <option value="GEE_Temp">{formatLabel("Weather: Temperature (GEE GFS)")}</option>
-                          <option value="GEE_Precip">{formatLabel("Weather: Precipitation (GEE GFS)")}</option>
-                          <option value="GEE_Wind">{formatLabel("Weather: Wind Speed (GEE GFS)")}</option>
-                          <option value="GEE_Humidity">{formatLabel("Weather: Relative Humidity (GEE GFS)")}</option>
-                          <option value="GEE_Clouds">{formatLabel("Weather: Total Cloud Cover (GEE GFS)")}</option>
-                          <option value="GEE_Pressure">{formatLabel("Weather: Sea Level Pressure (GEE GFS)")}</option>
-                        </optgroup>
+                        <option value="GEE_Weather">{formatLabel("Weather Forecast (GEE GFS)")}</option>
                       </select>
                     </div>
                     {fieldImagery[field.id] && fieldImagery[field.id] !== 'none' && (
                       <div style={{ marginTop: '8px', padding: '6px', background: '#f1f8e9', borderRadius: '4px', border: '1px solid #c5e1a5', fontSize: '0.72rem', color: '#33691e' }}>
-                        <div style={{ fontWeight: 700, marginBottom: '2px' }}>
-                          {fieldImagery[field.id] === 'GEE_Clouds' ? 'Weather: Clouds (GEE)' :
-                           fieldImagery[field.id] === 'GEE_Precip' ? 'Weather: Precipitation (GEE)' :
-                           fieldImagery[field.id] === 'GEE_Temp' ? 'Weather: Temperature (GEE)' :
-                           fieldImagery[field.id] === 'GEE_Wind' ? 'Weather: Wind Speed (GEE)' :
-                           fieldImagery[field.id] === 'GEE_Humidity' ? 'Weather: Relative Humidity (GEE)' :
-                           fieldImagery[field.id] === 'GEE_Pressure' ? 'Weather: Sea Level Pressure (GEE)' :
-                           fieldImagery[field.id] === 'CurrentSatellite' ? 'Current Satellite (High-Res)' :
-                           fieldImagery[field.id] === 'Elevation' ? 'Elevation (Topography)' : 'Sentinel-2 (10m Index)'}
-                        </div>
-                        {geeStatus[field.id] && geeStatus[field.id].status === 'failed' && (
-                          <div style={{ marginTop: '4px', color: '#c62828', fontWeight: 600, fontSize: '0.65rem', lineHeight: '1.2' }}>
-                            {`⚠ GEE Failed: ${geeStatus[field.id].error}. Showing simulation.`}
-                          </div>
-                        )}
-                        {geeStatus[field.id] && geeStatus[field.id].status === 'success' && (
-                          <div style={{ marginTop: '4px', color: '#2e7d32', fontWeight: 600, fontSize: '0.65rem', lineHeight: '1.2' }}>
-                            ✓ Live Earth Engine imagery loaded.
-                          </div>
-                        )}
-                        {geeStatus[field.id] && geeStatus[field.id].status === 'loading' && (
-                          <div style={{ marginTop: '4px', color: '#1565c0', fontSize: '0.65rem', lineHeight: '1.2' }}>
-                            Fetching GEE tiles...
-                          </div>
-                        )}
-                        <div>Scene Date: {getDeterministicSceneDate(field.id, fieldImageryOffsets[field.id] || 0)}</div>
-                        {!['GEE_Temp', 'GEE_Precip', 'GEE_Wind', 'GEE_Humidity', 'GEE_Clouds', 'GEE_Pressure'].includes(fieldImagery[field.id]) && (
-                          <div>Cloud Cover: {getDeterministicCloudCover(field.id, fieldImageryOffsets[field.id] || 0)}%</div>
+                        {fieldImagery[field.id] === 'GEE_Weather' ? (
+                          (() => {
+                            const dateOffset = fieldImageryOffsets[field.id] || 0;
+                            const key = `${field.id}_${dateOffset}`;
+                            const wState = fieldWeather[key];
+
+                            if (!wState) {
+                              return <div style={{ fontSize: '0.7rem', color: '#666', padding: '4px 0' }}>Initializing weather query...</div>;
+                            }
+                            if (wState.loading) {
+                              return <div style={{ fontSize: '0.7rem', color: '#1565c0', padding: '4px 0' }}>Fetching GEE GFS weather data...</div>;
+                            }
+                            if (wState.error) {
+                              return <div style={{ fontSize: '0.68rem', color: '#c62828', padding: '4px 0' }}>⚠ GEE Failed: {wState.error}. Using simulated data.</div>;
+                            }
+
+                            const weather = wState.data;
+                            if (!weather) return <div style={{ fontSize: '0.7rem', color: '#666' }}>No data available</div>;
+
+                            return (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(51,105,30,0.2)', paddingBottom: '4px', marginBottom: '2px' }}>
+                                  <span style={{ fontWeight: 700, fontSize: '0.75rem' }}>Weather Report</span>
+                                  <span style={{ fontSize: '0.58rem', background: weather.isSimulated ? '#fff3e0' : '#e8f5e9', padding: '1px 4px', borderRadius: '3px', color: weather.isSimulated ? '#e65100' : '#2e7d32', fontWeight: 600 }}>
+                                    {weather.isSimulated ? 'Simulated' : 'GEE GFS'}
+                                  </span>
+                                </div>
+                                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 8px', fontSize: '0.7rem' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                    <Thermometer size={12} color="#e65100" />
+                                    <span>T: <strong>{Math.round(weather.temperature * 1.8 + 32)}°F</strong> <span style={{ fontSize: '0.6rem', color: '#666' }}>({weather.temperature}°C)</span></span>
+                                  </div>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                    <Wind size={12} color="#0288d1" />
+                                    <span>W: <strong>{Math.round(weather.windSpeed * 3.6)} km/h</strong> <span style={{ fontSize: '0.6rem', color: '#666' }}>({weather.windSpeed} m/s)</span></span>
+                                  </div>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                    <CloudRain size={12} color="#1565c0" />
+                                    <span>Rain: <strong>{weather.precipitation} mm/h</strong></span>
+                                  </div>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
+                                    <Droplet size={12} color="#00acc1" />
+                                    <span>H: <strong>{weather.humidity}%</strong></span>
+                                  </div>
+                                </div>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '3px', fontSize: '0.68rem', color: '#555' }}>
+                                  <Cloud size={12} color="#546e7a" />
+                                  <span>Clouds: <strong>{weather.clouds}%</strong></span>
+                                </div>
+                                <div style={{ fontSize: '0.62rem', color: '#666', borderTop: '1px solid rgba(51,105,30,0.1)', paddingTop: '4px', marginTop: '2px', lineHeight: '1.2' }}>
+                                  <div>Forecast: {weather.dateStr || new Date(weather.forecastTime).toLocaleString()}</div>
+                                  <div>Duration: {weather.duration}</div>
+                                </div>
+                              </div>
+                            );
+                          })()
+                        ) : (
+                          <>
+                            <div style={{ fontWeight: 700, marginBottom: '2px' }}>
+                              {fieldImagery[field.id] === 'CurrentSatellite' ? 'Current Satellite (High-Res)' :
+                               fieldImagery[field.id] === 'Elevation' ? 'Elevation (Topography)' : 'Sentinel-2 (10m Index)'}
+                            </div>
+                            {geeStatus[field.id] && geeStatus[field.id].status === 'failed' && (
+                              <div style={{ marginTop: '4px', color: '#c62828', fontWeight: 600, fontSize: '0.65rem', lineHeight: '1.2' }}>
+                                {`⚠ GEE Failed: ${geeStatus[field.id].error}. Showing simulation.`}
+                              </div>
+                            )}
+                            {geeStatus[field.id] && geeStatus[field.id].status === 'success' && (
+                              <div style={{ marginTop: '4px', color: '#2e7d32', fontWeight: 600, fontSize: '0.65rem', lineHeight: '1.2' }}>
+                                ✓ Live Earth Engine imagery loaded.
+                              </div>
+                            )}
+                            {geeStatus[field.id] && geeStatus[field.id].status === 'loading' && (
+                              <div style={{ marginTop: '4px', color: '#1565c0', fontSize: '0.65rem', lineHeight: '1.2' }}>
+                                Fetching GEE tiles...
+                              </div>
+                            )}
+                            <div>Scene Date: {getDeterministicSceneDate(field.id, fieldImageryOffsets[field.id] || 0)}</div>
+                            <div>Cloud Cover: {getDeterministicCloudCover(field.id, fieldImageryOffsets[field.id] || 0)}%</div>
+                          </>
                         )}
                             
                         <div style={{ display: 'flex', marginTop: '6px', alignItems: 'center', justifyContent: 'space-between' }}>
@@ -743,7 +940,7 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
                   </div>
                 </Popup>
               </Polygon>
-              {fieldImagery[field.id] && fieldImagery[field.id] !== 'none' && (
+              {fieldImagery[field.id] && fieldImagery[field.id] !== 'none' && fieldImagery[field.id] !== 'GEE_Weather' && (
                 <FieldImageryOverlay 
                   polygon={positions} 
                   indexType={fieldImagery[field.id]} 

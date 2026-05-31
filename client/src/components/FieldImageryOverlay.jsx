@@ -281,7 +281,7 @@ export default function FieldImageryOverlay({ polygon, indexType, dateOffset = 0
 
     // 3. Render High-Quality Imagery utilizing ONLY high-resolution bands (3-5m PlanetScope / 10m Sentinel-2):
     //    We explicitly bypass/skip all coarse bands (>10m) to return the highest spatial quality available.
-    const gridSize = (indexType === 'CurrentSatellite' || indexType === 'TrueColor' || indexType === 'NDVI') ? 512 : 256;
+    const gridSize = 512;
     const cellWidth = canvasWidth / gridSize;
     const cellHeight = canvasHeight / gridSize;
 

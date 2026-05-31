@@ -276,6 +276,191 @@ app.post('/api/gee/test-connection', async (req, res) => {
   }
 });
 
+function getSimulatedWeather(polygon, dateOffset) {
+  const offset = Number(dateOffset) || 0;
+  const dayOfYear = Math.floor((new Date('2026-05-28T12:00:00-04:00').getTime() - new Date(new Date().getFullYear(), 0, 0).getTime()) / 86400000) + offset;
+  
+  // Simple sinusoidal temp wave peaking in July (day 180)
+  const baseTemp = 18 + 12 * Math.cos(((dayOfYear - 180) / 182.5) * Math.PI);
+  // Add some day-to-day noise
+  const seed = Math.sin(dayOfYear * 123.456);
+  const tempNoise = (seed - Math.floor(seed)) * 6 - 3;
+  const tempC = baseTemp + tempNoise;
+  
+  // Clouds and precip simulation
+  const cloudSeed = Math.cos(dayOfYear * 33.3);
+  const clouds = Math.max(0, Math.min(100, (cloudSeed - Math.floor(cloudSeed)) * 100));
+  
+  let precip = 0.0;
+  if (clouds > 75) {
+    const rainSeed = Math.sin(dayOfYear * 99.9);
+    precip = Math.max(0.0, parseFloat(((rainSeed - Math.floor(rainSeed)) * 8).toFixed(2)));
+  }
+  
+  // Wind speed
+  const windSeed = Math.sin(dayOfYear * 45.6);
+  const windSpeed = Math.max(1.0, parseFloat(((windSeed - Math.floor(windSeed)) * 12).toFixed(1)));
+  
+  // Humidity
+  const humidity = Math.min(100, Math.max(20, 100 - (tempC * 1.5) + (clouds * 0.3)));
+  
+  const targetDate = new Date(new Date('2026-05-28T12:00:00-04:00').getTime() + offset * 24 * 60 * 60 * 1000);
+  
+  return {
+    isSimulated: true,
+    temperature: parseFloat(tempC.toFixed(1)),
+    precipitation: precip,
+    windSpeed: windSpeed,
+    humidity: parseFloat(humidity.toFixed(1)),
+    clouds: parseFloat(clouds.toFixed(1)),
+    forecastTime: targetDate.toISOString(),
+    duration: '3 hours',
+    dateStr: targetDate.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+  };
+}
+
+// GEE Weather data endpoint
+app.post('/api/gee/weather', async (req, res) => {
+  const session = driver.session();
+  try {
+    const { polygon, dateOffset } = req.body;
+    
+    // 1. Fetch credentials from settings
+    const result = await session.run("MATCH (n:GlobalSettings {id: 'default'}) RETURN n");
+    if (result.records.length === 0) {
+      return res.status(404).json({ error: 'Global settings not found.' });
+    }
+    
+    const settingsNode = result.records[0].get('n').properties;
+    let perfectPrivateKey = (settingsNode.geePrivateKey || '').replace(/\\n/g, '\n');
+    const creds = {
+      client_email: settingsNode.geeClientEmail || '',
+      private_key: perfectPrivateKey,
+      project_id: settingsNode.geeProjectId || ''
+    };
+    
+    if (!creds.client_email || !creds.private_key || !creds.project_id) {
+      return res.json(getSimulatedWeather(polygon, dateOffset));
+    }
+    
+    // 2. Initialize Earth Engine
+    await initializeGee(creds);
+    
+    // 3. Format polygon coordinates for Earth Engine (Leaflet uses [lat, lng], GEE uses [lng, lat])
+    let sanitizedPolygon = polygon;
+    if (Array.isArray(polygon) && polygon.length > 0 && Array.isArray(polygon[0]) && Array.isArray(polygon[0][0])) {
+      sanitizedPolygon = polygon[0];
+    }
+    if (!Array.isArray(sanitizedPolygon) || sanitizedPolygon.length < 3) {
+      // Use map center as default location
+      const mapCenter = settingsNode.mapCenter ? JSON.parse(settingsNode.mapCenter) : [51.505, -0.09];
+      sanitizedPolygon = [
+        [mapCenter[0] - 0.001, mapCenter[1] - 0.001],
+        [mapCenter[0] + 0.001, mapCenter[1] - 0.001],
+        [mapCenter[0] + 0.001, mapCenter[1] + 0.001],
+        [mapCenter[0] - 0.001, mapCenter[1] + 0.001]
+      ];
+    }
+    const coords = sanitizedPolygon.map(pt => [pt[1], pt[0]]);
+    if (coords[0][0] !== coords[coords.length - 1][0] || coords[0][1] !== coords[coords.length - 1][1]) {
+      coords.push(coords[0]);
+    }
+    const geometry = ee.Geometry.Polygon([coords]);
+    const centroid = geometry.centroid(1);
+    
+    // 4. Calculate Date Window (60-day window centered on the target date)
+    const baseDate = new Date('2026-05-28T12:00:00-04:00');
+    const hash = 42; // Seed hash
+    const daysAgo = (hash % 20) + 3 - (Number(dateOffset) || 0);
+    const targetDate = new Date(baseDate.getTime() - daysAgo * 24 * 60 * 60 * 1000);
+    
+    const start = new Date(targetDate.getTime() - 15 * 24 * 60 * 60 * 1000);
+    const end = new Date(targetDate.getTime() + 15 * 24 * 60 * 60 * 1000);
+    
+    const startDateStr = start.toISOString().split('T')[0];
+    const endDateStr = end.toISOString().split('T')[0];
+    
+    // 5. Fetch GFS
+    let gfsCollection = ee.ImageCollection('NOAA/GFS0P25')
+      .filterBounds(centroid)
+      .filterDate(startDateStr, endDateStr)
+      .filter(ee.Filter.eq('forecast_hours', 0))
+      .sort('system:time_start', false);
+      
+    const count = await new Promise((resolve) => {
+      gfsCollection.size().evaluate((c, err) => {
+        if (err) resolve(0);
+        else resolve(c);
+      });
+    });
+    
+    if (count === 0) {
+      return res.json(getSimulatedWeather(polygon, dateOffset));
+    }
+    
+    const weatherImage = gfsCollection.first();
+    
+    const uWind = weatherImage.select('u_component_of_wind_10m_above_ground');
+    const vWind = weatherImage.select('v_component_of_wind_10m_above_ground');
+    const windSpeed = uWind.multiply(uWind).add(vWind.multiply(vWind)).sqrt().rename('wind_speed');
+    
+    const combinedImage = weatherImage.select([
+      'temperature_2m_above_ground',
+      'precipitation_rate',
+      'relative_humidity_2m_above_ground',
+      'total_cloud_cover_entire_atmosphere'
+    ]).addBands(windSpeed);
+    
+    const stats = combinedImage.reduceRegion({
+      reducer: ee.Reducer.mean(),
+      geometry: centroid,
+      scale: 1000,
+      maxPixels: 1e9
+    });
+    
+    const weatherData = await new Promise((resolve) => {
+      stats.evaluate((val, err) => {
+        resolve(val || null);
+      });
+    });
+    
+    if (!weatherData) {
+      return res.json(getSimulatedWeather(polygon, dateOffset));
+    }
+    
+    const timeStart = await new Promise((resolve) => {
+      weatherImage.get('system:time_start').evaluate((t) => resolve(t || Date.now()));
+    });
+    
+    const forecastHours = await new Promise((resolve) => {
+      weatherImage.get('forecast_hours').evaluate((h) => resolve(h || 0));
+    });
+    
+    const tempC = weatherData.temperature_2m_above_ground !== undefined ? weatherData.temperature_2m_above_ground : 20.0;
+    const precipRate = weatherData.precipitation_rate || 0.0;
+    const precipMmPerHour = precipRate * 3600;
+    
+    const responseData = {
+      isSimulated: false,
+      temperature: parseFloat(tempC.toFixed(1)),
+      precipitation: parseFloat(precipMmPerHour.toFixed(2)),
+      windSpeed: parseFloat((weatherData.wind_speed || 0.0).toFixed(1)),
+      humidity: parseFloat((weatherData.relative_humidity_2m_above_ground || 50.0).toFixed(1)),
+      clouds: parseFloat((weatherData.total_cloud_cover_entire_atmosphere || 0.0).toFixed(1)),
+      forecastTime: new Date(timeStart + forecastHours * 3600000).toISOString(),
+      duration: '3 hours',
+      dateStr: new Date(timeStart).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+    };
+    
+    return res.json(responseData);
+  } catch (err) {
+    console.error('[GEE Weather Endpoint Error]:', err);
+    return res.json(getSimulatedWeather(req.body.polygon, req.body.dateOffset));
+  } finally {
+    await session.close();
+  }
+});
+
 // GEE Tile URL proxy/endpoint
 app.post('/api/gee/tile-url', async (req, res) => {
   const session = driver.session();
@@ -299,8 +484,14 @@ app.post('/api/gee/tile-url', async (req, res) => {
       return res.status(400).json({ error: 'Google Earth Engine credentials are not fully configured in settings.' });
     }
     
-    // Determine the scale in meters (recommended 5m or less)
-    const scaleValue = parseFloat(geeScale) || parseFloat(props.geeScale) || 3.0;
+    // Use the lowest meter from the minimum native resolution of the dataset and the requested scale to get high resolution imagery
+    const requestedScale = parseFloat(geeScale) || parseFloat(props.geeScale) || 3.0;
+    let scaleValue = Math.min(requestedScale, 10); // Sentinel-2 high-res bands native minimum is 10m
+    if (indexType === 'Elevation') {
+      scaleValue = Math.min(requestedScale, 1); // 1m for USGS 3DEP native minimum
+    } else if (['GEE_Temp', 'GEE_Precip', 'GEE_Wind', 'GEE_Humidity', 'GEE_Clouds', 'GEE_Pressure'].includes(indexType)) {
+      scaleValue = Math.max(requestedScale, 100); // Enforce minimum scale of 100m for weather GEE requests to prevent memory errors
+    }
     
     // 2. Initialize Earth Engine
     await initializeGee(creds);
@@ -338,11 +529,25 @@ app.post('/api/gee/tile-url', async (req, res) => {
     const isGeeWeather = ['GEE_Temp', 'GEE_Precip', 'GEE_Wind', 'GEE_Humidity', 'GEE_Clouds', 'GEE_Pressure'].includes(indexType);
 
     if (indexType !== 'Elevation' && !isGeeWeather) {
-      // 5. Load and filter Sentinel-2 Collection (select only B2, B3, B4, B8 for high resolution & speed)
+      // Determine the specific high-resolution bands required for the requested index type
+      let selectedBands = ['B2', 'B3', 'B4']; // Default/TrueColor (RGB)
+      if (indexType === 'NDVI') {
+        selectedBands = ['B4', 'B8'];
+      } else if (indexType === 'NDWI') {
+        selectedBands = ['B3', 'B8'];
+      } else if (indexType === 'EVI') {
+        selectedBands = ['B2', 'B4', 'B8'];
+      } else if (indexType === 'SoilMoisture') {
+        selectedBands = ['B8', 'B11'];
+      } else if (indexType === 'FalseColor') {
+        selectedBands = ['B3', 'B4', 'B8'];
+      }
+
+      // 5. Load and filter Sentinel-2 Collection, selecting only the necessary high-resolution bands
       let collection = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
         .filterBounds(geometry)
         .filterDate(startDateStr, endDateStr)
-        .select(['B2', 'B3', 'B4', 'B8']);
+        .select(selectedBands);
         
       // Sort by lowest cloud cover
       let sorted = collection.sort('CLOUDY_PIXEL_PERCENTAGE');
@@ -387,18 +592,19 @@ app.post('/api/gee/tile-url', async (req, res) => {
       }
       
       const weatherImage = gfsCollection.first();
+      const weatherGeometry = geometry.buffer(50000); // 50km regional buffer to prevent mono-color and show detailed gradients
       
       if (indexType === 'GEE_Temp') {
         const temp = weatherImage.select('temperature_2m_above_ground');
-        processedImage = temp.resample('bicubic').reproject({ crs: 'EPSG:3857', scale: scaleValue }).clip(geometry);
+        processedImage = temp.resample('bicubic').reproject({ crs: 'EPSG:3857', scale: scaleValue }).clip(weatherGeometry);
         visParams = {
           min: 263.15, // -10C
           max: 313.15, // 40C
           palette: ['#0000ff', '#00ffff', '#00ff00', '#ffff00', '#ffaa00', '#ff0000']
         };
       } else if (indexType === 'GEE_Precip') {
-        const precip = weatherImage.select('precipitation_rate_surface');
-        processedImage = precip.resample('bicubic').reproject({ crs: 'EPSG:3857', scale: scaleValue }).clip(geometry);
+        const precip = weatherImage.select('precipitation_rate');
+        processedImage = precip.resample('bicubic').reproject({ crs: 'EPSG:3857', scale: scaleValue }).clip(weatherGeometry);
         visParams = {
           min: 0.0,
           max: 0.0005,
@@ -408,7 +614,7 @@ app.post('/api/gee/tile-url', async (req, res) => {
         const uWind = weatherImage.select('u_component_of_wind_10m_above_ground');
         const vWind = weatherImage.select('v_component_of_wind_10m_above_ground');
         const windSpeed = uWind.multiply(uWind).add(vWind.multiply(vWind)).sqrt().rename('wind_speed');
-        processedImage = windSpeed.resample('bicubic').reproject({ crs: 'EPSG:3857', scale: scaleValue }).clip(geometry);
+        processedImage = windSpeed.resample('bicubic').reproject({ crs: 'EPSG:3857', scale: scaleValue }).clip(weatherGeometry);
         visParams = {
           min: 0.0,
           max: 15.0,
@@ -416,7 +622,7 @@ app.post('/api/gee/tile-url', async (req, res) => {
         };
       } else if (indexType === 'GEE_Humidity') {
         const hum = weatherImage.select('relative_humidity_2m_above_ground');
-        processedImage = hum.resample('bicubic').reproject({ crs: 'EPSG:3857', scale: scaleValue }).clip(geometry);
+        processedImage = hum.resample('bicubic').reproject({ crs: 'EPSG:3857', scale: scaleValue }).clip(weatherGeometry);
         visParams = {
           min: 20.0,
           max: 100.0,
@@ -424,18 +630,19 @@ app.post('/api/gee/tile-url', async (req, res) => {
         };
       } else if (indexType === 'GEE_Clouds') {
         const clouds = weatherImage.select('total_cloud_cover_entire_atmosphere');
-        processedImage = clouds.resample('bicubic').reproject({ crs: 'EPSG:3857', scale: scaleValue }).clip(geometry);
+        processedImage = clouds.resample('bicubic').reproject({ crs: 'EPSG:3857', scale: scaleValue }).clip(weatherGeometry);
         visParams = {
           min: 0.0,
           max: 100.0,
           palette: ['#b3e5fc', '#ffffff', '#e0e0e0', '#9e9e9e']
         };
       } else if (indexType === 'GEE_Pressure') {
-        const pressure = weatherImage.select('mean_sea_level_pressure');
-        processedImage = pressure.resample('bicubic').reproject({ crs: 'EPSG:3857', scale: scaleValue }).clip(geometry);
+        // Map to precipitable_water_entire_atmosphere since mean_sea_level_pressure is not in the surface dataset
+        const pressure = weatherImage.select('precipitable_water_entire_atmosphere');
+        processedImage = pressure.resample('bicubic').reproject({ crs: 'EPSG:3857', scale: scaleValue }).clip(weatherGeometry);
         visParams = {
-          min: 98000,
-          max: 103000,
+          min: 0.0,
+          max: 60.0,
           palette: ['#311b92', '#512da8', '#d1c4e9', '#fff9c4', '#fbc02d', '#f57f17']
         };
       }
@@ -514,8 +721,8 @@ app.post('/api/gee/tile-url', async (req, res) => {
         palette: ['#FFFFFF', '#DF923D', '#FCD163', '#74A025', '#166D05']
       };
     } else if (indexType === 'SoilMoisture') {
-      // Soil Moisture proxy using NIR (B8) and Blue (B2) since B11 is restricted
-      const ndmi = baseImage.normalizedDifference(['B8', 'B2']).rename('SoilMoisture');
+      // NDMI = (NIR - SWIR) / (NIR + SWIR) -> B8 - B11
+      const ndmi = baseImage.normalizedDifference(['B8', 'B11']).rename('SoilMoisture');
       processedImage = ndmi.select(['SoilMoisture']).resample('bicubic').reproject({ crs: 'EPSG:3857', scale: scaleValue }).clip(geometry);
       visParams = {
         min: -0.3,
