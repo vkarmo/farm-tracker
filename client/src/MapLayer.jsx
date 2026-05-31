@@ -7,7 +7,7 @@ import { setMapCenter, setVisibleMapLayers, saveSettings } from './store/setting
 import { kml } from '@tmcw/togeojson';
 import L from 'leaflet';
 import { CurrentLocationButton, MapFlyTo } from './components/MapSearchBox';
-import { Tractor, Layers } from 'lucide-react';
+import { Tractor, Sliders, X } from 'lucide-react';
 import Select from 'react-select';
 
 // Create a custom orange icon for Hard Assets
@@ -53,12 +53,90 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
   const [geoJsonLayers, setGeoJsonLayers] = useState([]);
   const [errors, setErrors] = useState([]);
   const [flyTarget, setFlyTarget] = useState(null);
-  const [showLayers, setShowLayers] = useState(false);
   const [fieldImagery, setFieldImagery] = useState({});
   const [fieldImageryOffsets, setFieldImageryOffsets] = useState({});
   const [geeStatus, setGeeStatus] = useState({});
   const [strokeEnabled, setStrokeEnabled] = useState(true);
   const [useCommonColor, setUseCommonColor] = useState(false);
+
+  // Floating Filter Panel state
+  const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(() => {
+    return localStorage.getItem('map_filter_panel_open') !== 'false';
+  });
+
+  // Granular picking states
+  const [fieldsFilterMode, setFieldsFilterMode] = useState(() => localStorage.getItem('map_fields_filter_mode') || 'all');
+  const [selectedFields, setSelectedFields] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('map_selected_fields')) || [];
+    } catch (e) {
+      return [];
+    }
+  });
+
+  const [poisFilterMode, setPoisFilterMode] = useState(() => localStorage.getItem('map_pois_filter_mode') || 'all');
+  const [selectedPois, setSelectedPois] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('map_selected_pois')) || [];
+    } catch (e) {
+      return [];
+    }
+  });
+
+  const [equipmentFilterMode, setEquipmentFilterMode] = useState(() => localStorage.getItem('map_equipment_filter_mode') || 'all');
+  const [selectedEquipment, setSelectedEquipment] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('map_selected_equipment')) || [];
+    } catch (e) {
+      return [];
+    }
+  });
+
+  const [soilTestsFilterMode, setSoilTestsFilterMode] = useState(() => localStorage.getItem('map_soil_tests_filter_mode') || 'all');
+  const [selectedSoilTests, setSelectedSoilTests] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('map_selected_soil_tests')) || [];
+    } catch (e) {
+      return [];
+    }
+  });
+
+  // Sync to localStorage
+  useEffect(() => {
+    localStorage.setItem('map_filter_panel_open', String(isFilterPanelOpen));
+  }, [isFilterPanelOpen]);
+
+  useEffect(() => {
+    localStorage.setItem('map_fields_filter_mode', fieldsFilterMode);
+  }, [fieldsFilterMode]);
+
+  useEffect(() => {
+    localStorage.setItem('map_selected_fields', JSON.stringify(selectedFields));
+  }, [selectedFields]);
+
+  useEffect(() => {
+    localStorage.setItem('map_pois_filter_mode', poisFilterMode);
+  }, [poisFilterMode]);
+
+  useEffect(() => {
+    localStorage.setItem('map_selected_pois', JSON.stringify(selectedPois));
+  }, [selectedPois]);
+
+  useEffect(() => {
+    localStorage.setItem('map_equipment_filter_mode', equipmentFilterMode);
+  }, [equipmentFilterMode]);
+
+  useEffect(() => {
+    localStorage.setItem('map_selected_equipment', JSON.stringify(selectedEquipment));
+  }, [selectedEquipment]);
+
+  useEffect(() => {
+    localStorage.setItem('map_soil_tests_filter_mode', soilTestsFilterMode);
+  }, [soilTestsFilterMode]);
+
+  useEffect(() => {
+    localStorage.setItem('map_selected_soil_tests', JSON.stringify(selectedSoilTests));
+  }, [selectedSoilTests]);
 
   useEffect(() => {
     const handler = (e) => {
@@ -70,13 +148,58 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
   }, []);
 
   const visibleMapLayers = useSelector(state => state.settings?.visibleMapLayers) || ['fields', 'nurseries', 'pois', 'equipment', 'soilTests'];
-  const selectedLayers = LAYER_OPTIONS.filter(opt => visibleMapLayers.includes(opt.value));
-  
-  const handleLayersChange = (selected) => {
-    const vals = selected ? selected.map(s => s.value) : [];
-    dispatch(setVisibleMapLayers(vals));
-    dispatch(saveSettings());
-  };
+
+  // Formatting options for select dropdowns
+  const fieldOptions = fields.map(f => ({ value: f.id, label: f.name || 'Unnamed Field' }));
+  const poiOptions = pois.map(p => ({ value: p.id, label: `${p.name || 'Unnamed POI'} (${p.type || 'N/A'})` }));
+  const equipmentOptions = equipment.map(e => ({ value: e.id, label: `${e.name || 'Unnamed Asset'} (${e.type || 'N/A'})` }));
+  const soilTestOptions = soilTests.map(t => {
+    const relatedField = fields.find(f => f.id === t.fieldId);
+    const dateStr = t.date || t.testResults?.[0]?.date || 'No Date';
+    const fieldStr = relatedField ? `(${relatedField.name})` : '';
+    const descStr = t.description ? `- ${t.description}` : '';
+    return {
+      value: t.id,
+      label: `${dateStr} ${fieldStr} ${descStr}`.trim() || 'Soil Test'
+    };
+  });
+
+  // Filter rendering logic based on top-level layers and picker selections
+  const displayedFields = fields.filter(field => {
+    if (!visibleMapLayers.includes('fields')) return false;
+    if (fieldsFilterMode === 'specific') {
+      return selectedFields.some(opt => opt.value === field.id);
+    }
+    return true;
+  });
+
+  const displayedNurseries = nurseries.filter(bed => {
+    return visibleMapLayers.includes('nurseries');
+  });
+
+  const displayedPois = pois.filter(poi => {
+    if (!visibleMapLayers.includes('pois')) return false;
+    if (poisFilterMode === 'specific') {
+      return selectedPois.some(opt => opt.value === poi.id);
+    }
+    return true;
+  });
+
+  const displayedEquipment = equipment.filter(item => {
+    if (!visibleMapLayers.includes('equipment')) return false;
+    if (equipmentFilterMode === 'specific') {
+      return selectedEquipment.some(opt => opt.value === item.id);
+    }
+    return true;
+  });
+
+  const displayedSoilTests = soilTests.filter(test => {
+    if (!visibleMapLayers.includes('soilTests')) return false;
+    if (soilTestsFilterMode === 'specific') {
+      return selectedSoilTests.some(opt => opt.value === test.id);
+    }
+    return true;
+  });
 
   const getCommonImagery = () => {
     if (!fields || fields.length === 0) return 'none';
@@ -142,38 +265,221 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
     fetchKMLs();
   }, [kmlUrls]);
 
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <div style={{ display: 'flex', flexDirection: 'column', marginBottom: '10px', gap: '8px' }}>
-        {showLayers && (
-          <div style={{ zIndex: 1001, width: '100%' }}>
+  const renderLayerFilterItem = (layerKey, label, filterMode, setFilterMode, selectedVals, setSelectedVals, options, placeholder) => {
+    const isLayerActive = visibleMapLayers.includes(layerKey);
+
+    return (
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', borderBottom: '1px solid #f0f0f0', paddingBottom: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', margin: 0 }}>
+            <input 
+              type="checkbox" 
+              checked={isLayerActive}
+              onChange={() => {
+                const newLayers = isLayerActive 
+                  ? visibleMapLayers.filter(l => l !== layerKey) 
+                  : [...visibleMapLayers, layerKey];
+                dispatch(setVisibleMapLayers(newLayers));
+                dispatch(saveSettings());
+              }}
+              style={{ width: '15px', height: '15px', margin: 0 }}
+            />
+            {label}
+          </label>
+
+          {isLayerActive && (
+            <div style={{ display: 'flex', gap: '2px', background: '#eaeaea', borderRadius: '4px', padding: '2px' }}>
+              <button
+                type="button"
+                onClick={() => setFilterMode('all')}
+                style={{
+                  border: 'none',
+                  background: filterMode === 'all' ? '#ffffff' : 'transparent',
+                  color: filterMode === 'all' ? 'var(--color-primary-dark, #2e7d32)' : '#666',
+                  fontSize: '0.7rem',
+                  fontWeight: 600,
+                  padding: '2px 6px',
+                  borderRadius: '3px',
+                  cursor: 'pointer'
+                }}
+              >
+                All
+              </button>
+              <button
+                type="button"
+                onClick={() => setFilterMode('specific')}
+                style={{
+                  border: 'none',
+                  background: filterMode === 'specific' ? '#ffffff' : 'transparent',
+                  color: filterMode === 'specific' ? 'var(--color-primary-dark, #2e7d32)' : '#666',
+                  fontSize: '0.7rem',
+                  fontWeight: 600,
+                  padding: '2px 6px',
+                  borderRadius: '3px',
+                  cursor: 'pointer'
+                }}
+              >
+                Pick
+              </button>
+            </div>
+          )}
+        </div>
+
+        {isLayerActive && filterMode === 'specific' && (
+          <div style={{ marginTop: '4px' }}>
             <Select
               isMulti
-              options={LAYER_OPTIONS}
-              value={selectedLayers}
-              onChange={handleLayersChange}
-              placeholder="Select layers to display..."
+              options={options}
+              value={selectedVals}
+              onChange={setSelectedVals}
+              placeholder={placeholder}
+              menuPortalTarget={document.body}
               styles={{ 
-                control: (base) => ({ ...base, minHeight: '36px', fontSize: '0.85rem' }),
-                valueContainer: (base) => ({ ...base, padding: '2px 8px' }),
-                dropdownIndicator: (base) => ({ ...base, padding: '4px' }),
-                clearIndicator: (base) => ({ ...base, padding: '4px' }),
-                multiValue: (base) => ({ ...base, margin: '2px' })
+                control: (base) => ({ ...base, minHeight: '30px', fontSize: '0.75rem', borderColor: '#ccc' }),
+                valueContainer: (base) => ({ ...base, padding: '0px 6px' }),
+                dropdownIndicator: (base) => ({ ...base, padding: '2px' }),
+                clearIndicator: (base) => ({ ...base, padding: '2px' }),
+                multiValue: (base) => ({ ...base, margin: '1px', background: '#e3f2fd' }),
+                multiValueLabel: (base) => ({ ...base, color: '#0d47a1', fontSize: '0.7rem' }),
+                multiValueRemove: (base) => ({ ...base, color: '#0d47a1', ':hover': { background: '#bbdefb', color: '#0d47a1' } }),
+                menuPortal: base => ({ ...base, zIndex: 9999 })
               }}
             />
           </div>
         )}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <label className="imager-select-label" style={{ fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
-                {formatLabel("Global Overlay:")}
-              </label>
+      </div>
+    );
+  };
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+      <div style={{ flex: 1, minHeight: 0, width: '100%', borderRadius: 'var(--radius-md)', overflow: 'hidden', zIndex: 0, position: 'relative' }}>
+      
+      {errors.length > 0 && (
+        <div style={{ position: 'absolute', bottom: '15px', left: '15px', zIndex: 1000, background: 'rgba(198, 40, 40, 0.9)', color: 'white', padding: '8px 12px', borderRadius: '4px', fontSize: '0.85rem' }}>
+          {errors.map((err, i) => <div key={i}>{err}</div>)}
+        </div>
+      )}
+
+      {/* Floating Action Bar (Top-Left) */}
+      <div 
+        style={{ 
+          position: 'absolute', 
+          top: '80px', 
+          left: '12px', 
+          zIndex: 1000, 
+          display: 'flex', 
+          flexDirection: 'column', 
+          gap: '8px' 
+        }}
+        onMouseDown={(e) => e.stopPropagation()}
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          type="button"
+          onClick={() => {
+            if (mapCenter) {
+              setFlyTarget([mapCenter[0], mapCenter[1], Date.now()]);
+            }
+          }}
+          className="btn map-toolbar-btn"
+          style={{ 
+            width: '36px', 
+            height: '36px', 
+            borderRadius: '6px', 
+            boxShadow: '0 2px 6px rgba(0,0,0,0.15)', 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'center', 
+            cursor: 'pointer',
+            padding: 0
+          }}
+          title="Go to Farm Base"
+        >
+          <Tractor size={18} />
+        </button>
+        <CurrentLocationButton onLocationFound={(loc) => setFlyTarget(loc)} />
+      </div>
+
+      {/* Floating Filter Button (Top-Right, shows when closed) */}
+      {!isFilterPanelOpen && (
+        <button
+          type="button"
+          className="btn map-toolbar-btn"
+          style={{ 
+            position: 'absolute',
+            top: '12px',
+            right: '12px',
+            zIndex: 1000,
+            width: '36px',
+            height: '36px',
+            borderRadius: '6px',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            cursor: 'pointer',
+            padding: 0,
+            background: 'var(--color-primary, #2e7d32)',
+            color: '#ffffff'
+          }}
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsFilterPanelOpen(true);
+          }}
+          title="Open Filters & Layers"
+        >
+          <Sliders size={18} />
+        </button>
+      )}
+
+      {/* Floating Filter Panel (Top-Right, shows when open) */}
+      {isFilterPanelOpen && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '12px',
+            right: '12px',
+            width: '320px',
+            maxHeight: 'calc(100% - 24px)',
+            zIndex: 1000,
+            background: 'rgba(255, 255, 255, 0.96)',
+            backdropFilter: 'blur(8px)',
+            border: '1px solid var(--color-border, #ccc)',
+            borderRadius: '8px',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.15)',
+            padding: '16px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '12px',
+            overflowY: 'auto',
+          }}
+          onMouseDown={(e) => e.stopPropagation()}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #eee', paddingBottom: '8px' }}>
+            <h4 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--color-primary-dark, #1b5e20)' }}>
+              <Sliders size={16} /> Filters & Layers
+            </h4>
+            <button
+              type="button"
+              onClick={() => setIsFilterPanelOpen(false)}
+              style={{ border: 'none', background: 'transparent', cursor: 'pointer', color: '#666', padding: '4px', display: 'flex', alignItems: 'center' }}
+              title="Close Panel"
+            >
+              <X size={18} />
+            </button>
+          </div>
+
+          {/* Global Options */}
+          <div style={{ background: '#f5f7fa', padding: '10px', borderRadius: '6px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <label style={{ fontSize: '0.75rem', fontWeight: 600, margin: 0 }}>Global Overlay:</label>
               <select 
-                className="imager-select"
                 value={commonImagery} 
                 onChange={(e) => handleGlobalImageryChange(e.target.value)}
-                style={{ padding: '6px 12px', borderRadius: '4px', background: 'white', fontSize: '0.85rem', border: '1px solid var(--color-border)' }}
+                style={{ padding: '4px 8px', borderRadius: '4px', background: 'white', fontSize: '0.8rem', border: '1px solid #ccc', width: '100%' }}
               >
                 {commonImagery === 'mixed' && (
                   <option value="mixed" disabled>{formatLabel("-- Mixed Overlays --")}</option>
@@ -199,59 +505,95 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
                 </optgroup>
               </select>
             </div>
-            
-            <label className="imager-select-label" style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem', cursor: 'pointer', userSelect: 'none' }}>
-              <input 
-                type="checkbox" 
-                checked={strokeEnabled} 
-                onChange={(e) => setStrokeEnabled(e.target.checked)} 
-                style={{ cursor: 'pointer' }}
-              />
-              {formatLabel("Show Borders")}
-            </label>
-            
-            <label className="imager-select-label" style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.85rem', cursor: 'pointer', userSelect: 'none' }}>
-              <input 
-                type="checkbox" 
-                checked={useCommonColor} 
-                onChange={(e) => setUseCommonColor(e.target.checked)} 
-                style={{ cursor: 'pointer' }}
-              />
-              {formatLabel("Common Color")}
-            </label>
+
+            <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginTop: '4px' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', cursor: 'pointer', margin: 0 }}>
+                <input 
+                  type="checkbox" 
+                  checked={strokeEnabled} 
+                  onChange={(e) => setStrokeEnabled(e.target.checked)} 
+                  style={{ width: '14px', height: '14px', margin: 0 }}
+                />
+                {formatLabel("Show Borders")}
+              </label>
+              
+              <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', cursor: 'pointer', margin: 0 }}>
+                <input 
+                  type="checkbox" 
+                  checked={useCommonColor} 
+                  onChange={(e) => setUseCommonColor(e.target.checked)} 
+                  style={{ width: '14px', height: '14px', margin: 0 }}
+                />
+                {formatLabel("Common Color")}
+              </label>
+            </div>
           </div>
-          <div style={{ display: 'flex', gap: '8px' }}>
-            <button
-              type="button"
-              onClick={() => setShowLayers(!showLayers)}
-              className={`btn map-toolbar-btn ${showLayers ? 'active' : ''}`}
-              style={{ padding: '6px 12px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-              title="Toggle Map Layers"
-            >
-              <Layers size={16} />
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                if (mapCenter) {
-                  setFlyTarget([mapCenter[0], mapCenter[1], Date.now()]);
-                }
-              }}
-              className="btn map-toolbar-btn"
-              style={{ padding: '6px 12px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-              title="Go to Farm Base"
-            >
-              <Tractor size={16} />
-            </button>
-            <CurrentLocationButton onLocationFound={(loc) => setFlyTarget(loc)} />
+
+          {/* Map Layers & Granular Filters */}
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            {renderLayerFilterItem(
+              'fields',
+              'Fields',
+              fieldsFilterMode,
+              setFieldsFilterMode,
+              selectedFields,
+              setSelectedFields,
+              fieldOptions,
+              'Select fields...'
+            )}
+
+            {renderLayerFilterItem(
+              'pois',
+              'Points of Interest',
+              poisFilterMode,
+              setPoisFilterMode,
+              selectedPois,
+              setSelectedPois,
+              poiOptions,
+              'Select points...'
+            )}
+
+            {renderLayerFilterItem(
+              'equipment',
+              'Hard Assets',
+              equipmentFilterMode,
+              setEquipmentFilterMode,
+              selectedEquipment,
+              setSelectedEquipment,
+              equipmentOptions,
+              'Select assets...'
+            )}
+
+            {renderLayerFilterItem(
+              'soilTests',
+              'Soil Tests',
+              soilTestsFilterMode,
+              setSoilTestsFilterMode,
+              selectedSoilTests,
+              setSelectedSoilTests,
+              soilTestOptions,
+              'Select tests...'
+            )}
+
+            {/* Nurseries Layer (simple toggle) */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 0' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', margin: 0 }}>
+                <input 
+                  type="checkbox" 
+                  checked={visibleMapLayers.includes('nurseries')}
+                  onChange={() => {
+                    const newLayers = visibleMapLayers.includes('nurseries') 
+                      ? visibleMapLayers.filter(l => l !== 'nurseries') 
+                      : [...visibleMapLayers, 'nurseries'];
+                    dispatch(setVisibleMapLayers(newLayers));
+                    dispatch(saveSettings());
+                  }}
+                  style={{ width: '15px', height: '15px', margin: 0 }}
+                />
+                Nurseries
+              </label>
+            </div>
           </div>
-        </div>
-      </div>
-      <div style={{ flex: 1, minHeight: 0, width: '100%', borderRadius: 'var(--radius-md)', overflow: 'hidden', zIndex: 0, position: 'relative' }}>
-      
-      {errors.length > 0 && (
-        <div style={{ position: 'absolute', top: 10, right: 10, zIndex: 1000, background: 'rgba(198, 40, 40, 0.9)', color: 'white', padding: '8px 12px', borderRadius: '4px', fontSize: '0.85rem' }}>
-          {errors.map((err, i) => <div key={i}>{err}</div>)}
         </div>
       )}
 
@@ -274,7 +616,7 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
         ))}
 
         {/* Render Equipment (Hard Assets) as Markers */}
-        {selectedLayers.some(l => l.value === 'equipment') && equipment.map(item => {
+        {displayedEquipment.map(item => {
           let pos = null;
           if (item.gpsLocation) {
             try { pos = typeof item.gpsLocation === 'string' ? JSON.parse(item.gpsLocation) : item.gpsLocation; } catch(e) {}
@@ -292,7 +634,7 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
         })}
 
         {/* Render Nurseries as green Polygons */}
-        {selectedLayers.some(l => l.value === 'nurseries') && nurseries.map(bed => {
+        {displayedNurseries.map(bed => {
           let positions = [];
           if (bed.polygon) {
             try { positions = typeof bed.polygon === 'string' ? JSON.parse(bed.polygon) : bed.polygon; } catch(e) {}
@@ -319,7 +661,7 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
         })}
 
         {/* Render Fields */}
-        {selectedLayers.some(l => l.value === 'fields') && fields.map(field => {
+        {displayedFields.map(field => {
           let positions = [];
           if (field.polygon) {
             try {
@@ -328,24 +670,24 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
           }
           if (!Array.isArray(positions) || positions.length === 0) return null;
           
-              const showImagery = fieldImagery[field.id] && fieldImagery[field.id] !== 'none';
-              const isLoaded = geeStatus[field.id]?.status === 'success' || geeStatus[field.id]?.status === 'failed';
-              const makeTransparent = showImagery && isLoaded;
+          const showImagery = fieldImagery[field.id] && fieldImagery[field.id] !== 'none';
+          const isLoaded = geeStatus[field.id]?.status === 'success' || geeStatus[field.id]?.status === 'failed';
+          const makeTransparent = showImagery && isLoaded;
 
-              return (
-                <React.Fragment key={field.id}>
-                  <Polygon 
-                    key={field.id}
-                    pathOptions={{ 
-                      stroke: strokeEnabled,
-                      color: useCommonColor ? polygonColor : (field.drawColor || polygonColor),
-                      weight: 1.5,
-                      opacity: 0.6,
-                      fill: true,
-                      fillOpacity: makeTransparent ? 0.0 : 0.2
-                    }} 
-                    positions={positions}
-                  >
+          return (
+            <React.Fragment key={field.id}>
+              <Polygon 
+                key={field.id}
+                pathOptions={{ 
+                  stroke: strokeEnabled,
+                  color: useCommonColor ? polygonColor : (field.drawColor || polygonColor),
+                  weight: 1.5,
+                  opacity: 0.6,
+                  fill: true,
+                  fillOpacity: makeTransparent ? 0.0 : 0.2
+                }} 
+                positions={positions}
+              >
                 <Popup>
                   <div style={{ minWidth: '200px' }}>
                     <strong>{field.name}</strong><br/>
@@ -411,40 +753,40 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
                           <div>Cloud Cover: {getDeterministicCloudCover(field.id, fieldImageryOffsets[field.id] || 0)}%</div>
                         )}
                             
-                            <div style={{ display: 'flex', marginTop: '6px', alignItems: 'center', justifyContent: 'space-between' }}>
-                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
-                                <span style={{ fontSize: '0.62rem', fontWeight: 600, color: '#558b2f' }}>Older</span>
-                                <button
-                                  type="button"
-                                  className="btn btn-secondary"
-                                  style={{ padding: '2px 8px', fontSize: '0.75rem', cursor: 'pointer', marginTop: '2px', width: '100%', lineHeight: 1 }}
-                                  onClick={() => setFieldImageryOffsets(prev => ({ ...prev, [field.id]: (prev[field.id] || 0) - 30 }))}
-                                >
-                                  ←
-                                </button>
-                              </div>
-                              
-                              <span style={{ fontWeight: 700, fontSize: '0.68rem', margin: '0 8px', minWidth: '55px', textAlign: 'center', alignSelf: 'flex-end', marginBottom: '4px' }}>
-                                {(fieldImageryOffsets[field.id] || 0) === 0 ? 'Latest' : `${Math.abs(fieldImageryOffsets[field.id] || 0)}d ago`}
-                              </span>
-
-                              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
-                                <span style={{ fontSize: '0.62rem', fontWeight: 600, color: '#558b2f' }}>Newer</span>
-                                <button
-                                  type="button"
-                                  className="btn btn-secondary"
-                                  style={{ padding: '2px 8px', fontSize: '0.75rem', cursor: 'pointer', marginTop: '2px', width: '100%', lineHeight: 1 }}
-                                  disabled={(fieldImageryOffsets[field.id] || 0) >= 0}
-                                  onClick={() => setFieldImageryOffsets(prev => ({ ...prev, [field.id]: (prev[field.id] || 0) + 30 }))}
-                                >
-                                  →
-                                </button>
-                              </div>
-                            </div>
+                        <div style={{ display: 'flex', marginTop: '6px', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
+                            <span style={{ fontSize: '0.62rem', fontWeight: 600, color: '#558b2f' }}>Older</span>
+                            <button
+                              type="button"
+                              className="btn btn-secondary"
+                              style={{ padding: '2px 8px', fontSize: '0.75rem', cursor: 'pointer', marginTop: '2px', width: '100%', lineHeight: 1 }}
+                              onClick={() => setFieldImageryOffsets(prev => ({ ...prev, [field.id]: (prev[field.id] || 0) - 30 }))}
+                            >
+                              ←
+                            </button>
                           </div>
-                        )}
+                          
+                          <span style={{ fontWeight: 700, fontSize: '0.68rem', margin: '0 8px', minWidth: '55px', textAlign: 'center', alignSelf: 'flex-end', marginBottom: '4px' }}>
+                            {(fieldImageryOffsets[field.id] || 0) === 0 ? 'Latest' : `${Math.abs(fieldImageryOffsets[field.id] || 0)}d ago`}
+                          </span>
+
+                          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
+                            <span style={{ fontSize: '0.62rem', fontWeight: 600, color: '#558b2f' }}>Newer</span>
+                            <button
+                              type="button"
+                              className="btn btn-secondary"
+                              style={{ padding: '2px 8px', fontSize: '0.75rem', cursor: 'pointer', marginTop: '2px', width: '100%', lineHeight: 1 }}
+                              disabled={(fieldImageryOffsets[field.id] || 0) >= 0}
+                              onClick={() => setFieldImageryOffsets(prev => ({ ...prev, [field.id]: (prev[field.id] || 0) + 30 }))}
+                            >
+                              →
+                            </button>
+                          </div>
+                        </div>
                       </div>
-                    </Popup>
+                    )}
+                  </div>
+                </Popup>
               </Polygon>
               {fieldImagery[field.id] && fieldImagery[field.id] !== 'none' && (
                 <FieldImageryOverlay 
@@ -459,7 +801,7 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
         })}
 
         {/* Render POIs */}
-        {selectedLayers.some(l => l.value === 'pois') && pois.map(poi => {
+        {displayedPois.map(poi => {
           let positions = [];
           if (poi.points) {
             try { positions = typeof poi.points === 'string' ? JSON.parse(poi.points) : poi.points; } catch(e) {}
@@ -487,11 +829,11 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
         })}
 
         {/* Render Soil Tests */}
-        {selectedLayers.some(l => l.value === 'soilTests') && soilTests.flatMap(test => 
+        {displayedSoilTests.flatMap(test => 
           (test.testResults || []).filter(res => res.lat && res.lng).map((res, i) => (
             <Marker key={`${test.id}_${i}`} position={[parseFloat(res.lat), parseFloat(res.lng)]} icon={brownIcon}>
               <Popup>
-                <strong>Soil Test: {test.date}</strong><br/>
+                <strong>Soil Test: {test.date || res.date}</strong><br/>
                 pH: {res.ph} | N: {res.nitrogen} | P: {res.phosphorus} | K: {res.potassium}
               </Popup>
             </Marker>
