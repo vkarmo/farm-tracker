@@ -353,28 +353,9 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-      <div style={{ flex: 1, minHeight: 0, width: '100%', borderRadius: 'var(--radius-md)', overflow: 'hidden', zIndex: 0, position: 'relative' }}>
-      
-      {errors.length > 0 && (
-        <div style={{ position: 'absolute', bottom: '15px', left: '15px', zIndex: 1000, background: 'rgba(198, 40, 40, 0.9)', color: 'white', padding: '8px 12px', borderRadius: '4px', fontSize: '0.85rem' }}>
-          {errors.map((err, i) => <div key={i}>{err}</div>)}
-        </div>
-      )}
-
-      {/* Floating Action Bar (Top-Left) */}
-      <div 
-        style={{ 
-          position: 'absolute', 
-          top: '80px', 
-          left: '12px', 
-          zIndex: 1000, 
-          display: 'flex', 
-          flexDirection: 'column', 
-          gap: '8px' 
-        }}
-        onMouseDown={(e) => e.stopPropagation()}
-        onClick={(e) => e.stopPropagation()}
-      >
+      {/* Static Toolbar matching other maps */}
+      <div className="map-toolbar-container" style={{ display: 'flex', gap: '4px', flexWrap: 'wrap', paddingBottom: '8px', alignItems: 'center' }}>
+        <CurrentLocationButton onLocationFound={(loc) => setFlyTarget(loc)} />
         <button
           type="button"
           onClick={() => {
@@ -383,56 +364,30 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
             }
           }}
           className="btn map-toolbar-btn"
-          style={{ 
-            width: '36px', 
-            height: '36px', 
-            borderRadius: '6px', 
-            boxShadow: '0 2px 6px rgba(0,0,0,0.15)', 
-            display: 'flex', 
-            alignItems: 'center', 
-            justifyContent: 'center', 
-            cursor: 'pointer',
-            padding: 0
-          }}
+          style={{ flexShrink: 0, padding: '6px 10px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
           title="Go to Farm Base"
         >
-          <Tractor size={18} />
+          <Tractor size={16} />
         </button>
-        <CurrentLocationButton onLocationFound={(loc) => setFlyTarget(loc)} />
-      </div>
-
-      {/* Floating Filter Button (Top-Right, shows when closed) */}
-      {!isFilterPanelOpen && (
         <button
           type="button"
-          className="btn map-toolbar-btn"
-          style={{ 
-            position: 'absolute',
-            top: '12px',
-            right: '12px',
-            zIndex: 1000,
-            width: '36px',
-            height: '36px',
-            borderRadius: '6px',
-            boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            cursor: 'pointer',
-            padding: 0,
-            background: 'var(--color-primary, #2e7d32)',
-            color: '#ffffff'
-          }}
-          onMouseDown={(e) => e.stopPropagation()}
-          onClick={(e) => {
-            e.stopPropagation();
-            setIsFilterPanelOpen(true);
-          }}
-          title="Open Filters & Layers"
+          onClick={() => setIsFilterPanelOpen(!isFilterPanelOpen)}
+          className={`btn map-toolbar-btn ${isFilterPanelOpen ? 'active' : ''}`}
+          style={{ flexShrink: 0, padding: '6px 10px', fontSize: '0.85rem', display: 'flex', alignItems: 'center', gap: '4px', cursor: 'pointer' }}
+          title="Toggle Filters & Layers"
         >
-          <Sliders size={18} />
+          <Sliders size={16} /> {isFilterPanelOpen ? 'Hide Filters' : 'Show Filters'}
         </button>
+      </div>
+
+      <div style={{ flex: 1, minHeight: 0, width: '100%', borderRadius: 'var(--radius-md)', overflow: 'hidden', zIndex: 0, position: 'relative' }}>
+      
+      {errors.length > 0 && (
+        <div style={{ position: 'absolute', bottom: '15px', left: '15px', zIndex: 1000, background: 'rgba(198, 40, 40, 0.9)', color: 'white', padding: '8px 12px', borderRadius: '4px', fontSize: '0.85rem' }}>
+          {errors.map((err, i) => <div key={i}>{err}</div>)}
+        </div>
       )}
+
 
       {/* Floating Filter Panel (Top-Right, shows when open) */}
       {isFilterPanelOpen && (

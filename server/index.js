@@ -338,11 +338,11 @@ app.post('/api/gee/tile-url', async (req, res) => {
     const isGeeWeather = ['GEE_Temp', 'GEE_Precip', 'GEE_Wind', 'GEE_Humidity', 'GEE_Clouds', 'GEE_Pressure'].includes(indexType);
 
     if (indexType !== 'Elevation' && !isGeeWeather) {
-      // 5. Load and filter Sentinel-2 Collection (select only B2, B3, B4, B8, B11 for high resolution & speed)
+      // 5. Load and filter Sentinel-2 Collection (select only B2, B3, B4, B8 for high resolution & speed)
       let collection = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
         .filterBounds(geometry)
         .filterDate(startDateStr, endDateStr)
-        .select(['B2', 'B3', 'B4', 'B8', 'B11']);
+        .select(['B2', 'B3', 'B4', 'B8']);
         
       // Sort by lowest cloud cover
       let sorted = collection.sort('CLOUDY_PIXEL_PERCENTAGE');
@@ -514,8 +514,8 @@ app.post('/api/gee/tile-url', async (req, res) => {
         palette: ['#FFFFFF', '#DF923D', '#FCD163', '#74A025', '#166D05']
       };
     } else if (indexType === 'SoilMoisture') {
-      // NDMI = (NIR - SWIR) / (NIR + SWIR) -> B8 - B11
-      const ndmi = baseImage.normalizedDifference(['B8', 'B11']).rename('SoilMoisture');
+      // Soil Moisture proxy using NIR (B8) and Blue (B2) since B11 is restricted
+      const ndmi = baseImage.normalizedDifference(['B8', 'B2']).rename('SoilMoisture');
       processedImage = ndmi.select(['SoilMoisture']).resample('bicubic').reproject({ crs: 'EPSG:3857', scale: scaleValue }).clip(geometry);
       visParams = {
         min: -0.3,
