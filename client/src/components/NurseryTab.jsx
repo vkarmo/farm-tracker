@@ -215,7 +215,7 @@ export default function NurseryTab() {
                           fill: true,
                           fillOpacity: makeTransparent ? 0.0 : 0.1 
                         }} 
-                        interactive={true}
+                        interactive={editingId === null && polygonPositions.length === 0}
                       >
                         <Popup>
                           <div style={{ minWidth: '200px' }}>

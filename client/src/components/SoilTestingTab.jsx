@@ -299,7 +299,7 @@ export default function SoilTestingTab() {
                             fill: true,
                             fillOpacity: makeTransparent ? 0.0 : 0.1 
                           }} 
-                          interactive={true}
+                          interactive={editingId === null && markerPosition === null}
                         >
                           <Popup>
                             <div style={{ minWidth: '200px' }}>

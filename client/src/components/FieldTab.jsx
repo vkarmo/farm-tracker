@@ -364,7 +364,7 @@ export default function FieldTab() {
                           dashArray: isBg ? '5,5' : undefined,
                           bubblingMouseEvents: false
                         }}
-                        interactive={true}
+                        interactive={!isBg}
                       >
                         <Popup>
                           <div style={{ minWidth: '200px' }}>
