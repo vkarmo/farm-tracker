@@ -552,7 +552,7 @@ export default function DashboardTab() {
             transition: 'all 0.2s ease'
           }}
         >
-          Harvest Analysis
+          Harvests
         </button>
         <button
           onClick={() => setActiveDashboardTab('financials')}
