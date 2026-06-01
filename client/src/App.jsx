@@ -1285,7 +1285,7 @@ export default function App() {
                             <option value="0.75rem">0.75rem</option>
                             <option value="0.8rem">0.8rem</option>
                             <option value="0.85rem">0.85rem</option>
-                            <option value="0.9rem">0.9rem (Default)</option>
+                            <option value="0.9rem">.9rem (Default)</option>
                             <option value="1.0rem">1.0rem</option>
                             <option value="1.1rem">1.1rem</option>
                             <option value="1.2rem">1.2rem</option>

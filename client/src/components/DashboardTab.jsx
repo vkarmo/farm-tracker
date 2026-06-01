@@ -569,7 +569,7 @@ export default function DashboardTab() {
             transition: 'all 0.2s ease'
           }}
         >
-          Financial Analytics
+          Financials
         </button>
       </div>
 
@@ -1037,20 +1037,20 @@ export default function DashboardTab() {
                               <td style={{ padding: '12px 16px' }}>
                                 {!plan ? '-' : (
                                   isExceedingEstimate && isOverdue ? (
-                                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#c62828', fontWeight: 600, fontSize: '0.8rem' }} title="Exceeds estimated hours & past due date">
-                                      <AlertTriangle size={14} color="#c62828" /> Critical
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#c62828', fontWeight: 600, fontSize: '0.9rem' }} title="Exceeds estimated hours & past due date">
+                                      <AlertTriangle size={18} color="#c62828" /> Critical
                                     </span>
                                   ) : isExceedingEstimate ? (
-                                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ef6c00', fontWeight: 600, fontSize: '0.8rem' }} title="Total spent hours exceed estimate">
-                                      <AlertTriangle size={14} color="#ef6c00" /> Over Hours
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ef6c00', fontWeight: 600, fontSize: '0.9rem' }} title="Total spent hours exceed estimate">
+                                      <AlertTriangle size={18} color="#ef6c00" /> Over Hours
                                     </span>
                                   ) : isOverdue ? (
-                                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#c62828', fontWeight: 600, fontSize: '0.8rem' }} title="Past planned complete date">
-                                      <AlertCircle size={14} color="#c62828" /> Overdue
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#c62828', fontWeight: 600, fontSize: '0.9rem' }} title="Past planned complete date">
+                                      <AlertCircle size={18} color="#c62828" /> Overdue
                                     </span>
                                   ) : (
-                                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#2e7d32', fontWeight: 600, fontSize: '0.8rem' }} title="On schedule and within estimate">
-                                      <ShieldCheck size={14} color="#2e7d32" /> On Track
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#2e7d32', fontWeight: 600, fontSize: '0.9rem' }} title="On schedule and within estimate">
+                                      <ShieldCheck size={18} color="#2e7d32" /> On Track
                                     </span>
                                   )
                                 )}
@@ -1147,8 +1147,8 @@ export default function DashboardTab() {
 
       {activeDashboardTab === 'harvests' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-          {/* Harvest Analysis */}
-          <CollapsibleCard title="Harvest Analysis" forceFullGrid>
+          {/* Harvests */}
+          <CollapsibleCard title="Harvests" forceFullGrid>
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '15px', alignItems: 'center', justifyContent: 'space-between', marginBottom: '20px', padding: '15px', background: '#f5f7fa', borderRadius: '8px' }}>
               <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap', alignItems: 'center' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
