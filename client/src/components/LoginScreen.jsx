@@ -48,7 +48,8 @@ export default function LoginScreen() {
           email: email,
           role: isAdminRoot ? 'Admin' : (existingUser ? (existingUser.role || 'Staff') : 'Staff'),
           profilePic: decoded.picture || `https://api.dicebear.com/7.x/initials/svg?seed=${email}`,
-          allowedTabs: existingUser?.allowedTabs || null
+          allowedTabs: existingUser?.allowedTabs || null,
+          canApprove: isAdminRoot || existingUser?.canApprove || false
         };
 
         dispatch(login(userPayload));

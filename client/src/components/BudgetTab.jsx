@@ -345,13 +345,18 @@ export default function BudgetTab() {
         <hr style={{ border: 'none', borderTop: '1px solid var(--color-border)', margin: '20px 0' }} />
 
         <h4>Create New Budget Pipeline</h4>
-        <form onSubmit={handleCreateBudget} style={{ display: 'flex', gap: '10px', alignItems: 'flex-start', flexWrap: 'wrap', marginTop: 10 }}>
-          <input type="text" placeholder="e.g. Q3 Harvest Plan" value={budgetForm.name} onChange={e => setBudgetForm({ ...budgetForm, name: e.target.value })} style={{ flex: 1, minWidth: 200 }} />
-          <input type="text" placeholder="Short Description..." value={budgetForm.description} onChange={e => setBudgetForm({ ...budgetForm, description: e.target.value })} style={{ flex: 1, minWidth: 200 }} />
-          <div style={{ display: 'flex', alignItems: 'center', background: '#f5f5f5', padding: '0 10px', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)' }}>
-            <span style={{ fontSize: '0.85rem', color: '#666', marginRight: 8, whiteSpace: 'nowrap' }}>L$ to 1 USD:</span>
-            <input type="number" value={budgetForm.exchangeRate} onChange={e => setBudgetForm({ ...budgetForm, exchangeRate: e.target.value })} style={{ border: 'none', background: 'transparent', width: 70, padding: '10px 0' }} />
-          </div>
+        <form onSubmit={handleCreateBudget} style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', marginTop: 10 }}>
+          <input type="text" placeholder="e.g. Q3 Harvest Plan" value={budgetForm.name} onChange={e => setBudgetForm({ ...budgetForm, name: e.target.value })} style={{ flex: 2, minWidth: 200 }} />
+          <input type="text" placeholder="Short Description..." value={budgetForm.description} onChange={e => setBudgetForm({ ...budgetForm, description: e.target.value })} style={{ flex: 3, minWidth: 200 }} />
+          <input 
+            type="number" 
+            step="0.01"
+            placeholder="Ex. Rate (L$ to 1 USD)" 
+            value={budgetForm.exchangeRate} 
+            onChange={e => setBudgetForm({ ...budgetForm, exchangeRate: e.target.value })} 
+            style={{ width: 180 }} 
+            title="Exchange Rate: L$ to 1 USD"
+          />
           <button type="submit" className="btn btn-primary" style={{ padding: '10px 20px' }}>Initiate</button>
         </form>
       </div>

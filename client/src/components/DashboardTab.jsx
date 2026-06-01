@@ -1,8 +1,9 @@
 import React, { useMemo, useState, useEffect } from 'react';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
+import { saveAssignment } from '../store/assignmentSlice';
 import Select from 'react-select';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
-import { TrendingUp, Layers, Rabbit, DollarSign, Sun, CloudRain, Cloud, CloudLightning, Snowflake, CloudFog, MapPin, Droplets, Wind, ThermometerSun, CloudSun, Droplet, Clock, AlertTriangle, ShieldCheck, AlertCircle, Info, Thermometer } from 'lucide-react';
+import { TrendingUp, Layers, Rabbit, DollarSign, Sun, CloudRain, Cloud, CloudLightning, Snowflake, CloudFog, MapPin, Droplets, Wind, ThermometerSun, CloudSun, Droplet, Clock, AlertTriangle, ShieldCheck, AlertCircle, Info, Thermometer, Target, ClipboardList, List, ChevronRight, ChevronDown } from 'lucide-react';
 import CrudTable from './CrudTable';
 
 
@@ -27,6 +28,8 @@ const CollapsibleCard = ({ title, children, defaultOpen = true, forceFullGrid = 
 };
 
 export default function DashboardTab() {
+  const dispatch = useDispatch();
+  const currentUser = useSelector(state => state.auth?.currentUser);
   const fields = useSelector(state => state.fields.data) || [];
   const crops = useSelector(state => state.assets.crops) || [];
   const nurseries = useSelector(state => state.nurseries?.beds) || [];
@@ -36,6 +39,10 @@ export default function DashboardTab() {
   const activities = useSelector(state => state.activities?.log) || [];
   const deadlines = useSelector(state => state.deadlines?.list) || [];
   const incidents = useSelector(state => state.incidents?.list) || [];
+  const goals = useSelector(state => state.planning?.goals) || [];
+  const objectives = useSelector(state => state.planning?.objectives) || [];
+  const assignments = useSelector(state => state.assignments?.list) || [];
+  const employeesList = useSelector(state => state.employees?.list) || [];
 
   const mapCenter = useSelector(state => state.settings?.mapCenter) || [51.505, -0.09];
 
@@ -51,11 +58,66 @@ export default function DashboardTab() {
   const [harvestFromDate, setHarvestFromDate] = useState('');
   const [harvestToDate, setHarvestToDate] = useState('');
   const [harvestViewToggle, setHarvestViewToggle] = useState('graph');
+  const [expandedNodes, setExpandedNodes] = useState({});
+
+  const activeRate = useMemo(() => {
+    const sorted = [...transactions].sort((a, b) => (b.date || '').localeCompare(a.date || ''));
+    const recent = sorted.find(t => t.exchangeRate && String(t.exchangeRate).trim() !== '');
+    const rateVal = recent ? parseFloat(recent.exchangeRate) : 150;
+    return rateVal > 0 ? rateVal : 150;
+  }, [transactions]);
+
+  const getEmployeeHourlyRate = (emp) => {
+    if (!emp) return 0;
+    if (emp.type === 'Daily') {
+      const dailyLD = parseFloat(emp.dailyRateLD) || 0;
+      const dailyUSD = activeRate > 0 ? (dailyLD / activeRate) : 0;
+      return dailyUSD / 8; // assuming standard 8-hour day
+    } else {
+      const biweeklyUSD = parseFloat(emp.twoWeekPayUSD) || 0;
+      return biweeklyUSD / 80; // assuming standard 80 hours per 2 weeks
+    }
+  };
+
+  const avgHourlyRate = useMemo(() => {
+    const activeEmployees = employeesList.filter(e => !e.isTerminated);
+    if (activeEmployees.length === 0) return 0;
+    const sum = activeEmployees.reduce((s, e) => s + getEmployeeHourlyRate(e), 0);
+    return sum / activeEmployees.length;
+  }, [employeesList, activeRate]);
+
+  const getAssignmentCost = (ass) => {
+    const assHours = parseFloat(ass.hours) || 0;
+    if (assHours <= 0) return 0;
+
+    const ids = ass.workerIds || [];
+    if (ids.length === 0) {
+      return assHours * avgHourlyRate;
+    }
+
+    const hoursPerWorker = assHours / ids.length;
+    let totalCost = 0;
+    ids.forEach(id => {
+      const emp = employeesList.find(e => e.id === id);
+      const rate = getEmployeeHourlyRate(emp);
+      totalCost += hoursPerWorker * rate;
+    });
+    return totalCost;
+  };
+
+  const renderWorkerNames = (workerIds) => {
+    if (!workerIds || workerIds.length === 0) return 'None';
+    const names = workerIds.map(id => {
+      const emp = employeesList.find(e => e.id === id);
+      return emp ? `${emp.firstName} ${emp.lastName}` : 'Unknown';
+    });
+    return names.join(', ');
+  };
 
   const weatherLocations = useMemo(() => [
     { label: 'Default Farm Location', coords: mapCenter },
     { label: 'Bomi County, Liberia', coords: [6.7319579, -10.8700117] }
-  ].sort((a,b) => (a.label || '').localeCompare(b.label || '')), [mapCenter]);
+  ].sort((a, b) => (a.label || '').localeCompare(b.label || '')), [mapCenter]);
 
   // Fetch Weather Data
   useEffect(() => {
@@ -147,7 +209,9 @@ export default function DashboardTab() {
   };
 
   // Top-Level Metric Calculations
-  const totalAcres = fields.reduce((sum, f) => sum + (parseFloat(f.area) || 0), 0);
+  const totalAcres = fields
+    .filter(f => f.includeInStats !== false)
+    .reduce((sum, f) => sum + (parseFloat(f.area) || 0), 0);
   const activeCrops = crops.filter(c => c.status !== 'Harvested/Completed');
   const activeLivestock = livestock.filter(l => l.healthStatus !== 'Deceased');
 
@@ -175,9 +239,9 @@ export default function DashboardTab() {
 
   const cropsWithHarvests = useMemo(() => {
     const cropIds = new Set(harvests.map(h => h.cropId));
-    return crops.filter(c => cropIds.has(c.id)).sort((a,b) => (a.name || '').localeCompare(b.name || ''));
+    return crops.filter(c => cropIds.has(c.id)).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   }, [harvests, crops]);
-  
+
   const cropSelectOptions = useMemo(() => cropsWithHarvests.map(c => ({
     value: c.id, label: `${c.name} ${c.variety ? `(${c.variety})` : ''}`
   })), [cropsWithHarvests]);
@@ -189,13 +253,13 @@ export default function DashboardTab() {
       if (harvestToDate && h.date > harvestToDate) return false;
       return true;
     });
-    
+
     return filteredHarvests.map(h => {
       const crop = crops.find(c => c.id === h.cropId);
       const cropName = crop ? `${crop.name} ${crop.variety ? `(${crop.variety})` : ''}` : 'Unknown Crop';
       const relatedSales = transactions.filter(tx => tx.txType === 'Sale' && tx.assetId === h.id);
       const salesTotal = relatedSales.reduce((sum, tx) => sum + (parseFloat(tx.amount) || 0), 0);
-      
+
       return {
         id: h.id,
         date: h.date || '-',
@@ -204,7 +268,7 @@ export default function DashboardTab() {
         amountValue: parseFloat(h.amount) || 0,
         salesTotal
       };
-    }).sort((a,b) => (b.date || '').localeCompare(a.date || ''));
+    }).sort((a, b) => (b.date || '').localeCompare(a.date || ''));
   }, [harvests, crops, transactions, selectedCropIds, harvestFromDate, harvestToDate]);
 
   const totalHarvestAmount = harvestReportData.reduce((sum, h) => sum + h.amountValue, 0);
@@ -282,6 +346,7 @@ export default function DashboardTab() {
   };
 
   const getTargetName = (id) => {
+    if (!id) return '-';
     const crop = crops.find(c => c.id === id);
     if (crop) return `Crop: ${crop.name}`;
     const field = fields.find(f => f.id === id);
@@ -295,12 +360,14 @@ export default function DashboardTab() {
     { key: 'date', header: 'Date' },
     { key: 'title', header: 'Title' },
     { key: 'associatedAsset', header: 'Affected Asset', render: (r) => r.associatedAsset || '-' },
-    { key: 'severity', header: 'Severity', render: (r) => (
-      <span style={{
-        color: r.severity === 'High' ? '#c62828' : r.severity === 'Medium' ? '#f57c00' : '#4caf50',
-        fontWeight: 'bold'
-      }}>{r.severity}</span>
-    )},
+    {
+      key: 'severity', header: 'Severity', render: (r) => (
+        <span style={{
+          color: r.severity === 'High' ? '#c62828' : r.severity === 'Medium' ? '#f57c00' : '#4caf50',
+          fontWeight: 'bold'
+        }}>{r.severity}</span>
+      )
+    },
     { key: 'resolutionStatus', header: 'Status' }
   ];
 
@@ -309,11 +376,13 @@ export default function DashboardTab() {
     { key: 'title', header: 'Title' },
     { key: 'type', header: 'Category' },
     { key: 'personResponsible', header: 'Responsible', render: (r) => r.personResponsible || '-' },
-    { key: 'status', header: 'Status', render: (r) => (
-      <span style={{ color: r.status === 'Overdue' ? '#c62828' : r.status === 'Resolved' ? '#2e7d32' : '#f57c00' }}>
-        {r.status}
-      </span>
-    )}
+    {
+      key: 'status', header: 'Status', render: (r) => (
+        <span style={{ color: r.status === 'Overdue' ? '#c62828' : r.status === 'Resolved' ? '#2e7d32' : '#f57c00' }}>
+          {r.status}
+        </span>
+      )
+    }
   ];
 
   const renderForecastCard = (time, idx, date, isWeekend) => {
@@ -326,8 +395,8 @@ export default function DashboardTab() {
     const description = getWeatherDescription(weatherCode);
 
     const themeColor = isWeekend ? '#b58900' : '#1b5e20';
-    const bgGradient = isWeekend 
-      ? 'linear-gradient(135deg, #fffcf4 0%, #fff9e6 100%)' 
+    const bgGradient = isWeekend
+      ? 'linear-gradient(135deg, #fffcf4 0%, #fff9e6 100%)'
       : 'linear-gradient(135deg, #f7faf7 0%, #edf4ed 100%)';
     const ringBorder = isWeekend
       ? '2px solid rgba(181, 137, 0, 0.3)'
@@ -367,13 +436,13 @@ export default function DashboardTab() {
         <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '-4px', fontWeight: 500 }}>
           {dateString}
         </div>
-        <div style={{ 
-          width: '76px', 
-          height: '76px', 
-          borderRadius: '50%', 
-          background: bgGradient, 
-          display: 'flex', 
-          alignItems: 'center', 
+        <div style={{
+          width: '76px',
+          height: '76px',
+          borderRadius: '50%',
+          background: bgGradient,
+          display: 'flex',
+          alignItems: 'center',
           justifyContent: 'center',
           margin: '8px 0',
           boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
@@ -527,8 +596,8 @@ export default function DashboardTab() {
                   Forecast
                 </button>
               </div>
-              <select 
-                value={selectedLocIndex} 
+              <select
+                value={selectedLocIndex}
                 onChange={(e) => setSelectedLocIndex(Number(e.target.value))}
                 style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #ccc', background: 'white', fontWeight: 600, color: 'var(--color-primary-dark)', cursor: 'pointer' }}
               >
@@ -537,24 +606,24 @@ export default function DashboardTab() {
                 ))}
               </select>
             </div>
-            
+
             {weatherLoading ? (
               <div style={{ textAlign: 'center', padding: '40px 20px', color: '#888' }}>Loading weather data...</div>
             ) : weatherData && weatherData.current ? (
               activeWeatherTab === 'current' ? (
                 <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
                   {/* Agricultural Advisory */}
-                  <div style={{ 
-                    flex: '1 1 100%', 
-                    maxWidth: '800px', 
-                    display: 'flex', 
-                    flexDirection: 'column', 
-                    gap: '16px', 
-                    background: 'white', 
-                    border: '1px solid #eef2f6', 
-                    borderTop: '4px solid #1b5e20', 
-                    borderRadius: '12px', 
-                    padding: '20px', 
+                  <div style={{
+                    flex: '1 1 100%',
+                    maxWidth: '800px',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '16px',
+                    background: 'white',
+                    border: '1px solid #eef2f6',
+                    borderTop: '4px solid #1b5e20',
+                    borderRadius: '12px',
+                    padding: '20px',
                     color: '#1e293b',
                     boxShadow: '0 4px 12px rgba(0, 0, 0, 0.04)'
                   }}>
@@ -581,7 +650,7 @@ export default function DashboardTab() {
                       </div>
                     ) : geeWeatherData ? (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                        
+
                         {/* Metrics Grid Row 1 (Temp, Rain, Wind) */}
                         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
                           {/* Temp Card */}
@@ -773,7 +842,7 @@ export default function DashboardTab() {
               ) : (
                 /* 7-Day Forecast Tab: Grouped by Mon-Thur and Fri-Sun with pronounced graphics */
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', width: '100%' }}>
-                  
+
                   {/* Monday - Thursday (Workdays) Section */}
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
@@ -841,9 +910,198 @@ export default function DashboardTab() {
             )}
           </CollapsibleCard>
 
+          {/* Active Assignments Progress */}
+          <CollapsibleCard title="Assignments Progress" forceFullGrid>
+            {(() => {
+              const activeGoalIds = new Set(goals.filter(g => !g.completionDate).map(g => g.id));
+              const activeObjIds = new Set(objectives.filter(o => !o.completionDate).map(o => o.id));
+              const activePlanAssignments = assignments.filter(a => a.planningId && (activeGoalIds.has(a.planningId) || activeObjIds.has(a.planningId)));
+              const sortedActivePlanAssignments = [...activePlanAssignments].sort((a, b) => (b.assignmentDate || '').localeCompare(a.assignmentDate || ''));
+
+              const totalTasks = sortedActivePlanAssignments.length;
+              const totalHours = sortedActivePlanAssignments.reduce((sum, a) => sum + (parseFloat(a.hours) || 0), 0);
+              const totalCost = sortedActivePlanAssignments.reduce((sum, a) => sum + getAssignmentCost(a), 0);
+
+              const hasApprovalPermission = currentUser?.role === 'Admin' || currentUser?.canApprove;
+
+              if (totalTasks === 0) {
+                return (
+                  <div style={{ padding: '20px', textAlign: 'center', color: '#64748b', fontStyle: 'italic' }}>
+                    No active tasks associated with active goals or objectives found.
+                  </div>
+                );
+              }
+
+              return (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                  {/* Summary row */}
+                  <div style={{ display: 'flex', gap: '15px', flexWrap: 'wrap' }}>
+                    <div style={{ padding: '8px 16px', background: '#f0fdf4', borderRadius: '8px', border: '1px solid #bbf7d0', color: '#166534', fontSize: '0.9rem', fontWeight: 600 }}>
+                      Active Tasks: {totalTasks}
+                    </div>
+                    <div style={{ padding: '8px 16px', background: '#f0fdf4', borderRadius: '8px', border: '1px solid #bbf7d0', color: '#166534', fontSize: '0.9rem', fontWeight: 600 }}>
+                      Total Hours Spent: {totalHours.toFixed(1)} hrs
+                    </div>
+                    <div style={{ padding: '8px 16px', background: '#f0fdf4', borderRadius: '8px', border: '1px solid #bbf7d0', color: '#166534', fontSize: '0.9rem', fontWeight: 600 }}>
+                      Total Money Spent: ${totalCost.toFixed(2)}
+                    </div>
+                  </div>
+
+                  {/* Flat table */}
+                  <div style={{ overflowX: 'auto', margin: '0 -20px' }}>
+                    <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '900px' }}>
+                      <thead>
+                        <tr style={{ background: '#f5f7fa', borderBottom: '2px solid var(--color-border-light)' }}>
+                          <th style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', textTransform: 'uppercase', fontWeight: 700, width: '180px', minWidth: '180px', whiteSpace: 'nowrap' }}>Approval Status</th>
+                          <th style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', textTransform: 'uppercase', fontWeight: 700, width: '220px', minWidth: '220px', maxWidth: '220px' }}>Tasks</th>
+                          <th style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', textTransform: 'uppercase', fontWeight: 700, whiteSpace: 'nowrap' }}>Target Asset</th>
+                          <th style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', textTransform: 'uppercase', fontWeight: 700, whiteSpace: 'nowrap' }}>Plan Est. Hours</th>
+                          <th style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', textTransform: 'uppercase', fontWeight: 700 }}>Status</th>
+                          <th style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', textTransform: 'uppercase', fontWeight: 700, whiteSpace: 'nowrap' }}>Start Date</th>
+                          <th style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', textTransform: 'uppercase', fontWeight: 700, whiteSpace: 'nowrap' }}>Completion Date</th>
+                          <th style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', textTransform: 'uppercase', fontWeight: 700 }}>Progress</th>
+                          <th style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', textTransform: 'uppercase', fontWeight: 700 }}>Hours Spent</th>
+                          <th style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', textTransform: 'uppercase', fontWeight: 700 }}>Money Spent</th>
+                          <th style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', textTransform: 'uppercase', fontWeight: 700, whiteSpace: 'nowrap' }}>Plan Health</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {sortedActivePlanAssignments.map(ass => {
+                          const assProgress = ass.completedDate ? 100 : 0;
+                          const assHours = parseFloat(ass.hours) || 0;
+                          const assCost = getAssignmentCost(ass);
+                          const reviewText = ass.reviewStatus || 'Pending Review';
+                          const assStatus = ass.completedDate ? `Completed (${reviewText})` : `In Progress`;
+                          let assBg = '#fff3e0';
+                          let assFg = '#e65100';
+                          if (ass.completedDate) {
+                            if (reviewText === 'Complete' || reviewText === 'Satisfactory') {
+                              assBg = '#e8f5e9';
+                              assFg = '#2e7d32';
+                            } else if (reviewText === 'Not Complete') {
+                              assBg = '#ffebee';
+                              assFg = '#c62828';
+                            }
+                          } else {
+                            assBg = '#e3f2fd';
+                            assFg = '#1565c0';
+                          }
+
+                          // Get linked plan info
+                          const planGoal = goals.find(g => g.id === ass.planningId);
+                          const planObj = planGoal ? null : objectives.find(o => o.id === ass.planningId);
+                          const plan = planGoal || planObj;
+                          const planEstHours = plan ? (parseFloat(plan.estimatedHours) || 0) : 0;
+
+                          // Compute exceed estimate & overdue
+                          let isExceedingEstimate = false;
+                          let isOverdue = false;
+                          if (plan) {
+                            const planAssignments = assignments.filter(a => a.planningId === plan.id);
+                            const totalPlanHours = planAssignments.reduce((sum, a) => sum + (parseFloat(a.hours) || 0), 0);
+                            if (planEstHours > 0 && totalPlanHours > planEstHours) {
+                              isExceedingEstimate = true;
+                            }
+                            
+                            const todayStr = new Date().toISOString().split('T')[0];
+                            if (plan.toDate && todayStr > plan.toDate && !plan.completionDate) {
+                              isOverdue = true;
+                            }
+                          }
+
+                          return (
+                            <tr key={ass.id} style={{ borderBottom: '1px solid #e2e8f0', background: '#ffffff' }}>
+                              <td style={{ padding: '12px 16px', width: '180px', minWidth: '180px' }}>
+                                <select
+                                  value={ass.reviewStatus || 'Pending Review'}
+                                  disabled={!hasApprovalPermission}
+                                  onChange={(e) => {
+                                    const newStatus = e.target.value;
+                                    const updatedAss = { ...ass, reviewStatus: newStatus };
+                                    dispatch(saveAssignment(updatedAss));
+                                  }}
+                                  style={{
+                                    width: '100%',
+                                    padding: '6px 10px',
+                                    fontSize: '0.8rem',
+                                    borderRadius: '4px',
+                                    border: '1px solid #cbd5e1',
+                                    background: hasApprovalPermission ? '#fff' : '#f1f5f9',
+                                    color: '#334155',
+                                    fontWeight: 500,
+                                    cursor: hasApprovalPermission ? 'pointer' : 'not-allowed'
+                                  }}
+                                >
+                                  <option value="Pending Review">Pending Review</option>
+                                  <option value="Complete">Complete</option>
+                                  <option value="Satisfactory">Satisfactory</option>
+                                  <option value="Not Complete">Not Complete</option>
+                                </select>
+                              </td>
+                              <td style={{ padding: '12px 16px', width: '220px', minWidth: '220px', maxWidth: '220px' }}>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', wordBreak: 'break-word', whiteSpace: 'normal' }}>
+                                  <span style={{ fontWeight: 600, color: '#1e293b' }}>{ass.task}</span>
+                                  <span style={{ color: '#64748b', fontSize: '0.8rem' }}>Assigned: {ass.workers || renderWorkerNames(ass.workerIds)}</span>
+                                </div>
+                              </td>
+                              <td style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', fontWeight: 500 }}>
+                                {getTargetName(ass.fieldId)}
+                              </td>
+                              <td style={{ padding: '12px 16px', color: '#1e293b', fontWeight: 500 }}>
+                                {planEstHours > 0 ? `${planEstHours.toFixed(1)} hrs` : '-'}
+                              </td>
+                              <td style={{ padding: '12px 16px' }}>
+                                <span className="status-indicator" style={{
+                                  background: assBg,
+                                  color: assFg,
+                                  fontWeight: 600,
+                                  fontSize: '0.8rem'
+                                }}>
+                                  {assStatus}
+                                </span>
+                              </td>
+                              <td style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', whiteSpace: 'nowrap' }}>{ass.assignmentDate || '-'}</td>
+                              <td style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', whiteSpace: 'nowrap' }}>{ass.completedDate || '-'}</td>
+                              <td style={{ padding: '12px 16px', color: '#1e293b', fontWeight: 600, fontSize: '0.85rem' }}>
+                                {assProgress}%
+                              </td>
+                              <td style={{ padding: '12px 16px', color: '#1e293b', fontWeight: 500 }}>{assHours > 0 ? `${assHours.toFixed(1)} hrs` : '-'}</td>
+                              <td style={{ padding: '12px 16px', color: '#1e293b', fontWeight: 600 }}>{assCost > 0 ? `$${assCost.toFixed(2)}` : '-'}</td>
+                              <td style={{ padding: '12px 16px' }}>
+                                {!plan ? '-' : (
+                                  isExceedingEstimate && isOverdue ? (
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#c62828', fontWeight: 600, fontSize: '0.8rem' }} title="Exceeds estimated hours & past due date">
+                                      <AlertTriangle size={14} color="#c62828" /> Critical
+                                    </span>
+                                  ) : isExceedingEstimate ? (
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ef6c00', fontWeight: 600, fontSize: '0.8rem' }} title="Total spent hours exceed estimate">
+                                      <AlertTriangle size={14} color="#ef6c00" /> Over Hours
+                                    </span>
+                                  ) : isOverdue ? (
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#c62828', fontWeight: 600, fontSize: '0.8rem' }} title="Past planned complete date">
+                                      <AlertCircle size={14} color="#c62828" /> Overdue
+                                    </span>
+                                  ) : (
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#2e7d32', fontWeight: 600, fontSize: '0.8rem' }} title="On schedule and within estimate">
+                                      <ShieldCheck size={14} color="#2e7d32" /> On Track
+                                    </span>
+                                  )
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              );
+            })()}
+          </CollapsibleCard>
+
           {/* Incidents Feed Table */}
           <CollapsibleCard title="Active Incidents & Issues" forceFullGrid>
-            <CrudTable 
+            <CrudTable
               data={[...incidents].sort((a, b) => (b.date || '').localeCompare(a.date || ''))}
               columns={incidentColumns}
               itemLabel="Incident"
@@ -853,7 +1111,7 @@ export default function DashboardTab() {
 
           {/* Deadlines Feed Table */}
           <CollapsibleCard title="Upcoming Deadlines" forceFullGrid>
-            <CrudTable 
+            <CrudTable
               data={[...deadlines].sort((a, b) => (a.dueDate || '').localeCompare(b.dueDate || ''))}
               columns={deadlineColumns}
               itemLabel="Deadline"
@@ -894,7 +1152,7 @@ export default function DashboardTab() {
                 <button onClick={() => setHarvestViewToggle('report')} style={{ padding: '6px 16px', border: 'none', borderRadius: '4px', background: harvestViewToggle === 'report' ? 'white' : 'transparent', fontWeight: harvestViewToggle === 'report' ? 600 : 400, boxShadow: harvestViewToggle === 'report' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', cursor: 'pointer', color: '#333' }}>Report</button>
               </div>
             </div>
-            
+
             <div style={{ display: 'flex', gap: '20px', marginBottom: '20px', flexWrap: 'wrap' }}>
               <div style={{ padding: '10px 15px', background: '#e8f5e9', borderRadius: '6px', border: '1px solid #c8e6c9', color: '#2e7d32', fontSize: '1.05rem', minWidth: '200px' }}><strong style={{ color: '#1b5e20' }}>Total Harvest Yield:</strong> {totalHarvestAmount.toFixed(2)}</div>
               <div style={{ padding: '10px 15px', background: '#e8f5e9', borderRadius: '6px', border: '1px solid #c8e6c9', color: '#2e7d32', fontSize: '1.05rem', minWidth: '200px' }}><strong style={{ color: '#1b5e20' }}>Total Generated Sales:</strong> ${totalHarvestSales.toFixed(2)}</div>
@@ -913,7 +1171,7 @@ export default function DashboardTab() {
                 </ResponsiveContainer>
               </div>
             ) : (
-              <CrudTable 
+              <CrudTable
                 data={harvestReportData}
                 columns={reportColumns}
                 itemLabel="Harvest Record"

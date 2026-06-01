@@ -16,8 +16,8 @@ const TreeNode = ({ label, children, icon: Icon, defaultExpanded = true, onEdit,
 
   return (
     <div style={{ marginLeft: '20px', marginTop: '6px' }}>
-      <div 
-        style={{ 
+      <div
+        style={{
           display: 'flex', alignItems: 'center', justifyContent: 'space-between',
           padding: '6px 8px', borderRadius: '4px',
           background: isSelected ? '#fff9c4' : (expanded ? '#f5f5f5' : 'transparent'),
@@ -26,8 +26,8 @@ const TreeNode = ({ label, children, icon: Icon, defaultExpanded = true, onEdit,
           color: '#333'
         }}
       >
-        <div 
-          style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', flex: 1 }} 
+        <div
+          style={{ display: 'flex', alignItems: 'center', cursor: 'pointer', flex: 1 }}
           onClick={() => {
             if (hasChildren) setExpanded(!expanded);
             if (onSelect) onSelect();
@@ -40,7 +40,7 @@ const TreeNode = ({ label, children, icon: Icon, defaultExpanded = true, onEdit,
           <span style={{ fontWeight: hasChildren ? '500' : 'normal' }}>{label}</span>
         </div>
         {onEdit && (
-          <button 
+          <button
             onClick={(e) => { e.stopPropagation(); onEdit(); }}
             style={{ background: 'transparent', border: 'none', cursor: 'pointer', padding: '2px', display: 'flex', alignItems: 'center' }}
             title="Edit"
@@ -66,8 +66,6 @@ export default function PlanningTab() {
   const assignments = useSelector(state => state.assignments?.list) || [];
 
   const [activeView, setActiveView] = useState('goals'); // goals or objectives
-  const [goalViewMode, setGoalViewMode] = useState('tree'); // table or tree
-  const [objViewMode, setObjViewMode] = useState('tree'); // table or tree
 
   const [goalData, setGoalData] = useState(INIT_GOAL);
   const [editingGoalId, setEditingGoalId] = useState(null);
@@ -76,9 +74,18 @@ export default function PlanningTab() {
   const [editingObjId, setEditingObjId] = useState(null);
 
   const [selectedNodeId, setSelectedNodeId] = useState(null);
+  const [activeTab, setActiveTab] = useState('roster');
+
+  const resetForm = () => {
+    setGoalData(INIT_GOAL);
+    setEditingGoalId(null);
+    setObjectiveData(INIT_OBJECTIVE);
+    setEditingObjId(null);
+    setActiveTab('roster');
+  };
 
   const employeeOptions = [...employeesList]
-    .sort((a,b) => (a.lastName || '').localeCompare(b.lastName || ''))
+    .sort((a, b) => (a.lastName || '').localeCompare(b.lastName || ''))
     .map(emp => ({
       value: emp.id,
       label: `${emp.lastName}, ${emp.firstName} (${emp.jobTitle})`
@@ -86,7 +93,7 @@ export default function PlanningTab() {
 
   const handleGoalSubmit = (e) => {
     e.preventDefault();
-        if (!goalData.title.trim()) return alert("Title is required.");
+    if (!goalData.title.trim()) return alert("Title is required.");
     if (goalData.parentGoalId === editingGoalId) return alert("A goal cannot be its own parent.");
 
     const payload = {
@@ -97,13 +104,12 @@ export default function PlanningTab() {
     dispatch(saveGoal(payload));
     dispatch(queueAction({ type: 'planning/saveGoal', payload, meta: { id: Date.now() } }));
 
-    setGoalData(INIT_GOAL);
-    setEditingGoalId(null);
+    resetForm();
   };
 
   const handleObjectiveSubmit = (e) => {
     e.preventDefault();
-        if (!objectiveData.title.trim() || !objectiveData.goalId) return alert("Title and Goal selection are required.");
+    if (!objectiveData.title.trim() || !objectiveData.goalId) return alert("Title and Goal selection are required.");
 
     const payload = {
       ...objectiveData,
@@ -113,8 +119,7 @@ export default function PlanningTab() {
     dispatch(saveObjective(payload));
     dispatch(queueAction({ type: 'planning/saveObjective', payload, meta: { id: Date.now() } }));
 
-    setObjectiveData(INIT_OBJECTIVE);
-    setEditingObjId(null);
+    resetForm();
   };
 
   const handleDeleteGoal = (id) => {
@@ -122,8 +127,7 @@ export default function PlanningTab() {
       dispatch(removeGoal(id));
       dispatch(queueAction({ type: 'core/deleteNode', payload: { id }, meta: { id: Date.now() } }));
       if (editingGoalId === id) {
-        setGoalData(INIT_GOAL);
-        setEditingGoalId(null);
+        resetForm();
       }
     }
   };
@@ -133,8 +137,7 @@ export default function PlanningTab() {
       dispatch(removeObjective(id));
       dispatch(queueAction({ type: 'core/deleteNode', payload: { id }, meta: { id: Date.now() } }));
       if (editingObjId === id) {
-        setObjectiveData(INIT_OBJECTIVE);
-        setEditingObjId(null);
+        resetForm();
       }
     }
   };
@@ -151,9 +154,9 @@ export default function PlanningTab() {
   const renderGoalsTree = (parentId) => {
     const childrenGoals = goals.filter(g => (g.parentGoalId || '') === parentId);
     return childrenGoals.map(goal => (
-      <TreeNode 
-        key={goal.id} 
-        label={goal.title} 
+      <TreeNode
+        key={goal.id}
+        label={goal.title}
         icon={Target}
         isSelected={selectedNodeId === goal.id}
         onSelect={() => setSelectedNodeId(goal.id)}
@@ -162,15 +165,16 @@ export default function PlanningTab() {
           setGoalData(goal);
           setEditingGoalId(goal.id);
           setSelectedNodeId(goal.id);
+          setActiveTab('entry');
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
       >
         {renderGoalsTree(goal.id)}
-        
+
         {objectives.filter(o => o.goalId === goal.id).map(obj => (
-          <TreeNode 
-            key={obj.id} 
-            label={obj.title} 
+          <TreeNode
+            key={obj.id}
+            label={obj.title}
             icon={ClipboardList}
             isSelected={selectedNodeId === obj.id}
             onSelect={() => setSelectedNodeId(obj.id)}
@@ -179,17 +183,18 @@ export default function PlanningTab() {
               setObjectiveData(obj);
               setEditingObjId(obj.id);
               setSelectedNodeId(obj.id);
+              setActiveTab('entry');
               window.scrollTo({ top: 0, behavior: 'smooth' });
             }}
           >
-            {assignments.filter(a => a.planningId === obj.id).map(ass => (
-               <TreeNode 
-                 key={ass.id} 
-                 label={`${ass.task} (Assigned: ${ass.workers || renderWorkerNames(ass.workerIds)})`} 
-                 icon={List} 
-                 isSelected={selectedNodeId === ass.id}
-                 onSelect={() => setSelectedNodeId(ass.id)}
-               />
+            {assignments.filter(a => a.planningId === obj.id).sort((a, b) => (b.assignmentDate || '').localeCompare(a.assignmentDate || '')).map(ass => (
+              <TreeNode
+                key={ass.id}
+                label={`${ass.task} (Assigned: ${ass.workers || renderWorkerNames(ass.workerIds)})`}
+                icon={List}
+                isSelected={selectedNodeId === ass.id}
+                onSelect={() => setSelectedNodeId(ass.id)}
+              />
             ))}
           </TreeNode>
         ))}
@@ -199,9 +204,9 @@ export default function PlanningTab() {
 
   const renderObjectivesTree = () => {
     return objectives.map(obj => (
-      <TreeNode 
-        key={obj.id} 
-        label={obj.title} 
+      <TreeNode
+        key={obj.id}
+        label={obj.title}
         icon={ClipboardList}
         isSelected={selectedNodeId === obj.id}
         onSelect={() => setSelectedNodeId(obj.id)}
@@ -210,245 +215,288 @@ export default function PlanningTab() {
           setObjectiveData(obj);
           setEditingObjId(obj.id);
           setSelectedNodeId(obj.id);
+          setActiveTab('entry');
           window.scrollTo({ top: 0, behavior: 'smooth' });
         }}
       >
-        {assignments.filter(a => a.planningId === obj.id).map(ass => (
-           <TreeNode 
-             key={ass.id} 
-             label={`${ass.task} (Assigned: ${ass.workers || renderWorkerNames(ass.workerIds)})`} 
-             icon={List} 
-             isSelected={selectedNodeId === ass.id}
-             onSelect={() => setSelectedNodeId(ass.id)}
-           />
+        {assignments.filter(a => a.planningId === obj.id).sort((a, b) => (b.assignmentDate || '').localeCompare(a.assignmentDate || '')).map(ass => (
+          <TreeNode
+            key={ass.id}
+            label={`${ass.task} (Assigned: ${ass.workers || renderWorkerNames(ass.workerIds)})`}
+            icon={List}
+            isSelected={selectedNodeId === ass.id}
+            onSelect={() => setSelectedNodeId(ass.id)}
+          />
         ))}
       </TreeNode>
     ));
   };
 
-  const goalColumns = [
-    { key: 'title', header: 'Goal Title' },
-    { key: 'parentGoalId', header: 'Parent', render: (r) => goals.find(g => g.id === r.parentGoalId)?.title || '-' },
-    { key: 'fromDate', header: 'From Date' },
-    { key: 'toDate', header: 'To Date' },
-    { key: 'startDate', header: 'Start Date' },
-    { key: 'completionDate', header: 'Completion Date' },
-    { key: 'estimatedHours', header: 'Est. Hours' },
-    { key: 'actualHours', header: 'Act. Hours' },
-    { key: 'workerIds', header: 'Responsible', render: (r) => renderWorkerNames(r.workerIds) }
-  ];
 
-  const objColumns = [
-    { key: 'title', header: 'Objective Title' },
-    { key: 'goalId', header: 'Parent Goal', render: (r) => goals.find(g => g.id === r.goalId)?.title || 'Unknown Goal' },
-    { key: 'fromDate', header: 'From Date' },
-    { key: 'toDate', header: 'To Date' },
-    { key: 'startDate', header: 'Start Date' },
-    { key: 'completionDate', header: 'Completion Date' },
-    { key: 'estimatedHours', header: 'Est. Hours' },
-    { key: 'actualHours', header: 'Act. Hours' },
-    { key: 'workerIds', header: 'Responsible', render: (r) => renderWorkerNames(r.workerIds) }
-  ];
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      
-      <div style={{ display: 'flex', gap: '10px' }}>
-        <button onClick={() => setActiveView('goals')} className={`btn ${activeView === 'goals' ? 'btn-primary' : ''}`} style={{ background: activeView !== 'goals' ? '#f0f0f0' : '#1565c0', color: activeView !== 'goals' ? '#333' : 'white', flex: 1 }}>Goals</button>
-        <button onClick={() => setActiveView('objectives')} className={`btn ${activeView === 'objectives' ? 'btn-primary' : ''}`} style={{ background: activeView !== 'objectives' ? '#f0f0f0' : '#1565c0', color: activeView !== 'objectives' ? '#333' : 'white', flex: 1 }}>Objectives</button>
+
+      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+        <div style={{ display: 'flex', borderBottom: '1px solid var(--color-border-light)', background: '#f5f7fa' }}>
+          <button
+            type="button"
+            onClick={() => setActiveTab('roster')}
+            style={{
+              flex: 1,
+              padding: '12px 16px',
+              border: 'none',
+              background: activeTab === 'roster' ? 'white' : 'transparent',
+              borderBottom: activeTab === 'roster' ? '3px solid var(--color-primary)' : 'none',
+              color: activeTab === 'roster' ? 'var(--color-primary)' : 'var(--color-text-light)',
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+              fontSize: '0.95rem'
+            }}
+          >
+            Planning (Goals & Objectives)
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('entry')}
+            style={{
+              flex: 1,
+              padding: '12px 16px',
+              border: 'none',
+              background: activeTab === 'entry' ? 'white' : 'transparent',
+              borderBottom: activeTab === 'entry' ? '3px solid var(--color-primary)' : 'none',
+              color: activeTab === 'entry' ? 'var(--color-primary)' : 'var(--color-text-light)',
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+              fontSize: '0.95rem'
+            }}
+          >
+            {editingGoalId || editingObjId ? 'Edit Plan Entry' : 'New Plan Entry'}
+          </button>
+        </div>
+
+        <div style={{ padding: '20px' }}>
+          {activeTab === 'roster' ? (
+            <>
+              <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', justifyContent: 'center' }}>
+                <button
+                  type="button"
+                  onClick={() => setActiveView('goals')}
+                  className={`btn ${activeView === 'goals' ? 'btn-primary' : ''}`}
+                  style={{
+                    borderRadius: '20px',
+                    padding: '8px 20px',
+                    background: activeView === 'goals' ? '#2e7d32' : '#f0f0f0',
+                    color: activeView === 'goals' ? 'white' : '#333',
+                    border: 'none',
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                >
+                  Active Goals
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveView('objectives')}
+                  className={`btn ${activeView === 'objectives' ? 'btn-primary' : ''}`}
+                  style={{
+                    borderRadius: '20px',
+                    padding: '8px 20px',
+                    background: activeView === 'objectives' ? '#2e7d32' : '#f0f0f0',
+                    color: activeView === 'objectives' ? 'white' : '#333',
+                    border: 'none',
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                >
+                  Active Objectives
+                </button>
+              </div>
+
+              {activeView === 'goals' ? (
+                <div style={{ padding: '15px', background: '#fafafa', borderRadius: '8px', border: '1px solid #eee' }}>
+                  {goals.filter(g => !g.parentGoalId).length === 0 ? (
+                    <p style={{ color: '#888', fontStyle: 'italic' }}>No goals have been created yet.</p>
+                  ) : (
+                    renderGoalsTree('')
+                  )}
+                </div>
+              ) : (
+                <div style={{ padding: '15px', background: '#fafafa', borderRadius: '8px', border: '1px solid #eee' }}>
+                  {objectives.length === 0 ? (
+                    <p style={{ color: '#888', fontStyle: 'italic' }}>No objectives have been created yet.</p>
+                  ) : (
+                    renderObjectivesTree()
+                  )}
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', justifyContent: 'center' }}>
+                <button
+                  type="button"
+                  onClick={() => { setActiveView('goals'); setGoalData(INIT_GOAL); setEditingGoalId(null); setObjectiveData(INIT_OBJECTIVE); setEditingObjId(null); }}
+                  className={`btn ${activeView === 'goals' ? 'btn-primary' : ''}`}
+                  style={{
+                    borderRadius: '20px',
+                    padding: '8px 20px',
+                    background: activeView === 'goals' ? '#2e7d32' : '#f0f0f0',
+                    color: activeView === 'goals' ? 'white' : '#333',
+                    border: 'none',
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                >
+                  Goal Entry Form
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setActiveView('objectives'); setGoalData(INIT_GOAL); setEditingGoalId(null); setObjectiveData(INIT_OBJECTIVE); setEditingObjId(null); }}
+                  className={`btn ${activeView === 'objectives' ? 'btn-primary' : ''}`}
+                  style={{
+                    borderRadius: '20px',
+                    padding: '8px 20px',
+                    background: activeView === 'objectives' ? '#2e7d32' : '#f0f0f0',
+                    color: activeView === 'objectives' ? 'white' : '#333',
+                    border: 'none',
+                    fontWeight: 600,
+                    cursor: 'pointer'
+                  }}
+                >
+                  Objective Entry Form
+                </button>
+              </div>
+
+              {activeView === 'goals' ? (
+                <form onSubmit={handleGoalSubmit}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                    <h2 style={{ margin: 0 }}>{editingGoalId ? 'Edit Goal' : 'New Goal'}</h2>
+                  </div>
+                  <div className="form-grid">
+                    <div className="form-group form-grid-full">
+                      <label>Parent Goal (Optional)</label>
+                      <select value={goalData.parentGoalId || ''} onChange={e => setGoalData({ ...goalData, parentGoalId: e.target.value })}>
+                        <option value="">None (Top-Level Goal)</option>
+                        {goals.filter(g => g.id !== editingGoalId).map(g => <option key={g.id} value={g.id}>{g.title}</option>)}
+                      </select>
+                    </div>
+                    <div className="form-group form-grid-full">
+                      <label>Goal Title</label>
+                      <input type="text" value={goalData.title} onChange={e => setGoalData({ ...goalData, title: e.target.value })} placeholder="e.g. Increase tomato yield by 20%" required />
+                    </div>
+                    <div className="form-group">
+                      <label>From Date</label>
+                      <input type="date" value={goalData.fromDate} onChange={e => setGoalData({ ...goalData, fromDate: e.target.value })} />
+                    </div>
+                    <div className="form-group">
+                      <label>To Date</label>
+                      <input type="date" value={goalData.toDate} onChange={e => setGoalData({ ...goalData, toDate: e.target.value })} />
+                    </div>
+                    <div className="form-group">
+                      <label>Start Date</label>
+                      <input type="date" value={goalData.startDate || ''} onChange={e => setGoalData({ ...goalData, startDate: e.target.value })} />
+                    </div>
+                    <div className="form-group">
+                      <label>Date of Completion</label>
+                      <input type="date" value={goalData.completionDate || ''} onChange={e => setGoalData({ ...goalData, completionDate: e.target.value })} />
+                    </div>
+                    <div className="form-group">
+                      <label>Estimated Hours</label>
+                      <input type="number" min="0" step="0.1" value={goalData.estimatedHours || ''} onChange={e => setGoalData({ ...goalData, estimatedHours: e.target.value })} placeholder="e.g. 40" />
+                    </div>
+                    <div className="form-group">
+                      <label>Actual Hours</label>
+                      <input type="number" min="0" step="0.1" value={goalData.actualHours || ''} onChange={e => setGoalData({ ...goalData, actualHours: e.target.value })} placeholder="e.g. 35" />
+                    </div>
+                    <div className="form-group form-grid-full">
+                      <label>Responsible Employees</label>
+                      <Select
+                        isMulti
+                        options={employeeOptions}
+                        value={employeeOptions.filter(opt => goalData.workerIds.includes(opt.value))}
+                        onChange={(opts) => setGoalData({ ...goalData, workerIds: opts ? opts.map(o => o.value) : [] })}
+                        placeholder="Search employees..."
+                      />
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '10px', marginTop: 15 }}>
+                    <button type="submit" className="btn btn-primary">
+                      <Target size={16} style={{ marginRight: 6 }} /> {editingGoalId ? 'Update Goal' : 'Save Goal'}
+                    </button>
+                    <button type="button" className="btn" onClick={resetForm}>
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <form onSubmit={handleObjectiveSubmit}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                    <h2 style={{ margin: 0 }}>{editingObjId ? 'Edit Objective' : 'New Objective'}</h2>
+                  </div>
+                  <div className="form-grid">
+                    <div className="form-group form-grid-full">
+                      <label>Parent Goal</label>
+                      <select value={objectiveData.goalId} onChange={e => setObjectiveData({ ...objectiveData, goalId: e.target.value })} required>
+                        <option value="">Select a Goal...</option>
+                        {goals.map(g => <option key={g.id} value={g.id}>{g.title}</option>)}
+                      </select>
+                    </div>
+                    <div className="form-group form-grid-full">
+                      <label>Objective Title</label>
+                      <input type="text" value={objectiveData.title} onChange={e => setObjectiveData({ ...objectiveData, title: e.target.value })} placeholder="e.g. Test new fertilizer composition" required />
+                    </div>
+                    <div className="form-group">
+                      <label>From Date</label>
+                      <input type="date" value={objectiveData.fromDate} onChange={e => setObjectiveData({ ...objectiveData, fromDate: e.target.value })} />
+                    </div>
+                    <div className="form-group">
+                      <label>To Date</label>
+                      <input type="date" value={objectiveData.toDate} onChange={e => setObjectiveData({ ...objectiveData, toDate: e.target.value })} />
+                    </div>
+                    <div className="form-group">
+                      <label>Start Date</label>
+                      <input type="date" value={objectiveData.startDate || ''} onChange={e => setObjectiveData({ ...objectiveData, startDate: e.target.value })} />
+                    </div>
+                    <div className="form-group">
+                      <label>Date of Completion</label>
+                      <input type="date" value={objectiveData.completionDate || ''} onChange={e => setObjectiveData({ ...objectiveData, completionDate: e.target.value })} />
+                    </div>
+                    <div className="form-group">
+                      <label>Estimated Hours</label>
+                      <input type="number" min="0" step="0.1" value={objectiveData.estimatedHours || ''} onChange={e => setObjectiveData({ ...objectiveData, estimatedHours: e.target.value })} placeholder="e.g. 40" />
+                    </div>
+                    <div className="form-group">
+                      <label>Actual Hours</label>
+                      <input type="number" min="0" step="0.1" value={objectiveData.actualHours || ''} onChange={e => setObjectiveData({ ...objectiveData, actualHours: e.target.value })} placeholder="e.g. 35" />
+                    </div>
+                    <div className="form-group form-grid-full">
+                      <label>Responsible Employees</label>
+                      <Select
+                        isMulti
+                        options={employeeOptions}
+                        value={employeeOptions.filter(opt => objectiveData.workerIds.includes(opt.value))}
+                        onChange={(opts) => setObjectiveData({ ...objectiveData, workerIds: opts ? opts.map(o => o.value) : [] })}
+                        placeholder="Search employees..."
+                      />
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: '10px', marginTop: 15 }}>
+                    <button type="submit" className="btn btn-primary">
+                      <PlusCircle size={16} style={{ marginRight: 6 }} /> {editingObjId ? 'Update Objective' : 'Save Objective'}
+                    </button>
+                    <button type="button" className="btn" onClick={resetForm}>
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              )}
+            </>
+          )}
+        </div>
       </div>
-
-      {activeView === 'goals' && (
-        <>
-          <div className="card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h2>{editingGoalId ? 'Edit Goal' : 'New Goal'}</h2>
-              {editingGoalId && (
-                <button onClick={() => { setEditingGoalId(null); setGoalData(INIT_GOAL); }} className="btn" style={{ background: '#f5f5f5', color: '#333' }}>
-                  <X size={14} style={{ marginRight: 4 }} /> Cancel Edit
-                </button>
-              )}
-            </div>
-            <form onSubmit={handleGoalSubmit}>
-              <div className="form-grid">
-                <div className="form-group form-grid-full">
-                  <label>Parent Goal (Optional)</label>
-                  <select value={goalData.parentGoalId || ''} onChange={e => setGoalData({...goalData, parentGoalId: e.target.value})}>
-                    <option value="">None (Top-Level Goal)</option>
-                    {goals.filter(g => g.id !== editingGoalId).map(g => <option key={g.id} value={g.id}>{g.title}</option>)}
-                  </select>
-                </div>
-                <div className="form-group form-grid-full">
-                  <label>Goal Title</label>
-                  <input type="text" value={goalData.title} onChange={e => setGoalData({ ...goalData, title: e.target.value })} placeholder="e.g. Increase tomato yield by 20%" required />
-                </div>
-                <div className="form-group">
-                  <label>From Date</label>
-                  <input type="date" value={goalData.fromDate} onChange={e => setGoalData({ ...goalData, fromDate: e.target.value })} />
-                </div>
-                <div className="form-group">
-                  <label>To Date</label>
-                  <input type="date" value={goalData.toDate} onChange={e => setGoalData({ ...goalData, toDate: e.target.value })} />
-                </div>
-                <div className="form-group">
-                  <label>Start Date</label>
-                  <input type="date" value={goalData.startDate || ''} onChange={e => setGoalData({ ...goalData, startDate: e.target.value })} />
-                </div>
-                <div className="form-group">
-                  <label>Date of Completion</label>
-                  <input type="date" value={goalData.completionDate || ''} onChange={e => setGoalData({ ...goalData, completionDate: e.target.value })} />
-                </div>
-                <div className="form-group">
-                  <label>Estimated Hours</label>
-                  <input type="number" min="0" step="0.1" value={goalData.estimatedHours || ''} onChange={e => setGoalData({ ...goalData, estimatedHours: e.target.value })} placeholder="e.g. 40" />
-                </div>
-                <div className="form-group">
-                  <label>Actual Hours</label>
-                  <input type="number" min="0" step="0.1" value={goalData.actualHours || ''} onChange={e => setGoalData({ ...goalData, actualHours: e.target.value })} placeholder="e.g. 35" />
-                </div>
-                <div className="form-group form-grid-full">
-                  <label>Responsible Employees</label>
-                  <Select
-                    isMulti
-                    options={employeeOptions}
-                    value={employeeOptions.filter(opt => goalData.workerIds.includes(opt.value))}
-                    onChange={(opts) => setGoalData({ ...goalData, workerIds: opts ? opts.map(o => o.value) : [] })}
-                    placeholder="Search employees..."
-                  />
-                </div>
-              </div>
-              <button type="submit" className="btn btn-primary" style={{ marginTop: 10 }}>
-                <Target size={16} style={{ marginRight: 6 }} /> {editingGoalId ? 'Update Goal' : 'Save Goal'}
-              </button>
-            </form>
-          </div>
-          
-          <div className="card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-              <h3 style={{ margin: 0 }}>Active Goals</h3>
-              <div style={{ display: 'flex', gap: '5px' }}>
-                <button onClick={() => setGoalViewMode('table')} className="btn" style={{ padding: '6px 12px', background: goalViewMode === 'table' ? '#e0e0e0' : 'transparent', border: '1px solid #ccc' }}>Table</button>
-                <button onClick={() => setGoalViewMode('tree')} className="btn" style={{ padding: '6px 12px', background: goalViewMode === 'tree' ? '#e0e0e0' : 'transparent', border: '1px solid #ccc' }}>Tree</button>
-              </div>
-            </div>
-            
-            {goalViewMode === 'table' ? (
-              <CrudTable activeRowId={editingGoalId} 
-                data={goals}
-                columns={goalColumns}
-                onEdit={(r) => { setGoalData(r); setEditingGoalId(r.id); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                onDelete={handleDeleteGoal}
-                itemLabel="Goal"
-                defaultSort={{ key: 'title', direction: 'asc' }}
-              />
-            ) : (
-              <div style={{ padding: '15px', background: '#fafafa', borderRadius: '8px', border: '1px solid #eee' }}>
-                {goals.filter(g => !g.parentGoalId).length === 0 ? (
-                  <p style={{ color: '#888', fontStyle: 'italic' }}>No goals have been created yet.</p>
-                ) : (
-                  renderGoalsTree('')
-                )}
-              </div>
-            )}
-          </div>
-        </>
-      )}
-
-      {activeView === 'objectives' && (
-        <>
-          <div className="card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h2>{editingObjId ? 'Edit Objective' : 'New Objective'}</h2>
-              {editingObjId && (
-                <button onClick={() => { setEditingObjId(null); setObjectiveData(INIT_OBJECTIVE); }} className="btn" style={{ background: '#f5f5f5', color: '#333' }}>
-                  <X size={14} style={{ marginRight: 4 }} /> Cancel Edit
-                </button>
-              )}
-            </div>
-            <form onSubmit={handleObjectiveSubmit}>
-              <div className="form-grid">
-                <div className="form-group form-grid-full">
-                  <label>Parent Goal</label>
-                  <select value={objectiveData.goalId} onChange={e => setObjectiveData({ ...objectiveData, goalId: e.target.value })} required>
-                    <option value="">Select a Goal...</option>
-                    {goals.map(g => <option key={g.id} value={g.id}>{g.title}</option>)}
-                  </select>
-                </div>
-                <div className="form-group form-grid-full">
-                  <label>Objective Title</label>
-                  <input type="text" value={objectiveData.title} onChange={e => setObjectiveData({ ...objectiveData, title: e.target.value })} placeholder="e.g. Test new fertilizer composition" required />
-                </div>
-                <div className="form-group">
-                  <label>From Date</label>
-                  <input type="date" value={objectiveData.fromDate} onChange={e => setObjectiveData({ ...objectiveData, fromDate: e.target.value })} />
-                </div>
-                <div className="form-group">
-                  <label>To Date</label>
-                  <input type="date" value={objectiveData.toDate} onChange={e => setObjectiveData({ ...objectiveData, toDate: e.target.value })} />
-                </div>
-                <div className="form-group">
-                  <label>Start Date</label>
-                  <input type="date" value={objectiveData.startDate || ''} onChange={e => setObjectiveData({ ...objectiveData, startDate: e.target.value })} />
-                </div>
-                <div className="form-group">
-                  <label>Date of Completion</label>
-                  <input type="date" value={objectiveData.completionDate || ''} onChange={e => setObjectiveData({ ...objectiveData, completionDate: e.target.value })} />
-                </div>
-                <div className="form-group">
-                  <label>Estimated Hours</label>
-                  <input type="number" min="0" step="0.1" value={objectiveData.estimatedHours || ''} onChange={e => setObjectiveData({ ...objectiveData, estimatedHours: e.target.value })} placeholder="e.g. 40" />
-                </div>
-                <div className="form-group">
-                  <label>Actual Hours</label>
-                  <input type="number" min="0" step="0.1" value={objectiveData.actualHours || ''} onChange={e => setObjectiveData({ ...objectiveData, actualHours: e.target.value })} placeholder="e.g. 35" />
-                </div>
-                <div className="form-group form-grid-full">
-                  <label>Responsible Employees</label>
-                  <Select
-                    isMulti
-                    options={employeeOptions}
-                    value={employeeOptions.filter(opt => objectiveData.workerIds.includes(opt.value))}
-                    onChange={(opts) => setObjectiveData({ ...objectiveData, workerIds: opts ? opts.map(o => o.value) : [] })}
-                    placeholder="Search employees..."
-                  />
-                </div>
-              </div>
-              <button type="submit" className="btn btn-primary" style={{ marginTop: 10 }}>
-                <PlusCircle size={16} style={{ marginRight: 6 }} /> {editingObjId ? 'Update Objective' : 'Save Objective'}
-              </button>
-            </form>
-          </div>
-          
-          <div className="card">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-              <h3 style={{ margin: 0 }}>Active Objectives</h3>
-              <div style={{ display: 'flex', gap: '5px' }}>
-                <button onClick={() => setObjViewMode('table')} className="btn" style={{ padding: '6px 12px', background: objViewMode === 'table' ? '#e0e0e0' : 'transparent', border: '1px solid #ccc' }}>Table</button>
-                <button onClick={() => setObjViewMode('tree')} className="btn" style={{ padding: '6px 12px', background: objViewMode === 'tree' ? '#e0e0e0' : 'transparent', border: '1px solid #ccc' }}>Tree</button>
-              </div>
-            </div>
-            
-            {objViewMode === 'table' ? (
-              <CrudTable activeRowId={typeof editingObjId !== 'undefined' ? editingObjId : null} 
-                data={objectives}
-                columns={objColumns}
-                onEdit={(r) => { setObjectiveData(r); setEditingObjId(r.id); window.scrollTo({ top: 0, behavior: 'smooth' }); }}
-                onDelete={handleDeleteObjective}
-                itemLabel="Objective"
-                defaultSort={{ key: 'title', direction: 'asc' }}
-              />
-            ) : (
-              <div style={{ padding: '15px', background: '#fafafa', borderRadius: '8px', border: '1px solid #eee' }}>
-                {objectives.length === 0 ? (
-                  <p style={{ color: '#888', fontStyle: 'italic' }}>No objectives have been created yet.</p>
-                ) : (
-                  renderObjectivesTree()
-                )}
-              </div>
-            )}
-          </div>
-        </>
-      )}
 
     </div>
   );

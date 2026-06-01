@@ -18,17 +18,30 @@ export default function DeadlineTab() {
   const deadlines = useSelector(state => state.deadlines.list) || [];
   const [formData, setFormData] = useState(INIT_DEADLINE);
   const [editingId, setEditingId] = useState(null);
+  const [activeTab, setActiveTab] = useState('roster');
+
+  const resetForm = () => {
+    setFormData(INIT_DEADLINE);
+    setEditingId(null);
+    setActiveTab('roster');
+  };
+
+  const handleEdit = (row) => {
+    setFormData(row);
+    setEditingId(row.id);
+    setActiveTab('entry');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-        if (!formData.title || !formData.dueDate) return alert("Title and Due Date are required.");
+    if (!formData.title || !formData.dueDate) return alert("Title and Due Date are required.");
 
     const newObj = { ...formData, id: editingId || `dl_${Date.now()}` };
     dispatch(addDeadline(newObj));
     dispatch(queueAction({ type: 'deadlines/upsertDeadline', payload: newObj, meta: { id: Date.now() } }));
 
-    setFormData(INIT_DEADLINE);
-    setEditingId(null);
+    resetForm();
   };
 
   const columns = [
@@ -41,67 +54,109 @@ export default function DeadlineTab() {
   ];
 
   return (
-    <div className="card">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h2>{editingId ? 'Edit Deadline' : 'Log New Deadline'}</h2>
-        {editingId && (
-          <button onClick={() => { setEditingId(null); setFormData(INIT_DEADLINE); }} className="btn" style={{ background: '#f5f5f5', color: '#333' }}>
-            <X size={14} style={{ marginRight: 4 }} /> Cancel Edit
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+        <div style={{ display: 'flex', borderBottom: '1px solid var(--color-border-light)', background: '#f5f7fa' }}>
+          <button 
+            type="button"
+            onClick={() => setActiveTab('roster')} 
+            style={{ 
+              flex: 1, 
+              padding: '12px 16px', 
+              border: 'none', 
+              background: activeTab === 'roster' ? 'white' : 'transparent', 
+              borderBottom: activeTab === 'roster' ? '3px solid var(--color-primary)' : 'none',
+              color: activeTab === 'roster' ? 'var(--color-primary)' : 'var(--color-text-light)',
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+              fontSize: '0.95rem'
+            }}
+          >
+            Deadlines Roster
           </button>
-        )}
-      </div>
-
-      <form onSubmit={handleSubmit}>
-        <div className="form-grid">
-          <div className="form-group form-grid-full">
-            <label>Title</label>
-            <input type="text" value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} placeholder="e.g. Q4 Wifi Bill" />
-          </div>
-          <div className="form-group">
-            <label>Category</label>
-            <select value={formData.type} onChange={e => setFormData({ ...formData, type: e.target.value })}>
-              {DEADLINE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
-          </div>
-          <div className="form-group">
-            <label>Due Date</label>
-            <input type="date" value={formData.dueDate} onChange={e => setFormData({ ...formData, dueDate: e.target.value })} />
-          </div>
-          <div className="form-group">
-            <label>Status</label>
-            <select value={formData.status} onChange={e => setFormData({ ...formData, status: e.target.value })}>
-              <option value="Overdue">Overdue</option>
-              <option value="Pending">Pending</option>
-              <option value="Resolved">Resolved</option>
-            </select>
-          </div>
-          <div className="form-group">
-            <label>Person Responsible</label>
-            <input type="text" value={formData.personResponsible} onChange={e => setFormData({ ...formData, personResponsible: e.target.value })} placeholder="Owner Name" />
-          </div>
-          <div className="form-group form-grid-full">
-            <label>Notes / Context</label>
-            <textarea rows="2" value={formData.notes} onChange={e => setFormData({ ...formData, notes: e.target.value })} placeholder="Additional details..."></textarea>
-          </div>
+          <button 
+            type="button"
+            onClick={() => setActiveTab('entry')} 
+            style={{ 
+              flex: 1, 
+              padding: '12px 16px', 
+              border: 'none', 
+              background: activeTab === 'entry' ? 'white' : 'transparent', 
+              borderBottom: activeTab === 'entry' ? '3px solid var(--color-primary)' : 'none',
+              color: activeTab === 'entry' ? 'var(--color-primary)' : 'var(--color-text-light)',
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+              fontSize: '0.95rem'
+            }}
+          >
+            {editingId ? 'Edit Deadline' : 'Log New Deadline'}
+          </button>
         </div>
-        <button type="submit" className="btn btn-primary" style={{ marginTop: 10 }}>
-          <Calendar size={16} style={{ marginRight: 6 }} /> {editingId ? 'Update Deadline' : 'Save Deadline'}
-        </button>
-      </form>
 
-      <hr style={{ border: 'none', borderTop: '1px solid var(--color-border)', margin: '30px 0' }} />
-
-      <CrudTable activeRowId={editingId}
-        data={deadlines}
-        columns={columns}
-        onEdit={(row) => { setFormData(row); setEditingId(row.id); }}
-        onDelete={(id) => {
-          dispatch(deleteDeadline(id));
-          dispatch(queueAction({ type: 'core/deleteNode', payload: { id }, meta: { id: Date.now() } }));
-        }}
-        itemLabel="Deadline"
-        defaultSort={{ key: 'title', direction: 'asc' }}
-      />
+        <div style={{ padding: '20px' }}>
+          {activeTab === 'roster' ? (
+            <CrudTable activeRowId={editingId}
+              data={deadlines}
+              columns={columns}
+              onEdit={handleEdit}
+              onDelete={(id) => {
+                dispatch(deleteDeadline(id));
+                dispatch(queueAction({ type: 'core/deleteNode', payload: { id }, meta: { id: Date.now() } }));
+                if (editingId === id) resetForm();
+              }}
+              itemLabel="Deadline"
+              defaultSort={{ key: 'title', direction: 'asc' }}
+            />
+          ) : (
+            <form onSubmit={handleSubmit}>
+              <div className="form-grid">
+                <div className="form-group form-grid-full">
+                  <label>Title</label>
+                  <input type="text" value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} placeholder="e.g. Q4 Wifi Bill" />
+                </div>
+                <div className="form-group">
+                  <label>Category</label>
+                  <select value={formData.type} onChange={e => setFormData({ ...formData, type: e.target.value })}>
+                    {DEADLINE_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Due Date</label>
+                  <input type="date" value={formData.dueDate} onChange={e => setFormData({ ...formData, dueDate: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label>Status</label>
+                  <select value={formData.status} onChange={e => setFormData({ ...formData, status: e.target.value })}>
+                    <option value="Overdue">Overdue</option>
+                    <option value="Pending">Pending</option>
+                    <option value="Resolved">Resolved</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Person Responsible</label>
+                  <input type="text" value={formData.personResponsible} onChange={e => setFormData({ ...formData, personResponsible: e.target.value })} placeholder="Owner Name" />
+                </div>
+                <div className="form-group form-grid-full">
+                  <label>Notes / Context</label>
+                  <textarea rows="2" value={formData.notes} onChange={e => setFormData({ ...formData, notes: e.target.value })} placeholder="Additional details..."></textarea>
+                </div>
+              </div>
+              <div style={{ marginTop: '20px', display: 'flex', gap: '10px' }}>
+                <button type="submit" className="btn btn-primary">
+                  <Calendar size={16} style={{ marginRight: 6 }} /> {editingId ? 'Update Deadline' : 'Save Deadline'}
+                </button>
+                {editingId && (
+                  <button type="button" className="btn" onClick={resetForm}>
+                    Cancel
+                  </button>
+                )}
+              </div>
+            </form>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { saveEmployee, removeEmployee } from '../store/employeeSlice';
 import CrudTable from './CrudTable';
+import { Trash2 } from 'lucide-react';
 
 
 export default function EmployeeTab() {
@@ -30,7 +31,18 @@ export default function EmployeeTab() {
 
   // UI Filtering State
   const [filterActive, setFilterActive] = useState(false);
+  const [filterTerminated, setFilterTerminated] = useState(false);
   const [activeTab, setActiveTab] = useState('roster');
+
+  const handleFilterActiveChange = (checked) => {
+    setFilterActive(checked);
+    if (checked) setFilterTerminated(false);
+  };
+
+  const handleFilterTerminatedChange = (checked) => {
+    setFilterTerminated(checked);
+    if (checked) setFilterActive(false);
+  };
 
   const resetForm = () => {
     setEditingId(null);
@@ -109,22 +121,28 @@ export default function EmployeeTab() {
   };
 
   // Derive final filtered list immediately before rendering
-  const filteredEmployees = filterActive
-    ? employees.filter(emp => !emp.isTerminated && emp.isActive !== false)
-    : employees;
+  const filteredEmployees = employees.filter(emp => {
+    if (filterActive && (emp.isTerminated || emp.isActive === false)) {
+      return false;
+    }
+    if (filterTerminated && !emp.isTerminated) {
+      return false;
+    }
+    return true;
+  });
 
   const employeeColumns = [
-    { key: 'name', header: 'Name', style: { width: '30%' }, render: (r) => (
+    { key: 'name', header: 'Name', style: { width: '20%', verticalAlign: 'top' }, render: (r) => (
       <span style={{ fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
         {r.lastName}, {r.firstName}
         {r.gender === 'Male' && <span style={{ color: '#1565c0', fontSize: '1.1rem', lineHeight: 1 }} title="Male">♂</span>}
         {r.gender === 'Female' && <span style={{ color: '#c2185b', fontSize: '1.1rem', lineHeight: 1 }} title="Female">♀</span>}
       </span> 
     ) },
-    { key: 'jobTitle', header: 'Job Title', style: { width: '16%' } },
-    { key: 'startDate', header: 'Start Date', style: { width: '14%' }, render: (r) => r.startDate || '-' },
-    { key: 'endDate', header: 'End Date', style: { width: '14%' }, render: (r) => r.endDate || '-' },
-    { key: 'status', header: 'Status', style: { width: '15%' }, render: (r) => r.isTerminated ? (
+    { key: 'jobTitle', header: 'Job Title', style: { width: '16%', verticalAlign: 'top' } },
+    { key: 'startDate', header: 'Start Date', style: { width: '14%', verticalAlign: 'top' }, render: (r) => r.startDate || '-' },
+    { key: 'endDate', header: 'End Date', style: { width: '14%', verticalAlign: 'top' }, render: (r) => r.endDate || '-' },
+    { key: 'status', header: 'Status', style: { width: '25%', verticalAlign: 'top' }, render: (r) => r.isTerminated ? (
       <div style={{ color: '#c62828', fontWeight: 500, fontSize: '0.85rem' }}>
         Terminated
         <div style={{ fontSize: '0.75rem', fontWeight: 400, marginTop: '2px' }}>{r.terminationReason}</div>
@@ -202,14 +220,74 @@ export default function EmployeeTab() {
                     <input
                       type="checkbox"
                       checked={filterActive}
-                      onChange={e => setFilterActive(e.target.checked)}
+                      onChange={e => handleFilterActiveChange(e.target.checked)}
                       style={{ width: 16, height: 16, marginRight: '8px', cursor: 'pointer' }}
                     />
                     Show Active Only
                   </label>
+                  <label style={{
+                    display: 'flex', alignItems: 'center',
+                    cursor: 'pointer', background: '#f5f5f5',
+                    padding: '4px 8px', borderRadius: '4px',
+                    fontWeight: 600, fontSize: '0.85rem',
+                    border: '1px solid var(--color-border)',
+                    color: '#333'
+                  }}>
+                    <input
+                      type="checkbox"
+                      checked={filterTerminated}
+                      onChange={e => handleFilterTerminatedChange(e.target.checked)}
+                      style={{ width: 16, height: 16, marginRight: '8px', cursor: 'pointer' }}
+                    />
+                    Show Terminated Only
+                  </label>
                 </div>
               }
               rowStyle={(row) => ({ opacity: row.isTerminated ? 0.6 : 1 })}
+              mobileRender={(r) => (
+                <div style={{ 
+                  padding: '12px 16px', 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  alignItems: 'flex-start',
+                  gap: '10px'
+                }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ fontWeight: 600, color: 'var(--color-text)', fontSize: '0.95rem' }}>
+                        {r.lastName}, {r.firstName}
+                      </span>
+                      {r.gender === 'Male' && <span style={{ color: '#1565c0', fontSize: '1rem' }}>♂</span>}
+                      {r.gender === 'Female' && <span style={{ color: '#c2185b', fontSize: '1rem' }}>♀</span>}
+                    </div>
+                    <div style={{ fontSize: '0.85rem', color: 'var(--color-text-light)' }}>
+                      {r.jobTitle}
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: '#888' }}>
+                      Start: {r.startDate || '-'} {r.endDate ? `| End: ${r.endDate}` : ''}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
+                    {r.isTerminated ? (
+                      <span style={{ color: '#c62828', fontWeight: 600, fontSize: '0.8rem', background: '#ffebee', padding: '2px 6px', borderRadius: '4px' }}>Terminated</span>
+                    ) : r.isActive === false ? (
+                      <span style={{ color: '#f57c00', fontWeight: 600, fontSize: '0.8rem', background: '#fff3e0', padding: '2px 6px', borderRadius: '4px' }}>Inactive</span>
+                    ) : (
+                      <span style={{ color: '#2e7d32', fontWeight: 600, fontSize: '0.8rem', background: '#e8f5e9', padding: '2px 6px', borderRadius: '4px' }}>Active</span>
+                    )}
+                    {handleDelete && (
+                      <button 
+                        type="button" 
+                        onClick={(e) => { e.stopPropagation(); handleDelete(r.id); }} 
+                        style={{ background: 'transparent', border: 'none', padding: '4px', cursor: 'pointer', color: '#c62828', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                        title="Delete"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
             />
           ) : (
             <form onSubmit={handleSubmit}>

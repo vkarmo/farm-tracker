@@ -18,6 +18,7 @@ export default function HarvestTab() {
   const INIT_HARVEST = { cropId: '', amount: '', unit: units[0] || 'lbs', date: new Date().toISOString().split('T')[0] };
   const [harvestData, setHarvestData] = useState(INIT_HARVEST);
   const [editingId, setEditingId] = useState(null);
+  const [activeTab, setActiveTab] = useState('roster');
 
   const [showGraph, setShowGraph] = useState(false);
   const [filterCropId, setFilterCropId] = useState('');
@@ -44,9 +45,22 @@ export default function HarvestTab() {
     return Object.values(map).sort((a, b) => (a.date || '').localeCompare(b.date || ''));
   }, [filteredHarvests, filterFromDate, filterToDate]);
 
+  const resetForm = () => {
+    setHarvestData({...INIT_HARVEST, unit: units[0] || 'lbs', date: new Date().toISOString().split('T')[0]});
+    setEditingId(null);
+    setActiveTab('roster');
+  };
+
+  const handleEdit = (row) => {
+    setHarvestData(row);
+    setEditingId(row.id);
+    setActiveTab('entry');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const handleSubmit = (e) => {
     e.preventDefault();
-        if (!harvestData.cropId) return alert("Validation Error: Source Crop Batch is strictly required.");
+    if (!harvestData.cropId) return alert("Validation Error: Source Crop Batch is strictly required.");
     const parsedAmt = parseFloat(harvestData.amount);
     if (!harvestData.amount || isNaN(parsedAmt) || parsedAmt < 0) return alert("Validation Error: Harvest amount must be a valid positive number.");
     if (!harvestData.amount || !harvestData.cropId || !harvestData.date) return;
@@ -61,8 +75,7 @@ export default function HarvestTab() {
       dispatch(queueAction({ type: 'assets/addHarvest', payload: newHarvest, meta: { id: Date.now() } }));
     }
     
-    setHarvestData({...INIT_HARVEST, unit: units[0] || 'lbs', date: new Date().toISOString().split('T')[0]});
-    setEditingId(null);
+    resetForm();
   };
 
   const columns = [
@@ -80,117 +93,158 @@ export default function HarvestTab() {
   ];
 
   return (
-    <div className="card">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h2>{editingId ? 'Edit Harvest Record' : 'Log Continuous Harvest'}</h2>
-        {editingId && (
-          <button onClick={() => { setEditingId(null); setHarvestData({...INIT_HARVEST, unit: units[0] || 'lbs'}); }} className="btn" style={{ background: '#f5f5f5', color: '#333' }}>
-            <X size={14} style={{ marginRight: 4 }} /> Cancel Edit
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+        <div style={{ display: 'flex', borderBottom: '1px solid var(--color-border-light)', background: '#f5f7fa' }}>
+          <button 
+            type="button"
+            onClick={() => setActiveTab('roster')} 
+            style={{ 
+              flex: 1, 
+              padding: '12px 16px', 
+              border: 'none', 
+              background: activeTab === 'roster' ? 'white' : 'transparent', 
+              borderBottom: activeTab === 'roster' ? '3px solid var(--color-primary)' : 'none',
+              color: activeTab === 'roster' ? 'var(--color-primary)' : 'var(--color-text-light)',
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+              fontSize: '0.95rem'
+            }}
+          >
+            Harvest Roster
           </button>
-        )}
-      </div>
-
-      <form onSubmit={handleSubmit}>
-        <div className="form-grid">
-          <div className="form-group">
-            <label>Date Harvested</label>
-            <input type="date" value={harvestData.date} onChange={e => setHarvestData({...harvestData, date: e.target.value})} required />
-          </div>
-          <div className="form-group">
-            <label>Source Crop Batch</label>
-            <select value={harvestData.cropId} onChange={e => setHarvestData({...harvestData, cropId: e.target.value})}>
-              <option value="">Select an active crop...</option>
-              {[...crops].sort((a,b) => (a.name || '').localeCompare(b.name || '')).map(c => {
-                let locationStr = 'Unassigned';
-                if (c.fieldId) {
-                  if (c.sowType === 'Nursery') {
-                    locationStr = 'Nursery: ' + (nurseries.find(x => x.id === c.fieldId)?.name || 'Unknown');
-                  } else {
-                    locationStr = 'Field: ' + (fields.find(f => f.id === c.fieldId)?.name || 'Unknown');
-                  }
-                }
-                return (
-                  <option key={c.id} value={c.id}>
-                    {c.name} ({c.variety}) - Location: {locationStr}
-                  </option>
-                );
-              })}
-            </select>
-          </div>
-          <div className="form-group">
-            <label>Amount Yielded</label>
-            <input type="number" step="0.1" value={harvestData.amount} onChange={e => setHarvestData({...harvestData, amount: e.target.value})}/>
-          </div>
-          <div className="form-group">
-            <label>Unit of Measurement</label>
-            <select value={harvestData.unit} onChange={e => setHarvestData({...harvestData, unit: e.target.value})}>
-              {[...units].sort((a,b) => (a || '').localeCompare(b || '')).map(u => <option key={u} value={u}>{u}</option>)}
-            </select>
-          </div>
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 10 }}>
-          <button type="submit" className="btn btn-primary">
-            <BarChartIcon size={16} style={{marginRight: 6}}/> {editingId ? 'Update Harvest' : 'Save Harvest Info'}
-          </button>
-          <button type="button" onClick={() => setShowGraph(!showGraph)} className="btn" style={{ background: '#e3f2fd', color: '#1565c0', display: 'flex', alignItems: 'center' }}>
-            <LineChart size={16} style={{marginRight: 6}}/> {showGraph ? 'View Harvest Records' : 'View Harvest Graphs'}
+          <button 
+            type="button"
+            onClick={() => setActiveTab('entry')} 
+            style={{ 
+              flex: 1, 
+              padding: '12px 16px', 
+              border: 'none', 
+              background: activeTab === 'entry' ? 'white' : 'transparent', 
+              borderBottom: activeTab === 'entry' ? '3px solid var(--color-primary)' : 'none',
+              color: activeTab === 'entry' ? 'var(--color-primary)' : 'var(--color-text-light)',
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+              fontSize: '0.95rem'
+            }}
+          >
+            {editingId ? 'Edit Harvest Record' : 'Log New Harvest'}
           </button>
         </div>
-      </form>
 
-      <hr style={{border: 'none', borderTop: '1px solid var(--color-border)', margin: '30px 0'}} />
-
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 15 }}>
-        {showGraph ? <h3 style={{ margin: 0, color: 'var(--color-primary-dark)' }}>Harvest Yield Over Time</h3> : <div></div>}
-        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
-          <select value={filterCropId} onChange={e => setFilterCropId(e.target.value)} style={{ padding: '6px 10px', borderRadius: 4, border: '1px solid #ccc', fontSize: '0.9rem' }}>
-            <option value="">All Source Crops...</option>
-            {[...crops].sort((a,b) => (a.name || '').localeCompare(b.name || '')).map(c => (
-              <option key={c.id} value={c.id}>{c.name} ({c.variety})</option>
-            ))}
-          </select>
-          {showGraph && (
+        <div style={{ padding: '20px' }}>
+          {activeTab === 'roster' ? (
             <>
-              <input type="date" value={filterFromDate} onChange={e => setFilterFromDate(e.target.value)} style={{ padding: '6px 10px', borderRadius: 4, border: '1px solid #ccc', fontSize: '0.9rem' }} title="From Date" />
-              <input type="date" value={filterToDate} onChange={e => setFilterToDate(e.target.value)} style={{ padding: '6px 10px', borderRadius: 4, border: '1px solid #ccc', fontSize: '0.9rem' }} title="To Date" />
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 15 }}>
+                <button type="button" onClick={() => setShowGraph(!showGraph)} className="btn" style={{ background: '#e3f2fd', color: '#1565c0', display: 'flex', alignItems: 'center' }}>
+                  <LineChart size={16} style={{marginRight: 6}}/> {showGraph ? 'View Harvest Records' : 'View Harvest Graphs'}
+                </button>
+                <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap' }}>
+                  <select value={filterCropId} onChange={e => setFilterCropId(e.target.value)} style={{ padding: '6px 10px', borderRadius: 4, border: '1px solid #ccc', fontSize: '0.9rem' }}>
+                    <option value="">All Source Crops...</option>
+                    {[...crops].sort((a,b) => (a.name || '').localeCompare(b.name || '')).map(c => (
+                      <option key={c.id} value={c.id}>{c.name} ({c.variety})</option>
+                    ))}
+                  </select>
+                  {showGraph && (
+                    <>
+                      <input type="date" value={filterFromDate} onChange={e => setFilterFromDate(e.target.value)} style={{ padding: '6px 10px', borderRadius: 4, border: '1px solid #ccc', fontSize: '0.9rem' }} title="From Date" />
+                      <input type="date" value={filterToDate} onChange={e => setFilterToDate(e.target.value)} style={{ padding: '6px 10px', borderRadius: 4, border: '1px solid #ccc', fontSize: '0.9rem' }} title="To Date" />
+                    </>
+                  )}
+                </div>
+              </div>
+
+              {!showGraph ? (
+                <CrudTable activeRowId={editingId} 
+                  data={filteredHarvests} 
+                  columns={columns} 
+                  onEdit={handleEdit} 
+                  onDelete={(id) => {
+                    dispatch(deleteHarvest(id));
+                    dispatch(queueAction({ type: 'core/deleteNode', payload: { id }, meta: { id: Date.now() } }));
+                    if (editingId === id) resetForm();
+                  }} 
+                  itemLabel="Harvest Record" 
+                  defaultSort={{ key: 'date', direction: 'desc' }}
+                />
+              ) : (
+                <div className="card" style={{ background: '#fafafa', border: '1px solid var(--color-border)' }}>
+                  <div style={{ width: '100%', height: 350 }}>
+                    {filteredHarvestByDay.length > 0 ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <BarChart data={filteredHarvestByDay} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                          <XAxis dataKey="date" tick={{ fontSize: 12 }} />
+                          <YAxis tick={{ fontSize: 12 }} />
+                          <Tooltip cursor={{ fill: '#f5f5f5' }} />
+                          <Bar dataKey="yield" fill="#4caf50" radius={[4, 4, 0, 0]} barSize={32} name="Total Yield" />
+                        </BarChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#888', fontStyle: 'italic', background: '#fff', borderRadius: 8, border: '1px dashed #ccc' }}>
+                        No harvest data matches your current filters.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </>
+          ) : (
+            <form onSubmit={handleSubmit}>
+              <div className="form-grid">
+                <div className="form-group">
+                  <label>Date Harvested</label>
+                  <input type="date" value={harvestData.date} onChange={e => setHarvestData({...harvestData, date: e.target.value})} required />
+                </div>
+                <div className="form-group">
+                  <label>Source Crop Batch</label>
+                  <select value={harvestData.cropId} onChange={e => setHarvestData({...harvestData, cropId: e.target.value})}>
+                    <option value="">Select an active crop...</option>
+                    {[...crops].sort((a,b) => (a.name || '').localeCompare(b.name || '')).map(c => {
+                      let locationStr = 'Unassigned';
+                      if (c.fieldId) {
+                        if (c.sowType === 'Nursery') {
+                          locationStr = 'Nursery: ' + (nurseries.find(x => x.id === c.fieldId)?.name || 'Unknown');
+                        } else {
+                          locationStr = 'Field: ' + (fields.find(f => f.id === c.fieldId)?.name || 'Unknown');
+                        }
+                      }
+                      return (
+                        <option key={c.id} value={c.id}>
+                          {c.name} ({c.variety}) - Location: {locationStr}
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Amount Yielded</label>
+                  <input type="number" step="0.1" value={harvestData.amount} onChange={e => setHarvestData({...harvestData, amount: e.target.value})}/>
+                </div>
+                <div className="form-group">
+                  <label>Unit of Measurement</label>
+                  <select value={harvestData.unit} onChange={e => setHarvestData({...harvestData, unit: e.target.value})}>
+                    {[...units].sort((a,b) => (a || '').localeCompare(b || '')).map(u => <option key={u} value={u}>{u}</option>)}
+                  </select>
+                </div>
+              </div>
+              <div style={{ marginTop: '20px', display: 'flex', gap: '10px' }}>
+                <button type="submit" className="btn btn-primary">
+                  <BarChartIcon size={16} style={{marginRight: 6}}/> {editingId ? 'Update Harvest' : 'Save Harvest Info'}
+                </button>
+                {editingId && (
+                  <button type="button" className="btn" onClick={resetForm}>
+                    Cancel
+                  </button>
+                )}
+              </div>
+            </form>
           )}
         </div>
       </div>
-
-      {!showGraph ? (
-        <CrudTable activeRowId={editingId} 
-          data={filteredHarvests} 
-          columns={columns} 
-          onEdit={(row) => { setHarvestData(row); setEditingId(row.id); }} 
-          onDelete={(id) => {
-            dispatch(deleteHarvest(id));
-            dispatch(queueAction({ type: 'core/deleteNode', payload: { id }, meta: { id: Date.now() } }));
-          }} 
-          itemLabel="Harvest Record" 
-          defaultSort={{ key: 'date', direction: 'desc' }}
-        />
-      ) : (
-        <div className="card" style={{ background: '#fafafa', border: '1px solid var(--color-border)' }}>
-          <div style={{ width: '100%', height: 350 }}>
-            {filteredHarvestByDay.length > 0 ? (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={filteredHarvestByDay} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="date" tick={{ fontSize: 12 }} />
-                  <YAxis tick={{ fontSize: 12 }} />
-                  <Tooltip cursor={{ fill: '#f5f5f5' }} />
-                  <Bar dataKey="yield" fill="#4caf50" radius={[4, 4, 0, 0]} barSize={32} name="Total Yield" />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <div style={{ height: '100%', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#888', fontStyle: 'italic', background: '#fff', borderRadius: 8, border: '1px dashed #ccc' }}>
-                No harvest data matches your current filters.
-              </div>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

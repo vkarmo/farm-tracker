@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Search, Edit2, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
 
-export default function CrudTable({ data, columns, onEdit, onDelete, itemLabel = 'Item', customTitle, rowStyle, defaultSort, maxHeight, activeRowId, hideTitle }) {
+export default function CrudTable({ data, columns, onEdit, onDelete, itemLabel = 'Item', customTitle, rowStyle, defaultSort, maxHeight, activeRowId, hideTitle, mobileRender }) {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState(defaultSort || { key: 'updatedAt', direction: 'desc' });
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
@@ -173,26 +173,44 @@ export default function CrudTable({ data, columns, onEdit, onDelete, itemLabel =
              No {itemLabel.toLowerCase()}s found matching your search.
           </div>
         ) : (
-          filteredData.map((row, rowIndex) => (
-            <div 
-              key={row.id || rowIndex} 
-              className={`mobile-data-card ${onEdit ? 'clickable' : ''}`} 
-              onClick={() => onEdit && onEdit(row)}
-              style={{
-                transition: 'all 0.2s ease',
-                cursor: onEdit ? 'pointer' : 'default',
-                background: activeRowId && activeRowId === row.id ? '#fff9c4' : undefined,
-                ...(rowStyle ? rowStyle(row) : {})
-              }}
-            >
-              {columns.map((col, colIndex) => (
-                <div key={colIndex} className="mobile-data-card-row">
-                  <div className="mobile-data-card-label">{col.header}:</div>
-                  <div className="mobile-data-card-value">
-                    {col.render ? col.render(row) : row[col.key]}
-                  </div>
+          filteredData.map((row, rowIndex) => {
+            if (mobileRender) {
+              return (
+                <div 
+                  key={row.id || rowIndex} 
+                  onClick={() => onEdit && onEdit(row)} 
+                  className={onEdit ? 'clickable' : ''} 
+                  style={{ 
+                    cursor: onEdit ? 'pointer' : 'default',
+                    background: activeRowId && activeRowId === row.id ? '#fff9c4' : 'white',
+                    borderBottom: '1px solid var(--color-border-light)',
+                    ...(rowStyle ? rowStyle(row) : {})
+                  }}
+                >
+                  {mobileRender(row)}
                 </div>
-              ))}
+              );
+            }
+            return (
+              <div 
+                key={row.id || rowIndex} 
+                className={`mobile-data-card ${onEdit ? 'clickable' : ''}`} 
+                onClick={() => onEdit && onEdit(row)}
+                style={{
+                  transition: 'all 0.2s ease',
+                  cursor: onEdit ? 'pointer' : 'default',
+                  background: activeRowId && activeRowId === row.id ? '#fff9c4' : undefined,
+                  ...(rowStyle ? rowStyle(row) : {})
+                }}
+              >
+                {columns.map((col, colIndex) => (
+                  <div key={colIndex} className="mobile-data-card-row">
+                    <div className="mobile-data-card-label">{col.header}:</div>
+                    <div className="mobile-data-card-value">
+                      {col.render ? col.render(row) : row[col.key]}
+                    </div>
+                  </div>
+                ))}
               
               {(onEdit || onDelete) && (
                 <div className="mobile-data-actions">
@@ -218,7 +236,8 @@ export default function CrudTable({ data, columns, onEdit, onDelete, itemLabel =
                 </div>
               )}
             </div>
-          ))
+          );
+        })
         )}
       </div>
 

@@ -37,6 +37,7 @@ export default function NurseryTab() {
   const fields = useSelector(state => state.fields.data) || [];
   const pois = useSelector(state => state.poi?.list) || [];
 
+  const [activeTab, setActiveTab] = useState('roster');
   const [bedData, setBedData] = useState(INIT_BED);
   const [editingId, setEditingId] = useState(null);
   const [transplantFieldId, setTransplantFieldId] = useState('');
@@ -78,9 +79,16 @@ export default function NurseryTab() {
     }
   }, [polygonPositions]);
 
+  const resetForm = () => {
+    setBedData(INIT_BED);
+    setEditingId(null);
+    setPolygonPositions([]);
+    setActiveTab('roster');
+  };
+
   const handleAddBed = (e) => {
     e.preventDefault();
-        if (!bedData.name.trim()) return alert("Validation Error: Bed/Tray Name is required.");
+    if (!bedData.name.trim()) return alert("Validation Error: Bed/Tray Name is required.");
     const parsedCap = parseFloat(bedData.capacity);
     if (bedData.capacity && (isNaN(parsedCap) || parsedCap < 0)) return alert("Validation Error: Bed Capacity must be positive.");
     if (!bedData.name) return;
@@ -97,9 +105,34 @@ export default function NurseryTab() {
       dispatch(queueAction({ type: 'nurseries/addBed', payload: newBed, meta: { id: Date.now() } }));
     }
     
-    setBedData(INIT_BED);
-    setEditingId(null);
-    setPolygonPositions([]);
+    resetForm();
+  };
+
+  const handleEdit = (row) => {
+    setBedData(row); 
+    setEditingId(row.id); 
+    if (row.polygon) {
+      try {
+        const poly = typeof row.polygon === 'string' ? JSON.parse(row.polygon) : row.polygon;
+        setPolygonPositions(Array.isArray(poly) ? poly : []);
+        if (Array.isArray(poly) && poly.length > 0) setSearchResultCenter(poly[0]);
+      } catch(e) { 
+        setPolygonPositions([]); 
+      }
+    } else { 
+      setPolygonPositions([]); 
+      setSearchResultCenter(mapCenter);
+    }
+    setActiveTab('entry');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleDelete = (id) => {
+    if (window.confirm("Permanently delete this nursery bed?")) {
+      dispatch(deleteBed(id));
+      dispatch(queueAction({ type: 'core/deleteNode', payload: { id }, meta: { id: Date.now() } }));
+      if (editingId === id) resetForm();
+    }
   };
 
   const handleTransplant = (cropId) => {
@@ -128,289 +161,321 @@ export default function NurseryTab() {
   const latLngs = sortedPositions.map(p => [p[0], p[1]]);
 
   return (
-    <div className="card">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h2>{editingId ? 'Edit Nursery Bed' : 'Nursery Bed Management'}</h2>
-        {editingId && (
-          <button onClick={() => { setEditingId(null); setBedData(INIT_BED); setPolygonPositions([]); }} className="btn" style={{ background: '#f5f5f5', color: '#333' }}>
-            <X size={14} style={{ marginRight: 4 }} /> Cancel Edit
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+        <div style={{ display: 'flex', borderBottom: '1px solid var(--color-border-light)', background: '#f5f7fa' }}>
+          <button 
+            type="button"
+            onClick={() => setActiveTab('roster')} 
+            style={{ 
+              flex: 1, 
+              padding: '12px 16px', 
+              border: 'none', 
+              background: activeTab === 'roster' ? 'white' : 'transparent', 
+              borderBottom: activeTab === 'roster' ? '3px solid var(--color-primary)' : 'none',
+              color: activeTab === 'roster' ? 'var(--color-primary)' : 'var(--color-text-light)',
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+              fontSize: '0.95rem'
+            }}
+          >
+            Greenhouse Beds
           </button>
-        )}
-      </div>
-      
-      {!editingId && <p style={{fontSize: '0.85rem', color: 'var(--color-text-light)', marginBottom: 20}}>Define greenhouse tables, plug trays, or starter beds where you germinate crops before field-transplantation.</p>}
-      
-      <form onSubmit={handleAddBed} style={{marginBottom: 30}}>
-        <div className="form-grid">
-          <div className="form-group form-grid-full" style={{ marginBottom: '15px' }}>
-            <label>Draw Nursery Location on Map (Click to add points to polygon)</label>
-            <div style={{ marginBottom: '10px', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-              <div style={{ flex: 1 }}>
-                <MapSearchBox 
-                  onLocationFound={handleLocationFound} 
-                  onClear={polygonPositions.length > 0 ? () => setPolygonPositions([]) : null}
-                  polygon={polygonPositions}
-                  setPolygon={setPolygonPositions}
-                  activeId={editingId}
-                />
-              </div>
-            </div>
-            <ResizableMapWrapper initialHeight={500} style={{ marginBottom: '15px' }}>
-              <MapContainer key={editingId || 'new'} center={latLngs.length > 0 ? latLngs[0] : mapCenter} zoom={latLngs.length > 0 ? 17 : mapZoom} maxZoom={24} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
-                <MapResizer />
-                <MapFlyTo center={searchResultCenter} />
-                <TileLayer
-                  attribution="Google Maps"
-                  url="https://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}&s=Ga"
-                  maxZoom={24}
-                  maxNativeZoom={20}
-                />
-                <ClickToDrawComponent polygon={polygonPositions} setPolygon={setPolygonPositions} setCenter={setSearchResultCenter} />
-                {latLngs.map((pos, idx) => (
-                  <Marker key={`pin_${idx}`} position={pos} />
-                ))}
-                {latLngs.length > 0 && (
-                  <Polygon positions={latLngs} pathOptions={{ color: bedData.drawColor || polygonColor, weight: 1.5, opacity: 0.6 }} />
-                )}
-                {/* Render existing saved beds (clickable for editing) */}
-                {nurseries.filter(b => b.id !== editingId).map(bed => {
-                  let positions = [];
-                  if (bed.polygon) {
-                    try { positions = typeof bed.polygon === 'string' ? JSON.parse(bed.polygon) : bed.polygon; } catch (e) {}
-                  }
-                  if (positions.length === 0) return null;
-                  return (
-                    <Polygon 
-                      key={bed.id} 
-                      positions={positions} 
-                      pathOptions={{ color: bed.drawColor || polygonColor, weight: 1.2, opacity: 0.6, fillOpacity: 0.4, bubblingMouseEvents: false }} 
-                      eventHandlers={{ click: (e) => {
-                        e.originalEvent.stopPropagation();
-                        if (editingId || polygonPositions.length > 0) return;
-                        handleEdit(bed);
-                      } }}
-                    />
-                  );
-                })}
-                {/* Render fields for context (interactive for imagery toggle) */}
-                {fields.map(f => {
-                  let positions = [];
-                  if (f.polygon) { try { positions = typeof f.polygon === 'string' ? JSON.parse(f.polygon) : f.polygon; } catch(e){} }
-                  if (positions.length === 0) return null;
-                  
-                  const showImagery = fieldImagery[f.id] && fieldImagery[f.id] !== 'none';
-                  const isLoaded = geeStatus[f.id]?.status === 'success' || geeStatus[f.id]?.status === 'failed';
-                  const makeTransparent = showImagery && isLoaded;
-
-                  return (
-                    <React.Fragment key={f.id}>
-                      <Polygon 
-                        key={f.id}
-                        positions={positions} 
-                        pathOptions={{ 
-                          color: f.drawColor || '#ffffff', 
-                          weight: 0.8, 
-                          opacity: 0.5,
-                          dashArray: '5,5', 
-                          fill: true,
-                          fillOpacity: makeTransparent ? 0.0 : 0.1 
-                        }} 
-                        interactive={editingId === null && polygonPositions.length === 0}
-                      >
-                        <Popup>
-                          <div style={{ minWidth: '200px' }}>
-                            <strong>{f.name}</strong><br/>
-                            Area: {f.area} ac<br/>
-                            <div style={{ marginTop: '8px' }}>
-                              <label className="imager-select-label" style={{ display: 'block', marginBottom: '4px' }}>{formatLabel("Field Imagery:")}</label>
-                              <select 
-                                className="imager-select"
-                                value={fieldImagery[f.id] || 'none'} 
-                                onChange={(e) => setFieldImagery(prev => ({ ...prev, [f.id]: e.target.value }))}
-                                style={{ padding: '4px', borderRadius: '4px', width: '100%', background: 'white' }}
-                              >
-                                <option value="Elevation">{formatLabel("Elevation (Topography)")}</option>
-                                <option value="none">{formatLabel("None (Standard)")}</option>
-                                <optgroup label={formatLabel("Satellite Indices")}>
-                                  <option value="CurrentSatellite">{formatLabel("Current Satellite View")}</option>
-                                  <option value="TrueColor">{formatLabel("True Color (RGB)")}</option>
-                                  <option value="NDVI">{formatLabel("NDVI (Vegetation Index)")}</option>
-                                  <option value="NDWI">{formatLabel("NDWI (Water Index)")}</option>
-                                  <option value="EVI">{formatLabel("EVI (Enhanced Vegetation)")}</option>
-                                  <option value="SoilMoisture">{formatLabel("Soil Moisture")}</option>
-                                  <option value="FalseColor">{formatLabel("False Color (Biomass)")}</option>
-                                </optgroup>
-                                <optgroup label={formatLabel("Weather Map Overlays (GEE)")}>
-                                  <option value="GEE_Temp">{formatLabel("Weather: Temperature (GEE GFS)")}</option>
-                                  <option value="GEE_Precip">{formatLabel("Weather: Precipitation (GEE GFS)")}</option>
-                                  <option value="GEE_Wind">{formatLabel("Weather: Wind Speed (GEE GFS)")}</option>
-                                  <option value="GEE_Humidity">{formatLabel("Weather: Relative Humidity (GEE GFS)")}</option>
-                                  <option value="GEE_Clouds">{formatLabel("Weather: Total Cloud Cover (GEE GFS)")}</option>
-                                  <option value="GEE_Pressure">{formatLabel("Weather: Sea Level Pressure (GEE GFS)")}</option>
-                                </optgroup>
-                              </select>
-                            </div>
-                             {fieldImagery[f.id] && fieldImagery[f.id] !== 'none' && (
-                               <div style={{ marginTop: '8px', padding: '6px', background: '#f1f8e9', borderRadius: '4px', border: '1px solid #c5e1a5', fontSize: '0.72rem', color: '#33691e' }}>
-                                  <div style={{ fontWeight: 700, marginBottom: '2px' }}>
-                                    {fieldImagery[f.id] === 'GEE_Clouds' ? 'Weather: Clouds (GEE)' :
-                                     fieldImagery[f.id] === 'GEE_Precip' ? 'Weather: Precipitation (GEE)' :
-                                     fieldImagery[f.id] === 'GEE_Temp' ? 'Weather: Temperature (GEE)' :
-                                     fieldImagery[f.id] === 'GEE_Wind' ? 'Weather: Wind Speed (GEE)' :
-                                     fieldImagery[f.id] === 'GEE_Humidity' ? 'Weather: Relative Humidity (GEE)' :
-                                     fieldImagery[f.id] === 'GEE_Pressure' ? 'Weather: Sea Level Pressure (GEE)' :
-                                     fieldImagery[f.id] === 'CurrentSatellite' ? 'Current Satellite (High-Res)' :
-                                     fieldImagery[f.id] === 'Elevation' ? 'Elevation (Topography)' : 'Sentinel-2 (10m Index)'}
-                                  </div>
-                                  {geeStatus[f.id] && geeStatus[f.id].status === 'failed' && (
-                                    <div style={{ marginTop: '4px', color: '#c62828', fontWeight: 600, fontSize: '0.65rem', lineHeight: '1.2' }}>
-                                      {`⚠ GEE Failed: ${geeStatus[f.id].error}. Showing simulation.`}
-                                    </div>
-                                  )}
-                                  {geeStatus[f.id] && geeStatus[f.id].status === 'success' && (
-                                    <div style={{ marginTop: '4px', color: '#2e7d32', fontWeight: 600, fontSize: '0.65rem', lineHeight: '1.2' }}>
-                                      ✓ Live Earth Engine imagery loaded.
-                                    </div>
-                                  )}
-                                  {geeStatus[f.id] && geeStatus[f.id].status === 'loading' && (
-                                    <div style={{ marginTop: '4px', color: '#1565c0', fontSize: '0.65rem', lineHeight: '1.2' }}>
-                                      Fetching GEE tiles...
-                                    </div>
-                                  )}
-                                 <div>Scene Date: {getDeterministicSceneDate(f.id, fieldImageryOffsets[f.id] || 0)}</div>
-                                 {!['GEE_Temp', 'GEE_Precip', 'GEE_Wind', 'GEE_Humidity', 'GEE_Clouds', 'GEE_Pressure'].includes(fieldImagery[f.id]) && (
-                                   <div>Cloud Cover: {getDeterministicCloudCover(f.id, fieldImageryOffsets[f.id] || 0)}%</div>
-                                 )}
-                                 
-                                 <div style={{ display: 'flex', marginTop: '6px', alignItems: 'center', justifyContent: 'space-between' }}>
-                                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
-                                     <span style={{ fontSize: '0.62rem', fontWeight: 600, color: '#558b2f' }}>Older</span>
-                                     <button
-                                       type="button"
-                                       className="btn btn-secondary"
-                                       style={{ padding: '2px 8px', fontSize: '0.75rem', cursor: 'pointer', marginTop: '2px', width: '100%', lineHeight: 1 }}
-                                       onClick={() => setFieldImageryOffsets(prev => ({ ...prev, [f.id]: (prev[f.id] || 0) - 30 }))}
-                                     >
-                                       ←
-                                     </button>
-                                   </div>
-                                   
-                                   <span style={{ fontWeight: 700, fontSize: '0.68rem', margin: '0 8px', minWidth: '55px', textAlign: 'center', alignSelf: 'flex-end', marginBottom: '4px' }}>
-                                     {(fieldImageryOffsets[f.id] || 0) === 0 ? 'Latest' : `${Math.abs(fieldImageryOffsets[f.id] || 0)}d ago`}
-                                   </span>
-
-                                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
-                                     <span style={{ fontSize: '0.62rem', fontWeight: 600, color: '#558b2f' }}>Newer</span>
-                                     <button
-                                       type="button"
-                                       className="btn btn-secondary"
-                                       style={{ padding: '2px 8px', fontSize: '0.75rem', cursor: 'pointer', marginTop: '2px', width: '100%', lineHeight: 1 }}
-                                       disabled={(fieldImageryOffsets[f.id] || 0) >= 0}
-                                       onClick={() => setFieldImageryOffsets(prev => ({ ...prev, [f.id]: (prev[f.id] || 0) + 30 }))}
-                                     >
-                                       →
-                                     </button>
-                                   </div>
-                                 </div>
-                               </div>
-                             )}
-                           </div>
-                         </Popup>
-                       </Polygon>
-                       {fieldImagery[f.id] && fieldImagery[f.id] !== 'none' && (
-                         <FieldImageryOverlay 
-                           polygon={positions} 
-                           indexType={fieldImagery[f.id]} 
-                           dateOffset={fieldImageryOffsets[f.id] || 0}
-                           fieldId={f.id}
-                         />
-                       )}
-                    </React.Fragment>
-                  );
-                })}
-                {/* Render POIs for context (unclickable) */}
-                {pois.map(p => {
-                  let positions = [];
-                  if (p.points) { try { positions = typeof p.points === 'string' ? JSON.parse(p.points) : p.points; } catch(e){} }
-                  if (positions.length === 0) return null;
-                  return <Polygon key={p.id} positions={positions} pathOptions={{ color: 'purple', weight: 0.8, opacity: 0.5, dashArray: '5,5', fillOpacity: 0.1 }} interactive={false} />;
-                })}
-              </MapContainer>
-            </ResizableMapWrapper>
-          </div>
-          <div className="form-group">
-            <label>Bed/Tray Designation</label>
-            <input type="text" value={bedData.name} onChange={e => setBedData({...bedData, name: e.target.value})} placeholder="e.g. Greenhouse Rack A"/>
-          </div>
-          <div className="form-group">
-            <label>Physical Area (Sq Ft)</label>
-            <input type="number" step="0.01" value={bedData.area} onChange={e => setBedData({...bedData, area: e.target.value})} placeholder="e.g. 50.0"/>
-          </div>
-          <div className="form-group">
-            <label>Plug Capacity</label>
-            <input type="number" value={bedData.capacity} onChange={e => setBedData({...bedData, capacity: e.target.value})} placeholder="e.g. 72"/>
-          </div>
-          <div className="form-group">
-            <label>Draw Color</label>
-            <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
-              <input type="color" value={bedData.drawColor || polygonColor} onChange={e => setBedData({ ...bedData, drawColor: e.target.value })} />
-              {bedData.drawColor && (
-                <button type="button" onClick={() => setBedData({ ...bedData, drawColor: '' })} className="btn" style={{ padding: '2px 8px', fontSize: '0.8rem' }}>Clear</button>
-              )}
-            </div>
-          </div>
+          <button 
+            type="button"
+            onClick={() => setActiveTab('entry')} 
+            style={{ 
+              flex: 1, 
+              padding: '12px 16px', 
+              border: 'none', 
+              background: activeTab === 'entry' ? 'white' : 'transparent', 
+              borderBottom: activeTab === 'entry' ? '3px solid var(--color-primary)' : 'none',
+              color: activeTab === 'entry' ? 'var(--color-primary)' : 'var(--color-text-light)',
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+              fontSize: '0.95rem'
+            }}
+          >
+            {editingId ? 'Edit Configuration' : 'Register Nursery'}
+          </button>
         </div>
-        <button type="submit" className="btn btn-primary" style={{marginTop: 10}}><Box size={16} style={{marginRight: 6}}/> {editingId ? 'Update Bed' : 'Save Nursery Bed Data'}</button>
-      </form>
 
-      <CrudTable activeRowId={editingId} 
-        data={nurseries} 
-        columns={nurseryColumns} 
-        onEdit={(row) => { 
-          setBedData(row); 
-          setEditingId(row.id); 
-          if (row.polygon) {
-            try {
-              const poly = typeof row.polygon === 'string' ? JSON.parse(row.polygon) : row.polygon;
-              setPolygonPositions(Array.isArray(poly) ? poly : []);
-              if (Array.isArray(poly) && poly.length > 0) setSearchResultCenter(poly[0]);
-            } catch(e) { 
-              setPolygonPositions([]); 
-            }
-          } else { 
-            setPolygonPositions([]); 
-            setSearchResultCenter(mapCenter);
-          }
-        }} 
-        onDelete={(id) => {
-          dispatch(deleteBed(id));
-          dispatch(queueAction({ type: 'core/deleteNode', payload: { id }, meta: { id: Date.now() } }));
-        }} 
-        itemLabel="Bed" 
-        defaultSort={{ key: 'name', direction: 'asc' }}
-      />
+        <div style={{ padding: '20px' }}>
+          {activeTab === 'roster' ? (
+            <>
+              <CrudTable activeRowId={editingId} 
+                data={nurseries} 
+                columns={nurseryColumns} 
+                onEdit={handleEdit} 
+                onDelete={handleDelete} 
+                itemLabel="Bed" 
+                defaultSort={{ key: 'name', direction: 'asc' }}
+              />
 
-      <hr style={{border: 'none', borderTop: '1px solid var(--color-border)', margin: '40px 0 20px 0'}} />
-      
-      <h3>Transplant Required Seedlings</h3>
-      <p style={{fontSize: '0.85rem', color: 'var(--color-text-light)', marginBottom: 10}}>Crops below were Sown in a Nursery. Select a destination field to formally Transplant them into the ground.</p>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-        {crops.filter(c => c.sowType === 'Nursery').length === 0 && <span style={{fontStyle: 'italic', color: '#888'}}>No seedlings currently germinating...</span>}
-        {crops.filter(c => c.sowType === 'Nursery').map(crop => (
-          <div key={crop.id} className="list-item" style={{display: 'flex', flexDirection: 'column', gap: 10}}>
-              <div style={{fontWeight: 600}}>{crop.name} ({crop.variety})</div>
-              <div style={{fontSize: '0.85rem', color: '#555'}}>Sown on: {crop.plantingDate} in Bed: {nurseries.find(n => n.id === crop.fieldId)?.name || crop.fieldId}</div>
+              <hr style={{border: 'none', borderTop: '1px solid var(--color-border)', margin: '40px 0 20px 0'}} />
               
-              <div style={{display: 'flex', gap: 10, marginTop: 5}}>
-                <select value={transplantFieldId} onChange={e => setTransplantFieldId(e.target.value)} style={{flex: 1}}>
-                  <option value="">Choose Destination Field...</option>
-                  {[...fields].sort((a,b) => (a.name || '').localeCompare(b.name || '')).map(f => <option key={f.id} value={f.id}>{f.name} - {f.year}</option>)}
-                </select>
-                <button onClick={() => handleTransplant(crop.id)} className="btn btn-primary"><MoveRight size={14} style={{marginRight: 4}}/> Move to Field</button>
+              <h3>Transplant Required Seedlings</h3>
+              <p style={{fontSize: '0.85rem', color: 'var(--color-text-light)', marginBottom: 10}}>Crops below were Sown in a Nursery. Select a destination field to formally Transplant them into the ground.</p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {crops.filter(c => c.sowType === 'Nursery').length === 0 && <span style={{fontStyle: 'italic', color: '#888'}}>No seedlings currently germinating...</span>}
+                {crops.filter(c => c.sowType === 'Nursery').map(crop => (
+                  <div key={crop.id} className="list-item" style={{display: 'flex', flexDirection: 'column', gap: 10}}>
+                      <div style={{fontWeight: 600}}>{crop.name} ({crop.variety})</div>
+                      <div style={{fontSize: '0.85rem', color: '#555'}}>Sown on: {crop.plantingDate} in Bed: {nurseries.find(n => n.id === crop.fieldId)?.name || crop.fieldId}</div>
+                      
+                      <div style={{display: 'flex', gap: 10, marginTop: 5}}>
+                        <select value={transplantFieldId} onChange={e => setTransplantFieldId(e.target.value)} style={{flex: 1}}>
+                          <option value="">Choose Destination Field...</option>
+                          {[...fields].sort((a,b) => (a.name || '').localeCompare(b.name || '')).map(f => <option key={f.id} value={f.id}>{f.name} - {f.year}</option>)}
+                        </select>
+                        <button onClick={() => handleTransplant(crop.id)} className="btn btn-primary"><MoveRight size={14} style={{marginRight: 4}}/> Move to Field</button>
+                      </div>
+                  </div>
+                ))}
               </div>
-          </div>
-        ))}
+            </>
+          ) : (
+            <>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+                <h2 style={{ margin: 0 }}>{editingId ? 'Edit Nursery Bed' : 'Nursery Bed Management'}</h2>
+                {editingId && (
+                  <button type="button" onClick={resetForm} className="btn" style={{ background: '#f5f5f5', color: '#333' }}>
+                    <X size={14} style={{ marginRight: 4 }} /> Cancel Edit
+                  </button>
+                )}
+              </div>
+              
+              {!editingId && <p style={{fontSize: '0.85rem', color: 'var(--color-text-light)', marginBottom: 20}}>Define greenhouse tables, plug trays, or starter beds where you germinate crops before field-transplantation.</p>}
+              
+              <form onSubmit={handleAddBed} style={{marginBottom: 30}}>
+                <div className="form-grid">
+                  <div className="form-group form-grid-full" style={{ marginBottom: '15px' }}>
+                    <label>Draw Nursery Location on Map (Click to add points to polygon)</label>
+                    <div style={{ marginBottom: '10px', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
+                      <div style={{ flex: 1 }}>
+                        <MapSearchBox 
+                          onLocationFound={handleLocationFound} 
+                          onClear={polygonPositions.length > 0 ? () => setPolygonPositions([]) : null}
+                          polygon={polygonPositions}
+                          setPolygon={setPolygonPositions}
+                          activeId={editingId}
+                        />
+                      </div>
+                    </div>
+                    <ResizableMapWrapper initialHeight={500} style={{ marginBottom: '15px' }}>
+                      <MapContainer key={editingId || 'new'} center={latLngs.length > 0 ? latLngs[0] : mapCenter} zoom={latLngs.length > 0 ? 17 : mapZoom} maxZoom={24} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
+                        <MapResizer />
+                        <MapFlyTo center={searchResultCenter} />
+                        <TileLayer
+                          attribution="Google Maps"
+                          url="https://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}&s=Ga"
+                          maxZoom={24}
+                          maxNativeZoom={20}
+                        />
+                        <ClickToDrawComponent polygon={polygonPositions} setPolygon={setPolygonPositions} setCenter={setSearchResultCenter} />
+                        {latLngs.map((pos, idx) => (
+                          <Marker key={`pin_${idx}`} position={pos} />
+                        ))}
+                        {latLngs.length > 0 && (
+                          <Polygon positions={latLngs} pathOptions={{ color: bedData.drawColor || polygonColor, weight: 1.5, opacity: 0.6 }} />
+                        )}
+                        {/* Render existing saved beds (clickable for editing) */}
+                        {nurseries.filter(b => b.id !== editingId).map(bed => {
+                          let positions = [];
+                          if (bed.polygon) {
+                            try { positions = typeof bed.polygon === 'string' ? JSON.parse(bed.polygon) : bed.polygon; } catch (e) {}
+                          }
+                          if (positions.length === 0) return null;
+                          return (
+                            <Polygon 
+                              key={bed.id} 
+                              positions={positions} 
+                              pathOptions={{ color: bed.drawColor || polygonColor, weight: 1.2, opacity: 0.6, fillOpacity: 0.4, bubblingMouseEvents: false }} 
+                              eventHandlers={{ click: (e) => {
+                                e.originalEvent.stopPropagation();
+                                if (editingId || polygonPositions.length > 0) return;
+                                handleEdit(bed);
+                              } }}
+                            />
+                          );
+                        })}
+                        {/* Render fields for context (interactive for imagery toggle) */}
+                        {fields.map(f => {
+                          let positions = [];
+                          if (f.polygon) { try { positions = typeof f.polygon === 'string' ? JSON.parse(f.polygon) : f.polygon; } catch(e){} }
+                          if (positions.length === 0) return null;
+                          
+                          const showImagery = fieldImagery[f.id] && fieldImagery[f.id] !== 'none';
+                          const isLoaded = geeStatus[f.id]?.status === 'success' || geeStatus[f.id]?.status === 'failed';
+                          const makeTransparent = showImagery && isLoaded;
+
+                          return (
+                            <React.Fragment key={f.id}>
+                              <Polygon 
+                                key={f.id}
+                                positions={positions} 
+                                pathOptions={{ 
+                                  color: f.drawColor || '#ffffff', 
+                                  weight: 0.8, 
+                                  opacity: 0.5,
+                                  dashArray: '5,5', 
+                                  fill: true,
+                                  fillOpacity: makeTransparent ? 0.0 : 0.1 
+                                }} 
+                                interactive={editingId === null && polygonPositions.length === 0}
+                              >
+                                <Popup>
+                                  <div style={{ minWidth: '200px' }}>
+                                    <strong>{f.name}</strong><br/>
+                                    Area: {f.area} ac<br/>
+                                    <div style={{ marginTop: '8px' }}>
+                                      <label className="imager-select-label" style={{ display: 'block', marginBottom: '4px' }}>{formatLabel("Field Imagery:")}</label>
+                                      <select 
+                                        className="imager-select"
+                                        value={fieldImagery[f.id] || 'none'} 
+                                        onChange={(e) => setFieldImagery(prev => ({ ...prev, [f.id]: e.target.value }))}
+                                        style={{ padding: '4px', borderRadius: '4px', width: '100%', background: 'white' }}
+                                      >
+                                        <option value="Elevation">{formatLabel("Elevation (Topography)")}</option>
+                                        <option value="none">{formatLabel("None (Standard)")}</option>
+                                        <optgroup label={formatLabel("Satellite Indices")}>
+                                          <option value="CurrentSatellite">{formatLabel("Current Satellite View")}</option>
+                                          <option value="TrueColor">{formatLabel("True Color (RGB)")}</option>
+                                          <option value="NDVI">{formatLabel("NDVI (Vegetation Index)")}</option>
+                                          <option value="NDWI">{formatLabel("NDWI (Water Index)")}</option>
+                                          <option value="EVI">{formatLabel("EVI (Enhanced Vegetation)")}</option>
+                                          <option value="SoilMoisture">{formatLabel("Soil Moisture")}</option>
+                                          <option value="FalseColor">{formatLabel("False Color (Biomass)")}</option>
+                                        </optgroup>
+                                        <optgroup label={formatLabel("Weather Map Overlays (GEE)")}>
+                                          <option value="GEE_Temp">{formatLabel("Weather: Temperature (GEE GFS)")}</option>
+                                          <option value="GEE_Precip">{formatLabel("Weather: Precipitation (GEE GFS)")}</option>
+                                          <option value="GEE_Wind">{formatLabel("Weather: Wind Speed (GEE GFS)")}</option>
+                                          <option value="GEE_Humidity">{formatLabel("Weather: Relative Humidity (GEE GFS)")}</option>
+                                          <option value="GEE_Clouds">{formatLabel("Weather: Total Cloud Cover (GEE GFS)")}</option>
+                                          <option value="GEE_Pressure">{formatLabel("Weather: Sea Level Pressure (GEE GFS)")}</option>
+                                        </optgroup>
+                                      </select>
+                                    </div>
+                                     {fieldImagery[f.id] && fieldImagery[f.id] !== 'none' && (
+                                       <div style={{ marginTop: '8px', padding: '6px', background: '#f1f8e9', borderRadius: '4px', border: '1px solid #c5e1a5', fontSize: '0.72rem', color: '#33691e' }}>
+                                          <div style={{ fontWeight: 700, marginBottom: '2px' }}>
+                                            {fieldImagery[f.id] === 'GEE_Clouds' ? 'Weather: Clouds (GEE)' :
+                                             fieldImagery[f.id] === 'GEE_Precip' ? 'Weather: Precipitation (GEE)' :
+                                             fieldImagery[f.id] === 'GEE_Temp' ? 'Weather: Temperature (GEE)' :
+                                             fieldImagery[f.id] === 'GEE_Wind' ? 'Weather: Wind Speed (GEE)' :
+                                             fieldImagery[f.id] === 'GEE_Humidity' ? 'Weather: Relative Humidity (GEE)' :
+                                             fieldImagery[f.id] === 'GEE_Pressure' ? 'Weather: Sea Level Pressure (GEE)' :
+                                             fieldImagery[f.id] === 'CurrentSatellite' ? 'Current Satellite (High-Res)' :
+                                             fieldImagery[f.id] === 'Elevation' ? 'Elevation (Topography)' : 'Sentinel-2 (10m Index)'}
+                                          </div>
+                                          {geeStatus[f.id] && geeStatus[f.id].status === 'failed' && (
+                                            <div style={{ marginTop: '4px', color: '#c62828', fontWeight: 600, fontSize: '0.65rem', lineHeight: '1.2' }}>
+                                              {`⚠ GEE Failed: ${geeStatus[f.id].error}. Showing simulation.`}
+                                            </div>
+                                          )}
+                                          {geeStatus[f.id] && geeStatus[f.id].status === 'success' && (
+                                            <div style={{ marginTop: '4px', color: '#2e7d32', fontWeight: 600, fontSize: '0.65rem', lineHeight: '1.2' }}>
+                                              ✓ Live Earth Engine imagery loaded.
+                                            </div>
+                                          )}
+                                          {geeStatus[f.id] && geeStatus[f.id].status === 'loading' && (
+                                            <div style={{ marginTop: '4px', color: '#1565c0', fontSize: '0.65rem', lineHeight: '1.2' }}>
+                                              Fetching GEE tiles...
+                                            </div>
+                                          )}
+                                         <div>Scene Date: {getDeterministicSceneDate(f.id, fieldImageryOffsets[f.id] || 0)}</div>
+                                         {!['GEE_Temp', 'GEE_Precip', 'GEE_Wind', 'GEE_Humidity', 'GEE_Clouds', 'GEE_Pressure'].includes(fieldImagery[f.id]) && (
+                                           <div>Cloud Cover: {getDeterministicCloudCover(f.id, fieldImageryOffsets[f.id] || 0)}%</div>
+                                         )}
+                                         
+                                         <div style={{ display: 'flex', marginTop: '6px', alignItems: 'center', justifyContent: 'space-between' }}>
+                                           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
+                                             <span style={{ fontSize: '0.62rem', fontWeight: 600, color: '#558b2f' }}>Older</span>
+                                             <button
+                                               type="button"
+                                               className="btn btn-secondary"
+                                               style={{ padding: '2px 8px', fontSize: '0.75rem', cursor: 'pointer', marginTop: '2px', width: '100%', lineHeight: 1 }}
+                                               onClick={() => setFieldImageryOffsets(prev => ({ ...prev, [f.id]: (prev[f.id] || 0) - 30 }))}
+                                             >
+                                               ←
+                                             </button>
+                                           </div>
+                                           
+                                           <span style={{ fontWeight: 700, fontSize: '0.68rem', margin: '0 8px', minWidth: '55px', textAlign: 'center', alignSelf: 'flex-end', marginBottom: '4px' }}>
+                                             {(fieldImageryOffsets[f.id] || 0) === 0 ? 'Latest' : `${Math.abs(fieldImageryOffsets[f.id] || 0)}d ago`}
+                                           </span>
+
+                                           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
+                                             <span style={{ fontSize: '0.62rem', fontWeight: 600, color: '#558b2f' }}>Newer</span>
+                                             <button
+                                               type="button"
+                                               className="btn btn-secondary"
+                                               style={{ padding: '2px 8px', fontSize: '0.75rem', cursor: 'pointer', marginTop: '2px', width: '100%', lineHeight: 1 }}
+                                               disabled={(fieldImageryOffsets[f.id] || 0) >= 0}
+                                               onClick={() => setFieldImageryOffsets(prev => ({ ...prev, [f.id]: (prev[f.id] || 0) + 30 }))}
+                                             >
+                                               →
+                                             </button>
+                                           </div>
+                                         </div>
+                                       </div>
+                                     )}
+                                  </div>
+                                </Popup>
+                              </Polygon>
+                              {fieldImagery[f.id] && fieldImagery[f.id] !== 'none' && (
+                                <FieldImageryOverlay 
+                                  polygon={positions} 
+                                  indexType={fieldImagery[f.id]} 
+                                  dateOffset={fieldImageryOffsets[f.id] || 0}
+                                  fieldId={f.id}
+                                />
+                              )}
+                            </React.Fragment>
+                          );
+                        })}
+                        {/* Render POIs for context (unclickable) */}
+                        {pois.map(p => {
+                          let positions = [];
+                          if (p.points) { try { positions = typeof p.points === 'string' ? JSON.parse(p.points) : p.points; } catch(e){} }
+                          if (positions.length === 0) return null;
+                          return <Polygon key={p.id} positions={positions} pathOptions={{ color: 'purple', weight: 0.8, opacity: 0.5, dashArray: '5,5', fillOpacity: 0.1 }} interactive={false} />;
+                        })}
+                      </MapContainer>
+                    </ResizableMapWrapper>
+                  </div>
+                  <div className="form-group">
+                    <label>Bed/Tray Designation</label>
+                    <input type="text" value={bedData.name} onChange={e => setBedData({...bedData, name: e.target.value})} placeholder="e.g. Greenhouse Rack A"/>
+                  </div>
+                  <div className="form-group">
+                    <label>Physical Area (Sq Ft)</label>
+                    <input type="number" step="0.01" value={bedData.area} onChange={e => setBedData({...bedData, area: e.target.value})} placeholder="e.g. 50.0"/>
+                  </div>
+                  <div className="form-group">
+                    <label>Plug Capacity</label>
+                    <input type="number" value={bedData.capacity} onChange={e => setBedData({...bedData, capacity: e.target.value})} placeholder="e.g. 72"/>
+                  </div>
+                  <div className="form-group">
+                    <label>Draw Color</label>
+                    <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                      <input type="color" value={bedData.drawColor || polygonColor} onChange={e => setBedData({ ...bedData, drawColor: e.target.value })} />
+                      {bedData.drawColor && (
+                        <button type="button" onClick={() => setBedData({ ...bedData, drawColor: '' })} className="btn" style={{ padding: '2px 8px', fontSize: '0.8rem' }}>Clear</button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <button type="submit" className="btn btn-primary" style={{marginTop: 10}}><Box size={16} style={{marginRight: 6}}/> {editingId ? 'Update Bed' : 'Save Nursery Bed Data'}</button>
+              </form>
+            </>
+          )}
+        </div>
       </div>
     </div>
   );
 }
+

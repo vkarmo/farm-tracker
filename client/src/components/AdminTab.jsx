@@ -28,6 +28,31 @@ export default function AdminTab() {
     { key: 'name', header: 'Display Name' },
     { key: 'email', header: 'Email Address' },
     {
+      key: 'canApprove',
+      header: 'Approve Assignments',
+      render: (r) => (
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+          <input
+            type="checkbox"
+            checked={r.role === 'Admin' || !!r.canApprove}
+            disabled={currentUser?.role === 'Admin Viewer' || r.role === 'Admin'}
+            onClick={(e) => e.stopPropagation()}
+            onChange={(e) => {
+              const checked = e.target.checked;
+              const updatedUser = { ...r, canApprove: checked };
+              dispatch(queueAction({ type: 'users/upsertUser', payload: updatedUser, meta: { id: Date.now() } }));
+              dispatch(updateUserRole({ email: r.email, canApprove: checked }));
+            }}
+            style={{
+              cursor: currentUser?.role === 'Admin Viewer' || r.role === 'Admin' ? 'not-allowed' : 'pointer',
+              width: '18px',
+              height: '18px'
+            }}
+          />
+        </div>
+      )
+    },
+    {
       key: 'role',
       header: 'System Permissions',
       render: (r) => (

@@ -17,17 +17,30 @@ export default function IncidentTab() {
   const incidents = useSelector(state => state.incidents.list) || [];
   const [formData, setFormData] = useState(INIT_INCIDENT);
   const [editingId, setEditingId] = useState(null);
+  const [activeTab, setActiveTab] = useState('roster');
+
+  const resetForm = () => {
+    setFormData(INIT_INCIDENT);
+    setEditingId(null);
+    setActiveTab('roster');
+  };
+
+  const handleEdit = (row) => {
+    setFormData(row);
+    setEditingId(row.id);
+    setActiveTab('entry');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   const handleSubmit = (e) => {
     e.preventDefault();
-        if (!formData.title || !formData.date) return alert("Title and Incident Date are required.");
+    if (!formData.title || !formData.date) return alert("Title and Incident Date are required.");
 
     const newObj = { ...formData, id: editingId || `inc_${Date.now()}` };
     dispatch(addIncident(newObj));
     dispatch(queueAction({ type: 'incidents/upsertIncident', payload: newObj, meta: { id: Date.now() } }));
 
-    setFormData(INIT_INCIDENT);
-    setEditingId(null);
+    resetForm();
   };
 
   const columns = [
@@ -41,75 +54,117 @@ export default function IncidentTab() {
   ];
 
   return (
-    <div className="card">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h2>{editingId ? 'Edit Incident' : 'Report New Incident'}</h2>
-        {editingId && (
-          <button onClick={() => { setEditingId(null); setFormData(INIT_INCIDENT); }} className="btn" style={{ background: '#f5f5f5', color: '#333' }}>
-            <X size={14} style={{ marginRight: 4 }} /> Cancel Edit
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+        <div style={{ display: 'flex', borderBottom: '1px solid var(--color-border-light)', background: '#f5f7fa' }}>
+          <button 
+            type="button"
+            onClick={() => setActiveTab('roster')} 
+            style={{ 
+              flex: 1, 
+              padding: '12px 16px', 
+              border: 'none', 
+              background: activeTab === 'roster' ? 'white' : 'transparent', 
+              borderBottom: activeTab === 'roster' ? '3px solid var(--color-primary)' : 'none',
+              color: activeTab === 'roster' ? 'var(--color-primary)' : 'var(--color-text-light)',
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+              fontSize: '0.95rem'
+            }}
+          >
+            Incidents Log
           </button>
-        )}
-      </div>
-
-      <form onSubmit={handleSubmit}>
-        <div className="form-grid">
-          <div className="form-group form-grid-full">
-            <label>Title</label>
-            <input type="text" value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} placeholder="e.g. Tractor Engine Failure" />
-          </div>
-          <div className="form-group">
-            <label>Incident Type</label>
-            <select value={formData.type} onChange={e => setFormData({ ...formData, type: e.target.value })}>
-              {INCIDENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
-          </div>
-          <div className="form-group">
-            <label>Incident Date</label>
-            <input type="date" value={formData.date} onChange={e => setFormData({ ...formData, date: e.target.value })} />
-          </div>
-          <div className="form-group">
-            <label>Severity</label>
-            <select value={formData.severity} onChange={e => setFormData({ ...formData, severity: e.target.value })}>
-              <option value="High">High (Critical Stop)</option>
-              <option value="Low">Low (No Immediate Impact)</option>
-              <option value="Medium">Medium (Operational Delay)</option>
-            </select>
-          </div>
-          <div className="form-group">
-            <label>Resolution Status</label>
-            <select value={formData.resolutionStatus} onChange={e => setFormData({ ...formData, resolutionStatus: e.target.value })}>
-              <option value="In Progress">In Progress (Repairing)</option>
-              <option value="Open">Open</option>
-              <option value="Resolved">Resolved</option>
-            </select>
-          </div>
-          <div className="form-group">
-            <label>Associated Asset</label>
-            <input type="text" value={formData.associatedAsset} onChange={e => setFormData({ ...formData, associatedAsset: e.target.value })} placeholder="e.g. Primary Truck" />
-          </div>
-          <div className="form-group form-grid-full">
-            <label>Detailed Notes</label>
-            <textarea rows="2" value={formData.notes} onChange={e => setFormData({ ...formData, notes: e.target.value })} placeholder="Explain what happened and action items..."></textarea>
-          </div>
+          <button 
+            type="button"
+            onClick={() => setActiveTab('entry')} 
+            style={{ 
+              flex: 1, 
+              padding: '12px 16px', 
+              border: 'none', 
+              background: activeTab === 'entry' ? 'white' : 'transparent', 
+              borderBottom: activeTab === 'entry' ? '3px solid var(--color-primary)' : 'none',
+              color: activeTab === 'entry' ? 'var(--color-primary)' : 'var(--color-text-light)',
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+              fontSize: '0.95rem'
+            }}
+          >
+            {editingId ? 'Edit Incident' : 'Report New Incident'}
+          </button>
         </div>
-        <button type="submit" className="btn btn-primary" style={{ marginTop: 10 }}>
-          <AlertTriangle size={16} style={{ marginRight: 6 }} /> {editingId ? 'Update Incident' : 'Report Incident'}
-        </button>
-      </form>
 
-      <hr style={{ border: 'none', borderTop: '1px solid var(--color-border)', margin: '30px 0' }} />
-
-      <CrudTable activeRowId={editingId}
-        data={incidents}
-        columns={columns}
-        onEdit={(row) => { setFormData(row); setEditingId(row.id); }}
-        onDelete={(id) => {
-          dispatch(deleteIncident(id));
-          dispatch(queueAction({ type: 'core/deleteNode', payload: { id }, meta: { id: Date.now() } }));
-        }}
-        itemLabel="Incident Report"
-        defaultSort={{ key: 'date', direction: 'desc' }}
-      />
+        <div style={{ padding: '20px' }}>
+          {activeTab === 'roster' ? (
+            <CrudTable activeRowId={editingId}
+              data={incidents}
+              columns={columns}
+              onEdit={handleEdit}
+              onDelete={(id) => {
+                dispatch(deleteIncident(id));
+                dispatch(queueAction({ type: 'core/deleteNode', payload: { id }, meta: { id: Date.now() } }));
+                if (editingId === id) resetForm();
+              }}
+              itemLabel="Incident Report"
+              defaultSort={{ key: 'date', direction: 'desc' }}
+            />
+          ) : (
+            <form onSubmit={handleSubmit}>
+              <div className="form-grid">
+                <div className="form-group form-grid-full">
+                  <label>Title</label>
+                  <input type="text" value={formData.title} onChange={e => setFormData({ ...formData, title: e.target.value })} placeholder="e.g. Tractor Engine Failure" />
+                </div>
+                <div className="form-group">
+                  <label>Incident Type</label>
+                  <select value={formData.type} onChange={e => setFormData({ ...formData, type: e.target.value })}>
+                    {INCIDENT_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Incident Date</label>
+                  <input type="date" value={formData.date} onChange={e => setFormData({ ...formData, date: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label>Severity</label>
+                  <select value={formData.severity} onChange={e => setFormData({ ...formData, severity: e.target.value })}>
+                    <option value="High">High (Critical Stop)</option>
+                    <option value="Low">Low (No Immediate Impact)</option>
+                    <option value="Medium">Medium (Operational Delay)</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Resolution Status</label>
+                  <select value={formData.resolutionStatus} onChange={e => setFormData({ ...formData, resolutionStatus: e.target.value })}>
+                    <option value="In Progress">In Progress (Repairing)</option>
+                    <option value="Open">Open</option>
+                    <option value="Resolved">Resolved</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Associated Asset</label>
+                  <input type="text" value={formData.associatedAsset} onChange={e => setFormData({ ...formData, associatedAsset: e.target.value })} placeholder="e.g. Primary Truck" />
+                </div>
+                <div className="form-group form-grid-full">
+                  <label>Detailed Notes</label>
+                  <textarea rows="2" value={formData.notes} onChange={e => setFormData({ ...formData, notes: e.target.value })} placeholder="Explain what happened and action items..."></textarea>
+                </div>
+              </div>
+              <div style={{ marginTop: '20px', display: 'flex', gap: '10px' }}>
+                <button type="submit" className="btn btn-primary">
+                  <AlertTriangle size={16} style={{ marginRight: 6 }} /> {editingId ? 'Update Incident' : 'Report Incident'}
+                </button>
+                {editingId && (
+                  <button type="button" className="btn" onClick={resetForm}>
+                    Cancel
+                  </button>
+                )}
+              </div>
+            </form>
+          )}
+        </div>
+      </div>
     </div>
   );
 }

@@ -1189,14 +1189,15 @@ app.post('/api/sync', async (req, res) => {
           results.push({ actionId: action.meta?.id, status: 'success' });
         }
         else if (action.type === 'users/upsertUser') {
-          const { id, email, name, role, profilePic, allowedTabs } = action.payload;
+          const { id, email, name, role, profilePic, allowedTabs, canApprove } = action.payload;
           await session.run(`
             MERGE (u:User {email: $email})
             ON CREATE SET u.id = $id
             SET u.name = $name, u.role = $role, u.profile_pic = $profilePic
             ${allowedTabs !== undefined ? ', u.allowedTabs = $allowedTabs' : ''}
+            ${canApprove !== undefined ? ', u.canApprove = $canApprove' : ''}
             SET u.lastUpdatedBy = $userEmail RETURN u
-          `, { userEmail, id, email, name, role, profilePic, allowedTabs: allowedTabs !== undefined ? JSON.stringify(allowedTabs) : null });
+          `, { userEmail, id, email, name, role, profilePic, allowedTabs: allowedTabs !== undefined ? JSON.stringify(allowedTabs) : null, canApprove: canApprove !== undefined ? !!canApprove : false });
           results.push({ actionId: action.meta?.id, status: 'success' });
         }
         else if (action.type === 'users/updateUserAccess') {
@@ -1220,14 +1221,14 @@ app.post('/api/sync', async (req, res) => {
           results.push({ actionId: action.meta?.id, status: 'success' });
         }
         else if (action.type === 'assignments/upsertAssignment') {
-          const { id, taskName, assignedTo, priority, dueDate, status, fieldId, equipmentId, workerIds, workerCount, workers, hours, task, assignmentDate, completedDate, planningId } = action.payload;
+          const { id, taskName, assignedTo, priority, dueDate, status, fieldId, equipmentId, workerIds, workerCount, workers, hours, task, assignmentDate, completedDate, planningId, reviewStatus } = action.payload;
           await session.run(`
             MERGE (a:TaskAssignment {id: $id})
             SET a.taskName = $taskName, a.assignedTo = $assignedTo, a.priority = $priority,
                 a.dueDate = $dueDate, a.status = $status, a.fieldId = $fieldId, a.equipmentId = $equipmentId,
                 a.workerIds = $workerIds, a.workerCount = toInteger($workerCount), a.workers = $workers,
                 a.hours = toFloat($hours), a.task = $task, a.assignmentDate = $assignmentDate, a.completedDate = $completedDate,
-                a.planningId = $planningId
+                a.planningId = $planningId, a.reviewStatus = $reviewStatus
             WITH a
             OPTIONAL MATCH (a)-[r1:ON_FIELD]->() DELETE r1
             WITH a
@@ -1250,7 +1251,7 @@ app.post('/api/sync', async (req, res) => {
             OPTIONAL MATCH (w:Employee {id: wId})
             FOREACH (ignore IN CASE WHEN w IS NOT NULL THEN [1] ELSE [] END | MERGE (a)-[rel_new:ASSIGNED_TO]->(w) SET rel_new.lastUpdatedBy = $userEmail)
             SET a.lastUpdatedBy = $userEmail RETURN DISTINCT a
-          `, { userEmail, id, taskName, assignedTo, priority, dueDate, status, fieldId: fieldId || null, equipmentId: equipmentId || null, workerIds: workerIds ? JSON.stringify(workerIds) : '[]', workerIdList: workerIds || [], workerCount: workerCount || 0, workers: workers || '', hours: hours || 0, task: task || '', assignmentDate: assignmentDate || '', completedDate: completedDate || '', planningId: planningId || null });
+          `, { userEmail, id, taskName, assignedTo, priority, dueDate, status, fieldId: fieldId || null, equipmentId: equipmentId || null, workerIds: workerIds ? JSON.stringify(workerIds) : '[]', workerIdList: workerIds || [], workerCount: workerCount || 0, workers: workers || '', hours: hours || 0, task: task || '', assignmentDate: assignmentDate || '', completedDate: completedDate || '', planningId: planningId || null, reviewStatus: reviewStatus || null });
           results.push({ actionId: action.meta?.id, status: 'success' });
         }
         else if (action.type === 'incidents/upsertIncident') {

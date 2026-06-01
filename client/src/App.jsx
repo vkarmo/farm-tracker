@@ -67,7 +67,7 @@ const MODULES = {
   livestock: ['livestock', 'breeding', 'kits', 'livestockDiseases'],
   finance: ['finance', 'budget'],
   operations: ['employee', 'assignment', 'planning', 'equipment', 'deadline', 'incident'],
-  admin: ['admin', 'access', 'audit', 'gps', 'settings']
+  admin: ['settings', 'admin', 'access', 'audit', 'gps']
 };
 
 export default function App() {
@@ -813,6 +813,9 @@ export default function App() {
           )}
           {activeModule === 'admin' && (currentUser?.role === 'Admin' || currentUser?.role === 'Admin Viewer') && (
             <>
+              <button onClick={() => setActiveTab('settings')} className={`btn ${activeTab === 'settings' ? 'tab-btn-active' : ''}`} style={{ background: activeTab === 'settings' ? '#c62828' : 'white', color: activeTab === 'settings' ? 'white' : '#c62828', borderColor: '#c62828' }}>
+                <Settings size={16} style={{ marginRight: 6 }} /> Settings
+              </button>
               <button onClick={() => setActiveTab('admin')} className={`btn ${activeTab === 'admin' ? 'tab-btn-active' : ''}`} style={{ background: activeTab === 'admin' ? '#c62828' : 'white', color: activeTab === 'admin' ? 'white' : '#c62828', borderColor: '#c62828' }}>
                 <ShieldAlert size={16} style={{ marginRight: 6 }} /> Admin
               </button>
@@ -824,9 +827,6 @@ export default function App() {
               </button>
               <button onClick={() => setActiveTab('gps')} className={`btn ${activeTab === 'gps' ? 'tab-btn-active' : ''}`} style={{ background: activeTab === 'gps' ? '#c62828' : 'white', color: activeTab === 'gps' ? 'white' : '#c62828', borderColor: '#c62828' }}>
                 <MapPin size={16} style={{ marginRight: 6 }} /> GPS Logs
-              </button>
-              <button onClick={() => setActiveTab('settings')} className={`btn ${activeTab === 'settings' ? 'tab-btn-active' : ''}`} style={{ background: activeTab === 'settings' ? '#c62828' : 'white', color: activeTab === 'settings' ? 'white' : '#c62828', borderColor: '#c62828' }}>
-                <Settings size={16} style={{ marginRight: 6 }} /> Settings
               </button>
             </>
           )}

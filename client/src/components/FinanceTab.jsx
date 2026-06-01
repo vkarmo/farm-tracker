@@ -50,6 +50,13 @@ export default function FinanceTab() {
   const [editingId, setEditingId] = useState(null);
   const [activeView, setActiveView] = useState('transactions');
   const [isInitialized, setIsInitialized] = useState(false);
+  const [activeTab, setActiveTab] = useState('roster');
+
+  const resetForm = () => {
+    setTxData(getInitTx());
+    setEditingId(null);
+    setActiveTab('roster');
+  };
 
   React.useEffect(() => {
     if (!isInitialized && activeRate && !editingId) {
@@ -77,8 +84,7 @@ export default function FinanceTab() {
       dispatch(queueAction({ type: 'financials/addTransaction', payload: newTx, meta: { id: Date.now() } }));
     }
     
-    setTxData(getInitTx());
-    setEditingId(null);
+    resetForm();
   };
 
   const getAssetName = (assetId) => {
@@ -146,170 +152,244 @@ export default function FinanceTab() {
   const COLORS = ['#2e7d32', '#d32f2f'];
 
   return (
-    <div className="card">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h2>{editingId ? 'Edit Ledger Record' : 'Update Ledger'}</h2>
-        {editingId && (
-          <button onClick={() => { setEditingId(null); setTxData(getInitTx()); }} className="btn" style={{ background: '#f5f5f5', color: '#333' }}>
-            <X size={14} style={{ marginRight: 4 }} /> Cancel Edit
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+
+      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+        <div style={{ display: 'flex', borderBottom: '1px solid var(--color-border-light)', background: '#f5f7fa' }}>
+          <button 
+            type="button"
+            onClick={() => setActiveTab('roster')} 
+            style={{ 
+              flex: 1, 
+              padding: '12px 16px', 
+              border: 'none', 
+              background: activeTab === 'roster' ? 'white' : 'transparent', 
+              borderBottom: activeTab === 'roster' ? '3px solid var(--color-primary)' : 'none',
+              color: activeTab === 'roster' ? 'var(--color-primary)' : 'var(--color-text-light)',
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+              fontSize: '0.95rem'
+            }}
+          >
+            Ledger Roster
           </button>
-        )}
-      </div>
+          <button 
+            type="button"
+            onClick={() => setActiveTab('entry')} 
+            style={{ 
+              flex: 1, 
+              padding: '12px 16px', 
+              border: 'none', 
+              background: activeTab === 'entry' ? 'white' : 'transparent', 
+              borderBottom: activeTab === 'entry' ? '3px solid var(--color-primary)' : 'none',
+              color: activeTab === 'entry' ? 'var(--color-primary)' : 'var(--color-text-light)',
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+              fontSize: '0.95rem'
+            }}
+          >
+            {editingId ? 'Edit Ledger Record' : 'New Ledger Entry'}
+          </button>
+        </div>
 
-      <form onSubmit={handleSubmit}>
-        <div className="form-grid" style={{marginBottom: '15px'}}>
-          <div className="form-group form-grid-full">
-            <div style={{display: 'flex', gap: '10px', background: '#f5f5f5', padding: '4px', borderRadius: '8px'}}>
-            <select value={txData.assetId} onChange={e => setTxData({...txData, assetId: e.target.value})}>
-              <option value="">General ledger...</option>
-              <optgroup label="Harvest Pulls">
-                {[...harvests].sort((a,b) => (a.date || '').localeCompare(b.date || '')).map(h => {
-                  const crop = crops.find(c => c.id === h.cropId);
-                  const cropLabel = crop ? `${crop.name} ${crop.variety ? `(${crop.variety})` : ''}` : 'Unknown';
-                  return <option key={h.id} value={h.id}>{cropLabel} - {h.amount} {h.unit} ({h.date})</option>;
-                })}
-              </optgroup>
-              <optgroup label="Livestock">
-                {[...livestock].sort((a,b) => (a.type || '').localeCompare(b.type || '')).map(l => <option key={l.id} value={l.id}>Animal Type: {l.type} - Tag: {l.tagNumber}</option>)}
-              </optgroup>
-              <optgroup label="Fields">
-                {[...fields].sort((a,b) => (a.name || '').localeCompare(b.name || '')).map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
-              </optgroup>
-              <optgroup label="Crops">
-                {[...crops].sort((a,b) => (a.name || '').localeCompare(b.name || '')).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-              </optgroup>
-            </select>
-            </div>
-          </div>
-          <div className="form-group">
-            <label>Transaction Date</label>
-            <input type="date" value={txData.date} onChange={e => setTxData({...txData, date: e.target.value})} />
-          </div>
-          <div className="form-group">
-            <label>Transaction Type</label>
-            <select value={txData.txType} onChange={e => {
-              const newType = e.target.value;
-              const newCategory = '';
-              setTxData({...txData, txType: newType, category: newCategory});
-            }}>
-              <option value="Expense">Expense</option>
-              <option value="Sale">Sale</option>
-            </select>
-          </div>
-          <div className="form-group">
-            <label>Category</label>
-            <select value={txData.category} onChange={e => setTxData({...txData, category: e.target.value})}>
-              <option value="">Select a category...</option>
-              {txData.txType === 'Expense' ? (
-                expenseCategories.map(c => <option key={c} value={c}>{c}</option>)
-              ) : (
-                incomeCategories.map(c => <option key={c} value={c}>{c}</option>)
+        <div style={{ padding: '20px' }}>
+          {activeTab === 'roster' ? (
+            <>
+              <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', justifyContent: 'center' }}>
+                <button 
+                  type="button"
+                  onClick={() => setActiveView('transactions')} 
+                  className={`btn ${activeView === 'transactions' ? 'btn-primary' : ''}`} 
+                  style={{ 
+                    borderRadius: '20px', 
+                    padding: '8px 20px', 
+                    background: activeView === 'transactions' ? '#2e7d32' : '#f0f0f0', 
+                    color: activeView === 'transactions' ? 'white' : '#333', 
+                    border: 'none' 
+                  }}
+                >
+                  Active Transactions
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => setActiveView('analytics')} 
+                  className={`btn ${activeView === 'analytics' ? 'btn-primary' : ''}`} 
+                  style={{ 
+                    borderRadius: '20px', 
+                    padding: '8px 20px', 
+                    background: activeView === 'analytics' ? '#2e7d32' : '#f0f0f0', 
+                    color: activeView === 'analytics' ? 'white' : '#333', 
+                    border: 'none' 
+                  }}
+                >
+                  Financial Analytics
+                </button>
+              </div>
+
+              {activeView === 'analytics' && transactions.length > 0 && (
+                <div style={{ marginBottom: '30px' }}>
+                  <h3 style={{ marginBottom: '15px', color: '#444' }}>Financial Analytics</h3>
+                  <div className="form-grid">
+                    <div className="card" style={{ padding: '10px', boxShadow: 'none', background: '#fafafa' }}>
+                      <h4 style={{textAlign: 'center', marginBottom: 10, fontSize: '0.9rem'}}>Monthly Revenue vs Expenses</h4>
+                      <div style={{ width: '100%', height: 300 }}>
+                        <ResponsiveContainer width="100%" height="100%">
+                          <BarChart data={barData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                            <CartesianGrid strokeDasharray="3 3" />
+                            <XAxis dataKey="name" tick={{fontSize: 12}} />
+                            <YAxis tick={{fontSize: 12}} />
+                            <Tooltip cursor={{fill: '#f5f5f5'}} />
+                            <Legend wrapperStyle={{fontSize: 12}} />
+                            <Bar dataKey="Sales" fill="#2e7d32" />
+                            <Bar dataKey="Expenses" fill="#d32f2f" />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+
+                    <div className="card" style={{ padding: '10px', boxShadow: 'none', background: '#fafafa' }}>
+                      <h4 style={{textAlign: 'center', marginBottom: 10, fontSize: '0.9rem'}}>Total Aggregate Flow</h4>
+                      <div style={{ width: '100%', height: 300 }}>
+                        <ResponsiveContainer width="100%" height="100%">
+                          <PieChart margin={{ top: 20, right: 30, bottom: 20, left: 30 }}>
+                            <Pie data={pieData} cx="50%" cy="50%" innerRadius={40} outerRadius={65} paddingAngle={5} dataKey="value" label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`} style={{ fontSize: '0.8rem' }}>
+                              {pieData.map((entry, index) => (
+                                <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                              ))}
+                            </Pie>
+                            <Tooltip />
+                          </PieChart>
+                        </ResponsiveContainer>
+                      </div>
+                    </div>
+                  </div>
+                </div>
               )}
-            </select>
-          </div>
-          <div className="form-group">
-            <label>Exchange Rate (USD to LD)</label>
-            <input type="number" step="0.01" value={txData.exchangeRate || ''} onChange={e => {
-              const val = e.target.value;
-              let newLd = txData.amountLd;
-              if (val && txData.amount) newLd = (parseFloat(txData.amount) * parseFloat(val)).toFixed(2);
-              setTxData({...txData, exchangeRate: val, amountLd: newLd});
-            }} placeholder="e.g. 195.50"/>
-          </div>
-          <div className="form-group">
-            <label>Amount (USD)</label>
-            <input type="number" step="0.01" value={txData.amount} onChange={e => {
-              const val = e.target.value;
-              let newLd = txData.amountLd;
-              if (val && txData.exchangeRate) newLd = (parseFloat(val) * parseFloat(txData.exchangeRate)).toFixed(2);
-              setTxData({...txData, amount: val, amountLd: newLd});
-            }} placeholder="250.00"/>
-          </div>
-          <div className="form-group">
-            <label>Amount (LD)</label>
-            <input type="number" step="0.01" value={txData.amountLd || ''} onChange={e => {
-              const val = e.target.value;
-              let newUsd = txData.amount;
-              if (val && txData.exchangeRate) newUsd = (parseFloat(val) / parseFloat(txData.exchangeRate)).toFixed(2);
-              setTxData({...txData, amountLd: val, amount: newUsd});
-            }} placeholder="e.g. 48875.00"/>
-          </div>
-          <div className="form-group">
-            <label>Vendor / Buyer</label>
-            <input type="text" value={txData.vendor} onChange={e => setTxData({...txData, vendor: e.target.value})} placeholder="John Deere, Local Co-op..."/>
-          </div>
-        <div className="form-group form-grid-full">
-          <label>Notes / Memo</label>
-            <textarea rows="2" value={txData.notes} onChange={e => setTxData({...txData, notes: e.target.value})}></textarea>
-          </div>
+
+              {activeView === 'transactions' && (
+                <CrudTable activeRowId={editingId} 
+                  data={transactions} 
+                  columns={columns} 
+                  onEdit={(row) => { 
+                    setTxData(row); 
+                    setEditingId(row.id); 
+                    setActiveTab('entry');
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                  }} 
+                  onDelete={(id) => {
+                    dispatch(deleteTransaction(id));
+                    dispatch(queueAction({ type: 'core/deleteNode', payload: { id }, meta: { id: Date.now() } }));
+                    if (editingId === id) resetForm();
+                  }} 
+                  itemLabel="Transaction" 
+                  defaultSort={{ key: 'date', direction: 'desc' }}
+                  rowStyle={() => ({ fontSize: '0.85rem' })}
+                />
+              )}
+            </>
+          ) : (
+            <form onSubmit={handleSubmit}>
+              <div className="form-grid" style={{marginBottom: '15px'}}>
+                <div className="form-group form-grid-full">
+                  <div style={{display: 'flex', gap: '10px', background: '#f5f5f5', padding: '4px', borderRadius: '8px'}}>
+                    <select value={txData.assetId} onChange={e => setTxData({...txData, assetId: e.target.value})}>
+                      <option value="">General ledger...</option>
+                      <optgroup label="Harvest Pulls">
+                        {[...harvests].sort((a,b) => (a.date || '').localeCompare(b.date || '')).map(h => {
+                          const crop = crops.find(c => c.id === h.cropId);
+                          const cropLabel = crop ? `${crop.name} ${crop.variety ? `(${crop.variety})` : ''}` : 'Unknown';
+                          return <option key={h.id} value={h.id}>{cropLabel} - {h.amount} {h.unit} ({h.date})</option>;
+                        })}
+                      </optgroup>
+                      <optgroup label="Livestock">
+                        {[...livestock].sort((a,b) => (a.type || '').localeCompare(b.type || '')).map(l => <option key={l.id} value={l.id}>Animal Type: {l.type} - Tag: {l.tagNumber}</option>)}
+                      </optgroup>
+                      <optgroup label="Fields">
+                        {[...fields].sort((a,b) => (a.name || '').localeCompare(b.name || '')).map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+                      </optgroup>
+                      <optgroup label="Crops">
+                        {[...crops].sort((a,b) => (a.name || '').localeCompare(b.name || '')).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                      </optgroup>
+                    </select>
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label>Transaction Date</label>
+                  <input type="date" value={txData.date} onChange={e => setTxData({...txData, date: e.target.value})} />
+                </div>
+                <div className="form-group">
+                  <label>Transaction Type</label>
+                  <select value={txData.txType} onChange={e => {
+                    const newType = e.target.value;
+                    const newCategory = '';
+                    setTxData({...txData, txType: newType, category: newCategory});
+                  }}>
+                    <option value="Expense">Expense</option>
+                    <option value="Sale">Sale</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Category</label>
+                  <select value={txData.category} onChange={e => setTxData({...txData, category: e.target.value})}>
+                    <option value="">Select a category...</option>
+                    {txData.txType === 'Expense' ? (
+                      expenseCategories.map(c => <option key={c} value={c}>{c}</option>)
+                    ) : (
+                      incomeCategories.map(c => <option key={c} value={c}>{c}</option>)
+                    )}
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Exchange Rate (USD to LD)</label>
+                  <input type="number" step="0.01" value={txData.exchangeRate || ''} onChange={e => {
+                    const val = e.target.value;
+                    let newLd = txData.amountLd;
+                    if (val && txData.amount) newLd = (parseFloat(txData.amount) * parseFloat(val)).toFixed(2);
+                    setTxData({...txData, exchangeRate: val, amountLd: newLd});
+                  }} placeholder="e.g. 195.50"/>
+                </div>
+                <div className="form-group">
+                  <label>Amount (USD)</label>
+                  <input type="number" step="0.01" value={txData.amount} onChange={e => {
+                    const val = e.target.value;
+                    let newLd = txData.amountLd;
+                    if (val && txData.exchangeRate) newLd = (parseFloat(val) * parseFloat(txData.exchangeRate)).toFixed(2);
+                    setTxData({...txData, amount: val, amountLd: newLd});
+                  }} placeholder="250.00"/>
+                </div>
+                <div className="form-group">
+                  <label>Amount (LD)</label>
+                  <input type="number" step="0.01" value={txData.amountLd || ''} onChange={e => {
+                    const val = e.target.value;
+                    let newUsd = txData.amount;
+                    if (val && txData.exchangeRate) newUsd = (parseFloat(val) / parseFloat(txData.exchangeRate)).toFixed(2);
+                    setTxData({...txData, amountLd: val, amount: newUsd});
+                  }} placeholder="e.g. 48875.00"/>
+                </div>
+                <div className="form-group">
+                  <label>Vendor / Buyer</label>
+                  <input type="text" value={txData.vendor} onChange={e => setTxData({...txData, vendor: e.target.value})} placeholder="John Deere, Local Co-op..."/>
+                </div>
+                <div className="form-group form-grid-full">
+                  <label>Notes / Memo</label>
+                  <textarea rows="2" value={txData.notes} onChange={e => setTxData({...txData, notes: e.target.value})}></textarea>
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: '10px', marginTop: 10 }}>
+                <button type="submit" className="btn btn-primary">
+                  <DollarSign size={16} style={{marginRight: 6}}/> 
+                  {editingId ? 'Update Ledger Entry' : txData.txType === 'Sale' ? 'Save Sale in Ledger' : 'Save Expense in Ledger'}
+                </button>
+                <button type="button" className="btn" onClick={resetForm}>
+                  Cancel
+                </button>
+              </div>
+            </form>
+          )}
         </div>
-        <button type="submit" className="btn btn-primary" style={{marginTop: 10}}>
-          <DollarSign size={16} style={{marginRight: 6}}/> 
-          {editingId ? 'Update Ledger Entry' : txData.txType === 'Sale' ? 'Save Sale in Ledger' : 'Save Expense in Ledger'}
-        </button>
-      </form>
-
-      <hr style={{border: 'none', borderTop: '1px solid var(--color-border)', margin: '30px 0'}} />
-
-      <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', justifyContent: 'center' }}>
-        <button onClick={() => setActiveView('transactions')} className={`btn ${activeView === 'transactions' ? 'btn-primary' : ''}`} style={{ borderRadius: '20px', padding: '8px 20px', background: activeView === 'transactions' ? '#2e7d32' : '#f0f0f0', color: activeView === 'transactions' ? 'white' : '#333', border: 'none' }}>Active Transactions</button>
-        <button onClick={() => setActiveView('analytics')} className={`btn ${activeView === 'analytics' ? 'btn-primary' : ''}`} style={{ borderRadius: '20px', padding: '8px 20px', background: activeView === 'analytics' ? '#2e7d32' : '#f0f0f0', color: activeView === 'analytics' ? 'white' : '#333', border: 'none' }}>Financial Analytics</button>
       </div>
-
-      {activeView === 'analytics' && transactions.length > 0 && (
-        <div style={{ marginBottom: '30px' }}>
-          <h3 style={{ marginBottom: '15px', color: '#444' }}>Financial Analytics</h3>
-          <div className="form-grid">
-            <div className="card" style={{ padding: '10px', boxShadow: 'none', background: '#fafafa' }}>
-              <h4 style={{textAlign: 'center', marginBottom: 10, fontSize: '0.9rem'}}>Monthly Revenue vs Expenses</h4>
-              <div style={{ width: '100%', height: 300 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <BarChart data={barData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" tick={{fontSize: 12}} />
-                    <YAxis tick={{fontSize: 12}} />
-                    <Tooltip cursor={{fill: '#f5f5f5'}} />
-                    <Legend wrapperStyle={{fontSize: 12}} />
-                    <Bar dataKey="Sales" fill="#2e7d32" />
-                    <Bar dataKey="Expenses" fill="#d32f2f" />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-
-            <div className="card" style={{ padding: '10px', boxShadow: 'none', background: '#fafafa' }}>
-              <h4 style={{textAlign: 'center', marginBottom: 10, fontSize: '0.9rem'}}>Total Aggregate Flow</h4>
-              <div style={{ width: '100%', height: 300 }}>
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart margin={{ top: 20, right: 30, bottom: 20, left: 30 }}>
-                    <Pie data={pieData} cx="50%" cy="50%" innerRadius={40} outerRadius={65} paddingAngle={5} dataKey="value" label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`} style={{ fontSize: '0.8rem' }}>
-                      {pieData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {activeView === 'transactions' && (
-        <CrudTable activeRowId={editingId} 
-          data={transactions} 
-          columns={columns} 
-          onEdit={(row) => { setTxData(row); setEditingId(row.id); }} 
-          onDelete={(id) => {
-            dispatch(deleteTransaction(id));
-            dispatch(queueAction({ type: 'core/deleteNode', payload: { id }, meta: { id: Date.now() } }));
-          }} 
-          itemLabel="Transaction" 
-          defaultSort={{ key: 'date', direction: 'desc' }}
-          rowStyle={() => ({ fontSize: '0.85rem' })}
-        />
-      )}
     </div>
   );
 }
