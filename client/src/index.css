@@ -635,6 +635,14 @@ body.is-saved button[type="button"] {
   text-overflow: ellipsis;
 }
 
+.metric-card-icon {
+  padding: 10px;
+  border-radius: 50%;
+  color: white;
+  display: flex;
+  flex-shrink: 0;
+}
+
 @media (max-width: 900px) {
   .metric-grid {
     grid-template-columns: repeat(2, 1fr);
@@ -643,6 +651,24 @@ body.is-saved button[type="button"] {
 
 @media (max-width: 480px) {
   .metric-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px;
+  }
+  .metric-card {
+    padding: 8px;
+    gap: 8px;
+  }
+  .metric-card-title {
+    font-size: 0.65rem;
+  }
+  .metric-card-value {
+    font-size: 1rem;
+  }
+  .metric-card-icon {
+    padding: 6px;
+  }
+  .metric-card-icon svg {
+    width: 16px !important;
+    height: 16px !important;
   }
 }

@@ -5,6 +5,8 @@ import Select from 'react-select';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
 import { TrendingUp, Layers, Rabbit, DollarSign, Sun, CloudRain, Cloud, CloudLightning, Snowflake, CloudFog, MapPin, Droplets, Wind, ThermometerSun, CloudSun, Droplet, Clock, AlertTriangle, ShieldCheck, AlertCircle, Info, Thermometer, Target, ClipboardList, List, ChevronRight, ChevronDown } from 'lucide-react';
 import CrudTable from './CrudTable';
+import area from '@turf/area';
+import { polygon } from '@turf/helpers';
 
 
 const CollapsibleCard = ({ title, children, defaultOpen = true, forceFullGrid = false }) => {
@@ -469,28 +471,28 @@ export default function DashboardTab() {
       <div style={{ width: '100%' }}>
         <div className="metric-grid">
           <div className="metric-card">
-            <div style={{ padding: 10, borderRadius: '50%', background: netGross >= 0 ? '#2e7d32' : '#d32f2f', color: 'white', display: 'flex', flexShrink: 0 }}><DollarSign size={20} /></div>
+            <div className="metric-card-icon" style={{ background: netGross >= 0 ? '#2e7d32' : '#d32f2f' }}><DollarSign size={20} /></div>
             <div className="metric-card-content">
               <div className="metric-card-title">NET BALANCE</div>
               <div className="metric-card-value">${netGross.toFixed(2)}</div>
             </div>
           </div>
           <div className="metric-card">
-            <div style={{ padding: 10, borderRadius: '50%', background: '#1565c0', color: 'white', display: 'flex', flexShrink: 0 }}><Layers size={20} /></div>
+            <div className="metric-card-icon" style={{ background: '#1565c0' }}><Layers size={20} /></div>
             <div className="metric-card-content">
-              <div className="metric-card-title">ACREAGE</div>
+              <div className="metric-card-title">ACTIVE ACREAGE</div>
               <div className="metric-card-value">{totalAcres.toFixed(1)} ac</div>
             </div>
           </div>
           <div className="metric-card">
-            <div style={{ padding: 10, borderRadius: '50%', background: '#f57c00', color: 'white', display: 'flex', flexShrink: 0 }}><Rabbit size={20} /></div>
+            <div className="metric-card-icon" style={{ background: '#f57c00' }}><Rabbit size={20} /></div>
             <div className="metric-card-content">
               <div className="metric-card-title">LIVESTOCK</div>
               <div className="metric-card-value">{activeLivestock.length}</div>
             </div>
           </div>
           <div className="metric-card">
-            <div style={{ padding: 10, borderRadius: '50%', background: '#6a1b9a', color: 'white', display: 'flex', flexShrink: 0 }}><TrendingUp size={20} /></div>
+            <div className="metric-card-icon" style={{ background: '#6a1b9a' }}><TrendingUp size={20} /></div>
             <div className="metric-card-content">
               <div className="metric-card-title">CROPS</div>
               <div className="metric-card-value">{activeCrops.length}</div>
@@ -500,7 +502,7 @@ export default function DashboardTab() {
       </div>
 
       {/* Sub-Tabs Selector */}
-      <div style={{ display: 'flex', gap: '4px', background: '#f1f5f9', padding: '4px', borderRadius: '8px', width: 'fit-content', marginBottom: '8px' }}>
+      <div style={{ display: 'flex', gap: '4px', background: '#f1f5f9', padding: '4px', borderRadius: '8px', width: 'fit-content', marginBottom: '8px', flexWrap: 'wrap' }}>
         <button
           onClick={() => setActiveDashboardTab('overview')}
           style={{
@@ -516,7 +518,24 @@ export default function DashboardTab() {
             transition: 'all 0.2s ease'
           }}
         >
-          Overview & Weather
+          Overview
+        </button>
+        <button
+          onClick={() => setActiveDashboardTab('weather')}
+          style={{
+            padding: '8px 16px',
+            borderRadius: '6px',
+            border: 'none',
+            background: activeDashboardTab === 'weather' ? 'white' : 'transparent',
+            color: activeDashboardTab === 'weather' ? '#2e7d32' : '#64748b',
+            fontWeight: 600,
+            fontSize: '0.875rem',
+            boxShadow: activeDashboardTab === 'weather' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease'
+          }}
+        >
+          Weather
         </button>
         <button
           onClick={() => setActiveDashboardTab('harvests')}
@@ -554,7 +573,7 @@ export default function DashboardTab() {
         </button>
       </div>
 
-      {activeDashboardTab === 'overview' && (
+      {activeDashboardTab === 'weather' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           {/* Weather Forecast Widget */}
           <CollapsibleCard title="Current Weather & Forecast">
@@ -909,7 +928,11 @@ export default function DashboardTab() {
               <div style={{ textAlign: 'center', padding: '20px', color: '#f44336' }}>Failed to load weather data.</div>
             )}
           </CollapsibleCard>
+        </div>
+      )}
 
+      {activeDashboardTab === 'overview' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           {/* Active Assignments Progress */}
           <CollapsibleCard title="Assignments Progress" forceFullGrid>
             {(() => {
@@ -952,6 +975,7 @@ export default function DashboardTab() {
                     <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '900px' }}>
                       <thead>
                         <tr style={{ background: '#f5f7fa', borderBottom: '2px solid var(--color-border-light)' }}>
+                          <th style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', textTransform: 'uppercase', fontWeight: 700, whiteSpace: 'nowrap' }}>Plan Health</th>
                           <th style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', textTransform: 'uppercase', fontWeight: 700, width: '180px', minWidth: '180px', whiteSpace: 'nowrap' }}>Approval Status</th>
                           <th style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', textTransform: 'uppercase', fontWeight: 700, width: '220px', minWidth: '220px', maxWidth: '220px' }}>Tasks</th>
                           <th style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', textTransform: 'uppercase', fontWeight: 700, whiteSpace: 'nowrap' }}>Target Asset</th>
@@ -962,7 +986,6 @@ export default function DashboardTab() {
                           <th style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', textTransform: 'uppercase', fontWeight: 700 }}>Progress</th>
                           <th style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', textTransform: 'uppercase', fontWeight: 700 }}>Hours Spent</th>
                           <th style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', textTransform: 'uppercase', fontWeight: 700 }}>Money Spent</th>
-                          <th style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', textTransform: 'uppercase', fontWeight: 700, whiteSpace: 'nowrap' }}>Plan Health</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1002,7 +1025,7 @@ export default function DashboardTab() {
                             if (planEstHours > 0 && totalPlanHours > planEstHours) {
                               isExceedingEstimate = true;
                             }
-                            
+
                             const todayStr = new Date().toISOString().split('T')[0];
                             if (plan.toDate && todayStr > plan.toDate && !plan.completionDate) {
                               isOverdue = true;
@@ -1011,6 +1034,27 @@ export default function DashboardTab() {
 
                           return (
                             <tr key={ass.id} style={{ borderBottom: '1px solid #e2e8f0', background: '#ffffff' }}>
+                              <td style={{ padding: '12px 16px' }}>
+                                {!plan ? '-' : (
+                                  isExceedingEstimate && isOverdue ? (
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#c62828', fontWeight: 600, fontSize: '0.8rem' }} title="Exceeds estimated hours & past due date">
+                                      <AlertTriangle size={14} color="#c62828" /> Critical
+                                    </span>
+                                  ) : isExceedingEstimate ? (
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ef6c00', fontWeight: 600, fontSize: '0.8rem' }} title="Total spent hours exceed estimate">
+                                      <AlertTriangle size={14} color="#ef6c00" /> Over Hours
+                                    </span>
+                                  ) : isOverdue ? (
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#c62828', fontWeight: 600, fontSize: '0.8rem' }} title="Past planned complete date">
+                                      <AlertCircle size={14} color="#c62828" /> Overdue
+                                    </span>
+                                  ) : (
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#2e7d32', fontWeight: 600, fontSize: '0.8rem' }} title="On schedule and within estimate">
+                                      <ShieldCheck size={14} color="#2e7d32" /> On Track
+                                    </span>
+                                  )
+                                )}
+                              </td>
                               <td style={{ padding: '12px 16px', width: '180px', minWidth: '180px' }}>
                                 <select
                                   value={ass.reviewStatus || 'Pending Review'}
@@ -1067,27 +1111,6 @@ export default function DashboardTab() {
                               </td>
                               <td style={{ padding: '12px 16px', color: '#1e293b', fontWeight: 500 }}>{assHours > 0 ? `${assHours.toFixed(1)} hrs` : '-'}</td>
                               <td style={{ padding: '12px 16px', color: '#1e293b', fontWeight: 600 }}>{assCost > 0 ? `$${assCost.toFixed(2)}` : '-'}</td>
-                              <td style={{ padding: '12px 16px' }}>
-                                {!plan ? '-' : (
-                                  isExceedingEstimate && isOverdue ? (
-                                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#c62828', fontWeight: 600, fontSize: '0.8rem' }} title="Exceeds estimated hours & past due date">
-                                      <AlertTriangle size={14} color="#c62828" /> Critical
-                                    </span>
-                                  ) : isExceedingEstimate ? (
-                                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ef6c00', fontWeight: 600, fontSize: '0.8rem' }} title="Total spent hours exceed estimate">
-                                      <AlertTriangle size={14} color="#ef6c00" /> Over Hours
-                                    </span>
-                                  ) : isOverdue ? (
-                                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#c62828', fontWeight: 600, fontSize: '0.8rem' }} title="Past planned complete date">
-                                      <AlertCircle size={14} color="#c62828" /> Overdue
-                                    </span>
-                                  ) : (
-                                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#2e7d32', fontWeight: 600, fontSize: '0.8rem' }} title="On schedule and within estimate">
-                                      <ShieldCheck size={14} color="#2e7d32" /> On Track
-                                    </span>
-                                  )
-                                )}
-                              </td>
                             </tr>
                           );
                         })}
