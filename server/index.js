@@ -1531,10 +1531,11 @@ app.post('/api/sync', async (req, res) => {
           results.push({ actionId: action.meta?.id, status: 'success' });
         }
         else if (action.type === 'planning/saveGoal') {
-          const { id, title, fromDate, toDate, workerIds, parentGoalId } = action.payload;
+          const { id, title, fromDate, toDate, workerIds, parentGoalId, estimatedHours, actualHours, startDate, completionDate } = action.payload;
           await session.run(`
             MERGE (g:Goal {id: $id})
-            SET g.title = $title, g.fromDate = $fromDate, g.toDate = $toDate, g.workerIds = $workerIds, g.parentGoalId = $parentGoalId
+            SET g.title = $title, g.fromDate = $fromDate, g.toDate = $toDate, g.workerIds = $workerIds, g.parentGoalId = $parentGoalId,
+                g.estimatedHours = $estimatedHours, g.actualHours = $actualHours, g.startDate = $startDate, g.completionDate = $completionDate
             WITH g
             OPTIONAL MATCH (g)-[r1:PARENT_GOAL]->() DELETE r1
             WITH g
@@ -1547,14 +1548,18 @@ app.post('/api/sync', async (req, res) => {
             OPTIONAL MATCH (w:Employee {id: wId})
             FOREACH (ignore IN CASE WHEN w IS NOT NULL THEN [1] ELSE [] END | MERGE (g)-[rel_new:ASSIGNED_TO]->(w) SET rel_new.lastUpdatedBy = $userEmail)
             SET g.lastUpdatedBy = $userEmail RETURN DISTINCT g
-          `, { userEmail, id, title, fromDate, toDate, workerIds: workerIds ? JSON.stringify(workerIds) : '[]', workerIdList: workerIds || [], parentGoalId: parentGoalId || null });
+          `, { 
+            userEmail, id, title, fromDate, toDate, workerIds: workerIds ? JSON.stringify(workerIds) : '[]', workerIdList: workerIds || [], parentGoalId: parentGoalId || null,
+            estimatedHours: estimatedHours || null, actualHours: actualHours || null, startDate: startDate || null, completionDate: completionDate || null
+          });
           results.push({ actionId: action.meta?.id, status: 'success' });
         }
         else if (action.type === 'planning/saveObjective') {
-          const { id, goalId, title, fromDate, toDate, workerIds } = action.payload;
+          const { id, goalId, title, fromDate, toDate, workerIds, estimatedHours, actualHours, startDate, completionDate } = action.payload;
           await session.run(`
             MERGE (o:Objective {id: $id})
-            SET o.goalId = $goalId, o.title = $title, o.fromDate = $fromDate, o.toDate = $toDate, o.workerIds = $workerIds
+            SET o.goalId = $goalId, o.title = $title, o.fromDate = $fromDate, o.toDate = $toDate, o.workerIds = $workerIds,
+                o.estimatedHours = $estimatedHours, o.actualHours = $actualHours, o.startDate = $startDate, o.completionDate = $completionDate
             WITH o
             OPTIONAL MATCH ()-[r1:HAS_OBJECTIVE]->(o) DELETE r1
             WITH o
@@ -1567,7 +1572,10 @@ app.post('/api/sync', async (req, res) => {
             OPTIONAL MATCH (w:Employee {id: wId})
             FOREACH (ignore IN CASE WHEN w IS NOT NULL THEN [1] ELSE [] END | MERGE (o)-[rel_new:ASSIGNED_TO]->(w) SET rel_new.lastUpdatedBy = $userEmail)
             SET o.lastUpdatedBy = $userEmail RETURN DISTINCT o
-          `, { userEmail, id, goalId, title, fromDate, toDate, workerIds: workerIds ? JSON.stringify(workerIds) : '[]', workerIdList: workerIds || [] });
+          `, { 
+            userEmail, id, goalId, title, fromDate, toDate, workerIds: workerIds ? JSON.stringify(workerIds) : '[]', workerIdList: workerIds || [],
+            estimatedHours: estimatedHours || null, actualHours: actualHours || null, startDate: startDate || null, completionDate: completionDate || null
+          });
           results.push({ actionId: action.meta?.id, status: 'success' });
         }
         else if (action.type === 'livestockDiseases/saveDisease') {

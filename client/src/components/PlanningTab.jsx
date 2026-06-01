@@ -7,8 +7,8 @@ import Select from 'react-select';
 import { Target, X, PlusCircle, ChevronRight, ChevronDown, List, ClipboardList, Edit } from 'lucide-react';
 
 
-const INIT_GOAL = { title: '', fromDate: '', toDate: '', workerIds: [], parentGoalId: '' };
-const INIT_OBJECTIVE = { title: '', fromDate: '', toDate: '', workerIds: [], goalId: '' };
+const INIT_GOAL = { title: '', fromDate: '', toDate: '', workerIds: [], parentGoalId: '', estimatedHours: '', actualHours: '', startDate: '', completionDate: '' };
+const INIT_OBJECTIVE = { title: '', fromDate: '', toDate: '', workerIds: [], goalId: '', estimatedHours: '', actualHours: '', startDate: '', completionDate: '' };
 
 const TreeNode = ({ label, children, icon: Icon, defaultExpanded = true, onEdit, isSelected, onSelect }) => {
   const [expanded, setExpanded] = useState(defaultExpanded);
@@ -231,6 +231,10 @@ export default function PlanningTab() {
     { key: 'parentGoalId', header: 'Parent', render: (r) => goals.find(g => g.id === r.parentGoalId)?.title || '-' },
     { key: 'fromDate', header: 'From Date' },
     { key: 'toDate', header: 'To Date' },
+    { key: 'startDate', header: 'Start Date' },
+    { key: 'completionDate', header: 'Completion Date' },
+    { key: 'estimatedHours', header: 'Est. Hours' },
+    { key: 'actualHours', header: 'Act. Hours' },
     { key: 'workerIds', header: 'Responsible', render: (r) => renderWorkerNames(r.workerIds) }
   ];
 
@@ -239,6 +243,10 @@ export default function PlanningTab() {
     { key: 'goalId', header: 'Parent Goal', render: (r) => goals.find(g => g.id === r.goalId)?.title || 'Unknown Goal' },
     { key: 'fromDate', header: 'From Date' },
     { key: 'toDate', header: 'To Date' },
+    { key: 'startDate', header: 'Start Date' },
+    { key: 'completionDate', header: 'Completion Date' },
+    { key: 'estimatedHours', header: 'Est. Hours' },
+    { key: 'actualHours', header: 'Act. Hours' },
     { key: 'workerIds', header: 'Responsible', render: (r) => renderWorkerNames(r.workerIds) }
   ];
 
@@ -281,6 +289,22 @@ export default function PlanningTab() {
                 <div className="form-group">
                   <label>To Date</label>
                   <input type="date" value={goalData.toDate} onChange={e => setGoalData({ ...goalData, toDate: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label>Start Date</label>
+                  <input type="date" value={goalData.startDate || ''} onChange={e => setGoalData({ ...goalData, startDate: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label>Date of Completion</label>
+                  <input type="date" value={goalData.completionDate || ''} onChange={e => setGoalData({ ...goalData, completionDate: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label>Estimated Hours</label>
+                  <input type="number" min="0" step="0.1" value={goalData.estimatedHours || ''} onChange={e => setGoalData({ ...goalData, estimatedHours: e.target.value })} placeholder="e.g. 40" />
+                </div>
+                <div className="form-group">
+                  <label>Actual Hours</label>
+                  <input type="number" min="0" step="0.1" value={goalData.actualHours || ''} onChange={e => setGoalData({ ...goalData, actualHours: e.target.value })} placeholder="e.g. 35" />
                 </div>
                 <div className="form-group form-grid-full">
                   <label>Responsible Employees</label>
@@ -361,6 +385,22 @@ export default function PlanningTab() {
                 <div className="form-group">
                   <label>To Date</label>
                   <input type="date" value={objectiveData.toDate} onChange={e => setObjectiveData({ ...objectiveData, toDate: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label>Start Date</label>
+                  <input type="date" value={objectiveData.startDate || ''} onChange={e => setObjectiveData({ ...objectiveData, startDate: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label>Date of Completion</label>
+                  <input type="date" value={objectiveData.completionDate || ''} onChange={e => setObjectiveData({ ...objectiveData, completionDate: e.target.value })} />
+                </div>
+                <div className="form-group">
+                  <label>Estimated Hours</label>
+                  <input type="number" min="0" step="0.1" value={objectiveData.estimatedHours || ''} onChange={e => setObjectiveData({ ...objectiveData, estimatedHours: e.target.value })} placeholder="e.g. 40" />
+                </div>
+                <div className="form-group">
+                  <label>Actual Hours</label>
+                  <input type="number" min="0" step="0.1" value={objectiveData.actualHours || ''} onChange={e => setObjectiveData({ ...objectiveData, actualHours: e.target.value })} placeholder="e.g. 35" />
                 </div>
                 <div className="form-group form-grid-full">
                   <label>Responsible Employees</label>
