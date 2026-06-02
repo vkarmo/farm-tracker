@@ -672,3 +672,7 @@ body.is-saved button[type="button"] {
     height: 16px !important;
   }
 }
+
+th, td {
+  vertical-align: top;
+}

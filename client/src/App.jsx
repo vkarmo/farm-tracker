@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { fetchFields } from './store/fieldsSlice';
-import { addUnit, removeUnit, addJobTitle, removeJobTitle, addExpenseCategory, removeExpenseCategory, addIncomeCategory, removeIncomeCategory, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold, setAppName, addAnimalType, removeAnimalType, saveSettings, setGeeClientEmail, setGeePrivateKey, setGeeProjectId, setGeeScale, setOwmApiKey, setThemeAppBgColor, setThemeCardBgColor, setThemeCardBorderColor, setThemeCardBorderThickness, setThemeAppBorderColor, setThemeAppBorderThickness, setThemeFontName, setThemeFontSizeBase, setThemeFontSizeCardTitle, setThemeFontSizeTabs, setThemeColorPrimary, setThemeColorCardTitle, setThemeColorTabsActiveBg, setThemeColorTabsActiveText, setThemeColorTabsInactiveBg, setThemeColorTabsInactiveText, setThemeFontAppName, setThemeFontSizeAppName, setThemeFontAppNameBold, setThemeFontAppNameCapitalize, setThemeFontSizeBaseBold, setThemeFontSizeBaseCapitalize, setThemeFontSizeCardTitleBold, setThemeFontSizeCardTitleCapitalize, setThemeFontSizeTabsBold, setThemeFontSizeTabsCapitalize, setThemeFontImager, setThemeFontSizeImager, setThemeFontImagerBold, setThemeFontImagerCapitalize } from './store/settingsSlice';
+import { addUnit, removeUnit, addJobTitle, removeJobTitle, addExpenseCategory, removeExpenseCategory, addIncomeCategory, removeIncomeCategory, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold, setAppName, addAnimalType, removeAnimalType, saveSettings, setGeeClientEmail, setGeePrivateKey, setGeeProjectId, setGeeScale, setOwmApiKey, setThemeAppBgColor, setThemeCardBgColor, setThemeCardBorderColor, setThemeCardBorderThickness, setThemeAppBorderColor, setThemeAppBorderThickness, setThemeFontName, setThemeFontSizeBase, setThemeFontSizeCardTitle, setThemeFontSizeTabs, setThemeColorPrimary, setThemeColorCardTitle, setThemeColorTabsActiveBg, setThemeColorTabsActiveText, setThemeColorTabsInactiveBg, setThemeColorTabsInactiveText, setThemeFontAppName, setThemeFontSizeAppName, setThemeFontAppNameBold, setThemeFontAppNameCapitalize, setThemeFontSizeBaseBold, setThemeFontSizeBaseCapitalize, setThemeFontSizeCardTitleBold, setThemeFontSizeCardTitleCapitalize, setThemeFontSizeTabsBold, setThemeFontSizeTabsCapitalize, setThemeFontImager, setThemeFontSizeImager, setThemeFontImagerBold, setThemeFontImagerCapitalize, setSimulateHighWinds } from './store/settingsSlice';
 import { addLocation } from './store/gpsSlice';
 import { queueAction, fetchInitialData } from './store/syncSlice';
 import { MapSearchBox, MapFlyTo, FarmLocationButton } from './components/MapSearchBox';
@@ -126,6 +126,7 @@ export default function App() {
   const themeFontSizeImager = useSelector(state => state.settings?.themeFontSizeImager) || '0.72rem';
   const themeFontImagerBold = useSelector(state => state.settings?.themeFontImagerBold) || false;
   const themeFontImagerCapitalize = useSelector(state => state.settings?.themeFontImagerCapitalize) || false;
+  const simulateHighWinds = useSelector(state => state.settings?.simulateHighWinds) || false;
   const formatImagerLabel = (txt) => themeFontImagerCapitalize ? txt.toUpperCase() : txt;
   const lastGpsLocation = useSelector(state => {
     const locs = state.gps?.locations || [];
@@ -138,7 +139,7 @@ export default function App() {
   const totalActionsQueued = useSelector(state => state.sync.totalActionsQueued || 0);
 
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [openSettings, setOpenSettings] = useState({ general: true, dropdown: false, map: false, units: false, jobs: false, animals: false, ledgers: false, gee: false, owm: false, theme: false, typography: false });
+  const [openSettings, setOpenSettings] = useState({ general: true, dropdown: false, map: false, units: false, jobs: false, animals: false, ledgers: false, gee: false, owm: false, theme: false, typography: false, simulation: false });
   const [showSaveToast, setShowSaveToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("Record Saved Successfully");
 
@@ -2006,6 +2007,82 @@ export default function App() {
                   </div>
                 )}
               </div>
+
+              {/* Simulation & Testing Card */}
+              <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 0 }}>
+                <button
+                  onClick={() => setOpenSettings({ ...openSettings, simulation: !openSettings.simulation })}
+                  type="button"
+                  style={{ width: '100%', padding: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f5f7fa', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '1.1rem', color: '#333' }}
+                >
+                  Simulation & Testing
+                  {openSettings.simulation ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
+                </button>
+
+                {openSettings.simulation && (
+                  <div style={{ padding: '20px', background: 'var(--color-surface)' }}>
+                    <div style={{ marginBottom: 20 }}>
+                      <h3 style={{ marginTop: 0 }}>Severe Weather Simulation</h3>
+                      <p style={{ fontSize: '0.8rem', color: '#666', marginBottom: 16 }}>
+                        Simulate extreme weather conditions (e.g. Severe High Winds) to test real-time agricultural advisories, system warnings, and dashboard response.
+                      </p>
+
+                      <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <div>
+                            <span style={{ fontWeight: '600', display: 'block', fontSize: '0.9rem', color: '#1e293b' }}>Simulate Severe High Winds Warning</span>
+                            <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Overwrites forecast wind speeds to 18 m/s (64.8 km/h) to trigger severe wind advisories on the dashboard weather view.</span>
+                          </div>
+                          
+                          {/* Toggle Switch */}
+                          <label className="toggle-switch-container" style={{ position: 'relative', display: 'inline-block', width: '48px', height: '24px', flexShrink: 0 }}>
+                            <input
+                              type="checkbox"
+                              checked={simulateHighWinds}
+                              onChange={(e) => {
+                                if (currentUser?.role !== 'Admin Viewer') {
+                                  dispatch(setSimulateHighWinds(e.target.checked));
+                                  dispatch(saveSettings());
+                                }
+                              }}
+                              disabled={currentUser?.role === 'Admin Viewer'}
+                              style={{ opacity: 0, width: 0, height: 0 }}
+                            />
+                            <span style={{
+                              position: 'absolute',
+                              cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer',
+                              top: 0, left: 0, right: 0, bottom: 0,
+                              backgroundColor: simulateHighWinds ? '#ef4444' : '#cbd5e1',
+                              transition: '.4s',
+                              borderRadius: '24px',
+                            }}>
+                              <span style={{
+                                position: 'absolute',
+                                content: '""',
+                                height: '18px', width: '18px',
+                                left: simulateHighWinds ? '26px' : '4px',
+                                bottom: '3px',
+                                backgroundColor: 'white',
+                                transition: '.4s',
+                                borderRadius: '50%',
+                                boxShadow: '0 1px 3px rgba(0,0,0,0.15)'
+                              }} />
+                            </span>
+                          </label>
+                        </div>
+
+                        {simulateHighWinds && (
+                          <div style={{ marginTop: '4px', padding: '10px 12px', background: '#ffebee', border: '1px solid #ffcdd2', borderRadius: '6px', color: '#c62828', fontSize: '0.8rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: '#c62828', display: 'inline-block', animation: 'pulse 1.5s infinite' }} />
+                            Severe High Winds Scenario Simulation is currently ACTIVE. Check the Weather dashboard tab to see the advisory warnings.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
 
 
 

@@ -45,12 +45,12 @@ export default function IncidentTab() {
 
   const columns = [
     { key: 'date', header: 'Date' },
-    { key: 'title', header: 'Incident Title' },
-    { key: 'type', header: 'Type' },
-    { key: 'severity', header: 'Severity' },
-    { key: 'resolutionStatus', header: 'Status', render: r => r.resolutionStatus === 'Resolved' ? <strong style={{ color: '#2e7d32' }}>Resolved</strong> : r.resolutionStatus },
-    { key: 'associatedAsset', header: 'Affected Asset' },
-    { key: 'notes', header: 'Notes' }
+    { key: 'title', header: 'Incident Title', style: { whiteSpace: 'nowrap' } },
+    { key: 'type', header: 'Type', style: { whiteSpace: 'nowrap' } },
+    { key: 'severity', header: 'Severity', style: { whiteSpace: 'nowrap' } },
+    { key: 'resolutionStatus', header: 'Status', render: r => r.resolutionStatus === 'Resolved' ? <strong style={{ color: '#2e7d32' }}>Resolved</strong> : r.resolutionStatus, style: { whiteSpace: 'nowrap' } },
+    { key: 'associatedAsset', header: 'Affected Asset', style: { whiteSpace: 'nowrap' } },
+    { key: 'notes', header: 'Notes', style: { width: '250px', minWidth: '150px', maxWidth: '250px', wordBreak: 'break-word', whiteSpace: 'normal' } }
   ];
 
   return (

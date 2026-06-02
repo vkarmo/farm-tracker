@@ -47,6 +47,7 @@ export default function DashboardTab() {
   const employeesList = useSelector(state => state.employees?.list) || [];
 
   const mapCenter = useSelector(state => state.settings?.mapCenter) || [51.505, -0.09];
+  const simulateHighWinds = useSelector(state => state.settings?.simulateHighWinds) || false;
 
   const [selectedLocIndex, setSelectedLocIndex] = useState(0);
   const [weatherData, setWeatherData] = useState(null);
@@ -54,8 +55,37 @@ export default function DashboardTab() {
   const [geeWeatherData, setGeeWeatherData] = useState(null);
   const [geeWeatherLoading, setGeeWeatherLoading] = useState(false);
   const [geeWeatherError, setGeeWeatherError] = useState(null);
+
+  const effectiveGeeWeatherLoading = simulateHighWinds ? false : geeWeatherLoading;
+
+  const effectiveGeeWeatherData = useMemo(() => {
+    if (!geeWeatherData) {
+      if (simulateHighWinds) {
+        return {
+          temperature: 28.0,
+          precipitation: 0.0,
+          windSpeed: 18.0,
+          humidity: 85,
+          clouds: 90,
+          dateStr: new Date().toLocaleDateString() + ' (Simulated)',
+          duration: '3 Hours (Hourly Forecast)',
+          isSimulated: true,
+          weatherCode: 3
+        };
+      }
+      return null;
+    }
+    if (simulateHighWinds) {
+      return {
+        ...geeWeatherData,
+        windSpeed: 18.0,
+        isSimulated: true
+      };
+    }
+    return geeWeatherData;
+  }, [geeWeatherData, simulateHighWinds]);
   const [activeWeatherTab, setActiveWeatherTab] = useState('current');
-  const [activeDashboardTab, setActiveDashboardTab] = useState('overview');
+  const [activeDashboardTab, setActiveDashboardTab] = useState('assignments');
   const [selectedCropIds, setSelectedCropIds] = useState([]);
   const [harvestFromDate, setHarvestFromDate] = useState('');
   const [harvestToDate, setHarvestToDate] = useState('');
@@ -205,7 +235,7 @@ export default function DashboardTab() {
     if (code >= 45 && code <= 48) return 'Foggy';
     if (code >= 51 && code <= 55) return 'Drizzle';
     if (code >= 61 && code <= 67) return 'Rain';
-    if (code >= 71 && code <= 82) return 'Snow';
+    if (code >= 71 && code <= 82) return 'Heavy Rain'; // Replaces snow with heavy rain for tropical context
     if (code >= 95 && code <= 99) return 'Thunderstorm';
     return 'Unknown';
   };
@@ -504,21 +534,55 @@ export default function DashboardTab() {
       {/* Sub-Tabs Selector */}
       <div style={{ display: 'flex', gap: '4px', background: '#f1f5f9', padding: '4px', borderRadius: '8px', width: 'fit-content', marginBottom: '8px', flexWrap: 'wrap' }}>
         <button
-          onClick={() => setActiveDashboardTab('overview')}
+          onClick={() => setActiveDashboardTab('assignments')}
           style={{
             padding: '8px 16px',
             borderRadius: '6px',
             border: 'none',
-            background: activeDashboardTab === 'overview' ? 'white' : 'transparent',
-            color: activeDashboardTab === 'overview' ? '#2e7d32' : '#64748b',
+            background: activeDashboardTab === 'assignments' ? 'white' : 'transparent',
+            color: activeDashboardTab === 'assignments' ? '#2e7d32' : '#64748b',
             fontWeight: 600,
             fontSize: '0.875rem',
-            boxShadow: activeDashboardTab === 'overview' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+            boxShadow: activeDashboardTab === 'assignments' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
             cursor: 'pointer',
             transition: 'all 0.2s ease'
           }}
         >
-          Overview
+          Current Assignments
+        </button>
+        <button
+          onClick={() => setActiveDashboardTab('incidents')}
+          style={{
+            padding: '8px 16px',
+            borderRadius: '6px',
+            border: 'none',
+            background: activeDashboardTab === 'incidents' ? 'white' : 'transparent',
+            color: activeDashboardTab === 'incidents' ? '#2e7d32' : '#64748b',
+            fontWeight: 600,
+            fontSize: '0.875rem',
+            boxShadow: activeDashboardTab === 'incidents' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease'
+          }}
+        >
+          Incidents
+        </button>
+        <button
+          onClick={() => setActiveDashboardTab('deadlines')}
+          style={{
+            padding: '8px 16px',
+            borderRadius: '6px',
+            border: 'none',
+            background: activeDashboardTab === 'deadlines' ? 'white' : 'transparent',
+            color: activeDashboardTab === 'deadlines' ? '#2e7d32' : '#64748b',
+            fontWeight: 600,
+            fontSize: '0.875rem',
+            boxShadow: activeDashboardTab === 'deadlines' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
+            cursor: 'pointer',
+            transition: 'all 0.2s ease'
+          }}
+        >
+          Deadlines
         </button>
         <button
           onClick={() => setActiveDashboardTab('weather')}
@@ -572,6 +636,132 @@ export default function DashboardTab() {
           Financials
         </button>
       </div>
+
+      {/* Agricultural Impact Analysis (placed globally below the sub-tabs selector) */}
+      {effectiveGeeWeatherData && (
+        <div style={{ display: 'flex', flexDirection: 'row', gap: '12px', flexWrap: 'wrap', width: '100%', marginBottom: '20px' }}>
+          {(() => {
+            const alerts = [];
+            const w = effectiveGeeWeatherData;
+
+            if (w.windSpeed > 5.0) {
+              alerts.push({
+                type: 'warning',
+                title: 'Spraying Advisory',
+                text: `High wind drift risk (${Math.round(w.windSpeed * 3.6)} km/h / ${w.windSpeed} m/s). Avoid chemical spraying.`,
+                color: '#e65100',
+                bg: '#fff8e1'
+              });
+            } else if (w.windSpeed < 1.0) {
+              alerts.push({
+                type: 'warning',
+                title: 'Spraying Advisory',
+                text: `Calm wind (${Math.round(w.windSpeed * 3.6)} km/h / ${w.windSpeed} m/s). Risk of thermal inversion drift.`,
+                color: '#d84315',
+                bg: '#fbe9e7'
+              });
+            } else {
+              alerts.push({
+                type: 'success',
+                title: 'Spraying Advisory',
+                text: `Optimal spraying window. Wind is between 1-5 m/s (${Math.round(w.windSpeed * 3.6)} km/h).`,
+                color: '#2e7d32',
+                bg: '#e8f5e9'
+              });
+            }
+
+            if (w.windSpeed > 15.0) {
+              alerts.push({
+                type: 'danger',
+                title: 'Severe High Winds Warning',
+                text: `Dangerous winds detected (${Math.round(w.windSpeed * 3.6)} km/h / ${w.windSpeed} m/s). High risk of crop flattening, nursery damage, and minor structural damage. Secure covers and loose gear.`,
+                color: '#c62828',
+                bg: '#ffebee'
+              });
+            }
+
+            if (w.temperature < 2.0) {
+              alerts.push({
+                type: 'danger',
+                title: 'Frost Alert',
+                text: `Low temp (${Math.round(w.temperature * 1.8 + 32)}°F / ${w.temperature}°C). Cover sensitive crops & nurseries.`,
+                color: '#c62828',
+                bg: '#ffebee'
+              });
+            } else if (w.temperature > 32.0) {
+              alerts.push({
+                type: 'danger',
+                title: 'Heat Alert',
+                text: `High temp (${Math.round(w.temperature * 1.8 + 32)}°F / ${w.temperature}°C). Elevate crop irrigation frequency.`,
+                color: '#c62828',
+                bg: '#ffebee'
+              });
+            }
+
+            if (w.precipitation > 0.1) {
+              alerts.push({
+                type: 'info',
+                title: 'Precipitation Active',
+                text: `Rain (${w.precipitation} mm/h) detected. Pause scheduled irrigation.`,
+                color: '#1565c0',
+                bg: '#e3f2fd'
+              });
+            } else if (w.humidity < 35.0) {
+              alerts.push({
+                type: 'warning',
+                title: 'Dry Air Alert',
+                text: `Humidity is low (${w.humidity}%). Monitor soil moisture profiles.`,
+                color: '#e65100',
+                bg: '#fff8e1'
+              });
+            }
+
+            if (w.humidity > 85.0 && w.temperature >= 18.0 && w.temperature <= 28.0) {
+              alerts.push({
+                type: 'danger',
+                title: 'Disease Risk',
+                text: `Humid & warm conditions favor fungal / mildew growth.`,
+                color: '#c62828',
+                bg: '#ffebee'
+              });
+            }
+
+            return alerts.map((alert, idx) => (
+              <div
+                key={idx}
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '6px',
+                  padding: '12px 14px',
+                  borderRadius: '8px',
+                  background: alert.bg,
+                  borderLeft: `5px solid ${alert.color}`,
+                  borderTop: '1px solid rgba(0,0,0,0.03)',
+                  borderRight: '1px solid rgba(0,0,0,0.03)',
+                  borderBottom: '1px solid rgba(0,0,0,0.03)',
+                  boxShadow: '0 2px 6px rgba(0,0,0,0.02)',
+                  flex: '1 1 280px',
+                  minWidth: '280px'
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  {alert.type === 'danger' && <AlertCircle size={26} color={alert.color} style={{ flexShrink: 0 }} />}
+                  {alert.type === 'warning' && <AlertTriangle size={26} color={alert.color} style={{ flexShrink: 0 }} />}
+                  {alert.type === 'success' && <ShieldCheck size={26} color={alert.color} style={{ flexShrink: 0 }} />}
+                  {alert.type === 'info' && <Info size={26} color={alert.color} style={{ flexShrink: 0 }} />}
+                  <strong style={{ fontSize: '1.02rem', fontWeight: 800, color: alert.color }}>
+                    {alert.title}
+                  </strong>
+                </div>
+                <div style={{ color: '#4b5563', fontSize: '0.72rem', lineHeight: 1.45, paddingLeft: '34px', fontWeight: 500 }}>
+                  {alert.text}
+                </div>
+              </div>
+            ));
+          })()}
+        </div>
+      )}
 
       {activeDashboardTab === 'weather' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
@@ -656,18 +846,18 @@ export default function DashboardTab() {
                           <span style={{ fontSize: '0.7rem', color: '#64748b', fontWeight: 600 }}>NOAA GFS Reanalysis & Alerts</span>
                         </div>
                       </div>
-                      {geeWeatherData && (
-                        <span style={{ fontSize: '0.6rem', background: geeWeatherData.isSimulated ? '#fff3e0' : '#e8f5e9', padding: '2px 6px', borderRadius: '4px', color: geeWeatherData.isSimulated ? '#e65100' : '#2e7d32', fontWeight: 600 }}>
-                          {geeWeatherData.isSimulated ? 'Simulated' : 'Verified GEE'}
+                      {effectiveGeeWeatherData && (
+                        <span style={{ fontSize: '0.6rem', background: effectiveGeeWeatherData.isSimulated ? '#fff3e0' : '#e8f5e9', padding: '2px 6px', borderRadius: '4px', color: effectiveGeeWeatherData.isSimulated ? '#e65100' : '#2e7d32', fontWeight: 600 }}>
+                          {effectiveGeeWeatherData.isSimulated ? 'Simulated' : 'Verified GEE'}
                         </span>
                       )}
                     </div>
 
-                    {geeWeatherLoading ? (
+                    {effectiveGeeWeatherLoading ? (
                       <div style={{ display: 'flex', flex: 1, alignItems: 'center', justifyContent: 'center', padding: '40px 0', fontSize: '0.85rem', color: '#888' }}>
                         Fetching GEE weather & agricultural alerts...
                       </div>
-                    ) : geeWeatherData ? (
+                    ) : effectiveGeeWeatherData ? (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
 
                         {/* Metrics Grid Row 1 (Temp, Rain, Wind) */}
@@ -677,8 +867,8 @@ export default function DashboardTab() {
                             <Thermometer size={32} color="#e65100" />
                             <span style={{ fontSize: '0.75rem', color: '#8c3d00', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Temp</span>
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1.1 }}>
-                              <span style={{ fontSize: '1rem', fontWeight: 800, color: '#e65100' }}>{Math.round(geeWeatherData.temperature * 1.8 + 32)}°F</span>
-                              <span style={{ fontSize: '0.75rem', color: '#757575', fontWeight: 500 }}>{geeWeatherData.temperature}°C</span>
+                              <span style={{ fontSize: '1rem', fontWeight: 800, color: '#e65100' }}>{Math.round(effectiveGeeWeatherData.temperature * 1.8 + 32)}°F</span>
+                              <span style={{ fontSize: '0.75rem', color: '#757575', fontWeight: 500 }}>{effectiveGeeWeatherData.temperature}°C</span>
                             </div>
                           </div>
 
@@ -686,7 +876,7 @@ export default function DashboardTab() {
                           <div style={{ background: 'white', border: '1px solid #90caf9', padding: '16px 12px', borderRadius: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', justifyContent: 'center', boxShadow: '0 2px 8px rgba(21,101,192,0.03)' }}>
                             <CloudRain size={32} color="#1565c0" />
                             <span style={{ fontSize: '0.75rem', color: '#0d47a1', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Rain</span>
-                            <span style={{ fontSize: '1rem', fontWeight: 800, color: '#1565c0' }}>{geeWeatherData.precipitation} mm</span>
+                            <span style={{ fontSize: '1rem', fontWeight: 800, color: '#1565c0' }}>{effectiveGeeWeatherData.precipitation} mm</span>
                           </div>
 
                           {/* Wind Card */}
@@ -694,8 +884,8 @@ export default function DashboardTab() {
                             <Wind size={32} color="#0288d1" />
                             <span style={{ fontSize: '0.75rem', color: '#01579b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Wind</span>
                             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1.1 }}>
-                              <span style={{ fontSize: '1rem', fontWeight: 800, color: '#0288d1' }}>{Math.round(geeWeatherData.windSpeed * 3.6)} km/h</span>
-                              <span style={{ fontSize: '0.75rem', color: '#757575', fontWeight: 500 }}>{geeWeatherData.windSpeed} m/s</span>
+                              <span style={{ fontSize: '1rem', fontWeight: 800, color: '#0288d1' }}>{Math.round(effectiveGeeWeatherData.windSpeed * 3.6)} km/h</span>
+                              <span style={{ fontSize: '0.75rem', color: '#757575', fontWeight: 500 }}>{effectiveGeeWeatherData.windSpeed} m/s</span>
                             </div>
                           </div>
                         </div>
@@ -706,14 +896,14 @@ export default function DashboardTab() {
                           <div style={{ flex: '0 1 calc((100% - 24px) / 3)', background: 'white', border: '1px solid #80deea', padding: '16px 12px', borderRadius: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,172,193,0.03)' }}>
                             <Droplet size={32} color="#00acc1" />
                             <span style={{ fontSize: '0.75rem', color: '#006064', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Humidity</span>
-                            <span style={{ fontSize: '1rem', fontWeight: 800, color: '#00acc1' }}>{geeWeatherData.humidity}%</span>
+                            <span style={{ fontSize: '1rem', fontWeight: 800, color: '#00acc1' }}>{effectiveGeeWeatherData.humidity}%</span>
                           </div>
 
                           {/* Clouds Card */}
                           <div style={{ flex: '0 1 calc((100% - 24px) / 3)', background: 'white', border: '1px solid #b0bec5', padding: '16px 12px', borderRadius: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', justifyContent: 'center', boxShadow: '0 2px 8px rgba(84,110,122,0.03)' }}>
                             <Cloud size={32} color="#546e7a" />
                             <span style={{ fontSize: '0.75rem', color: '#263238', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Clouds</span>
-                            <span style={{ fontSize: '1rem', fontWeight: 800, color: '#546e7a' }}>{geeWeatherData.clouds}%</span>
+                            <span style={{ fontSize: '1rem', fontWeight: 800, color: '#546e7a' }}>{effectiveGeeWeatherData.clouds}%</span>
                           </div>
                         </div>
 
@@ -723,131 +913,14 @@ export default function DashboardTab() {
                             <Clock size={16} color="#1b5e20" style={{ flexShrink: 0 }} />
                             <div style={{ display: 'flex', flexDirection: 'column' }}>
                               <span style={{ fontSize: '0.65rem', textTransform: 'uppercase', color: '#64748b', fontWeight: 600 }}>Expected Forecast Time</span>
-                              <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#1e293b' }}>{geeWeatherData.dateStr}</span>
+                              <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#1e293b' }}>{effectiveGeeWeatherData.dateStr}</span>
                             </div>
                           </div>
                           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: '1 1 120px', borderLeft: '1px solid #e2e8f0', paddingLeft: '16px' }}>
                             <div style={{ display: 'flex', flexDirection: 'column' }}>
                               <span style={{ fontSize: '0.65rem', textTransform: 'uppercase', color: '#64748b', fontWeight: 600 }}>Duration</span>
-                              <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#1e293b' }}>{geeWeatherData.duration}</span>
+                              <span style={{ fontSize: '0.8rem', fontWeight: 700, color: '#1e293b' }}>{effectiveGeeWeatherData.duration}</span>
                             </div>
-                          </div>
-                        </div>
-
-                        {/* Alerts List */}
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                          <span style={{ fontSize: '0.95rem', fontWeight: 800, display: 'flex', alignItems: 'center', gap: '8px', color: '#1e293b' }}>
-                            <Info size={20} color="#1b5e20" style={{ flexShrink: 0 }} /> Agricultural Impact Analysis
-                          </span>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', maxHeight: '220px', overflowY: 'auto' }}>
-                            {(() => {
-                              const alerts = [];
-                              const w = geeWeatherData;
-
-                              if (w.windSpeed > 5.0) {
-                                alerts.push({
-                                  type: 'warning',
-                                  title: 'Spraying Advisory',
-                                  text: `High wind drift risk (${Math.round(w.windSpeed * 3.6)} km/h / ${w.windSpeed} m/s). Avoid chemical spraying.`,
-                                  color: '#e65100',
-                                  bg: '#fff8e1'
-                                });
-                              } else if (w.windSpeed < 1.0) {
-                                alerts.push({
-                                  type: 'warning',
-                                  title: 'Spraying Advisory',
-                                  text: `Calm wind (${Math.round(w.windSpeed * 3.6)} km/h / ${w.windSpeed} m/s). Risk of thermal inversion drift.`,
-                                  color: '#d84315',
-                                  bg: '#fbe9e7'
-                                });
-                              } else {
-                                alerts.push({
-                                  type: 'success',
-                                  title: 'Spraying Advisory',
-                                  text: `Optimal spraying window. Wind is between 1-5 m/s (${Math.round(w.windSpeed * 3.6)} km/h).`,
-                                  color: '#2e7d32',
-                                  bg: '#e8f5e9'
-                                });
-                              }
-
-                              if (w.temperature < 2.0) {
-                                alerts.push({
-                                  type: 'danger',
-                                  title: 'Frost Alert',
-                                  text: `Low temp (${Math.round(w.temperature * 1.8 + 32)}°F / ${w.temperature}°C). Cover sensitive crops & nurseries.`,
-                                  color: '#c62828',
-                                  bg: '#ffebee'
-                                });
-                              } else if (w.temperature > 32.0) {
-                                alerts.push({
-                                  type: 'danger',
-                                  title: 'Heat Alert',
-                                  text: `High temp (${Math.round(w.temperature * 1.8 + 32)}°F / ${w.temperature}°C). Elevate crop irrigation frequency.`,
-                                  color: '#c62828',
-                                  bg: '#ffebee'
-                                });
-                              }
-
-                              if (w.precipitation > 0.1) {
-                                alerts.push({
-                                  type: 'info',
-                                  title: 'Precipitation Active',
-                                  text: `Rain (${w.precipitation} mm/h) detected. Pause scheduled irrigation.`,
-                                  color: '#1565c0',
-                                  bg: '#e3f2fd'
-                                });
-                              } else if (w.humidity < 35.0) {
-                                alerts.push({
-                                  type: 'warning',
-                                  title: 'Dry Air Alert',
-                                  text: `Humidity is low (${w.humidity}%). Monitor soil moisture profiles.`,
-                                  color: '#e65100',
-                                  bg: '#fff8e1'
-                                });
-                              }
-
-                              if (w.humidity > 85.0 && w.temperature >= 18.0 && w.temperature <= 28.0) {
-                                alerts.push({
-                                  type: 'danger',
-                                  title: 'Disease Risk',
-                                  text: `Humid & warm conditions favor fungal / mildew growth.`,
-                                  color: '#c62828',
-                                  bg: '#ffebee'
-                                });
-                              }
-
-                              return alerts.map((alert, idx) => (
-                                <div
-                                  key={idx}
-                                  style={{
-                                    display: 'flex',
-                                    flexDirection: 'column',
-                                    gap: '6px',
-                                    padding: '12px 14px',
-                                    borderRadius: '8px',
-                                    background: alert.bg,
-                                    borderLeft: `5px solid ${alert.color}`,
-                                    borderTop: '1px solid rgba(0,0,0,0.03)',
-                                    borderRight: '1px solid rgba(0,0,0,0.03)',
-                                    borderBottom: '1px solid rgba(0,0,0,0.03)',
-                                    boxShadow: '0 2px 6px rgba(0,0,0,0.02)'
-                                  }}
-                                >
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    {alert.type === 'danger' && <AlertCircle size={26} color={alert.color} style={{ flexShrink: 0 }} />}
-                                    {alert.type === 'warning' && <AlertTriangle size={26} color={alert.color} style={{ flexShrink: 0 }} />}
-                                    {alert.type === 'success' && <ShieldCheck size={26} color={alert.color} style={{ flexShrink: 0 }} />}
-                                    {alert.type === 'info' && <Info size={26} color={alert.color} style={{ flexShrink: 0 }} />}
-                                    <strong style={{ fontSize: '1.02rem', fontWeight: 800, color: alert.color }}>
-                                      {alert.title}
-                                    </strong>
-                                  </div>
-                                  <div style={{ color: '#4b5563', fontSize: '0.72rem', lineHeight: 1.45, paddingLeft: '34px', fontWeight: 500 }}>
-                                    {alert.text}
-                                  </div>
-                                </div>
-                              ));
-                            })()}
                           </div>
                         </div>
                       </div>
@@ -931,7 +1004,7 @@ export default function DashboardTab() {
         </div>
       )}
 
-      {activeDashboardTab === 'overview' && (
+      {activeDashboardTab === 'assignments' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           {/* Active Assignments Progress */}
           <CollapsibleCard title="Assignments Progress" forceFullGrid>
@@ -975,17 +1048,17 @@ export default function DashboardTab() {
                     <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '900px' }}>
                       <thead>
                         <tr style={{ background: '#f5f7fa', borderBottom: '2px solid var(--color-border-light)' }}>
+                          <th style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', textTransform: 'uppercase', fontWeight: 700 }}>Progress</th>
                           <th style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', textTransform: 'uppercase', fontWeight: 700, whiteSpace: 'nowrap' }}>Plan Health</th>
                           <th style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', textTransform: 'uppercase', fontWeight: 700, width: '180px', minWidth: '180px', whiteSpace: 'nowrap' }}>Approval Status</th>
                           <th style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', textTransform: 'uppercase', fontWeight: 700, width: '220px', minWidth: '220px', maxWidth: '220px' }}>Tasks</th>
                           <th style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', textTransform: 'uppercase', fontWeight: 700, whiteSpace: 'nowrap' }}>Target Asset</th>
                           <th style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', textTransform: 'uppercase', fontWeight: 700, whiteSpace: 'nowrap' }}>Plan Est. Hours</th>
                           <th style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', textTransform: 'uppercase', fontWeight: 700 }}>Status</th>
-                          <th style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', textTransform: 'uppercase', fontWeight: 700, whiteSpace: 'nowrap' }}>Start Date</th>
-                          <th style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', textTransform: 'uppercase', fontWeight: 700, whiteSpace: 'nowrap' }}>Completion Date</th>
-                          <th style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', textTransform: 'uppercase', fontWeight: 700 }}>Progress</th>
-                          <th style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', textTransform: 'uppercase', fontWeight: 700 }}>Hours Spent</th>
-                          <th style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', textTransform: 'uppercase', fontWeight: 700 }}>Money Spent</th>
+                          <th style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', whiteSpace: 'nowrap', verticalAlign: 'top' }}>Start Date</th>
+                          <th style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', whiteSpace: 'nowrap', verticalAlign: 'top' }}>Completion Date</th>
+                          <th style={{ padding: '12px 16px', color: '#1e293b', fontWeight: 500, verticalAlign: 'top' }}>Hours Spent</th>
+                          <th style={{ padding: '12px 16px', color: '#1e293b', fontWeight: 600, verticalAlign: 'top' }}>Money Spent</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1033,8 +1106,11 @@ export default function DashboardTab() {
                           }
 
                           return (
-                            <tr key={ass.id} style={{ borderBottom: '1px solid #e2e8f0', background: '#ffffff' }}>
-                              <td style={{ padding: '12px 16px' }}>
+                            <tr key={ass.id} style={{ borderBottom: '1px solid #e2e8f0', background: '#ffffff', verticalAlign: 'top' }}>
+                              <td style={{ padding: '12px 16px', color: '#1e293b', fontWeight: 800, fontSize: '0.95rem', verticalAlign: 'top' }}>
+                                {assProgress}%
+                              </td>
+                              <td style={{ padding: '12px 16px', verticalAlign: 'top' }}>
                                 {!plan ? '-' : (
                                   isExceedingEstimate && isOverdue ? (
                                     <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#c62828', fontWeight: 600, fontSize: '0.9rem' }} title="Exceeds estimated hours & past due date">
@@ -1055,7 +1131,7 @@ export default function DashboardTab() {
                                   )
                                 )}
                               </td>
-                              <td style={{ padding: '12px 16px', width: '180px', minWidth: '180px' }}>
+                              <td style={{ padding: '12px 16px', width: '180px', minWidth: '180px', verticalAlign: 'top' }}>
                                 <select
                                   value={ass.reviewStatus || 'Pending Review'}
                                   disabled={!hasApprovalPermission}
@@ -1082,19 +1158,19 @@ export default function DashboardTab() {
                                   <option value="Not Complete">Not Complete</option>
                                 </select>
                               </td>
-                              <td style={{ padding: '12px 16px', width: '220px', minWidth: '220px', maxWidth: '220px' }}>
+                              <td style={{ padding: '12px 16px', width: '220px', minWidth: '220px', maxWidth: '220px', verticalAlign: 'top' }}>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', wordBreak: 'break-word', whiteSpace: 'normal' }}>
                                   <span style={{ fontWeight: 600, color: '#1e293b' }}>{ass.task}</span>
                                   <span style={{ color: '#64748b', fontSize: '0.8rem' }}>Assigned: {ass.workers || renderWorkerNames(ass.workerIds)}</span>
                                 </div>
                               </td>
-                              <td style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', fontWeight: 500 }}>
+                              <td style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', fontWeight: 500, verticalAlign: 'top' }}>
                                 {getTargetName(ass.fieldId)}
                               </td>
-                              <td style={{ padding: '12px 16px', color: '#1e293b', fontWeight: 500 }}>
+                              <td style={{ padding: '12px 16px', color: '#1e293b', fontWeight: 500, verticalAlign: 'top' }}>
                                 {planEstHours > 0 ? `${planEstHours.toFixed(1)} hrs` : '-'}
                               </td>
-                              <td style={{ padding: '12px 16px' }}>
+                              <td style={{ padding: '12px 16px', verticalAlign: 'top' }}>
                                 <span className="status-indicator" style={{
                                   background: assBg,
                                   color: assFg,
@@ -1104,13 +1180,10 @@ export default function DashboardTab() {
                                   {assStatus}
                                 </span>
                               </td>
-                              <td style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', whiteSpace: 'nowrap' }}>{ass.assignmentDate || '-'}</td>
-                              <td style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', whiteSpace: 'nowrap' }}>{ass.completedDate || '-'}</td>
-                              <td style={{ padding: '12px 16px', color: '#1e293b', fontWeight: 600, fontSize: '0.85rem' }}>
-                                {assProgress}%
-                              </td>
-                              <td style={{ padding: '12px 16px', color: '#1e293b', fontWeight: 500 }}>{assHours > 0 ? `${assHours.toFixed(1)} hrs` : '-'}</td>
-                              <td style={{ padding: '12px 16px', color: '#1e293b', fontWeight: 600 }}>{assCost > 0 ? `$${assCost.toFixed(2)}` : '-'}</td>
+                              <td style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', whiteSpace: 'nowrap', verticalAlign: 'top' }}>{ass.assignmentDate || '-'}</td>
+                              <td style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', whiteSpace: 'nowrap', verticalAlign: 'top' }}>{ass.completedDate || '-'}</td>
+                              <td style={{ padding: '12px 16px', color: '#1e293b', fontWeight: 500, verticalAlign: 'top' }}>{assHours > 0 ? `${assHours.toFixed(1)} hrs` : '-'}</td>
+                              <td style={{ padding: '12px 16px', color: '#1e293b', fontWeight: 600, verticalAlign: 'top' }}>{assCost > 0 ? `$${assCost.toFixed(2)}` : '-'}</td>
                             </tr>
                           );
                         })}
@@ -1121,7 +1194,11 @@ export default function DashboardTab() {
               );
             })()}
           </CollapsibleCard>
+        </div>
+      )}
 
+      {activeDashboardTab === 'incidents' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           {/* Incidents Feed Table */}
           <CollapsibleCard title="Active Incidents & Issues" forceFullGrid>
             <CrudTable
@@ -1131,7 +1208,11 @@ export default function DashboardTab() {
               hideTitle
             />
           </CollapsibleCard>
+        </div>
+      )}
 
+      {activeDashboardTab === 'deadlines' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
           {/* Deadlines Feed Table */}
           <CollapsibleCard title="Upcoming Deadlines" forceFullGrid>
             <CrudTable
