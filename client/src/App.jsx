@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { fetchFields } from './store/fieldsSlice';
-import { addUnit, removeUnit, addJobTitle, removeJobTitle, addExpenseCategory, removeExpenseCategory, addIncomeCategory, removeIncomeCategory, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold, setAppName, addAnimalType, removeAnimalType, saveSettings, setGeeClientEmail, setGeePrivateKey, setGeeProjectId, setGeeScale, setOwmApiKey, setThemeAppBgColor, setThemeCardBgColor, setThemeCardBorderColor, setThemeCardBorderThickness, setThemeAppBorderColor, setThemeAppBorderThickness, setThemeFontName, setThemeFontSizeBase, setThemeFontSizeCardTitle, setThemeFontSizeTabs, setThemeColorPrimary, setThemeColorCardTitle, setThemeColorTabsActiveBg, setThemeColorTabsActiveText, setThemeColorTabsInactiveBg, setThemeColorTabsInactiveText, setThemeFontAppName, setThemeFontSizeAppName, setThemeFontAppNameBold, setThemeFontAppNameCapitalize, setThemeFontSizeBaseBold, setThemeFontSizeBaseCapitalize, setThemeFontSizeCardTitleBold, setThemeFontSizeCardTitleCapitalize, setThemeFontSizeTabsBold, setThemeFontSizeTabsCapitalize, setThemeFontImager, setThemeFontSizeImager, setThemeFontImagerBold, setThemeFontImagerCapitalize, setSimulateHighWinds } from './store/settingsSlice';
+import { addUnit, removeUnit, addJobTitle, removeJobTitle, addExpenseCategory, removeExpenseCategory, addIncomeCategory, removeIncomeCategory, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold, setAppName, addAnimalType, removeAnimalType, saveSettings, setGeeClientEmail, setGeePrivateKey, setGeeProjectId, setGeeScale, setOwmApiKey, setThemeAppBgColor, setThemeCardBgColor, setThemeCardBorderColor, setThemeCardBorderThickness, setThemeAppBorderColor, setThemeAppBorderThickness, setThemeFontName, setThemeFontSizeBase, setThemeFontSizeCardTitle, setThemeFontSizeTabs, setThemeColorPrimary, setThemeColorCardTitle, setThemeColorTabsActiveBg, setThemeColorTabsActiveText, setThemeColorTabsInactiveBg, setThemeColorTabsInactiveText, setThemeFontAppName, setThemeFontSizeAppName, setThemeFontAppNameBold, setThemeFontAppNameCapitalize, setThemeFontSizeBaseBold, setThemeFontSizeBaseCapitalize, setThemeFontSizeCardTitleBold, setThemeFontSizeCardTitleCapitalize, setThemeFontSizeTabsBold, setThemeFontSizeTabsCapitalize, setThemeFontImager, setThemeFontSizeImager, setThemeFontImagerBold, setThemeFontImagerCapitalize, setMtnClientId, setMtnClientSecret, setMtnEnvironment, setSimulateHighWinds } from './store/settingsSlice';
 import { addLocation } from './store/gpsSlice';
 import { queueAction, fetchInitialData } from './store/syncSlice';
 import { MapSearchBox, MapFlyTo, FarmLocationButton } from './components/MapSearchBox';
@@ -96,6 +96,9 @@ export default function App() {
   const geePrivateKey = useSelector(state => state.settings?.geePrivateKey) || '';
   const geeProjectId = useSelector(state => state.settings?.geeProjectId) || '';
   const geeScale = useSelector(state => state.settings?.geeScale) || 3;
+  const mtnClientId = useSelector(state => state.settings?.mtnClientId) || '';
+  const mtnClientSecret = useSelector(state => state.settings?.mtnClientSecret) || '';
+  const mtnEnvironment = useSelector(state => state.settings?.mtnEnvironment) || 'sandbox';
   const themeAppBgColor = useSelector(state => state.settings?.themeAppBgColor) || '#eeeef1';
   const themeCardBgColor = useSelector(state => state.settings?.themeCardBgColor) || '#ffffff';
   const themeCardBorderColor = useSelector(state => state.settings?.themeCardBorderColor) || '#e0e0e0';
@@ -139,9 +142,13 @@ export default function App() {
   const totalActionsQueued = useSelector(state => state.sync.totalActionsQueued || 0);
 
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [openSettings, setOpenSettings] = useState({ general: true, dropdown: false, map: false, units: false, jobs: false, animals: false, ledgers: false, gee: false, owm: false, theme: false, typography: false, simulation: false });
+  const [openSettings, setOpenSettings] = useState({ general: true, dropdown: false, map: false, units: false, jobs: false, animals: false, ledgers: false, gee: false, mtn: false, owm: false, theme: false, typography: false, simulation: false });
   const [showSaveToast, setShowSaveToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("Record Saved Successfully");
+  const [mtnTesting, setMtnTesting] = useState(false);
+  const [mtnTestStatus, setMtnTestStatus] = useState(null);
+  const [mtnTestPhone, setMtnTestPhone] = useState('');
+  const [mtnTestMessage, setMtnTestMessage] = useState('This is a test message from FarmTracker.');
 
   const prevTotalQueued = useRef(totalActionsQueued);
 
@@ -193,6 +200,34 @@ export default function App() {
       setGeeTestStatus({ success: false, error: err.message || 'Connection test request failed.' });
     } finally {
       setGeeTesting(false);
+    }
+  };
+
+  const handleSendTestSms = async () => {
+    setMtnTesting(true);
+    setMtnTestStatus(null);
+    try {
+      const response = await fetch('/api/sms/test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clientId: mtnClientId,
+          clientSecret: mtnClientSecret,
+          phoneNumber: mtnTestPhone,
+          message: mtnTestMessage,
+          environment: mtnEnvironment
+        })
+      });
+      const data = await response.json();
+      if (response.ok && data.success) {
+        setMtnTestStatus({ success: true, message: data.message || 'Test message sent successfully!' });
+      } else {
+        setMtnTestStatus({ success: false, error: data.error || 'Failed to send test message.' });
+      }
+    } catch (err) {
+      setMtnTestStatus({ success: false, error: err.message || 'An error occurred while sending test message.' });
+    } finally {
+      setMtnTesting(false);
     }
   };
 
@@ -2003,6 +2038,119 @@ export default function App() {
                           );
                         })()}
                       </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* MTN SMS Settings Card */}
+              <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 0 }}>
+                <button
+                  onClick={() => setOpenSettings({ ...openSettings, mtn: !openSettings.mtn })}
+                  type="button"
+                  style={{ width: '100%', padding: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f5f7fa', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '1.1rem', color: '#333' }}
+                >
+                  MTN SMS Settings
+                  {openSettings.mtn ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
+                </button>
+
+                {openSettings.mtn && (
+                  <div style={{ padding: '20px', background: 'var(--color-surface)' }}>
+                    <div style={{ marginBottom: 20 }}>
+                      <h3 style={{ marginTop: 0 }}>Credentials & Test Tool</h3>
+                      <p style={{ fontSize: '0.8rem', color: '#666', marginBottom: 16 }}>
+                        Configure your MTN SMS Gateway client credentials. Settings are saved automatically when you edit them. Use the test tool below to verify connection status.
+                      </p>
+
+                      <div style={{ marginBottom: 16 }}>
+                        <label style={{ fontWeight: '600', display: 'block', marginBottom: '8px' }}>Client ID</label>
+                        <input
+                          type="text"
+                          value={mtnClientId || ''}
+                          onChange={(e) => { dispatch(setMtnClientId(e.target.value)); dispatch(saveSettings()); }}
+                          disabled={currentUser?.role === 'Admin Viewer'}
+                          placeholder="e.g. your-mtn-client-id"
+                          className="btn"
+                          style={{ display: 'block', marginTop: 8, padding: '8px', width: '100%', maxWidth: '500px', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'text', background: '#fff', border: '1px solid #ccc' }}
+                        />
+                      </div>
+
+                      <div style={{ marginBottom: 16 }}>
+                        <label style={{ fontWeight: '600', display: 'block', marginBottom: '8px' }}>Client Secret</label>
+                        <input
+                          type="password"
+                          value={mtnClientSecret || ''}
+                          onChange={(e) => { dispatch(setMtnClientSecret(e.target.value)); dispatch(saveSettings()); }}
+                          disabled={currentUser?.role === 'Admin Viewer'}
+                          placeholder="e.g. your-mtn-client-secret"
+                          className="btn"
+                          style={{ display: 'block', marginTop: 8, padding: '8px', width: '100%', maxWidth: '500px', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'text', background: '#fff', border: '1px solid #ccc' }}
+                        />
+                      </div>
+
+                      <div style={{ marginBottom: 16 }}>
+                        <label style={{ fontWeight: '600', display: 'block', marginBottom: '8px' }}>Environment</label>
+                        <select
+                          value={mtnEnvironment}
+                          onChange={(e) => { dispatch(setMtnEnvironment(e.target.value)); dispatch(saveSettings()); }}
+                          disabled={currentUser?.role === 'Admin Viewer'}
+                          className="btn"
+                          style={{ display: 'block', marginTop: 8, padding: '8px', width: '100%', maxWidth: '500px', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer', background: '#fff', border: '1px solid #ccc' }}
+                        >
+                          <option value="sandbox">Sandbox (Testing)</option>
+                          <option value="production">Production (Live)</option>
+                        </select>
+                      </div>
+
+                      {/* SMS Test Tool Section */}
+                      <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px solid #eee' }}>
+                        <h3 style={{ marginTop: 0, fontSize: '1.1rem', color: '#333' }}>Send Test SMS</h3>
+
+                        <div style={{ marginBottom: 16 }}>
+                          <label style={{ fontWeight: '600', display: 'block', marginBottom: '8px' }}>Test Phone Number</label>
+                          <input
+                            type="tel"
+                            value={mtnTestPhone}
+                            onChange={(e) => setMtnTestPhone(e.target.value)}
+                            placeholder="e.g. 233241234567"
+                            className="btn"
+                            style={{ display: 'block', marginTop: 8, padding: '8px', width: '100%', maxWidth: '500px', background: '#fff', border: '1px solid #ccc' }}
+                          />
+                          <small style={{ display: 'block', marginTop: '4px', color: '#666', fontSize: '0.75rem' }}>
+                            Enter destination phone number in international format without the "+" prefix (e.g. 233241234567).
+                          </small>
+                        </div>
+
+                        <div style={{ marginBottom: 16 }}>
+                          <label style={{ fontWeight: '600', display: 'block', marginBottom: '8px' }}>Test Message</label>
+                          <textarea
+                            value={mtnTestMessage}
+                            onChange={(e) => setMtnTestMessage(e.target.value)}
+                            placeholder="Type a test message..."
+                            className="btn"
+                            style={{ display: 'block', marginTop: 8, padding: '8px', width: '100%', maxWidth: '500px', height: '80px', background: '#fff', border: '1px solid #ccc' }}
+                          />
+                        </div>
+
+                        <div style={{ marginTop: 16 }}>
+                          <button
+                            type="button"
+                            onClick={handleSendTestSms}
+                            className="btn btn-primary"
+                            style={{ background: '#2e7d32', color: 'white', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', border: 'none', fontWeight: 600 }}
+                            disabled={mtnTesting || !mtnTestPhone || !mtnTestMessage}
+                          >
+                            {mtnTesting ? 'Sending Test...' : 'Send Test Message'}
+                          </button>
+                          
+                          {mtnTestStatus && (
+                            <div style={{ marginTop: 12, padding: '10px', borderRadius: '4px', border: `1px solid ${mtnTestStatus.success ? '#c5e1a5' : '#ffcdd2'}`, background: mtnTestStatus.success ? '#f1f8e9' : '#ffebee', color: mtnTestStatus.success ? '#33691e' : '#c62828', fontSize: '0.85rem' }}>
+                              {mtnTestStatus.success ? mtnTestStatus.message : mtnTestStatus.error}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+
                     </div>
                   </div>
                 )}

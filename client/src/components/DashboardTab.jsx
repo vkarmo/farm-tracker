@@ -532,28 +532,29 @@ export default function DashboardTab() {
       </div>
 
       {/* Sub-Tabs Selector */}
-      <div style={{ display: 'flex', gap: '4px', background: '#f1f5f9', padding: '4px', borderRadius: '8px', width: 'fit-content', marginBottom: '8px', flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', gap: '4px', background: '#f1f5f9', padding: '4px', borderRadius: '8px', width: 'fit-content', marginBottom: '16px', flexWrap: 'wrap' }}>
         <button
           onClick={() => setActiveDashboardTab('assignments')}
           style={{
-            padding: '8px 16px',
+            padding: '4px 6px',
             borderRadius: '6px',
             border: 'none',
             background: activeDashboardTab === 'assignments' ? 'white' : 'transparent',
             color: activeDashboardTab === 'assignments' ? '#2e7d32' : '#64748b',
             fontWeight: 600,
-            fontSize: '0.875rem',
+            fontSize: '1.875rem',
+            textTransform: 'capitalize',
             boxShadow: activeDashboardTab === 'assignments' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
             cursor: 'pointer',
             transition: 'all 0.2s ease'
           }}
         >
-          Current Assignments
+          ASSIGNMENTS
         </button>
         <button
           onClick={() => setActiveDashboardTab('incidents')}
           style={{
-            padding: '8px 16px',
+            padding: '4px 6px',
             borderRadius: '6px',
             border: 'none',
             background: activeDashboardTab === 'incidents' ? 'white' : 'transparent',
@@ -565,7 +566,7 @@ export default function DashboardTab() {
             transition: 'all 0.2s ease'
           }}
         >
-          Incidents
+          INCIDENTS
         </button>
         <button
           onClick={() => setActiveDashboardTab('deadlines')}
@@ -582,7 +583,7 @@ export default function DashboardTab() {
             transition: 'all 0.2s ease'
           }}
         >
-          Deadlines
+          DEADLINES
         </button>
         <button
           onClick={() => setActiveDashboardTab('weather')}
@@ -599,7 +600,7 @@ export default function DashboardTab() {
             transition: 'all 0.2s ease'
           }}
         >
-          Weather
+          WEATHER
         </button>
         <button
           onClick={() => setActiveDashboardTab('harvests')}
@@ -616,7 +617,7 @@ export default function DashboardTab() {
             transition: 'all 0.2s ease'
           }}
         >
-          Harvests
+          HARVESTS
         </button>
         <button
           onClick={() => setActiveDashboardTab('financials')}
@@ -633,7 +634,7 @@ export default function DashboardTab() {
             transition: 'all 0.2s ease'
           }}
         >
-          Financials
+          FINANCIALS
         </button>
       </div>
 
@@ -1048,7 +1049,7 @@ export default function DashboardTab() {
                     <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '900px' }}>
                       <thead>
                         <tr style={{ background: '#f5f7fa', borderBottom: '2px solid var(--color-border-light)' }}>
-                          <th style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', textTransform: 'uppercase', fontWeight: 700 }}>Progress</th>
+                          <th style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', textTransform: 'uppercase', fontWeight: 700 }}></th>
                           <th style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', textTransform: 'uppercase', fontWeight: 700, whiteSpace: 'nowrap' }}>Plan Health</th>
                           <th style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', textTransform: 'uppercase', fontWeight: 700, width: '180px', minWidth: '180px', whiteSpace: 'nowrap' }}>Approval Status</th>
                           <th style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', textTransform: 'uppercase', fontWeight: 700, width: '220px', minWidth: '220px', maxWidth: '220px' }}>Tasks</th>

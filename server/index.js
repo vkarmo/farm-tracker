@@ -3,6 +3,28 @@ const cors = require('cors');
 const neo4j = require('neo4j-driver');
 require('dotenv').config();
 const ee = require('@google/earthengine');
+const https = require('https');
+
+function makeHttpsRequest(url, options, postData) {
+  return new Promise((resolve, reject) => {
+    const req = https.request(url, options, (res) => {
+      let data = '';
+      res.on('data', (chunk) => { data += chunk; });
+      res.on('end', () => {
+        resolve({
+          statusCode: res.statusCode,
+          headers: res.headers,
+          body: data
+        });
+      });
+    });
+    req.on('error', (e) => { reject(e); });
+    if (postData) {
+      req.write(postData);
+    }
+    req.end();
+  });
+}
 
 let currentGeeCredsStr = '';
 let geeInitialized = false;
@@ -271,6 +293,124 @@ app.post('/api/gee/test-connection', async (req, res) => {
   } catch (err) {
     console.error('[GEE Connection Test] Failed:', err);
     res.status(500).json({ success: false, error: err.message || 'Connection test failed.' });
+  } finally {
+    await session.close();
+  }
+});
+
+// MTN SMS Connection Test endpoint
+app.post('/api/sms/test', async (req, res) => {
+  const session = driver.session();
+  try {
+    const { clientId, clientSecret, phoneNumber, message, environment } = req.body;
+    
+    let creds = { clientId, clientSecret, environment };
+    
+    if (!creds.clientId || !creds.clientSecret || !creds.environment) {
+      const result = await session.run("MATCH (n:GlobalSettings {id: 'default'}) RETURN n");
+      if (result.records.length > 0) {
+        const props = result.records[0].get('n').properties;
+        creds = {
+          clientId: props.mtnClientId || creds.clientId,
+          clientSecret: props.mtnClientSecret || creds.clientSecret,
+          environment: props.mtnEnvironment || creds.environment
+        };
+      }
+    }
+    
+    if (!creds.clientId || !creds.clientSecret) {
+      return res.status(400).json({ success: false, error: 'MTN SMS Client ID and Client Secret are not specified.' });
+    }
+    
+    if (!phoneNumber) {
+      return res.status(400).json({ success: false, error: 'Recipient phone number is required.' });
+    }
+    
+    if (!message) {
+      return res.status(400).json({ success: false, error: 'Message content is required.' });
+    }
+
+    const env = (creds.environment || 'sandbox').toLowerCase() === 'production' ? 'production' : 'sandbox';
+    const baseUrl = env === 'production' ? 'https://api.mtn.com' : 'https://sandbox.api.mtn.com';
+
+    console.info(`[MTN SMS Test] Authenticating for clientId: ${creds.clientId} [Env: ${env}]`);
+    
+    // Step 1: OAuth Token exchange
+    const authUrl = `${baseUrl}/v1/oauth/access_token/accesstoken?grant_type=client_credentials`;
+    const authBody = `client_id=${encodeURIComponent(creds.clientId)}&client_secret=${encodeURIComponent(creds.clientSecret)}`;
+    const basicAuth = 'Basic ' + Buffer.from(`${creds.clientId}:${creds.clientSecret}`).toString('base64');
+    
+    const authRes = await makeHttpsRequest(authUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Authorization': basicAuth,
+        'Content-Length': Buffer.byteLength(authBody)
+      }
+    }, authBody);
+
+    if (authRes.statusCode !== 200) {
+      console.error('[MTN SMS Test] Authentication failed status:', authRes.statusCode, 'body:', authRes.body);
+      let errorDetail = 'OAuth exchange failed.';
+      try {
+        const parsed = JSON.parse(authRes.body);
+        if (parsed.message) errorDetail = parsed.message;
+        else if (parsed.error_description) errorDetail = parsed.error_description;
+      } catch (e) {
+        if (authRes.body) errorDetail = authRes.body.substring(0, 100);
+      }
+      return res.status(authRes.statusCode || 500).json({ success: false, error: `Authentication failed: ${errorDetail}` });
+    }
+
+    let tokenData;
+    try {
+      tokenData = JSON.parse(authRes.body);
+    } catch (e) {
+      return res.status(500).json({ success: false, error: 'Failed to parse OAuth response from MTN.' });
+    }
+
+    const accessToken = tokenData.access_token;
+    if (!accessToken) {
+      return res.status(500).json({ success: false, error: 'OAuth response did not contain an access_token.' });
+    }
+
+    // Step 2: Send SMS
+    const sendUrl = `${baseUrl}/v3/sms/messages/sms/outbound`;
+    const sendBody = JSON.stringify({
+      senderAddress: 'FarmTracker',
+      receiverAddress: [phoneNumber],
+      message: message,
+      clientCorrelatorId: `ft-${Date.now()}`
+    });
+
+    console.info('[MTN SMS Test] Sending message to:', phoneNumber);
+    const sendRes = await makeHttpsRequest(sendUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${accessToken}`,
+        'Content-Length': Buffer.byteLength(sendBody)
+      }
+    }, sendBody);
+
+    if (sendRes.statusCode >= 200 && sendRes.statusCode < 300) {
+      return res.json({ success: true, message: 'Test message sent successfully!' });
+    } else {
+      console.error('[MTN SMS Test] Send SMS failed status:', sendRes.statusCode, 'body:', sendRes.body);
+      let errorDetail = 'Message send request failed.';
+      try {
+        const parsed = JSON.parse(sendRes.body);
+        if (parsed.message) errorDetail = parsed.message;
+        else if (parsed.description) errorDetail = parsed.description;
+      } catch (e) {
+        if (sendRes.body) errorDetail = sendRes.body.substring(0, 100);
+      }
+      return res.status(sendRes.statusCode || 500).json({ success: false, error: `Failed to send SMS: ${errorDetail}` });
+    }
+
+  } catch (err) {
+    console.error('[MTN SMS Test] Failed:', err);
+    res.status(500).json({ success: false, error: err.message || 'Test SMS request failed.' });
   } finally {
     await session.close();
   }
