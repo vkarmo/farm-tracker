@@ -85,6 +85,7 @@ export default function DashboardTab() {
     return geeWeatherData;
   }, [geeWeatherData, simulateHighWinds]);
   const [activeWeatherTab, setActiveWeatherTab] = useState('current');
+  const [showRainProbability, setShowRainProbability] = useState(false);
   const [activeDashboardTab, setActiveDashboardTab] = useState('assignments');
   const [selectedCropIds, setSelectedCropIds] = useState([]);
   const [harvestFromDate, setHarvestFromDate] = useState('');
@@ -159,7 +160,7 @@ export default function DashboardTab() {
       try {
         const [lat, lng] = weatherLocations[selectedLocIndex].coords;
         // Open-Meteo free API
-        const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min&timezone=auto&temperature_unit=fahrenheit`);
+        const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min&hourly=precipitation_probability&timezone=auto&temperature_unit=fahrenheit`);
         const data = await res.json();
         if (isMounted) {
           setWeatherData(data);
@@ -434,6 +435,14 @@ export default function DashboardTab() {
       ? '2px solid rgba(181, 137, 0, 0.3)'
       : '2px solid rgba(27, 94, 32, 0.3)';
 
+    let hourlyProbabilities = [];
+    if (weatherData.hourly && weatherData.hourly.precipitation_probability) {
+      hourlyProbabilities = weatherData.hourly.precipitation_probability.slice(idx * 24, (idx + 1) * 24);
+    }
+    if (hourlyProbabilities.length === 0) {
+      hourlyProbabilities = Array(24).fill(0);
+    }
+
     return (
       <div
         key={time}
@@ -451,7 +460,8 @@ export default function DashboardTab() {
           textAlign: 'center',
           gap: '8px',
           transition: 'transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out',
-          cursor: 'default'
+          cursor: 'default',
+          minHeight: '215px'
         }}
         onMouseEnter={(e) => {
           e.currentTarget.style.transform = 'translateY(-3px)';
@@ -468,28 +478,68 @@ export default function DashboardTab() {
         <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '-4px', fontWeight: 500 }}>
           {dateString}
         </div>
-        <div style={{
-          width: '76px',
-          height: '76px',
-          borderRadius: '50%',
-          background: bgGradient,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          margin: '8px 0',
-          boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
-          border: ringBorder
-        }}>
-          {getWeatherIcon(weatherCode, tempMax, 46)}
-        </div>
-        <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#1e293b', minHeight: '34px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          {description}
-        </div>
-        <div style={{ display: 'flex', gap: '8px', fontSize: '0.95rem', marginTop: '4px', alignItems: 'center' }}>
-          <span style={{ fontWeight: 800, color: '#dc2626' }}>{tempMax}°</span>
-          <span style={{ color: '#cbd5e1', fontWeight: 300 }}>|</span>
-          <span style={{ color: '#2563eb', fontWeight: 800 }}>{tempMin}°</span>
-        </div>
+
+        {showRainProbability ? (
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', margin: '8px 0', flex: 1, justifyContent: 'center' }}>
+            <svg width="108" height="60" style={{ overflow: 'visible' }}>
+              {hourlyProbabilities.map((prob, i) => {
+                const height = 50;
+                const barWidth = 3;
+                const gap = 1.5;
+                const barHeight = (prob / 100) * height;
+                const x = i * (barWidth + gap);
+                const y = height - barHeight;
+                const fillColor = `rgba(37, 99, 235, ${0.2 + (prob / 100) * 0.8})`;
+                return (
+                  <rect
+                    key={i}
+                    x={x}
+                    y={y}
+                    width={barWidth}
+                    height={Math.max(barHeight, 1.5)}
+                    rx="1"
+                    fill={fillColor}
+                  >
+                    <title>{`${i}:00: ${prob}% rain chance`}</title>
+                  </rect>
+                );
+              })}
+            </svg>
+            <div style={{ display: 'flex', justifyContent: 'space-between', width: '108px', fontSize: '0.6rem', color: '#64748b', marginTop: '4px', fontWeight: 600 }}>
+              <span>12A</span>
+              <span>12P</span>
+              <span>11P</span>
+            </div>
+            <div style={{ fontSize: '0.75rem', fontWeight: 800, color: '#2563eb', marginTop: '8px' }}>
+              Peak: {Math.max(...hourlyProbabilities)}%
+            </div>
+          </div>
+        ) : (
+          <>
+            <div style={{
+              width: '76px',
+              height: '76px',
+              borderRadius: '50%',
+              background: bgGradient,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              margin: '8px 0',
+              boxShadow: '0 4px 12px rgba(0,0,0,0.08)',
+              border: ringBorder
+            }}>
+              {getWeatherIcon(weatherCode, tempMax, 46)}
+            </div>
+            <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#1e293b', minHeight: '34px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              {description}
+            </div>
+            <div style={{ display: 'flex', gap: '8px', fontSize: '0.95rem', marginTop: '4px', alignItems: 'center' }}>
+              <span style={{ fontWeight: 800, color: '#dc2626' }}>{tempMax}°</span>
+              <span style={{ color: '#cbd5e1', fontWeight: 300 }}>|</span>
+              <span style={{ color: '#2563eb', fontWeight: 800 }}>{tempMin}°</span>
+            </div>
+          </>
+        )}
       </div>
     );
   };
@@ -933,69 +983,58 @@ export default function DashboardTab() {
                   </div>
                 </div>
               ) : (
-                /* 7-Day Forecast Tab: Grouped by Mon-Thur and Fri-Sun with pronounced graphics */
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px', width: '100%' }}>
-
-                  {/* Monday - Thursday (Workdays) Section */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                /* 7-Day Forecast Tab: Sequential Date Order */
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px' }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
                       <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px', borderRadius: '50%', background: '#e8f5e9', color: '#1b5e20' }}>
-                        <Clock size={18} />
+                        <ThermometerSun size={18} />
                       </span>
                       <h4 style={{ fontSize: '1rem', fontWeight: 700, color: '#1b5e20', margin: 0 }}>
-                        Workdays (Monday - Thursday)
+                        7-Day Weather Forecast
                       </h4>
-                      <div style={{ flex: 1, height: '2px', background: 'linear-gradient(to right, #c8e6c9, transparent)' }}></div>
                     </div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', width: '100%' }}>
-                      {(() => {
-                        const items = [];
-                        weatherData.daily?.time?.forEach((time, idx) => {
-                          const date = new Date(time + 'T00:00:00');
-                          const dayOfWeek = date.getDay(); // 0: Sun, 1: Mon, ..., 4: Thu, 5: Fri, 6: Sat
-                          if (dayOfWeek >= 1 && dayOfWeek <= 4) {
-                            items.push(renderForecastCard(time, idx, date, false));
-                          }
-                        });
-                        return items.length > 0 ? items : (
-                          <div style={{ fontSize: '0.85rem', color: '#64748b', fontStyle: 'italic', padding: '12px', background: '#f8fafc', borderRadius: '8px', border: '1px dashed #e2e8f0', width: '100%', textAlign: 'center' }}>
-                            No forecast days available for Monday - Thursday.
-                          </div>
-                        );
-                      })()}
-                    </div>
-                  </div>
 
-                  {/* Friday - Sunday (Weekend) Section */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                      <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '6px', borderRadius: '50%', background: '#fff9e6', color: '#b58900' }}>
-                        <Sun size={18} />
-                      </span>
-                      <h4 style={{ fontSize: '1rem', fontWeight: 700, color: '#b58900', margin: 0 }}>
-                        Weekend (Friday - Sunday)
-                      </h4>
-                      <div style={{ flex: 1, height: '2px', background: 'linear-gradient(to right, #ffe082, transparent)' }}></div>
-                    </div>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', width: '100%' }}>
-                      {(() => {
-                        const items = [];
-                        weatherData.daily?.time?.forEach((time, idx) => {
-                          const date = new Date(time + 'T00:00:00');
-                          const dayOfWeek = date.getDay(); // 0: Sun, 1: Mon, ..., 4: Thu, 5: Fri, 6: Sat
-                          if (dayOfWeek === 5 || dayOfWeek === 6 || dayOfWeek === 0) {
-                            items.push(renderForecastCard(time, idx, date, true));
-                          }
-                        });
-                        return items.length > 0 ? items : (
-                          <div style={{ fontSize: '0.85rem', color: '#64748b', fontStyle: 'italic', padding: '12px', background: '#f8fafc', borderRadius: '8px', border: '1px dashed #e2e8f0', width: '100%', textAlign: 'center' }}>
-                            No forecast days available for Friday - Sunday.
-                          </div>
-                        );
-                      })()}
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowRainProbability(!showRainProbability)}
+                      style={{
+                        padding: '6px 12px',
+                        borderRadius: '6px',
+                        border: '1px solid #c8e6c9',
+                        background: showRainProbability ? '#e8f5e9' : 'white',
+                        color: '#1b5e20',
+                        fontSize: '0.8rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        transition: 'all 0.2s ease'
+                      }}
+                    >
+                      <CloudRain size={14} />
+                      {showRainProbability ? 'Hide Rain Chance' : 'Show Rain Chance'}
+                    </button>
                   </div>
-
+                  <div style={{ flex: 1, height: '2px', background: 'linear-gradient(to right, #c8e6c9, transparent)', marginTop: '-8px', marginBottom: '8px' }}></div>
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px', width: '100%' }}>
+                    {(() => {
+                      const items = [];
+                      weatherData.daily?.time?.forEach((time, idx) => {
+                        const parts = time.split('-');
+                        const date = new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+                        const dayOfWeek = date.getDay();
+                        const isWeekend = dayOfWeek === 0 || dayOfWeek === 5 || dayOfWeek === 6;
+                        items.push(renderForecastCard(time, idx, date, isWeekend));
+                      });
+                      return items.length > 0 ? items : (
+                        <div style={{ fontSize: '0.85rem', color: '#64748b', fontStyle: 'italic', padding: '12px', background: '#f8fafc', borderRadius: '8px', border: '1px dashed #e2e8f0', width: '100%', textAlign: 'center' }}>
+                          No forecast days available.
+                        </div>
+                      );
+                    })()}
+                  </div>
                 </div>
               )
             ) : (
