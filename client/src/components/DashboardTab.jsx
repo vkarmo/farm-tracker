@@ -49,12 +49,16 @@ export default function DashboardTab() {
   const mapCenter = useSelector(state => state.settings?.mapCenter) || [51.505, -0.09];
   const simulateHighWinds = useSelector(state => state.settings?.simulateHighWinds) || false;
 
-  const [selectedLocIndex, setSelectedLocIndex] = useState(0);
+  const [selectedLocId, setSelectedLocId] = useState('default');
   const [weatherData, setWeatherData] = useState(null);
   const [weatherLoading, setWeatherLoading] = useState(true);
   const [geeWeatherData, setGeeWeatherData] = useState(null);
   const [geeWeatherLoading, setGeeWeatherLoading] = useState(false);
   const [geeWeatherError, setGeeWeatherError] = useState(null);
+  const [deviceCoords, setDeviceCoords] = useState(null);
+  const [deviceCoordsLoading, setDeviceCoordsLoading] = useState(false);
+  const [deviceCoordsError, setDeviceCoordsError] = useState(null);
+  const [deviceLocationName, setDeviceLocationName] = useState('');
 
   const effectiveGeeWeatherLoading = simulateHighWinds ? false : geeWeatherLoading;
 
@@ -147,18 +151,99 @@ export default function DashboardTab() {
     return names.join(', ');
   };
 
-  const weatherLocations = useMemo(() => [
-    { label: 'Default Farm Location', coords: mapCenter },
-    { label: 'Bomi County, Liberia', coords: [6.7319579, -10.8700117] }
-  ].sort((a, b) => (a.label || '').localeCompare(b.label || '')), [mapCenter]);
+  const weatherLocations = useMemo(() => {
+    const list = [
+      { id: 'default', label: 'Default Farm Location', coords: mapCenter },
+      { id: 'bomi', label: 'Bomi County, Liberia', coords: [6.7319579, -10.8700117] }
+    ];
+    if (deviceCoords) {
+      list.push({ id: 'device', label: deviceLocationName || 'Current Device Location', coords: deviceCoords });
+    } else if (deviceCoordsLoading) {
+      list.push({ id: 'device', label: 'Current Device Location (Locating...)', coords: null });
+    } else if (deviceCoordsError) {
+      list.push({ id: 'device', label: 'Current Device Location (Error - Click to Retry)', coords: null });
+    } else {
+      list.push({ id: 'device', label: 'Current Device Location', coords: null });
+    }
+    return list.sort((a, b) => (a.label || '').localeCompare(b.label || ''));
+  }, [mapCenter, deviceCoords, deviceCoordsLoading, deviceCoordsError, deviceLocationName]);
 
   // Fetch Weather Data
   useEffect(() => {
     let isMounted = true;
     const fetchWeather = async () => {
+      const loc = weatherLocations.find(l => l.id === selectedLocId);
+      if (!loc) return;
+
+      let coords = loc.coords;
+
+      if (!coords && loc.id === 'device') {
+        if (deviceCoordsLoading) return;
+        if (navigator.geolocation) {
+          setDeviceCoordsLoading(true);
+          setDeviceCoordsError(null);
+          navigator.geolocation.getCurrentPosition(
+            (position) => {
+              const lat = position.coords.latitude;
+              const lng = position.coords.longitude;
+              const newCoords = [lat, lng];
+
+              // Call reverse geocoder to determine City, Country
+              fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`)
+                .then(r => r.json())
+                .then(json => {
+                  const placeName = json.city || json.locality || json.principalSubdivision || '';
+                  const country = json.countryName || '';
+                  let label = '';
+                  if (placeName && country) {
+                    label = `${placeName}, ${country}`;
+                  } else {
+                    label = placeName || country || 'Current Device Location';
+                  }
+
+                  if (isMounted) {
+                    setDeviceLocationName(label);
+                    setDeviceCoords(newCoords);
+                    setDeviceCoordsLoading(false);
+                  }
+                })
+                .catch(err => {
+                  console.warn('Error reverse geocoding device coordinates:', err);
+                  if (isMounted) {
+                    setDeviceLocationName('Current Device Location');
+                    setDeviceCoords(newCoords);
+                    setDeviceCoordsLoading(false);
+                  }
+                });
+            },
+            (error) => {
+              console.warn('Error getting device location for weather:', error);
+              if (isMounted) {
+                let msg = 'Position unavailable';
+                if (error.code === 1) {
+                  msg = 'Permission denied';
+                } else if (error.code === 2) {
+                  msg = 'Position unavailable';
+                } else if (error.code === 3) {
+                  msg = 'Timeout';
+                }
+                setDeviceCoordsError(msg);
+                setDeviceCoordsLoading(false);
+              }
+            },
+            { enableHighAccuracy: true, timeout: 15000, maximumAge: 10000 }
+          );
+        } else {
+          setDeviceCoordsError('Geolocation is not supported by this browser.');
+        }
+        return;
+      }
+
+      if (!coords) return;
+
       setWeatherLoading(true);
       try {
-        const [lat, lng] = weatherLocations[selectedLocIndex].coords;
+        const [lat, lng] = coords;
         // Open-Meteo free API
         const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lng}&current=temperature_2m,relative_humidity_2m,weather_code,wind_speed_10m&daily=weather_code,temperature_2m_max,temperature_2m_min&hourly=precipitation_probability&timezone=auto&temperature_unit=fahrenheit`);
         const data = await res.json();
@@ -173,16 +258,19 @@ export default function DashboardTab() {
     };
     fetchWeather();
     return () => { isMounted = false; };
-  }, [weatherLocations, selectedLocIndex]);
+  }, [weatherLocations, selectedLocId]);
 
   // Fetch GEE Weather Data
   useEffect(() => {
     let isMounted = true;
     const fetchGeeWeather = async () => {
+      const loc = weatherLocations.find(l => l.id === selectedLocId);
+      if (!loc || !loc.coords) return;
+
       setGeeWeatherLoading(true);
       setGeeWeatherError(null);
       try {
-        const [lat, lng] = weatherLocations[selectedLocIndex].coords;
+        const [lat, lng] = loc.coords;
         const polygon = [
           [lat - 0.005, lng - 0.005],
           [lat + 0.005, lng - 0.005],
@@ -211,7 +299,7 @@ export default function DashboardTab() {
     };
     fetchGeeWeather();
     return () => { isMounted = false; };
-  }, [weatherLocations, selectedLocIndex]);
+  }, [weatherLocations, selectedLocId]);
 
   // Weather Code to Icon Mapper
   const getWeatherIcon = (code, temp, size = 24) => {
@@ -857,17 +945,36 @@ export default function DashboardTab() {
                 </button>
               </div>
               <select
-                value={selectedLocIndex}
-                onChange={(e) => setSelectedLocIndex(Number(e.target.value))}
+                value={selectedLocId}
+                onChange={(e) => setSelectedLocId(e.target.value)}
                 style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #ccc', background: 'white', fontWeight: 600, color: 'var(--color-primary-dark)', cursor: 'pointer' }}
               >
-                {weatherLocations.map((loc, idx) => (
-                  <option key={idx} value={idx}>{loc.label}</option>
+                {weatherLocations.map((loc) => (
+                  <option key={loc.id} value={loc.id}>{loc.label}</option>
                 ))}
               </select>
             </div>
 
-            {weatherLoading ? (
+            {deviceCoordsError ? (
+              <div style={{ 
+                textAlign: 'center', 
+                padding: '30px 20px', 
+                color: '#c62828', 
+                background: '#ffebee', 
+                borderRadius: '8px', 
+                margin: '20px 0',
+                border: '1px solid rgba(198, 40, 40, 0.2)'
+              }}>
+                <span style={{ display: 'inline-block', marginRight: '8px', fontSize: '1.2rem' }}>⚠️</span>
+                <strong style={{ display: 'block', marginBottom: '4px' }}>Geolocation Failed</strong>
+                <span style={{ fontSize: '0.85rem' }}>Error details: {deviceCoordsError}. Please ensure location services and browser permissions are enabled.</span>
+              </div>
+            ) : deviceCoordsLoading ? (
+              <div style={{ textAlign: 'center', padding: '40px 20px', color: '#888' }}>
+                <span style={{ display: 'inline-block', marginRight: '8px' }}>⌛</span>
+                Retrieving device GPS location...
+              </div>
+            ) : weatherLoading ? (
               <div style={{ textAlign: 'center', padding: '40px 20px', color: '#888' }}>Loading weather data...</div>
             ) : weatherData && weatherData.current ? (
               activeWeatherTab === 'current' ? (
