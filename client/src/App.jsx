@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
+import Select from 'react-select';
 import { fetchFields } from './store/fieldsSlice';
 import { addUnit, removeUnit, addJobTitle, removeJobTitle, addExpenseCategory, removeExpenseCategory, addIncomeCategory, removeIncomeCategory, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold, setAppName, addAnimalType, removeAnimalType, saveSettings, setGeeClientEmail, setGeePrivateKey, setGeeProjectId, setGeeScale, setOwmApiKey, setThemeAppBgColor, setThemeCardBgColor, setThemeCardBorderColor, setThemeCardBorderThickness, setThemeAppBorderColor, setThemeAppBorderThickness, setThemeFontName, setThemeFontSizeBase, setThemeFontSizeCardTitle, setThemeFontSizeTabs, setThemeColorPrimary, setThemeColorCardTitle, setThemeColorTabsActiveBg, setThemeColorTabsActiveText, setThemeColorTabsInactiveBg, setThemeColorTabsInactiveText, setThemeFontAppName, setThemeFontSizeAppName, setThemeFontAppNameBold, setThemeFontAppNameCapitalize, setThemeFontSizeBaseBold, setThemeFontSizeBaseCapitalize, setThemeFontSizeCardTitleBold, setThemeFontSizeCardTitleCapitalize, setThemeFontSizeTabsBold, setThemeFontSizeTabsCapitalize, setThemeFontImager, setThemeFontSizeImager, setThemeFontImagerBold, setThemeFontImagerCapitalize, setMtnClientId, setMtnClientSecret, setMtnEnvironment, setSimulateHighWinds } from './store/settingsSlice';
 import { addLocation } from './store/gpsSlice';
@@ -27,7 +28,7 @@ import 'leaflet/dist/leaflet.css';
 import { CACHE_NAME } from './config/cache';
 import packageJson from '../package.json';
 
-import { Wifi, WifiOff, CloudOff, Target, Tractor, Leaf, DollarSign, MapPin, Rabbit, Settings, BarChart, Layers, Box, ClipboardList, ShieldAlert, Calculator, CalendarClock, AlertTriangle, LogOut, Database, Users, Contact, Briefcase, RefreshCw, Home, Baby, FlaskConical, Map, Check, ChevronDown, ChevronRight } from 'lucide-react';
+import { Wifi, WifiOff, CloudOff, Target, Tractor, Leaf, DollarSign, MapPin, Rabbit, Settings, BarChart, Layers, Box, ClipboardList, ShieldAlert, Calculator, CalendarClock, AlertTriangle, LogOut, Database, Users, Contact, Briefcase, RefreshCw, Home, Baby, FlaskConical, Map, Check, ChevronDown, ChevronRight, MessageSquare } from 'lucide-react';
 import NmkLogo from './components/NmkLogo';
 import MapLayer from './MapLayer';
 
@@ -58,6 +59,7 @@ import PoiTab from './components/PoiTab';
 import SyncTab from './components/SyncTab';
 import AuditTab from './components/AuditTab';
 import GpsLogTab from './components/GpsLogTab';
+import MessagingTab from './components/MessagingTab';
 import { logout, stopImpersonating } from './store/authSlice';
 import { logAction } from './store/auditSlice';
 
@@ -99,6 +101,7 @@ export default function App() {
   const mtnClientId = useSelector(state => state.settings?.mtnClientId) || '';
   const mtnClientSecret = useSelector(state => state.settings?.mtnClientSecret) || '';
   const mtnEnvironment = useSelector(state => state.settings?.mtnEnvironment) || 'sandbox';
+  const employees = useSelector(state => state.employees?.list) || [];
   const themeAppBgColor = useSelector(state => state.settings?.themeAppBgColor) || '#eeeef1';
   const themeCardBgColor = useSelector(state => state.settings?.themeCardBgColor) || '#ffffff';
   const themeCardBorderColor = useSelector(state => state.settings?.themeCardBorderColor) || '#e0e0e0';
@@ -148,7 +151,18 @@ export default function App() {
   const [mtnTesting, setMtnTesting] = useState(false);
   const [mtnTestStatus, setMtnTestStatus] = useState(null);
   const [mtnTestPhone, setMtnTestPhone] = useState('');
+  const [selectedMtnEmployees, setSelectedMtnEmployees] = useState([]);
   const [mtnTestMessage, setMtnTestMessage] = useState('This is a test message from FarmTracker.');
+
+  const employeeOptions = useMemo(() => {
+    return employees
+      .filter(e => !e.isTerminated && e.phone)
+      .map(e => ({
+        value: e.id,
+        label: `${e.firstName} ${e.lastName} (${e.phone})`,
+        phone: e.phone
+      }));
+  }, [employees]);
 
   const prevTotalQueued = useRef(totalActionsQueued);
 
@@ -206,6 +220,32 @@ export default function App() {
   const handleSendTestSms = async () => {
     setMtnTesting(true);
     setMtnTestStatus(null);
+
+    const sanitizePhoneNumber = (phone) => {
+      if (!phone) return '';
+      return phone.replace(/[+\-()\s]/g, '');
+    };
+
+    // Split manual phone numbers by comma or whitespace, sanitize them
+    const manualNumbers = (mtnTestPhone || '')
+      .split(/[\s,]+/)
+      .map(num => sanitizePhoneNumber(num))
+      .filter(num => num.length > 0);
+
+    // Get phone numbers from selected employees, sanitize them
+    const employeeNumbers = (selectedMtnEmployees || [])
+      .map(emp => sanitizePhoneNumber(emp.phone))
+      .filter(num => num.length > 0);
+
+    // Merge and deduplicate
+    const combinedRecipients = Array.from(new Set([...manualNumbers, ...employeeNumbers]));
+
+    if (combinedRecipients.length === 0) {
+      setMtnTestStatus({ success: false, error: 'Please enter a test phone number or select at least one employee.' });
+      setMtnTesting(false);
+      return;
+    }
+
     try {
       const response = await fetch('/api/sms/test', {
         method: 'POST',
@@ -213,7 +253,7 @@ export default function App() {
         body: JSON.stringify({
           clientId: mtnClientId,
           clientSecret: mtnClientSecret,
-          phoneNumber: mtnTestPhone,
+          phoneNumber: combinedRecipients,
           message: mtnTestMessage,
           environment: mtnEnvironment
         })
@@ -788,6 +828,12 @@ export default function App() {
 
               <div style={{ width: '1px', background: '#ccc', margin: '4px 2px', flexShrink: 0 }}></div>
 
+              {hasAccess('messaging') && (
+                <button onClick={() => { setActiveTab('messaging'); setActiveModule(null); }} className={`btn toolbar-btn ${activeTab === 'messaging' ? 'btn-primary' : ''}`} style={{ background: activeTab === 'messaging' ? '#2e7d32' : 'transparent', color: activeTab === 'messaging' ? 'white' : '#555', borderColor: 'transparent' }} title="Messaging">
+                  <MessageSquare size={18} />
+                </button>
+              )}
+
               <button onClick={() => setActiveTab('sync')} className={`btn toolbar-btn ${activeTab === 'sync' ? 'btn-primary' : ''}`} style={{ background: activeTab === 'sync' ? (!backendAvailable ? '#d32f2f' : '#1565c0') : 'transparent', color: activeTab === 'sync' ? 'white' : (!backendAvailable ? '#d32f2f' : '#1565c0'), borderColor: 'transparent' }} title="System Sync">
                 <RefreshCw size={18} className={isSyncing ? "spin" : ""} />
               </button>
@@ -805,7 +851,7 @@ export default function App() {
           </div>
         </header>
 
-        <nav className="tab-nav" style={{ display: activeTab === 'sync' ? 'none' : 'flex' }}>
+        <nav className="tab-nav" style={{ display: (activeTab === 'sync' || activeTab === 'messaging') ? 'none' : 'flex' }}>
           {activeModule === 'overview' && (
             <>
               {hasAccess('dashboard') && <button onClick={() => setActiveTab('dashboard')} className={`btn ${activeTab === 'dashboard' ? 'tab-btn-active' : ''}`}><BarChart size={16} style={{ marginRight: 6 }} /> Dashboard</button>}
@@ -904,6 +950,7 @@ export default function App() {
           {activeTab === 'access' && <AccessControlTab />}
           {activeTab === 'audit' && <AuditTab />}
           {activeTab === 'gps' && <GpsLogTab />}
+          {activeTab === 'messaging' && <MessagingTab />}
 
           {activeTab === 'settings' && (currentUser?.role === 'Admin' || currentUser?.role === 'Admin Viewer') && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -2107,17 +2154,77 @@ export default function App() {
                         <h3 style={{ marginTop: 0, fontSize: '1.1rem', color: '#333' }}>Send Test SMS</h3>
 
                         <div style={{ marginBottom: 16 }}>
-                          <label style={{ fontWeight: '600', display: 'block', marginBottom: '8px' }}>Test Phone Number</label>
+                          <label style={{ fontWeight: '600', display: 'block', marginBottom: '8px' }}>Select Employee Recipients</label>
+                          <Select
+                            isMulti
+                            options={employeeOptions}
+                            value={selectedMtnEmployees}
+                            onChange={setSelectedMtnEmployees}
+                            placeholder="Search and select employees..."
+                            styles={{
+                              control: (base, state) => ({
+                                ...base,
+                                borderColor: state.isFocused ? '#2e7d32' : '#ccc',
+                                boxShadow: state.isFocused ? '0 0 0 1px #2e7d32' : null,
+                                '&:hover': {
+                                  borderColor: state.isFocused ? '#2e7d32' : '#999',
+                                },
+                                minHeight: '40px',
+                                borderRadius: '6px',
+                                width: '100%',
+                                maxWidth: '500px',
+                                background: '#fff',
+                              }),
+                              multiValue: (base) => ({
+                                ...base,
+                                backgroundColor: '#e8f5e9',
+                                borderRadius: '4px',
+                              }),
+                              multiValueLabel: (base) => ({
+                                ...base,
+                                color: '#2e7d32',
+                                fontWeight: '500',
+                              }),
+                              multiValueRemove: (base) => ({
+                                ...base,
+                                color: '#2e7d32',
+                                ':hover': {
+                                  backgroundColor: '#c8e6c9',
+                                  color: '#1b5e20',
+                                },
+                              }),
+                              option: (base, state) => ({
+                                ...base,
+                                backgroundColor: state.isSelected
+                                  ? '#2e7d32'
+                                  : state.isFocused
+                                  ? '#e8f5e9'
+                                  : 'transparent',
+                                color: state.isSelected
+                                  ? '#fff'
+                                  : state.isFocused
+                                  ? '#2e7d32'
+                                  : '#333',
+                                ':active': {
+                                  backgroundColor: '#c8e6c9',
+                                },
+                              }),
+                            }}
+                          />
+                        </div>
+
+                        <div style={{ marginBottom: 16 }}>
+                          <label style={{ fontWeight: '600', display: 'block', marginBottom: '8px' }}>Test Phone Number(s)</label>
                           <input
-                            type="tel"
+                            type="text"
                             value={mtnTestPhone}
                             onChange={(e) => setMtnTestPhone(e.target.value)}
-                            placeholder="e.g. 233241234567"
+                            placeholder="e.g. 233241234567, 233247654321"
                             className="btn"
                             style={{ display: 'block', marginTop: 8, padding: '8px', width: '100%', maxWidth: '500px', background: '#fff', border: '1px solid #ccc' }}
                           />
                           <small style={{ display: 'block', marginTop: '4px', color: '#666', fontSize: '0.75rem' }}>
-                            Enter destination phone number in international format without the "+" prefix (e.g. 233241234567).
+                            Enter destination phone number(s) in international format without the "+" prefix, separated by commas or spaces.
                           </small>
                         </div>
 
@@ -2138,7 +2245,7 @@ export default function App() {
                             onClick={handleSendTestSms}
                             className="btn btn-primary"
                             style={{ background: '#2e7d32', color: 'white', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', border: 'none', fontWeight: 600 }}
-                            disabled={mtnTesting || !mtnTestPhone || !mtnTestMessage}
+                            disabled={mtnTesting || (!(mtnTestPhone || '').trim() && (selectedMtnEmployees || []).length === 0) || !mtnTestMessage}
                           >
                             {mtnTesting ? 'Sending Test...' : 'Send Test Message'}
                           </button>

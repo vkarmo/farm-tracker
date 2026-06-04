@@ -17,7 +17,8 @@ const AVAILABLE_TABS = [
   { id: 'deadline', label: 'Deadlines' },
   { id: 'incident', label: 'Incidents' },
   { id: 'finance', label: 'Financials' },
-  { id: 'budget', label: 'Budgets' }
+  { id: 'budget', label: 'Budgets' },
+  { id: 'messaging', label: 'Messaging' }
 ];
 
 export default function AccessControlTab() {

@@ -109,22 +109,124 @@ const driver = neo4j.driver(
   neo4j.auth.basic(neo4jUser, neo4jPassword)
 );
 
+function sanitizeIncoming(val) {
+  if (val === null || val === undefined) {
+    return val;
+  }
+  if (
+    typeof val === 'object' &&
+    val.low !== undefined &&
+    val.high !== undefined &&
+    Object.keys(val).length === 2
+  ) {
+    return val.low;
+  }
+  if (
+    typeof val === 'object' &&
+    val.year !== undefined &&
+    val.month !== undefined &&
+    val.day !== undefined &&
+    (val.hour !== undefined || val.minute !== undefined)
+  ) {
+    const getVal = (v) => {
+      if (v && typeof v === 'object' && v.low !== undefined) return v.low;
+      return typeof v === 'number' ? v : 0;
+    };
+    const year = getVal(val.year);
+    const month = String(getVal(val.month)).padStart(2, '0');
+    const day = String(getVal(val.day)).padStart(2, '0');
+    const hour = String(getVal(val.hour)).padStart(2, '0');
+    const minute = String(getVal(val.minute)).padStart(2, '0');
+    const second = String(getVal(val.second)).padStart(2, '0');
+    const nanosecond = getVal(val.nanosecond || val.nano || 0);
+    const ms = String(Math.floor(nanosecond / 1000000)).padStart(3, '0');
+    return `${year}-${month}-${day}T${hour}:${minute}:${second}.${ms}Z`;
+  }
+  if (Array.isArray(val)) {
+    return val.map(sanitizeIncoming);
+  }
+  if (typeof val === 'object') {
+    const sanitizedObj = {};
+    for (const [k, v] of Object.entries(val)) {
+      sanitizedObj[k] = v === undefined ? null : sanitizeIncoming(v);
+    }
+    return sanitizedObj;
+  }
+  return val;
+}
+
+function sanitizeOutgoing(val) {
+  if (val === null || val === undefined) {
+    return val;
+  }
+  if (neo4j.isInt(val)) {
+    return val.toNumber();
+  }
+  if (
+    neo4j.isDateTime(val) ||
+    neo4j.isDate(val) ||
+    neo4j.isTime(val) ||
+    neo4j.isLocalTime(val) ||
+    neo4j.isLocalDateTime(val) ||
+    neo4j.isDuration(val)
+  ) {
+    return val.toString();
+  }
+  if (typeof val === 'object') {
+    const constructorName = val.constructor ? val.constructor.name : '';
+    if (constructorName === 'Node' || (val.labels !== undefined && val.properties !== undefined)) {
+      if (val.identity) val.identity = sanitizeOutgoing(val.identity);
+      if (val.properties) val.properties = sanitizeOutgoing(val.properties);
+      return val;
+    }
+    if (constructorName === 'Relationship' || (val.type !== undefined && val.properties !== undefined && val.start !== undefined)) {
+      if (val.identity) val.identity = sanitizeOutgoing(val.identity);
+      if (val.start) val.start = sanitizeOutgoing(val.start);
+      if (val.end) val.end = sanitizeOutgoing(val.end);
+      if (val.properties) val.properties = sanitizeOutgoing(val.properties);
+      return val;
+    }
+    if (Array.isArray(val)) {
+      return val.map(sanitizeOutgoing);
+    }
+    const sanitizedObj = {};
+    for (const [k, v] of Object.entries(val)) {
+      sanitizedObj[k] = sanitizeOutgoing(v);
+    }
+    return sanitizedObj;
+  }
+  return val;
+}
+
 // Monkey-patch session.run to automatically sanitize 'undefined' values to 'null'
-// This prevents the Neo4j driver from throwing "Expected parameter(s)" errors when
-// optional properties are missing from the frontend synchronization payload.
+// and convert Neo4j types (Integers, DateTime) to/from native JS values to prevent GQL type errors.
 const originalSession = driver.session.bind(driver);
 driver.session = function(config) {
   const session = originalSession(config);
   const originalRun = session.run.bind(session);
   session.run = function(query, parameters, runConfig) {
-    if (parameters) {
-      const sanitized = {};
-      for (const [k, v] of Object.entries(parameters)) {
-        sanitized[k] = v === undefined ? null : v;
-      }
-      return originalRun(query, sanitized, runConfig);
-    }
-    return originalRun(query, parameters, runConfig);
+    const sanitizedParams = parameters ? sanitizeIncoming(parameters) : parameters;
+    const resultPromise = originalRun(query, sanitizedParams, runConfig);
+    
+    const originalThen = resultPromise.then.bind(resultPromise);
+    resultPromise.then = function(onFulfilled, onRejected) {
+      return originalThen(result => {
+        if (result && result.records) {
+          result.records = result.records.map(record => {
+            if (record._fields) {
+              record._fields = record._fields.map(sanitizeOutgoing);
+            }
+            return record;
+          });
+        }
+        if (onFulfilled) {
+          return onFulfilled(result);
+        }
+        return result;
+      }, onRejected);
+    };
+    
+    return resultPromise;
   };
   return session;
 };
@@ -322,7 +424,7 @@ app.post('/api/sms/test', async (req, res) => {
       return res.status(400).json({ success: false, error: 'MTN SMS Client ID and Client Secret are not specified.' });
     }
     
-    if (!phoneNumber) {
+    if (!phoneNumber || (Array.isArray(phoneNumber) && phoneNumber.length === 0)) {
       return res.status(400).json({ success: false, error: 'Recipient phone number is required.' });
     }
     
@@ -375,15 +477,15 @@ app.post('/api/sms/test', async (req, res) => {
     }
 
     // Step 2: Send SMS
-    const sendUrl = `${baseUrl}/v3/sms/messages/sms/outbound`;
+    const sendUrl = `${baseUrl}/v3/messages/sms/outbound`;
     const sendBody = JSON.stringify({
       senderAddress: 'FarmTracker',
-      receiverAddress: [phoneNumber],
+      receiverAddress: Array.isArray(phoneNumber) ? phoneNumber : [phoneNumber],
       message: message,
       clientCorrelatorId: `ft-${Date.now()}`
     });
 
-    console.info('[MTN SMS Test] Sending message to:', phoneNumber);
+    console.info('[MTN SMS Test] Sending message to:', Array.isArray(phoneNumber) ? phoneNumber.join(', ') : phoneNumber);
     const sendRes = await makeHttpsRequest(sendUrl, {
       method: 'POST',
       headers: {
@@ -395,6 +497,12 @@ app.post('/api/sms/test', async (req, res) => {
 
     if (sendRes.statusCode >= 200 && sendRes.statusCode < 300) {
       return res.json({ success: true, message: 'Test message sent successfully!' });
+    } else if (sendRes.statusCode === 418) {
+      console.info('[MTN SMS Test] Connection succeeded but hit the Apigee mock target (418 Teapot).');
+      return res.json({
+        success: true,
+        message: 'Successfully connected and authenticated with MTN gateway! Note: The gateway returned a mock response (418 I\'m a teapot), which indicates your MTN developer account is currently routed to the sandbox mock target.'
+      });
     } else {
       console.error('[MTN SMS Test] Send SMS failed status:', sendRes.statusCode, 'body:', sendRes.body);
       let errorDetail = 'Message send request failed.';

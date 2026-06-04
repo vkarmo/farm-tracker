@@ -956,12 +956,12 @@ export default function DashboardTab() {
             </div>
 
             {deviceCoordsError ? (
-              <div style={{ 
-                textAlign: 'center', 
-                padding: '30px 20px', 
-                color: '#c62828', 
-                background: '#ffebee', 
-                borderRadius: '8px', 
+              <div style={{
+                textAlign: 'center',
+                padding: '30px 20px',
+                color: '#c62828',
+                background: '#ffebee',
+                borderRadius: '8px',
                 margin: '20px 0',
                 border: '1px solid rgba(198, 40, 40, 0.2)'
               }}>
@@ -1195,17 +1195,17 @@ export default function DashboardTab() {
                     <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', minWidth: '900px' }}>
                       <thead>
                         <tr style={{ background: '#f5f7fa', borderBottom: '2px solid var(--color-border-light)' }}>
-                          <th style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', textTransform: 'uppercase', fontWeight: 700 }}></th>
-                          <th style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', textTransform: 'uppercase', fontWeight: 700, whiteSpace: 'nowrap' }}>Plan Health</th>
-                          <th style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', textTransform: 'uppercase', fontWeight: 700, width: '180px', minWidth: '180px', whiteSpace: 'nowrap' }}>Approval Status</th>
-                          <th style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', textTransform: 'uppercase', fontWeight: 700, width: '220px', minWidth: '220px', maxWidth: '220px' }}>Tasks</th>
-                          <th style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', textTransform: 'uppercase', fontWeight: 700, whiteSpace: 'nowrap' }}>Target Asset</th>
-                          <th style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', textTransform: 'uppercase', fontWeight: 700, whiteSpace: 'nowrap' }}>Plan Est. Hours</th>
-                          <th style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', textTransform: 'uppercase', fontWeight: 700 }}>Status</th>
-                          <th style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', whiteSpace: 'nowrap', verticalAlign: 'top' }}>Start Date</th>
-                          <th style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', whiteSpace: 'nowrap', verticalAlign: 'top' }}>Completion Date</th>
-                          <th style={{ padding: '12px 16px', color: '#1e293b', fontWeight: 500, verticalAlign: 'top' }}>Hours Spent</th>
-                          <th style={{ padding: '12px 16px', color: '#1e293b', fontWeight: 600, verticalAlign: 'top' }}>Money Spent</th>
+                          <th style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', verticalAlign: 'bottom', textTransform: 'uppercase', fontWeight: 700 }}></th>
+                          <th style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', verticalAlign: 'bottom', textTransform: 'uppercase', fontWeight: 700, whiteSpace: 'nowrap', minWidth: '130px' }}>Health</th>
+                          <th style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', verticalAlign: 'bottom', whiteSpace: 'nowrap' }}>STATUS</th>
+                          <th style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', verticalAlign: 'bottom', textTransform: 'uppercase', fontWeight: 700, width: '180px', minWidth: '180px', whiteSpace: 'nowrap' }}>Approval</th>
+                          <th style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', verticalAlign: 'bottom', textTransform: 'uppercase', fontWeight: 700, width: '220px', minWidth: '220px', maxWidth: '220px' }}>Tasks</th>
+                          <th style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', verticalAlign: 'bottom', textTransform: 'uppercase', fontWeight: 700, whiteSpace: 'nowrap' }}>Target</th>
+                          <th style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', verticalAlign: 'bottom', textTransform: 'uppercase', fontWeight: 700, whiteSpace: 'nowrap' }}>Est. Hrs</th>
+                          <th style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', verticalAlign: 'bottom', textTransform: 'uppercase', fontWeight: 700 }}>STARTED</th>
+                          <th style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', verticalAlign: 'bottom', whiteSpace: 'nowrap' }}>COMPLETED</th>
+                          <th style={{ padding: '12px 16px', color: '#1e293b', fontWeight: 500, verticalAlign: 'bottom' }}>HRS</th>
+                          <th style={{ padding: '12px 16px', color: '#1e293b', fontWeight: 600, verticalAlign: 'bottom' }}>$$</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1254,29 +1254,39 @@ export default function DashboardTab() {
 
                           return (
                             <tr key={ass.id} style={{ borderBottom: '1px solid #e2e8f0', background: '#ffffff', verticalAlign: 'top' }}>
-                              <td style={{ padding: '12px 16px', color: '#1e293b', fontWeight: 800, fontSize: '0.95rem', verticalAlign: 'top' }}>
+                              <td style={{ padding: '12px 16px', color: '#1e293b', fontWeight: 800, fontSize: '1.1rem', verticalAlign: 'top' }}>
                                 {assProgress}%
                               </td>
                               <td style={{ padding: '12px 16px', verticalAlign: 'top' }}>
                                 {!plan ? '-' : (
                                   isExceedingEstimate && isOverdue ? (
-                                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#c62828', fontWeight: 600, fontSize: '0.9rem' }} title="Exceeds estimated hours & past due date">
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#c62828', fontWeight: 800, fontSize: '1.1rem' }} title="Exceeds estimated hours & past due date">
                                       <AlertTriangle size={18} color="#c62828" /> Critical
                                     </span>
                                   ) : isExceedingEstimate ? (
-                                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ef6c00', fontWeight: 600, fontSize: '0.9rem' }} title="Total spent hours exceed estimate">
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#ef6c00', fontWeight: 800, fontSize: '1.1rem' }} title="Total spent hours exceed estimate">
                                       <AlertTriangle size={18} color="#ef6c00" /> Over Hours
                                     </span>
                                   ) : isOverdue ? (
-                                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#c62828', fontWeight: 600, fontSize: '0.9rem' }} title="Past planned complete date">
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#c62828', fontWeight: 800, fontSize: '1.1rem' }} title="Past planned complete date">
                                       <AlertCircle size={18} color="#c62828" /> Overdue
                                     </span>
                                   ) : (
-                                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#2e7d32', fontWeight: 600, fontSize: '0.9rem' }} title="On schedule and within estimate">
+                                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#2e7d32', fontWeight: 800, fontSize: '1.1rem' }} title="On schedule and within estimate">
                                       <ShieldCheck size={18} color="#2e7d32" /> On Track
                                     </span>
                                   )
                                 )}
+                              </td>
+                              <td style={{ padding: '12px 16px', verticalAlign: 'top' }}>
+                                <span className="status-indicator" style={{
+                                  background: assBg,
+                                  color: assFg,
+                                  fontWeight: 600,
+                                  fontSize: '0.8rem'
+                                }}>
+                                  {assStatus}
+                                </span>
                               </td>
                               <td style={{ padding: '12px 16px', width: '180px', minWidth: '180px', verticalAlign: 'top' }}>
                                 <select
@@ -1316,16 +1326,6 @@ export default function DashboardTab() {
                               </td>
                               <td style={{ padding: '12px 16px', color: '#1e293b', fontWeight: 500, verticalAlign: 'top' }}>
                                 {planEstHours > 0 ? `${planEstHours.toFixed(1)} hrs` : '-'}
-                              </td>
-                              <td style={{ padding: '12px 16px', verticalAlign: 'top' }}>
-                                <span className="status-indicator" style={{
-                                  background: assBg,
-                                  color: assFg,
-                                  fontWeight: 600,
-                                  fontSize: '0.8rem'
-                                }}>
-                                  {assStatus}
-                                </span>
                               </td>
                               <td style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', whiteSpace: 'nowrap', verticalAlign: 'top' }}>{ass.assignmentDate || '-'}</td>
                               <td style={{ padding: '12px 16px', color: '#475569', fontSize: '0.85rem', whiteSpace: 'nowrap', verticalAlign: 'top' }}>{ass.completedDate || '-'}</td>
