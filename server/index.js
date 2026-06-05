@@ -439,7 +439,7 @@ app.post('/api/sms/test', async (req, res) => {
     
     // Step 1: OAuth Token exchange
     const authUrl = `${baseUrl}/v1/oauth/access_token/accesstoken?grant_type=client_credentials`;
-    const authBody = `client_id=${encodeURIComponent(creds.clientId)}&client_secret=${encodeURIComponent(creds.clientSecret)}`;
+    const authBody = `client_id=${encodeURIComponent(creds.clientId)}&client_secret=${encodeURIComponent(creds.clientSecret)}&scope=SEND-SMS`;
     const basicAuth = 'Basic ' + Buffer.from(`${creds.clientId}:${creds.clientSecret}`).toString('base64');
     
     const authRes = await makeHttpsRequest(authUrl, {
@@ -499,6 +499,12 @@ app.post('/api/sms/test', async (req, res) => {
       return res.json({ success: true, message: 'Test message sent successfully!' });
     } else if (sendRes.statusCode === 418) {
       console.info('[MTN SMS Test] Connection succeeded but hit the Apigee mock target (418 Teapot).');
+      if (env === 'production') {
+        return res.status(418).json({
+          success: false,
+          error: 'Connection hit the sandbox mock target (418 Teapot). Your MTN developer credentials successfully authenticated, but they are not yet approved/provisioned for live production routing by MTN administrators.'
+        });
+      }
       return res.json({
         success: true,
         message: 'Successfully connected and authenticated with MTN gateway! Note: The gateway returned a mock response (418 I\'m a teapot), which indicates your MTN developer account is currently routed to the sandbox mock target.'
