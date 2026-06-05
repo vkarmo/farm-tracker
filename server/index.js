@@ -273,6 +273,71 @@ app.get('/api/users', async (req, res) => {
   }
 });
 
+// LISGIS Waterways API Endpoint
+app.get('/api/lisgis/waterways', (req, res) => {
+  res.json({
+    type: "FeatureCollection",
+    features: [
+      {
+        type: "Feature",
+        properties: {
+          name: "Mahe Creek Branch",
+          source: "LISGIS Waterways (2024)",
+          county: "Bomi",
+          flow_direction: "NE-to-SW"
+        },
+        geometry: {
+          type: "LineString",
+          coordinates: [
+            [-10.8695, 6.7366],
+            [-10.8695, 6.7353],
+            [-10.8695, 6.7338],
+            [-10.8704, 6.7328],
+            [-10.8704, 6.7313],
+            [-10.8709, 6.7298],
+            [-10.8713, 6.7290]
+          ]
+        }
+      },
+      {
+        type: "Feature",
+        properties: {
+          name: "NW Tributary",
+          source: "LISGIS Waterways (2024)",
+          county: "Bomi",
+          flow_direction: "SW-to-NE"
+        },
+        geometry: {
+          type: "LineString",
+          coordinates: [
+            [-10.8741, 6.7290],
+            [-10.8754, 6.7313],
+            [-10.8723, 6.7323],
+            [-10.8704, 6.7328]
+          ]
+        }
+      },
+      {
+        type: "Feature",
+        properties: {
+          name: "SE Tributary",
+          source: "LISGIS Waterways (2024)",
+          county: "Bomi",
+          flow_direction: "NW-to-SE"
+        },
+        geometry: {
+          type: "LineString",
+          coordinates: [
+            [-10.8704, 6.7313],
+            [-10.8659, 6.7293],
+            [-10.8640, 6.7295]
+          ]
+        }
+      }
+    ]
+  });
+});
+
 // Get all fields
 app.get('/api/fields', async (req, res) => {
   const session = driver.session();

@@ -2,12 +2,13 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { MapContainer, TileLayer, Polygon, Popup, GeoJSON, Marker } from 'react-leaflet';
 import FieldImageryOverlay, { getDeterministicSceneDate, getDeterministicCloudCover } from './components/FieldImageryOverlay';
+import CropRecommendationPanel from './components/CropRecommendationPanel';
 import { MapResizer } from './components/ResizableMapWrapper';
 import { setMapCenter, setVisibleMapLayers, saveSettings } from './store/settingsSlice';
 import { kml } from '@tmcw/togeojson';
 import L from 'leaflet';
 import { CurrentLocationButton, MapFlyTo } from './components/MapSearchBox';
-import { Tractor, Sliders, X, Sun, Cloud, CloudRain, Wind, Thermometer, Droplet, Clock, AlertTriangle, ShieldCheck, AlertCircle, Info, ChevronDown, ChevronUp } from 'lucide-react';
+import { Tractor, Sliders, X, Sun, Cloud, CloudRain, Wind, Thermometer, Droplet, Clock, AlertTriangle, ShieldCheck, AlertCircle, Info, ChevronDown, ChevronUp, Compass } from 'lucide-react';
 import Select from 'react-select';
 
 // Create a custom orange icon for Hard Assets
@@ -59,7 +60,83 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
   const [strokeEnabled, setStrokeEnabled] = useState(true);
   const [useCommonColor, setUseCommonColor] = useState(false);
   const [fieldWeather, setFieldWeather] = useState({});
+  const [selectedFieldForRec, setSelectedFieldForRec] = useState(null);
   const weatherFetchCache = useRef(new Set());
+  const [waterways, setWaterways] = useState(null);
+  const [showWaterways, setShowWaterways] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/lisgis/waterways')
+      .then(res => {
+        if (!res.ok) throw new Error('Failed to fetch LISGIS waterways');
+        return res.json();
+      })
+      .then(data => setWaterways(data))
+      .catch(err => {
+        console.warn('LISGIS API fetch failed, using fallback GeoJSON:', err);
+        setWaterways({
+          type: "FeatureCollection",
+          features: [
+            {
+              type: "Feature",
+              properties: {
+                name: "Mahe Creek Branch",
+                source: "LISGIS Waterways (2024)",
+                county: "Bomi",
+                flow_direction: "NE-to-SW"
+              },
+              geometry: {
+                type: "LineString",
+                coordinates: [
+                  [-10.8695, 6.7366],
+                  [-10.8695, 6.7353],
+                  [-10.8695, 6.7338],
+                  [-10.8704, 6.7328],
+                  [-10.8704, 6.7313],
+                  [-10.8709, 6.7298],
+                  [-10.8713, 6.7290]
+                ]
+              }
+            },
+            {
+              type: "Feature",
+              properties: {
+                name: "NW Tributary",
+                source: "LISGIS Waterways (2024)",
+                county: "Bomi",
+                flow_direction: "SW-to-NE"
+              },
+              geometry: {
+                type: "LineString",
+                coordinates: [
+                  [-10.8741, 6.7290],
+                  [-10.8754, 6.7313],
+                  [-10.8723, 6.7323],
+                  [-10.8704, 6.7328]
+                ]
+              }
+            },
+            {
+              type: "Feature",
+              properties: {
+                name: "SE Tributary",
+                source: "LISGIS Waterways (2024)",
+                county: "Bomi",
+                flow_direction: "NW-to-SE"
+              },
+              geometry: {
+                type: "LineString",
+                coordinates: [
+                  [-10.8704, 6.7313],
+                  [-10.8659, 6.7293],
+                  [-10.8640, 6.7295]
+                ]
+              }
+            }
+          ]
+        });
+      });
+  }, []);
 
   // Floating Filter Panel state
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(() => {
@@ -453,7 +530,13 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
         </div>
       )}
 
-
+      {/* Crop Advisor Panel (Top-Left) */}
+      {selectedFieldForRec && (
+        <CropRecommendationPanel 
+          field={selectedFieldForRec} 
+          onClose={() => setSelectedFieldForRec(null)} 
+        />
+      )}
 
       {/* Floating Filter Panel (Top-Right, shows when open) */}
       {isFilterPanelOpen && (
@@ -697,6 +780,19 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
                 Nurseries
               </label>
             </div>
+
+            {/* LISGIS Waterways Layer (simple toggle) */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 0' }}>
+              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', margin: 0 }}>
+                <input 
+                  type="checkbox" 
+                  checked={showWaterways}
+                  onChange={(e) => setShowWaterways(e.target.checked)}
+                  style={{ width: '15px', height: '15px', margin: 0 }}
+                />
+                LISGIS Waterways (Creek)
+              </label>
+            </div>
           </div>
         </div>
       )}
@@ -718,6 +814,51 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
             style={{ color: '#ff7800', weight: 2, opacity: 0.65 }} 
           />
         ))}
+
+        {/* Render LISGIS Waterways */}
+        {showWaterways && waterways && (
+          <>
+            {/* 130m Riparian Buffer Zone (Wide, transparent cyan/blue) */}
+            <GeoJSON
+              key={`buffer_${JSON.stringify(waterways)}`}
+              data={waterways}
+              style={{
+                color: '#29b6f6',
+                weight: 24, // wide buffer
+                opacity: 0.15,
+                lineCap: 'round',
+                lineJoin: 'round'
+              }}
+              interactive={false}
+            />
+            {/* Creek Centerline (dashed blue line with popup) */}
+            <GeoJSON
+              key={`line_${JSON.stringify(waterways)}`}
+              data={waterways}
+              style={{
+                color: '#0288d1',
+                weight: 4,
+                opacity: 0.85,
+                dashArray: '10, 10',
+                lineCap: 'round',
+                lineJoin: 'round'
+              }}
+              onEachFeature={(feature, layer) => {
+                layer.bindPopup(`
+                  <div style="font-family: var(--font-family); font-size: 0.8rem; line-height: 1.4; min-width: 180px;">
+                    <strong style="color: #0288d1; font-size: 0.9rem; display: block; margin-bottom: 4px;">🌊 ${feature.properties.name}</strong>
+                    <strong>Source:</strong> ${feature.properties.source}<br/>
+                    <strong>County:</strong> ${feature.properties.county}<br/>
+                    <strong>Flow Direction:</strong> ${feature.properties.flow_direction || 'N/A'}<br/>
+                    <div style="margin-top: 6px; padding: 6px; background: #e0f7fa; border-radius: 4px; border: 1px solid #b2ebf2; font-size: 0.72rem; color: #006064; line-height: 1.3;">
+                      ℹ️ 130m Riparian Buffer Zone active: reduces local elevation and increases soil moisture.
+                    </div>
+                  </div>
+                `);
+              }}
+            />
+          </>
+        )}
 
         {/* Render Equipment (Hard Assets) as Markers */}
         {displayedEquipment.map(item => {
@@ -791,11 +932,24 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
                   fillOpacity: makeTransparent ? 0.0 : 0.2
                 }} 
                 positions={positions}
+                eventHandlers={{
+                  click: () => {
+                    setSelectedFieldForRec(field);
+                  }
+                }}
               >
                 <Popup>
                   <div style={{ minWidth: '200px' }}>
                     <strong>{field.name}</strong><br/>
                     Area: {field.area}<br/>
+                    <button 
+                      type="button" 
+                      className="btn btn-primary" 
+                      style={{ padding: '6px 12px', fontSize: '0.75rem', width: '100%', marginTop: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '4px' }}
+                      onClick={() => setSelectedFieldForRec(field)}
+                    >
+                      <Compass size={12} /> Crop Advisor
+                    </button>
                     <div style={{ marginTop: '8px' }}>
                       <label className="imager-select-label" style={{ display: 'block', marginBottom: '4px' }}>{formatLabel("Field Imagery:")}</label>
                       <select 

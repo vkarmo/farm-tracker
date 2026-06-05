@@ -16,6 +16,76 @@ export function isPointInPolygon(point, vs) {
   return inside;
 }
 
+export function getDistanceToLineSegment(p, a, b) {
+  const x = p[1]; // longitude
+  const y = p[0]; // latitude
+  const x1 = a[1];
+  const y1 = a[0];
+  const x2 = b[1];
+  const y2 = b[0];
+
+  const A = x - x1;
+  const B = y - y1;
+  const C = x2 - x1;
+  const D = y2 - y1;
+
+  const dot = A * C + B * D;
+  const lenSq = C * C + D * D;
+  let param = -1;
+  if (lenSq !== 0) {
+    param = dot / lenSq;
+  }
+
+  let xx, yy;
+
+  if (param < 0) {
+    xx = x1;
+    yy = y1;
+  } else if (param > 1) {
+    xx = x2;
+    yy = y2;
+  } else {
+    xx = x1 + param * C;
+    yy = y1 + param * D;
+  }
+
+  const dx = x - xx;
+  const dy = y - yy;
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
+// Segment endpoints matching the physical valleys (lat/lng format)
+const CREEK_SEGMENTS = [
+  // Main Creek (6 segments tracing the actual lowest elevation valley)
+  [[6.7366, -10.8695], [6.7353, -10.8695]],
+  [[6.7353, -10.8695], [6.7338, -10.8695]],
+  [[6.7338, -10.8695], [6.7328, -10.8704]],
+  [[6.7328, -10.8704], [6.7313, -10.8704]],
+  [[6.7313, -10.8704], [6.7298, -10.8709]],
+  [[6.7298, -10.8709], [6.7290, -10.8713]],
+  
+  // NW Tributary (3 segments tracing the SW saddle and SW valley minima)
+  [[6.7290, -10.8741], [6.7313, -10.8754]],
+  [[6.7313, -10.8754], [6.7323, -10.8723]],
+  [[6.7323, -10.8723], [6.7328, -10.8704]],
+  
+  // SE Tributary (2 segments tracing the SE valley minima)
+  [[6.7313, -10.8704], [6.7293, -10.8659]],
+  [[6.7293, -10.8659], [6.7295, -10.8640]]
+];
+
+export function getDistanceToCreek(point) {
+  let minDistance = Infinity;
+  for (let i = 0; i < CREEK_SEGMENTS.length; i++) {
+    const dist = getDistanceToLineSegment(point, CREEK_SEGMENTS[i][0], CREEK_SEGMENTS[i][1]);
+    if (dist < minDistance) {
+      minDistance = dist;
+    }
+  }
+  return minDistance;
+}
+
+
 function getColor(val, indexType) {
   if (indexType === 'NDVI') {
     if (val < 0.2) return '#d32f2f'; // Red (bare soil)
@@ -305,8 +375,16 @@ export default function FieldImageryOverlay({ polygon, indexType, dateOffset = 0
         const cellLng = minLng + (cx / canvasWidth) * (maxLng - minLng);
         const cellLat = minLat + (1.0 - cy / canvasHeight) * (maxLat - minLat);
 
-        const dx = (cellLat - latCenter) / (maxLat - minLat);
-        const dy = (cellLng - lngCenter) / (maxLng - minLng);
+        // Use the global NMK Property bounding box coordinates to align overlays consistently
+        const globalMinLat = 6.7290;
+        const globalMaxLat = 6.7366;
+        const globalMinLng = -10.8759;
+        const globalMaxLng = -10.8622;
+        const globalLatCenter = (globalMinLat + globalMaxLat) / 2;
+        const globalLngCenter = (globalMinLng + globalMaxLng) / 2;
+
+        const dx = (cellLat - globalLatCenter) / (globalMaxLat - globalMinLat);
+        const dy = (cellLng - globalLngCenter) / (globalMaxLng - globalMinLng);
 
         // Add deterministic pseudorandom noise based on coordinates to look like natural satellite bands
         const sinSeed = Math.sin(cellLat * 12345 + cellLng * 67890 - dateOffset * 0.001);
@@ -324,6 +402,12 @@ export default function FieldImageryOverlay({ polygon, indexType, dateOffset = 0
         const b3 = 0.2 + 0.6 * vegFactor; // Band 3 (Green, 10m) - moderately reflected by leaves
         const b2 = 0.1 + 0.3 * (1.0 - vegFactor); // Band 2 (Blue, 10m) - generally low reflectance
 
+        // Calculate creek influence at [cellLat, cellLng]
+        const cellPoint = [cellLat, cellLng];
+        const distToCreek = getDistanceToCreek(cellPoint);
+        const maxInfluenceDist = 0.0012; // ~130 meters
+        const creekInfluence = Math.max(0, 1.0 - distToCreek / maxInfluenceDist);
+
         let val = 0.5;
         if (indexType === 'Elevation') {
           // Simulate elevation using coordinates: center is highest, edges are lowest, plus some diagonal slopes
@@ -331,6 +415,8 @@ export default function FieldImageryOverlay({ polygon, indexType, dateOffset = 0
           let baseElev = 1.0 - distanceToCenter; // Peak in center
           // Add a diagonal slope
           baseElev = baseElev * 0.7 + (dx + dy + 1.0) * 0.15;
+          // Apply creek depression (lower elevation)
+          baseElev = baseElev * (1.0 - 0.75 * creekInfluence);
           // Add noise
           val = baseElev + noise * 0.5;
         } else if (indexType === 'GEE_Temp') {
@@ -369,7 +455,10 @@ export default function FieldImageryOverlay({ polygon, indexType, dateOffset = 0
           // Bypassing SWIR (20m), estimate soil moisture index based on soil reflectance difference (B3/B8/B4)
           // Moist soil is darker (lower reflectance in visible and NIR)
           const dryness = 0.3 * b4 + 0.7 * b8;
-          val = 1.0 - dryness;
+          let moistureVal = 1.0 - dryness;
+          // Apply creek high moisture modifier
+          moistureVal = moistureVal + (1.0 - moistureVal) * 0.8 * creekInfluence;
+          val = moistureVal;
         } else if (indexType === 'FalseColor') {
           // False Color composite: B8 (NIR) is rendered red, B4 (Red) is rendered green, B3 (Green) is rendered blue.
           val = vegFactor;
