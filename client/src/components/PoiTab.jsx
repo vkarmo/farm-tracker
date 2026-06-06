@@ -2,9 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { queueAction } from '../store/syncSlice';
 import { addPoi, deletePoi } from '../store/poiSlice';
-import { MapPin, X, Copy } from 'lucide-react';
+import { MapPin, X, Copy, Droplet } from 'lucide-react';
 import CrudTable from './CrudTable';
-import { MapContainer, TileLayer, Polygon, Polyline, Marker, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Polygon, Polyline, Marker, useMapEvents, useMap } from 'react-leaflet';
 import ResizableMapWrapper, { MapResizer } from './ResizableMapWrapper';
 import { MapSearchBox, MapFlyTo, FarmLocationButton } from './MapSearchBox';
 import area from '@turf/area';
@@ -22,7 +22,15 @@ const ClickToDrawComponent = ({ points, setPoints, setCenter }) => {
   return null;
 };
 
-const INIT_STATE = { name: '', type: 'Terrain Feature', description: '', area: '', length: '', drawColor: '' };
+const MapEventsHelper = ({ setMapInstance }) => {
+  const map = useMap();
+  useEffect(() => {
+    setMapInstance(map);
+  }, [map, setMapInstance]);
+  return null;
+};
+
+const INIT_STATE = { name: '', type: 'Terrain Feature', description: '', area: '', length: '', drawColor: '', isLine: false };
 
 export default function PoiTab() {
   const dispatch = useDispatch();
@@ -38,6 +46,8 @@ export default function PoiTab() {
   const [editingId, setEditingId] = useState(null);
   const [points, setPoints] = useState([]);
   const [searchResultCenter, setSearchResultCenter] = useState(null);
+  const [mapInstance, setMapInstance] = useState(null);
+  const [loadingWaterway, setLoadingWaterway] = useState(false);
 
   const handleLocationFound = (loc) => {
     const newLoc = loc.length >= 3 ? loc : [loc[0], loc[1], Date.now()];
@@ -132,7 +142,56 @@ export default function PoiTab() {
 
   const clearDrawing = () => {
     setPoints([]);
-    setFormData(prev => ({ ...prev, area: '', length: '' }));
+    setFormData(prev => ({ ...prev, area: '', length: '', isLine: false }));
+  };
+
+  const handleAutoDetectWaterway = async () => {
+    if (!mapInstance) {
+      alert('Map is not fully initialized yet.');
+      return;
+    }
+    const bounds = mapInstance.getBounds();
+    const southWest = bounds.getSouthWest();
+    const northEast = bounds.getNorthEast();
+    
+    setLoadingWaterway(true);
+    try {
+      const res = await fetch('/api/gee/find-waterways', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          minLat: southWest.lat,
+          maxLat: northEast.lat,
+          minLng: southWest.lng,
+          maxLng: northEast.lng
+        })
+      });
+      
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || 'Failed to detect waterway');
+      }
+      
+      const data = await res.json();
+      if (!data.points || data.points.length === 0) {
+        alert('No waterway detected in the current view area.');
+        return;
+      }
+      
+      const ptsWithTime = data.points.map((pt, index) => [pt[0], pt[1], Date.now() + index]);
+      setPoints(ptsWithTime);
+      setFormData(prev => ({
+        ...prev,
+        type: 'Water Source',
+        name: prev.name || `Waterway ${new Date().toLocaleDateString()}`,
+        isLine: true
+      }));
+    } catch (err) {
+      console.error(err);
+      alert(`Waterway detection failed: ${err.message}`);
+    } finally {
+      setLoadingWaterway(false);
+    }
   };
 
   const columns = [
@@ -216,21 +275,46 @@ export default function PoiTab() {
                 )}
               </div>
 
-              <div style={{ marginBottom: '10px', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-                <div style={{ flex: 1 }}>
+              <div style={{ marginBottom: '10px', display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                <div style={{ flex: 1, minWidth: '200px' }}>
                   <MapSearchBox onLocationFound={handleLocationFound} onClear={clearDrawing} polygon={points} setPolygon={setPoints} activeId={editingId} />
                 </div>
+                <button
+                  type="button"
+                  onClick={handleAutoDetectWaterway}
+                  disabled={loadingWaterway}
+                  className="btn"
+                  style={{
+                    padding: '8px 12px',
+                    fontSize: '0.85rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    cursor: 'pointer',
+                    background: '#e0f7fa',
+                    color: '#006064',
+                    border: '1px solid #b2ebf2',
+                    borderRadius: '4px',
+                    height: '38px',
+                    boxSizing: 'border-box'
+                  }}
+                  title="Detect waterway centerline in visible map view"
+                >
+                  <Droplet size={16} />
+                  {loadingWaterway ? 'Scanning...' : 'Auto-Detect Waterway'}
+                </button>
               </div>
               <ResizableMapWrapper initialHeight={500} style={{ marginBottom: '20px' }}>
                 <MapContainer center={mapCenter} zoom={mapZoom} maxZoom={24} style={{ height: '100%', width: '100%' }} zoomControl={false}>
+                  <MapEventsHelper setMapInstance={setMapInstance} />
                   <MapResizer />
                   <TileLayer attribution="Google Maps" url="https://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}&s=Ga" maxZoom={24} maxNativeZoom={20} />
 
                   <MapFlyTo center={searchResultCenter} />
                   <ClickToDrawComponent points={points} setPoints={setPoints} setCenter={setSearchResultCenter} />
 
-                  {latLngs.length > 2 && <Polygon positions={latLngs} pathOptions={{ color: formData.drawColor || polygonColor, weight: 1.5, opacity: 0.6, fillOpacity: 0.3 }} />}
-                  {latLngs.length > 1 && latLngs.length <= 2 && <Polyline positions={latLngs} pathOptions={{ color: formData.drawColor || polygonColor, weight: 2, opacity: 0.7 }} />}
+                  {latLngs.length > 2 && !formData.isLine && <Polygon positions={latLngs} pathOptions={{ color: formData.drawColor || polygonColor, weight: 1.5, opacity: 0.6, fillOpacity: 0.3 }} />}
+                  {latLngs.length > 1 && (formData.isLine || latLngs.length <= 2) && <Polyline positions={latLngs} pathOptions={{ color: formData.drawColor || '#0288d1', weight: 4, opacity: 0.85, dashArray: '10, 10' }} />}
                   {latLngs.map((pos, idx) => (
                     <Marker key={idx} position={pos} opacity={0.8} />
                   ))}
@@ -248,10 +332,11 @@ export default function PoiTab() {
                       handleEdit(p);
                     };
 
-                    if (mappedPts.length > 2) {
+                    const isPolyline = p.isLine || p.drawType === 'polyline' || mappedPts.length === 2;
+                    if (isPolyline && mappedPts.length > 1) {
+                      return <Polyline key={p.id} positions={mappedPts} pathOptions={{ color: p.drawColor || '#0288d1', weight: 3, opacity: 0.8, bubblingMouseEvents: false }} eventHandlers={{ click: handleClick }} />
+                    } else if (mappedPts.length > 2) {
                       return <Polygon key={p.id} positions={mappedPts} pathOptions={{ color: p.drawColor || polygonColor, weight: 1.2, opacity: 0.6, fillOpacity: 0.1, bubblingMouseEvents: false }} eventHandlers={{ click: handleClick }} />
-                    } else if (mappedPts.length > 1) {
-                      return <Polyline key={p.id} positions={mappedPts} pathOptions={{ color: p.drawColor || polygonColor, weight: 1.5, opacity: 0.6, bubblingMouseEvents: false }} eventHandlers={{ click: handleClick }} />
                     } else {
                       return <Marker key={p.id} position={mappedPts[0]} opacity={0.5} bubblingMouseEvents={false} eventHandlers={{ click: handleClick }} />
                     }
@@ -311,6 +396,17 @@ export default function PoiTab() {
                         <button type="button" onClick={() => setFormData({ ...formData, drawColor: '' })} className="btn" style={{ padding: '2px 8px', fontSize: '0.8rem' }}>Clear</button>
                       )}
                     </div>
+                  </div>
+                  <div className="form-group">
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', marginTop: '24px' }}>
+                      <input 
+                        type="checkbox" 
+                        checked={formData.isLine || false} 
+                        onChange={e => setFormData({ ...formData, isLine: e.target.checked })} 
+                        style={{ width: '16px', height: '16px', margin: 0 }}
+                      />
+                      Render as Line (Waterway / Path)
+                    </label>
                   </div>
                 </div>
 

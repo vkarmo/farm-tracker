@@ -1,10 +1,12 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { MapContainer, TileLayer, Polygon, Popup, GeoJSON, Marker } from 'react-leaflet';
+import { MapContainer, TileLayer, Polygon, Polyline, Popup, GeoJSON, Marker, useMap } from 'react-leaflet';
 import FieldImageryOverlay, { getDeterministicSceneDate, getDeterministicCloudCover } from './components/FieldImageryOverlay';
 import CropRecommendationPanel from './components/CropRecommendationPanel';
 import { MapResizer } from './components/ResizableMapWrapper';
 import { setMapCenter, setVisibleMapLayers, saveSettings } from './store/settingsSlice';
+import { addPoi } from './store/poiSlice';
+import { queueAction } from './store/syncSlice';
 import { kml } from '@tmcw/togeojson';
 import L from 'leaflet';
 import { CurrentLocationButton, MapFlyTo } from './components/MapSearchBox';
@@ -32,6 +34,14 @@ const brownIcon = new L.Icon({
 });
 import 'leaflet/dist/leaflet.css';
 
+const MapEventsHelper = ({ setMapInstance }) => {
+  const map = useMap();
+  useEffect(() => {
+    setMapInstance(map);
+  }, [map, setMapInstance]);
+  return null;
+};
+
 const LAYER_OPTIONS = [
   { value: 'fields', label: 'Fields' },
   { value: 'nurseries', label: 'Nurseries' },
@@ -42,6 +52,8 @@ const LAYER_OPTIONS = [
 
 const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
   const dispatch = useDispatch();
+  const [mapInstance, setMapInstance] = useState(null);
+  const [loadingWaterway, setLoadingWaterway] = useState(false);
   const kmlUrls = useSelector(state => state.settings.kmlUrls);
   const polygonColor = useSelector(state => state.settings?.polygonColor) || '#ffffff';
   const mapCenter = useSelector(state => state.settings?.mapCenter) || [51.505, -0.09];
@@ -224,7 +236,62 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
     };
     window.addEventListener('gee-status-change', handler);
     return () => window.removeEventListener('gee-status-change', handler);
-  }, []);
+  }, []);  const handleFindWaterwayPOI = async () => {
+    if (!mapInstance) {
+      alert('Map is not fully initialized yet.');
+      return;
+    }
+    const bounds = mapInstance.getBounds();
+    const southWest = bounds.getSouthWest();
+    const northEast = bounds.getNorthEast();
+    
+    setLoadingWaterway(true);
+    try {
+      const res = await fetch('/api/gee/find-waterways', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          minLat: southWest.lat,
+          maxLat: northEast.lat,
+          minLng: southWest.lng,
+          maxLng: northEast.lng
+        })
+      });
+      
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || 'Failed to detect waterway');
+      }
+      
+      const data = await res.json();
+      if (!data.points || data.points.length === 0) {
+        alert('No waterway detected in the current view area.');
+        return;
+      }
+      
+      const poiId = `poi_${Date.now()}`;
+      const newPoi = {
+        id: poiId,
+        name: `Waterway ${new Date().toLocaleDateString()}`,
+        type: 'Water Source',
+        description: 'Auto-detected waterway centerline from GEE elevation minima',
+        points: JSON.stringify(data.points),
+        drawColor: '#0288d1',
+        area: '',
+        length: '',
+        isLine: true
+      };
+      
+      dispatch(addPoi(newPoi));
+      dispatch(queueAction({ type: 'poi/addPoi', payload: newPoi, meta: { id: Date.now() } }));
+      alert(`Successfully detected waterway! Saved as Point of Interest: "${newPoi.name}"`);
+    } catch (err) {
+      console.error(err);
+      alert(`Waterway detection failed: ${err.message}`);
+    } finally {
+      setLoadingWaterway(false);
+    }
+  };
 
   // Weather GEE data fetching effect
   useEffect(() => {
@@ -520,6 +587,28 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
         >
           <Sliders size={16} /> {isFilterPanelOpen ? 'Hide Filters' : 'Show Filters'}
         </button>
+        <button
+          type="button"
+          onClick={handleFindWaterwayPOI}
+          disabled={loadingWaterway}
+          className="btn map-toolbar-btn"
+          style={{ 
+            flexShrink: 0, 
+            padding: '6px 10px', 
+            fontSize: '0.85rem', 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '4px', 
+            cursor: 'pointer',
+            background: '#e0f7fa',
+            color: '#006064',
+            borderColor: '#b2ebf2'
+          }}
+          title="Detect Waterway in Current View & Save as POI"
+        >
+          <Droplet size={16} style={{ color: '#006064' }} /> 
+          {loadingWaterway ? 'Scanning...' : 'Find Waterway'}
+        </button>
       </div>
 
       <div style={{ flex: 1, minHeight: 0, width: '100%', borderRadius: 'var(--radius-md)', overflow: 'hidden', zIndex: 0, position: 'relative' }}>
@@ -798,6 +887,7 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
       )}
 
       <MapContainer center={mapCenter} zoom={mapZoom} maxZoom={24} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
+        <MapEventsHelper setMapInstance={setMapInstance} />
         <MapResizer />
         <TileLayer
           attribution="Google Maps"
@@ -1112,26 +1202,58 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
           if (poi.points) {
             try { positions = typeof poi.points === 'string' ? JSON.parse(poi.points) : poi.points; } catch(e) {}
           }
-          if (!Array.isArray(positions) || positions.length < 3) return null;
+          if (!Array.isArray(positions) || positions.length === 0) return null;
           const mappedPts = positions.map(pt => [pt[0], pt[1]]);
-          return (
-            <Polygon 
-              key={poi.id} 
-              pathOptions={{ 
-                stroke: strokeEnabled,
-                color: useCommonColor ? polygonColor : (poi.drawColor || polygonColor), 
-                weight: 1.2, 
-                opacity: 0.6, 
-                fillOpacity: 0.5 
-              }} 
-              positions={mappedPts}
-            >
-              <Popup>
-                <strong>POI: {poi.name}</strong><br/>
-                {poi.type}
-              </Popup>
-            </Polygon>
-          );
+          const isPolyline = poi.isLine || poi.drawType === 'polyline' || mappedPts.length === 2;
+
+          if (isPolyline && mappedPts.length > 1) {
+            return (
+              <Polyline
+                key={poi.id}
+                pathOptions={{
+                  color: useCommonColor ? polygonColor : (poi.drawColor || '#0288d1'),
+                  weight: strokeEnabled ? 4 : 0,
+                  opacity: 0.85,
+                  dashArray: poi.name.toLowerCase().includes('waterway') ? '10, 10' : undefined
+                }}
+                positions={mappedPts}
+              >
+                <Popup>
+                  <strong>POI: {poi.name}</strong><br/>
+                  {poi.type}
+                </Popup>
+              </Polyline>
+            );
+          } else if (mappedPts.length > 2) {
+            return (
+              <Polygon 
+                key={poi.id} 
+                pathOptions={{ 
+                  stroke: strokeEnabled,
+                  color: useCommonColor ? polygonColor : (poi.drawColor || polygonColor), 
+                  weight: 1.2, 
+                  opacity: 0.6, 
+                  fillOpacity: 0.5 
+                }} 
+                positions={mappedPts}
+              >
+                <Popup>
+                  <strong>POI: {poi.name}</strong><br/>
+                  {poi.type}
+                </Popup>
+              </Polygon>
+            );
+          } else if (mappedPts.length === 1) {
+            return (
+              <Marker key={poi.id} position={mappedPts[0]}>
+                <Popup>
+                  <strong>POI: {poi.name}</strong><br/>
+                  {poi.type}
+                </Popup>
+              </Marker>
+            );
+          }
+          return null;
         })}
 
         {/* Render Soil Tests */}

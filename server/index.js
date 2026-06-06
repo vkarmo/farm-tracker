@@ -1122,6 +1122,113 @@ app.post('/api/gee/tile-url', async (req, res) => {
   }
 });
 
+// GEE Find Waterways Endpoint
+app.post('/api/gee/find-waterways', async (req, res) => {
+  const session = driver.session();
+  try {
+    const { minLat, maxLat, minLng, maxLng } = req.body;
+    if (minLat === undefined || maxLat === undefined || minLng === undefined || maxLng === undefined) {
+      return res.status(400).json({ error: 'Missing bounding box bounds' });
+    }
+
+    const result = await session.run("MATCH (n:GlobalSettings {id: 'default'}) RETURN n");
+    if (result.records.length === 0) {
+      return res.status(404).json({ error: 'Global settings not found.' });
+    }
+
+    const props = result.records[0].get('n').properties;
+    const perfectPrivateKey = (props.geePrivateKey || '').replace(/\\n/g, '\n');
+    const creds = {
+      client_email: props.geeClientEmail || '',
+      private_key: perfectPrivateKey,
+      project_id: props.geeProjectId || ''
+    };
+
+    if (!creds.client_email || !creds.private_key || !creds.project_id) {
+      return res.status(400).json({ error: 'Google Earth Engine credentials are not fully configured in settings.' });
+    }
+
+    await initializeGee(creds);
+
+    const srtm = ee.Image('USGS/SRTMGL1_003').select('elevation');
+
+    // Create a 20x20 grid of points in the bounding box
+    const latSteps = 20;
+    const lngSteps = 20;
+    const points = [];
+    for (let i = 0; i <= latSteps; i++) {
+      const lat = minLat + (i / latSteps) * (maxLat - minLat);
+      for (let j = 0; j <= lngSteps; j++) {
+        const lng = minLng + (j / lngSteps) * (maxLng - minLng);
+        points.push(ee.Feature(ee.Geometry.Point([lng, lat]), { lat, lng }));
+      }
+    }
+
+    const featureCollection = ee.FeatureCollection(points);
+    const sampled = srtm.reduceRegions({
+      collection: featureCollection,
+      reducer: ee.Reducer.first(),
+      scale: 30
+    });
+
+    sampled.evaluate((resultVal, err) => {
+      if (err) {
+        console.error('GEE find-waterways evaluate error:', err);
+        return res.status(500).json({ error: 'Earth Engine calculation failed: ' + (err.message || err) });
+      }
+      if (!resultVal || !resultVal.features) {
+        return res.status(500).json({ error: 'No response features from GEE' });
+      }
+
+      const data = resultVal.features.map(f => ({
+        lat: f.properties.lat,
+        lng: f.properties.lng,
+        elevation: f.properties.first
+      }));
+
+      // Find lowest elevation point per latitude row
+      const latsList = Array.from(new Set(data.map(d => d.lat))).sort((a, b) => b - a); // North to South
+      const lngsList = Array.from(new Set(data.map(d => d.lng))).sort((a, b) => a - b); // West to East
+
+      const grid = [];
+      for (let r = 0; r < latsList.length; r++) {
+        grid[r] = [];
+        for (let c = 0; c < lngsList.length; c++) {
+          const lat = latsList[r];
+          const lng = lngsList[c];
+          const pt = data.find(d => Math.abs(d.lat - lat) < 1e-7 && Math.abs(d.lng - lng) < 1e-7);
+          grid[r][c] = pt ? pt.elevation : null;
+        }
+      }
+
+      const waterwayPoints = [];
+      for (let r = 0; r < latsList.length; r++) {
+        const row = grid[r];
+        let minVal = Infinity;
+        let minCol = -1;
+        for (let c = 0; c < row.length; c++) {
+          const val = row[c];
+          if (val !== null && val < minVal) {
+            minVal = val;
+            minCol = c;
+          }
+        }
+        if (minCol !== -1) {
+          waterwayPoints.push([latsList[r], lngsList[minCol]]);
+        }
+      }
+
+      res.json({ points: waterwayPoints });
+    });
+
+  } catch (err) {
+    console.error('find-waterways endpoint error:', err);
+    res.status(500).json({ error: err.message || err });
+  } finally {
+    await session.close();
+  }
+});
+
 // Global Data Hydration
 app.get('/api/all-data', async (req, res) => {
   const session = driver.session();
@@ -1425,11 +1532,12 @@ app.post('/api/sync', async (req, res) => {
           results.push({ actionId: action.meta?.id, status: 'success' });
         }
         else if (action.type === 'poi/addPoi') {
-          const { id, name, type, description, area, length, points, drawColor } = action.payload;
+          const { id, name, type, description, area, length, points, drawColor, isLine } = action.payload;
           await session.run(`
             MERGE (n:PointOfInterest {id: $id})
             SET n.name = $name, n.type = $type, n.description = $description,
                 n.area = $area, n.length = $length, n.points = $points, n.drawColor = $drawColor,
+                n.isLine = $isLine,
                 n.lastUpdatedBy = $userEmail, n.lastUpdatedAt = datetime()
             RETURN n
           `, { 
@@ -1441,7 +1549,8 @@ app.post('/api/sync', async (req, res) => {
             area: area || '', 
             length: length || '', 
             points: (typeof points === 'string') ? points : (points ? JSON.stringify(points) : '[]'),
-            drawColor: drawColor || null
+            drawColor: drawColor || null,
+            isLine: isLine === true || isLine === 'true'
           });
           results.push({ actionId: action.meta?.id, status: 'success' });
         }
