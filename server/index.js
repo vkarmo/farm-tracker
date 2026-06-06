@@ -1152,14 +1152,14 @@ app.post('/api/gee/find-waterways', async (req, res) => {
 
     const srtm = ee.Image('USGS/SRTMGL1_003').select('elevation');
 
-    // Create a 20x20 grid of points in the bounding box
-    const latSteps = 20;
-    const lngSteps = 20;
+    // Create a high-resolution 50x50 grid of points in the bounding box
+    const latSteps = 50;
+    const lngSteps = 50;
     const points = [];
     for (let i = 0; i <= latSteps; i++) {
-      const lat = minLat + (i / latSteps) * (maxLat - minLat);
+      const lat = Number((minLat + (i / latSteps) * (maxLat - minLat)).toFixed(6));
       for (let j = 0; j <= lngSteps; j++) {
-        const lng = minLng + (j / lngSteps) * (maxLng - minLng);
+        const lng = Number((minLng + (j / lngSteps) * (maxLng - minLng)).toFixed(6));
         points.push(ee.Feature(ee.Geometry.Point([lng, lat]), { lat, lng }));
       }
     }
@@ -1168,7 +1168,7 @@ app.post('/api/gee/find-waterways', async (req, res) => {
     const sampled = srtm.reduceRegions({
       collection: featureCollection,
       reducer: ee.Reducer.first(),
-      scale: 30
+      scale: 10 // Higher resolution sampling
     });
 
     sampled.evaluate((resultVal, err) => {
@@ -1190,14 +1190,21 @@ app.post('/api/gee/find-waterways', async (req, res) => {
       const latsList = Array.from(new Set(data.map(d => d.lat))).sort((a, b) => b - a); // North to South
       const lngsList = Array.from(new Set(data.map(d => d.lng))).sort((a, b) => a - b); // West to East
 
+      // Map elevations to structured lookup Map
+      const elevationLookup = new Map();
+      for (const d of data) {
+        const key = `${d.lat.toFixed(6)},${d.lng.toFixed(6)}`;
+        elevationLookup.set(key, d.elevation);
+      }
+
       const grid = [];
       for (let r = 0; r < latsList.length; r++) {
         grid[r] = [];
+        const latStr = latsList[r].toFixed(6);
         for (let c = 0; c < lngsList.length; c++) {
-          const lat = latsList[r];
-          const lng = lngsList[c];
-          const pt = data.find(d => Math.abs(d.lat - lat) < 1e-7 && Math.abs(d.lng - lng) < 1e-7);
-          grid[r][c] = pt ? pt.elevation : null;
+          const lngStr = lngsList[c].toFixed(6);
+          const val = elevationLookup.get(`${latStr},${lngStr}`);
+          grid[r][c] = val !== undefined ? val : null;
         }
       }
 
@@ -1218,7 +1225,24 @@ app.post('/api/gee/find-waterways', async (req, res) => {
         }
       }
 
-      res.json({ points: waterwayPoints });
+      // Apply moving average smoothing on longitudes to make the line less jagged and follow natural contours smoothly
+      const smoothedPoints = [];
+      const windowSize = 5;
+      const halfWindow = Math.floor(windowSize / 2);
+      for (let i = 0; i < waterwayPoints.length; i++) {
+        let sumLng = 0;
+        let count = 0;
+        for (let w = -halfWindow; w <= halfWindow; w++) {
+          const idx = i + w;
+          if (idx >= 0 && idx < waterwayPoints.length) {
+            sumLng += waterwayPoints[idx][1];
+            count++;
+          }
+        }
+        smoothedPoints.push([waterwayPoints[i][0], Number((sumLng / count).toFixed(6))]);
+      }
+
+      res.json({ points: smoothedPoints });
     });
 
   } catch (err) {
