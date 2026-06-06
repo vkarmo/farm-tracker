@@ -1152,9 +1152,9 @@ app.post('/api/gee/find-waterways', async (req, res) => {
 
     const srtm = ee.Image('USGS/SRTMGL1_003').select('elevation');
 
-    // Create a high-resolution 50x50 grid of points in the bounding box
-    const latSteps = 50;
-    const lngSteps = 50;
+    // Create a high-resolution 57x57 grid of points in the bounding box (8.1x resolution density increase over original 20x20)
+    const latSteps = 57;
+    const lngSteps = 57;
     const points = [];
     for (let i = 0; i <= latSteps; i++) {
       const lat = Number((minLat + (i / latSteps) * (maxLat - minLat)).toFixed(6));
@@ -1168,7 +1168,7 @@ app.post('/api/gee/find-waterways', async (req, res) => {
     const sampled = srtm.reduceRegions({
       collection: featureCollection,
       reducer: ee.Reducer.first(),
-      scale: 10 // Higher resolution sampling
+      scale: 5 // Ultra-high resolution sampling
     });
 
     sampled.evaluate((resultVal, err) => {
@@ -1225,9 +1225,9 @@ app.post('/api/gee/find-waterways', async (req, res) => {
         }
       }
 
-      // Apply moving average smoothing on longitudes to make the line less jagged and follow natural contours smoothly
+      // Apply 7-point moving average smoothing on longitudes to make the line less jagged and follow natural contours smoothly
       const smoothedPoints = [];
-      const windowSize = 5;
+      const windowSize = 7;
       const halfWindow = Math.floor(windowSize / 2);
       for (let i = 0; i < waterwayPoints.length; i++) {
         let sumLng = 0;

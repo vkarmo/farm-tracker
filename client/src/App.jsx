@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import Select from 'react-select';
 import { fetchFields } from './store/fieldsSlice';
-import { addUnit, removeUnit, addJobTitle, removeJobTitle, addExpenseCategory, removeExpenseCategory, addIncomeCategory, removeIncomeCategory, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold, setAppName, addAnimalType, removeAnimalType, saveSettings, setGeeClientEmail, setGeePrivateKey, setGeeProjectId, setGeeScale, setOwmApiKey, setThemeAppBgColor, setThemeCardBgColor, setThemeCardBorderColor, setThemeCardBorderThickness, setThemeAppBorderColor, setThemeAppBorderThickness, setThemeFontName, setThemeFontSizeBase, setThemeFontSizeCardTitle, setThemeFontSizeTabs, setThemeColorPrimary, setThemeColorCardTitle, setThemeColorTabsActiveBg, setThemeColorTabsActiveText, setThemeColorTabsInactiveBg, setThemeColorTabsInactiveText, setThemeFontAppName, setThemeFontSizeAppName, setThemeFontAppNameBold, setThemeFontAppNameCapitalize, setThemeFontSizeBaseBold, setThemeFontSizeBaseCapitalize, setThemeFontSizeCardTitleBold, setThemeFontSizeCardTitleCapitalize, setThemeFontSizeTabsBold, setThemeFontSizeTabsCapitalize, setThemeFontImager, setThemeFontSizeImager, setThemeFontImagerBold, setThemeFontImagerCapitalize, setMtnClientId, setMtnClientSecret, setMtnEnvironment, setSimulateHighWinds } from './store/settingsSlice';
+import { addUnit, removeUnit, addJobTitle, removeJobTitle, addExpenseCategory, removeExpenseCategory, addIncomeCategory, removeIncomeCategory, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold, setAppName, addAnimalType, removeAnimalType, saveSettings, setGeeClientEmail, setGeePrivateKey, setGeeProjectId, setGeeScale, setOwmApiKey, setThemeAppBgColor, setThemeCardBgColor, setThemeCardBorderColor, setThemeCardBorderThickness, setThemeAppBorderColor, setThemeAppBorderThickness, setThemeFontName, setThemeFontSizeBase, setThemeFontSizeCardTitle, setThemeFontSizeTabs, setThemeColorPrimary, setThemeColorCardTitle, setThemeColorTabsActiveBg, setThemeColorTabsActiveText, setThemeColorTabsInactiveBg, setThemeColorTabsInactiveText, setThemeFontAppName, setThemeFontSizeAppName, setThemeFontAppNameBold, setThemeFontAppNameCapitalize, setThemeFontSizeBaseBold, setThemeFontSizeBaseCapitalize, setThemeFontSizeCardTitleBold, setThemeFontSizeCardTitleCapitalize, setThemeFontSizeTabsBold, setThemeFontSizeTabsCapitalize, setThemeFontImager, setThemeFontSizeImager, setThemeFontImagerBold, setThemeFontImagerCapitalize, setMtnClientId, setMtnClientSecret, setMtnEnvironment, setSimulateHighWinds, setGoogleMapsApiKey } from './store/settingsSlice';
 import { addLocation } from './store/gpsSlice';
 import { queueAction, fetchInitialData } from './store/syncSlice';
 import { MapSearchBox, MapFlyTo, FarmLocationButton } from './components/MapSearchBox';
@@ -101,6 +101,7 @@ export default function App() {
   const mtnClientId = useSelector(state => state.settings?.mtnClientId) || '';
   const mtnClientSecret = useSelector(state => state.settings?.mtnClientSecret) || '';
   const mtnEnvironment = useSelector(state => state.settings?.mtnEnvironment) || 'sandbox';
+  const googleMapsApiKey = useSelector(state => state.settings?.googleMapsApiKey) || '';
   const employees = useSelector(state => state.employees?.list) || [];
   const themeAppBgColor = useSelector(state => state.settings?.themeAppBgColor) || '#eeeef1';
   const themeCardBgColor = useSelector(state => state.settings?.themeCardBgColor) || '#ffffff';
@@ -1796,6 +1797,19 @@ export default function App() {
                       <div style={{ marginBottom: 16 }}>
                         <label>Polygon Draw Color</label>
                         <input type="color" value={polygonColor} onChange={(e) => { if (currentUser?.role !== 'Admin Viewer') { dispatch(setPolygonColor(e.target.value)); dispatch(saveSettings()); } }} style={{ display: 'block', marginTop: 8, cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer' }} disabled={currentUser?.role === 'Admin Viewer'} />
+                      </div>
+                      <div style={{ marginBottom: 16 }}>
+                        <label style={{ fontWeight: '600', display: 'block', marginBottom: '8px' }}>Google Maps API Key (for Reverse Geocoding)</label>
+                        <input
+                          type="password"
+                          value={googleMapsApiKey || ''}
+                          onChange={(e) => { dispatch(setGoogleMapsApiKey(e.target.value)); dispatch(saveSettings()); }}
+                          disabled={currentUser?.role === 'Admin Viewer'}
+                          placeholder="AIzaSy..."
+                          className="btn"
+                          style={{ display: 'block', marginTop: 8, padding: '8px', width: '100%', maxWidth: '500px', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'text', background: '#fff', border: '1px solid #ccc' }}
+                        />
+                        <span style={{ fontSize: '0.8rem', color: '#666' }}>Used to retrieve City/Town and Country names when using current device location.</span>
                       </div>
                     </div>
                     <hr style={{ border: 'none', borderTop: '1px solid var(--color-border)', margin: '20px 0' }} />

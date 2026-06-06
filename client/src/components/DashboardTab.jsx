@@ -48,6 +48,7 @@ export default function DashboardTab() {
 
   const mapCenter = useSelector(state => state.settings?.mapCenter) || [51.505, -0.09];
   const simulateHighWinds = useSelector(state => state.settings?.simulateHighWinds) || false;
+  const googleMapsApiKey = useSelector(state => state.settings?.googleMapsApiKey) || '';
 
   const [selectedLocId, setSelectedLocId] = useState('default');
   const [weatherData, setWeatherData] = useState(null);
@@ -188,32 +189,63 @@ export default function DashboardTab() {
               const lng = position.coords.longitude;
               const newCoords = [lat, lng];
 
-              // Call reverse geocoder to determine City, Country
-              fetch(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`)
+              // Immediately set GPS coordinates first without waiting for reverse lookup
+              if (isMounted) {
+                setDeviceCoords(newCoords);
+                setDeviceCoordsLoading(false);
+                setDeviceLocationName('Current Device Location');
+              }
+
+              // Build Geocoding request (use Google Geocoding API if key is available, fallback to BigDataCloud)
+              const url = googleMapsApiKey 
+                ? `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${googleMapsApiKey}`
+                : `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`;
+
+              fetch(url)
                 .then(r => r.json())
                 .then(json => {
-                  const placeName = json.city || json.locality || json.principalSubdivision || '';
-                  const country = json.countryName || '';
                   let label = '';
-                  if (placeName && country) {
-                    label = `${placeName}, ${country}`;
+                  if (googleMapsApiKey) {
+                    // Extract City/Town and Country from Google Geocoding response
+                    let city = '';
+                    let country = '';
+                    if (json.results && json.results.length > 0) {
+                      for (const result of json.results) {
+                        if (result.address_components) {
+                          for (const comp of result.address_components) {
+                            if (comp.types.includes('locality') || comp.types.includes('sublocality') || comp.types.includes('postal_town') || comp.types.includes('administrative_area_level_3') || comp.types.includes('neighborhood')) {
+                              if (!city) city = comp.long_name;
+                            }
+                            if (comp.types.includes('country')) {
+                              if (!country) country = comp.long_name;
+                            }
+                          }
+                        }
+                        if (city && country) break;
+                      }
+                    }
+                    if (city && country) {
+                      label = `${city}, ${country}`;
+                    } else {
+                      label = city || country || 'Current Device Location';
+                    }
                   } else {
-                    label = placeName || country || 'Current Device Location';
+                    // Fallback to BigDataCloud
+                    const placeName = json.city || json.locality || json.principalSubdivision || '';
+                    const country = json.countryName || '';
+                    if (placeName && country) {
+                      label = `${placeName}, ${country}`;
+                    } else {
+                      label = placeName || country || 'Current Device Location';
+                    }
                   }
 
                   if (isMounted) {
                     setDeviceLocationName(label);
-                    setDeviceCoords(newCoords);
-                    setDeviceCoordsLoading(false);
                   }
                 })
                 .catch(err => {
                   console.warn('Error reverse geocoding device coordinates:', err);
-                  if (isMounted) {
-                    setDeviceLocationName('Current Device Location');
-                    setDeviceCoords(newCoords);
-                    setDeviceCoordsLoading(false);
-                  }
                 });
             },
             (error) => {
