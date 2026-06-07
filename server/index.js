@@ -1150,9 +1150,51 @@ app.post('/api/gee/find-waterways', async (req, res) => {
 
     await initializeGee(creds);
 
+    const baseDate = new Date('2026-06-07T12:00:00-04:00');
+    const oneYearAgo = new Date(baseDate.getTime() - 365 * 24 * 60 * 60 * 1000);
+    const startDateStr = oneYearAgo.toISOString().split('T')[0];
+    const endDateStr = baseDate.toISOString().split('T')[0];
+
+    const boundsGeometry = ee.Geometry.Rectangle([minLng, minLat, maxLng, maxLat]);
+
+    // 1. DEM elevation & drainage indices from MERIT Hydro
+    const merit = ee.Image('MERIT/Hydro/v1_0_1');
+    const meritUpa = merit.select('upa'); // Upstream area in km2
+    const meritHnd = merit.select('hnd'); // Height above nearest drainage in m
     const srtm = ee.Image('USGS/SRTMGL1_003').select('elevation');
 
-    // Create a high-resolution 57x57 grid of points in the bounding box (8.1x resolution density increase over original 20x20)
+    // 2. Active water surfaces from Sentinel-1 SAR (last 1 year)
+    const s1Collection = ee.ImageCollection('COPERNICUS/S1_GRD')
+      .filterBounds(boundsGeometry)
+      .filterDate(startDateStr, endDateStr)
+      .filter(ee.Filter.eq('instrumentMode', 'IW'))
+      .filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VV'))
+      .select('VV');
+    
+    const s1Median = s1Collection.median().unmask(0).rename('sar_vv');
+
+    // 3. Dry-season NDWI composite from Sentinel-2 (last 1 year)
+    const s2Collection = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
+      .filterBounds(boundsGeometry)
+      .filterDate(startDateStr, endDateStr)
+      .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 30));
+
+    const ndwiCollection = s2Collection.map((img) => {
+      return img.normalizedDifference(['B3', 'B8']).rename('NDWI');
+    });
+
+    const ndwiDry = ndwiCollection.reduce(ee.Reducer.percentile([15])).unmask(-1).rename('ndwi_dry');
+
+    // Combine all bands into a composite image
+    const compositeImage = ee.Image.cat([
+      srtm.rename('elevation'),
+      meritUpa.rename('upa'),
+      meritHnd.rename('hnd'),
+      s1Median.rename('sar_vv'),
+      ndwiDry.rename('ndwi_dry')
+    ]);
+
+    // Create a high-resolution 57x57 grid of points in the bounding box
     const latSteps = 57;
     const lngSteps = 57;
     const points = [];
@@ -1165,10 +1207,10 @@ app.post('/api/gee/find-waterways', async (req, res) => {
     }
 
     const featureCollection = ee.FeatureCollection(points);
-    const sampled = srtm.reduceRegions({
+    const sampled = compositeImage.reduceRegions({
       collection: featureCollection,
       reducer: ee.Reducer.first(),
-      scale: 5 // Ultra-high resolution sampling
+      scale: 10 // Appropriate scale for Sentinel-2 / DEM features
     });
 
     sampled.evaluate((resultVal, err) => {
@@ -1180,71 +1222,176 @@ app.post('/api/gee/find-waterways', async (req, res) => {
         return res.status(500).json({ error: 'No response features from GEE' });
       }
 
-      const data = resultVal.features.map(f => ({
-        lat: f.properties.lat,
-        lng: f.properties.lng,
-        elevation: f.properties.first
-      }));
+      const data = resultVal.features.map(f => {
+        const props = f.properties || {};
+        return {
+          lat: props.lat,
+          lng: props.lng,
+          elevation: props.elevation !== undefined ? props.elevation : null,
+          upa: props.upa !== undefined ? props.upa : null,
+          hnd: props.hnd !== undefined ? props.hnd : null,
+          sar_vv: props.sar_vv !== undefined ? props.sar_vv : null,
+          ndwi_dry: props.ndwi_dry !== undefined ? props.ndwi_dry : null
+        };
+      });
 
-      // Find lowest elevation point per latitude row
+      // Filter to find the points that satisfy intersection and compute scores
+      const intersectionPoints = [];
+      const allPointsWithScores = [];
+
+      // Calculate min/max elevation to scale relative depth
+      const elevations = data.map(d => d.elevation).filter(e => e !== null);
+      const maxElev = elevations.length > 0 ? Math.max(...elevations) : 1000;
+      const minElev = elevations.length > 0 ? Math.min(...elevations) : 0;
+      const elevRange = maxElev - minElev || 1;
+
+      for (const d of data) {
+        // 1. DEM valley depth: lower elevation in the current bounding box gets higher score
+        let depthScore = 0;
+        if (d.elevation !== null) {
+          depthScore = ((maxElev - d.elevation) / elevRange) * 1000;
+        }
+
+        // 2. DEM Flow Accumulation and Drainage channels from MERIT Hydro
+        let meritScore = 0;
+        if (d.upa !== null) {
+          // Upstream drainage area (upa) in km2. Prefer channels.
+          meritScore += Math.min(d.upa * 1000, 500);
+        }
+        if (d.hnd !== null) {
+          // Height above nearest drainage (hnd) in meters. Closer to 0 is the valley floor.
+          meritScore += Math.max(0, 500 - d.hnd * 100);
+        }
+
+        // 3. Active water (Sentinel-1 SAR VV backscatter < -16 dB)
+        let sarScore = 0;
+        const hasSar = d.sar_vv !== null && d.sar_vv !== 0 && d.sar_vv < -16;
+        if (hasSar) {
+          sarScore = 500 + Math.max(0, -16 - d.sar_vv) * 50;
+        }
+
+        // 4. Permanent water (Sentinel-2 dry-season NDWI > 0.0)
+        let ndwiScore = 0;
+        const hasNdwi = d.ndwi_dry !== null && d.ndwi_dry !== -1 && d.ndwi_dry > 0.0;
+        if (hasNdwi) {
+          ndwiScore = 500 + d.ndwi_dry * 1000;
+        }
+
+        const score = depthScore + meritScore + sarScore + ndwiScore;
+        const intersect = hasSar && hasNdwi;
+
+        const pt = {
+          lat: d.lat,
+          lng: d.lng,
+          score,
+          intersect
+        };
+
+        allPointsWithScores.push(pt);
+        if (intersect) {
+          intersectionPoints.push(pt);
+        }
+      }
+
+      // Determine the general orientation of the waterway inside the bounding box
+      let isEastWest = false;
+      // We look at the top 15% highest scoring points (which represent the valley floor / waterway corridor)
+      const sortedPoints = [...allPointsWithScores].sort((a, b) => b.score - a.score);
+      const topPoints = sortedPoints.slice(0, Math.max(5, Math.floor(allPointsWithScores.length * 0.15)));
+      
+      if (topPoints.length >= 3) {
+        const lats = topPoints.map(p => p.lat);
+        const lngs = topPoints.map(p => p.lng);
+        const latRange = Math.max(...lats) - Math.min(...lats);
+        const lngRange = Math.max(...lngs) - Math.min(...lngs);
+        if (lngRange > latRange) {
+          isEastWest = true;
+        }
+      }
+
       const latsList = Array.from(new Set(data.map(d => d.lat))).sort((a, b) => b - a); // North to South
       const lngsList = Array.from(new Set(data.map(d => d.lng))).sort((a, b) => a - b); // West to East
 
-      // Map elevations to structured lookup Map
-      const elevationLookup = new Map();
-      for (const d of data) {
-        const key = `${d.lat.toFixed(6)},${d.lng.toFixed(6)}`;
-        elevationLookup.set(key, d.elevation);
-      }
-
-      const grid = [];
-      for (let r = 0; r < latsList.length; r++) {
-        grid[r] = [];
-        const latStr = latsList[r].toFixed(6);
-        for (let c = 0; c < lngsList.length; c++) {
-          const lngStr = lngsList[c].toFixed(6);
-          const val = elevationLookup.get(`${latStr},${lngStr}`);
-          grid[r][c] = val !== undefined ? val : null;
-        }
-      }
-
       const waterwayPoints = [];
-      for (let r = 0; r < latsList.length; r++) {
-        const row = grid[r];
-        let minVal = Infinity;
-        let minCol = -1;
-        for (let c = 0; c < row.length; c++) {
-          const val = row[c];
-          if (val !== null && val < minVal) {
-            minVal = val;
-            minCol = c;
+
+      if (isEastWest) {
+        // Group by longitude, pick the highest-scoring latitude
+        for (const lng of lngsList) {
+          const colPoints = allPointsWithScores.filter(p => p.lng === lng);
+          let bestPt = null;
+          let maxScore = -Infinity;
+          for (const p of colPoints) {
+            if (p.score > maxScore) {
+              maxScore = p.score;
+              bestPt = p;
+            }
+          }
+          if (bestPt) {
+            waterwayPoints.push([bestPt.lat, bestPt.lng]);
           }
         }
-        if (minCol !== -1) {
-          waterwayPoints.push([latsList[r], lngsList[minCol]]);
+      } else {
+        // Group by latitude, pick the highest-scoring longitude
+        for (const lat of latsList) {
+          const rowPoints = allPointsWithScores.filter(p => p.lat === lat);
+          let bestPt = null;
+          let maxScore = -Infinity;
+          for (const p of rowPoints) {
+            if (p.score > maxScore) {
+              maxScore = p.score;
+              bestPt = p;
+            }
+          }
+          if (bestPt) {
+            waterwayPoints.push([bestPt.lat, bestPt.lng]);
+          }
         }
       }
 
-      // Apply 7-point moving average smoothing on longitudes to make the line less jagged and follow natural contours smoothly
+      // Smooth the waterway coordinates to prevent jagged lines
       const smoothedPoints = [];
       const windowSize = 7;
       const halfWindow = Math.floor(windowSize / 2);
-      for (let i = 0; i < waterwayPoints.length; i++) {
-        let sumLng = 0;
-        let count = 0;
-        for (let w = -halfWindow; w <= halfWindow; w++) {
-          const idx = i + w;
-          if (idx >= 0 && idx < waterwayPoints.length) {
-            sumLng += waterwayPoints[idx][1];
-            count++;
+
+      if (waterwayPoints.length > 0) {
+        if (isEastWest) {
+          // Smooth the latitudes (index 0) along the West-East line
+          for (let i = 0; i < waterwayPoints.length; i++) {
+            let sumLat = 0;
+            let count = 0;
+            for (let w = -halfWindow; w <= halfWindow; w++) {
+              const idx = i + w;
+              if (idx >= 0 && idx < waterwayPoints.length) {
+                sumLat += waterwayPoints[idx][0];
+                count++;
+              }
+            }
+            smoothedPoints.push([Number((sumLat / count).toFixed(6)), waterwayPoints[i][1]]);
+          }
+        } else {
+          // Smooth the longitudes (index 1) along the North-South line
+          for (let i = 0; i < waterwayPoints.length; i++) {
+            let sumLng = 0;
+            let count = 0;
+            for (let w = -halfWindow; w <= halfWindow; w++) {
+              const idx = i + w;
+              if (idx >= 0 && idx < waterwayPoints.length) {
+                sumLng += waterwayPoints[idx][1];
+                count++;
+              }
+            }
+            smoothedPoints.push([waterwayPoints[i][0], Number((sumLng / count).toFixed(6))]);
           }
         }
-        smoothedPoints.push([waterwayPoints[i][0], Number((sumLng / count).toFixed(6))]);
       }
 
-      res.json({ points: smoothedPoints });
-    });
+      const validElevations = data.map(d => d.elevation).filter(e => e !== null);
+      const avgElevation = validElevations.length > 0 
+        ? Number((validElevations.reduce((sum, e) => sum + e, 0) / validElevations.length).toFixed(2))
+        : null;
 
+      res.json({ points: smoothedPoints, mapElevation: avgElevation });
+    });
   } catch (err) {
     console.error('find-waterways endpoint error:', err);
     res.status(500).json({ error: err.message || err });
@@ -1331,6 +1478,17 @@ app.get('/api/all-data', async (req, res) => {
                ['units', 'jobTitles', 'kmlUrls', 'mapCenter', 'expenseCategories', 'incomeCategories', 'animalTypes'].forEach(field => {
                    if (props[field] && typeof props[field] === 'string') {
                        try { props[field] = JSON.parse(props[field]); } catch(e) {}
+                   }
+               });
+           }
+           if (key === 'poi') {
+               ['zoomLevel', 'mapElevation'].forEach(field => {
+                   if (props[field] !== undefined && props[field] !== null) {
+                       if (typeof props[field] === 'object' && props[field].low !== undefined) {
+                           props[field] = props[field].low;
+                       } else {
+                           props[field] = Number(props[field]);
+                       }
                    }
                });
            }
@@ -1556,13 +1714,15 @@ app.post('/api/sync', async (req, res) => {
           results.push({ actionId: action.meta?.id, status: 'success' });
         }
         else if (action.type === 'poi/addPoi') {
-          const { id, name, type, description, area, length, points, drawColor, isLine, country, region, createdBy } = action.payload;
+          const { id, name, type, description, area, length, points, drawColor, isLine, country, region, county, city, zoomLevel, mapElevation, createdBy } = action.payload;
           await session.run(`
             MERGE (n:PointOfInterest {id: $id})
             ON CREATE SET n.createdBy = $createdBy, n.createdAt = datetime()
             SET n.name = $name, n.type = $type, n.description = $description,
                 n.area = $area, n.length = $length, n.points = $points, n.drawColor = $drawColor,
                 n.isLine = $isLine, n.country = $country, n.region = $region,
+                n.county = $county, n.city = $city,
+                n.zoomLevel = toInteger($zoomLevel), n.mapElevation = toFloat($mapElevation),
                 n.lastUpdatedBy = $userEmail, n.lastUpdatedAt = datetime()
             RETURN n
           `, { 
@@ -1578,6 +1738,10 @@ app.post('/api/sync', async (req, res) => {
             isLine: isLine === true || isLine === 'true',
             country: country || '',
             region: region || '',
+            county: county || '',
+            city: city || '',
+            zoomLevel: zoomLevel !== undefined ? zoomLevel : null,
+            mapElevation: mapElevation !== undefined ? mapElevation : null,
             createdBy: createdBy || userEmail
           });
           results.push({ actionId: action.meta?.id, status: 'success' });

@@ -39,35 +39,52 @@ export const fetchGeoLocationInfo = async (lat, lng, googleMapsApiKey) => {
     const json = await res.json();
     let country = '';
     let region = '';
+    let county = '';
+    let city = '';
 
     if (googleMapsApiKey) {
       if (json.results && json.results.length > 0) {
         for (const result of json.results) {
           if (result.address_components) {
             for (const comp of result.address_components) {
-              if (comp.types.includes('administrative_area_level_1') || comp.types.includes('administrative_area_level_2')) {
-                if (!region) region = comp.long_name;
-              }
               if (comp.types.includes('country')) {
                 if (!country) country = comp.long_name;
               }
+              if (comp.types.includes('administrative_area_level_1')) {
+                if (!region) region = comp.long_name;
+              }
+              if (comp.types.includes('administrative_area_level_2')) {
+                if (!county) county = comp.long_name;
+              }
+              if (comp.types.includes('locality') || comp.types.includes('sublocality') || comp.types.includes('postal_town') || comp.types.includes('neighborhood')) {
+                if (!city) city = comp.long_name;
+              }
             }
           }
-          if (region && country) break;
+          if (region && country && county && city) break;
         }
       }
     } else {
       country = json.countryName || '';
-      region = json.principalSubdivision || json.locality || '';
+      region = json.principalSubdivision || '';
+      city = json.city || json.locality || '';
+      if (json.localityInfo && Array.isArray(json.localityInfo.administrative)) {
+        const countyDiv = json.localityInfo.administrative.find(d => 
+          d.description && d.description.toLowerCase().includes('county')
+        ) || json.localityInfo.administrative.find(d => 
+          d.adminLevel === 6 || d.adminLevel === 5 || (d.name && d.name.toLowerCase().includes('county'))
+        );
+        if (countyDiv) county = countyDiv.name;
+      }
     }
-    return { country, region };
+    return { country, region, county, city };
   } catch (err) {
     console.warn('Error geocoding POI location:', err);
-    return { country: '', region: '' };
+    return { country: '', region: '', county: '', city: '' };
   }
 };
 
-const INIT_STATE = { name: '', type: 'Terrain Feature', description: '', area: '', length: '', drawColor: '', isLine: false, country: '', region: '' };
+const INIT_STATE = { name: '', type: 'Terrain Feature', description: '', area: '', length: '', drawColor: '', isLine: false, country: '', region: '', county: '', city: '', zoomLevel: '', mapElevation: '' };
 
 export default function PoiTab() {
   const dispatch = useDispatch();
@@ -205,21 +222,31 @@ export default function PoiTab() {
 
     let country = formData.country || '';
     let region = formData.region || '';
+    let county = formData.county || '';
+    let city = formData.city || '';
 
-    if (points && points.length > 0 && (!country || !region)) {
+    if (points && points.length > 0 && (!country || !region || !county || !city)) {
       const [lat, lng] = points[0];
       const geoInfo = await fetchGeoLocationInfo(lat, lng, googleMapsApiKey);
       country = country || geoInfo.country;
       region = region || geoInfo.region;
+      county = county || geoInfo.county;
+      city = city || geoInfo.city;
     }
 
     const userEmail = currentUser?.email || currentUser?.name || 'Unknown User';
+    const currentZoom = mapInstance ? mapInstance.getZoom() : null;
+    const finalZoom = formData.zoomLevel !== '' && formData.zoomLevel !== undefined && formData.zoomLevel !== null ? formData.zoomLevel : currentZoom;
 
     const finalData = { 
       ...formData, 
       points: JSON.stringify(points),
       country,
       region,
+      county,
+      city,
+      zoomLevel: finalZoom !== null ? Number(finalZoom) : null,
+      mapElevation: formData.mapElevation !== '' && formData.mapElevation !== undefined && formData.mapElevation !== null ? Number(formData.mapElevation) : null,
       lastUpdatedBy: userEmail
     };
 
@@ -308,11 +335,38 @@ export default function PoiTab() {
       
       const ptsWithTime = data.points.map((pt, index) => [pt[0], pt[1], Date.now() + index]);
       setPoints(ptsWithTime);
+
+      let country = '';
+      let region = '';
+      let county = '';
+      let city = '';
+      if (data.points.length > 0) {
+        const [lat, lng] = data.points[0];
+        try {
+          const geoInfo = await fetchGeoLocationInfo(lat, lng, googleMapsApiKey);
+          country = geoInfo.country || '';
+          region = geoInfo.region || '';
+          county = geoInfo.county || '';
+          city = geoInfo.city || '';
+        } catch (geoErr) {
+          console.warn('Geocoding error in handleAutoDetectWaterway:', geoErr);
+        }
+      }
+
+      const zoomVal = mapInstance ? mapInstance.getZoom() : null;
+
       setFormData(prev => ({
         ...prev,
         type: 'Water Source',
         name: prev.name || `Waterway ${new Date().toLocaleDateString()}`,
-        isLine: true
+        isLine: true,
+        drawColor: '#4fc3f7',
+        country,
+        region,
+        county,
+        city,
+        zoomLevel: zoomVal || '',
+        mapElevation: data.mapElevation !== undefined && data.mapElevation !== null ? data.mapElevation : ''
       }));
     } catch (err) {
       console.error(err);
@@ -325,10 +379,12 @@ export default function PoiTab() {
   const columns = [
     { key: 'name', header: 'POI Name' },
     { key: 'type', header: 'Type' },
+    { key: 'city', header: 'City/Town', render: r => r.city || '-' },
+    { key: 'county', header: 'County', render: r => r.county || '-' },
+    { key: 'region', header: 'Region/State', render: r => r.region || '-' },
     { key: 'country', header: 'Country', render: r => r.country || '-' },
-    { key: 'region', header: 'Region', render: r => r.region || '-' },
-    { key: 'createdBy', header: 'Created By', render: r => r.createdBy || '-' },
-    { key: 'lastUpdatedBy', header: 'Last Updated By', render: r => r.lastUpdatedBy || '-' },
+    { key: 'zoomLevel', header: 'Zoom', render: r => r.zoomLevel !== undefined && r.zoomLevel !== null ? r.zoomLevel : '-' },
+    { key: 'mapElevation', header: 'Avg Elevation (m)', render: r => r.mapElevation !== undefined && r.mapElevation !== null ? r.mapElevation : '-' },
     { key: 'description', header: 'Description' },
     { key: 'area', header: 'Area (Acres)', render: r => r.area || '-' },
     { key: 'length', header: 'Length (Meters)', render: r => r.length || '-' }
@@ -574,7 +630,7 @@ export default function PoiTab() {
                   <ClickToDrawComponent points={points} setPoints={setPoints} setCenter={setSearchResultCenter} />
 
                   {latLngs.length > 2 && !formData.isLine && <Polygon positions={latLngs} pathOptions={{ color: formData.drawColor || polygonColor, weight: 1.5, opacity: 0.6, fillOpacity: 0.3 }} />}
-                  {latLngs.length > 1 && (formData.isLine || latLngs.length <= 2) && <Polyline positions={latLngs} pathOptions={{ color: formData.drawColor || '#0288d1', weight: 4, opacity: 0.85, dashArray: '10, 10' }} />}
+                  {latLngs.length > 1 && (formData.isLine || latLngs.length <= 2) && <Polyline positions={latLngs} pathOptions={{ color: formData.drawColor || '#4fc3f7', weight: (formData.name || '').toLowerCase().includes('waterway') ? 8 : 4, opacity: 0.85, dashArray: '10, 10' }} />}
                   {latLngs.map((pos, idx) => (
                     <Marker key={idx} position={pos} opacity={0.8} />
                   ))}
@@ -594,7 +650,7 @@ export default function PoiTab() {
 
                     const isPolyline = p.isLine || p.drawType === 'polyline' || mappedPts.length === 2;
                     if (isPolyline && mappedPts.length > 1) {
-                      return <Polyline key={p.id} positions={mappedPts} pathOptions={{ color: p.drawColor || '#0288d1', weight: 3, opacity: 0.8, bubblingMouseEvents: false }} eventHandlers={{ click: handleClick }} />
+                      return <Polyline key={p.id} positions={mappedPts} pathOptions={{ color: p.drawColor || '#4fc3f7', weight: (p.name || '').toLowerCase().includes('waterway') ? 8 : 3, opacity: 0.8, bubblingMouseEvents: false }} eventHandlers={{ click: handleClick }} />
                     } else if (mappedPts.length > 2) {
                       return <Polygon key={p.id} positions={mappedPts} pathOptions={{ color: p.drawColor || polygonColor, weight: 1.2, opacity: 0.6, fillOpacity: 0.1, bubblingMouseEvents: false }} eventHandlers={{ click: handleClick }} />
                     } else {
@@ -642,11 +698,27 @@ export default function PoiTab() {
                   </div>
                   <div className="form-group">
                     <label>Country</label>
-                    <input type="text" value={formData.country || ''} onChange={e => setFormData({ ...formData, country: e.target.value })} placeholder="Auto-detecting / custom country" />
+                    <input type="text" value={formData.country || ''} onChange={e => setFormData({ ...formData, country: e.target.value })} placeholder="Auto-detecting country" />
                   </div>
                   <div className="form-group">
                     <label>Region / State</label>
-                    <input type="text" value={formData.region || ''} onChange={e => setFormData({ ...formData, region: e.target.value })} placeholder="Auto-detecting / custom region" />
+                    <input type="text" value={formData.region || ''} onChange={e => setFormData({ ...formData, region: e.target.value })} placeholder="Auto-detecting region" />
+                  </div>
+                  <div className="form-group">
+                    <label>City / Town</label>
+                    <input type="text" value={formData.city || ''} onChange={e => setFormData({ ...formData, city: e.target.value })} placeholder="Auto-detecting city/town" />
+                  </div>
+                  <div className="form-group">
+                    <label>County</label>
+                    <input type="text" value={formData.county || ''} onChange={e => setFormData({ ...formData, county: e.target.value })} placeholder="Auto-detecting county" />
+                  </div>
+                  <div className="form-group">
+                    <label>Map Zoom Level</label>
+                    <input type="number" value={formData.zoomLevel || ''} onChange={e => setFormData({ ...formData, zoomLevel: e.target.value })} placeholder="Map zoom level" />
+                  </div>
+                  <div className="form-group">
+                    <label>Map Elevation (Meters)</label>
+                    <input type="number" step="0.01" value={formData.mapElevation || ''} onChange={e => setFormData({ ...formData, mapElevation: e.target.value })} placeholder="Avg elevation of view" />
                   </div>
                   {editingId && (
                     <>

@@ -274,12 +274,16 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
       
       let country = '';
       let region = '';
+      let county = '';
+      let city = '';
       if (data.points && data.points.length > 0) {
         const firstPt = data.points[0];
         try {
           const geoInfo = await fetchGeoLocationInfo(firstPt[0], firstPt[1], googleMapsApiKey);
           country = geoInfo.country || '';
           region = geoInfo.region || '';
+          county = geoInfo.county || '';
+          city = geoInfo.city || '';
         } catch (geoErr) {
           console.warn('Geocoding error in handleFindWaterwayPOI:', geoErr);
         }
@@ -287,18 +291,24 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
 
       const userEmail = currentUser?.email || currentUser?.name || 'Unknown User';
       const poiId = `poi_${Date.now()}`;
+      const zoomLevel = mapInstance ? mapInstance.getZoom() : null;
+
       const newPoi = {
         id: poiId,
         name: `Waterway ${new Date().toLocaleDateString()}`,
         type: 'Water Source',
         description: 'Auto-detected waterway centerline from GEE elevation minima',
         points: JSON.stringify(data.points),
-        drawColor: '#0288d1',
+        drawColor: '#4fc3f7',
         area: '',
         length: '',
         isLine: true,
         country,
         region,
+        county,
+        city,
+        zoomLevel: zoomLevel !== null ? Number(zoomLevel) : null,
+        mapElevation: data.mapElevation !== undefined && data.mapElevation !== null ? Number(data.mapElevation) : null,
         createdBy: userEmail,
         lastUpdatedBy: userEmail,
         createdAt: new Date().toISOString()
@@ -935,7 +945,7 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
               key={`buffer_${JSON.stringify(waterways)}`}
               data={waterways}
               style={{
-                color: '#29b6f6',
+                color: '#80d8ff',
                 weight: 24, // wide buffer
                 opacity: 0.15,
                 lineCap: 'round',
@@ -948,8 +958,8 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
               key={`line_${JSON.stringify(waterways)}`}
               data={waterways}
               style={{
-                color: '#0288d1',
-                weight: 4,
+                color: '#29b6f6',
+                weight: 8,
                 opacity: 0.85,
                 dashArray: '10, 10',
                 lineCap: 'round',
@@ -958,7 +968,7 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
               onEachFeature={(feature, layer) => {
                 layer.bindPopup(`
                   <div style="font-family: var(--font-family); font-size: 0.8rem; line-height: 1.4; min-width: 180px;">
-                    <strong style="color: #0288d1; font-size: 0.9rem; display: block; margin-bottom: 4px;">🌊 ${feature.properties.name}</strong>
+                    <strong style="color: #29b6f6; font-size: 0.9rem; display: block; margin-bottom: 4px;">🌊 ${feature.properties.name}</strong>
                     <strong>Source:</strong> ${feature.properties.source}<br/>
                     <strong>County:</strong> ${feature.properties.county}<br/>
                     <strong>Flow Direction:</strong> ${feature.properties.flow_direction || 'N/A'}<br/>
@@ -1233,8 +1243,8 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
               <Polyline
                 key={poi.id}
                 pathOptions={{
-                  color: useCommonColor ? polygonColor : (poi.drawColor || '#0288d1'),
-                  weight: strokeEnabled ? 4 : 0,
+                  color: useCommonColor ? polygonColor : (poi.drawColor || '#4fc3f7'),
+                  weight: strokeEnabled ? (poi.name.toLowerCase().includes('waterway') ? 8 : 4) : 0,
                   opacity: 0.85,
                   dashArray: poi.name.toLowerCase().includes('waterway') ? '10, 10' : undefined
                 }}
