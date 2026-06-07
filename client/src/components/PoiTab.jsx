@@ -30,7 +30,44 @@ const MapEventsHelper = ({ setMapInstance }) => {
   return null;
 };
 
-const INIT_STATE = { name: '', type: 'Terrain Feature', description: '', area: '', length: '', drawColor: '', isLine: false };
+export const fetchGeoLocationInfo = async (lat, lng, googleMapsApiKey) => {
+  const url = googleMapsApiKey
+    ? `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${googleMapsApiKey}`
+    : `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lng}&localityLanguage=en`;
+  try {
+    const res = await fetch(url);
+    const json = await res.json();
+    let country = '';
+    let region = '';
+
+    if (googleMapsApiKey) {
+      if (json.results && json.results.length > 0) {
+        for (const result of json.results) {
+          if (result.address_components) {
+            for (const comp of result.address_components) {
+              if (comp.types.includes('administrative_area_level_1') || comp.types.includes('administrative_area_level_2')) {
+                if (!region) region = comp.long_name;
+              }
+              if (comp.types.includes('country')) {
+                if (!country) country = comp.long_name;
+              }
+            }
+          }
+          if (region && country) break;
+        }
+      }
+    } else {
+      country = json.countryName || '';
+      region = json.principalSubdivision || json.locality || '';
+    }
+    return { country, region };
+  } catch (err) {
+    console.warn('Error geocoding POI location:', err);
+    return { country: '', region: '' };
+  }
+};
+
+const INIT_STATE = { name: '', type: 'Terrain Feature', description: '', area: '', length: '', drawColor: '', isLine: false, country: '', region: '' };
 
 export default function PoiTab() {
   const dispatch = useDispatch();
@@ -40,6 +77,8 @@ export default function PoiTab() {
   const mapZoom = useSelector(state => state.settings?.mapZoom) || 13;
   const fields = useSelector(state => state.fields.data) || [];
   const nurseries = useSelector(state => state.nurseries?.beds) || [];
+  const currentUser = useSelector(state => state.auth?.currentUser);
+  const googleMapsApiKey = useSelector(state => state.settings?.googleMapsApiKey) || '';
 
   const [activeTab, setActiveTab] = useState('roster');
   const [formData, setFormData] = useState(INIT_STATE);
@@ -48,6 +87,72 @@ export default function PoiTab() {
   const [searchResultCenter, setSearchResultCenter] = useState(null);
   const [mapInstance, setMapInstance] = useState(null);
   const [loadingWaterway, setLoadingWaterway] = useState(false);
+
+  const [showGroupDeletePanel, setShowGroupDeletePanel] = useState(false);
+  const [groupDeleteCriteria, setGroupDeleteCriteria] = useState({
+    user: '',
+    type: '',
+    startDate: '',
+    endDate: ''
+  });
+
+  const getPoiDate = (poi) => {
+    if (poi.createdAt) return new Date(poi.createdAt);
+    const parts = (poi.id || '').split('_');
+    if (parts.length > 1) {
+      const ts = parseInt(parts[1]);
+      if (!isNaN(ts)) return new Date(ts);
+    }
+    return new Date();
+  };
+
+  const handleGroupDelete = () => {
+    const matching = poiList.filter(poi => {
+      if (groupDeleteCriteria.user) {
+        const user = (poi.createdBy || poi.lastUpdatedBy || '').toLowerCase();
+        if (user !== groupDeleteCriteria.user.toLowerCase()) return false;
+      }
+      if (groupDeleteCriteria.type) {
+        if (poi.type !== groupDeleteCriteria.type) return false;
+      }
+      const poiDate = getPoiDate(poi);
+      if (groupDeleteCriteria.startDate) {
+        const start = new Date(groupDeleteCriteria.startDate);
+        start.setHours(0,0,0,0);
+        if (poiDate < start) return false;
+      }
+      if (groupDeleteCriteria.endDate) {
+        const end = new Date(groupDeleteCriteria.endDate);
+        end.setHours(23,59,59,999);
+        if (poiDate > end) return false;
+      }
+      return true;
+    });
+
+    if (matching.length === 0) {
+      alert("No Points of Interest found matching the selected criteria.");
+      return;
+    }
+
+    const confirmMsg = `Are you sure you want to permanently delete ${matching.length} Points of Interest matching the criteria?\n\n` +
+      `User: ${groupDeleteCriteria.user || 'All'}\n` +
+      `Type: ${groupDeleteCriteria.type || 'All'}\n` +
+      `Date Range: ${groupDeleteCriteria.startDate || 'Any'} to ${groupDeleteCriteria.endDate || 'Any'}`;
+
+    if (window.confirm(confirmMsg)) {
+      matching.forEach(poi => {
+        dispatch(deletePoi(poi.id));
+        dispatch(queueAction({ type: 'core/deleteNode', payload: { id: poi.id }, meta: { id: Date.now() } }));
+      });
+      alert(`Successfully deleted ${matching.length} Points of Interest.`);
+      setGroupDeleteCriteria({ user: '', type: '', startDate: '', endDate: '' });
+      setShowGroupDeletePanel(false);
+    }
+  };
+
+  const uniqueUsers = Array.from(new Set(
+    poiList.map(p => p.createdBy || p.lastUpdatedBy).filter(Boolean)
+  )).sort();
 
   const handleLocationFound = (loc) => {
     const newLoc = loc.length >= 3 ? loc : [loc[0], loc[1], Date.now()];
@@ -94,11 +199,29 @@ export default function PoiTab() {
     setActiveTab('roster');
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!formData.name.trim()) return alert("Validation Error: POI Name is required.");
 
-    const finalData = { ...formData, points: JSON.stringify(points) };
+    let country = formData.country || '';
+    let region = formData.region || '';
+
+    if (points && points.length > 0 && (!country || !region)) {
+      const [lat, lng] = points[0];
+      const geoInfo = await fetchGeoLocationInfo(lat, lng, googleMapsApiKey);
+      country = country || geoInfo.country;
+      region = region || geoInfo.region;
+    }
+
+    const userEmail = currentUser?.email || currentUser?.name || 'Unknown User';
+
+    const finalData = { 
+      ...formData, 
+      points: JSON.stringify(points),
+      country,
+      region,
+      lastUpdatedBy: userEmail
+    };
 
     if (editingId) {
       // UPDATE
@@ -107,7 +230,12 @@ export default function PoiTab() {
       dispatch(queueAction({ type: 'core/updateNode', payload: { id: editingId, properties: updatedPoi }, meta: { id: Date.now() } }));
     } else {
       // CREATE
-      const newPoi = { ...finalData, id: `poi_${Date.now()}` };
+      const newPoi = { 
+        ...finalData, 
+        id: `poi_${Date.now()}`, 
+        createdBy: userEmail,
+        createdAt: new Date().toISOString()
+      };
       dispatch(addPoi(newPoi));
       dispatch(queueAction({ type: 'poi/addPoi', payload: newPoi, meta: { id: Date.now() } }));
     }
@@ -197,6 +325,10 @@ export default function PoiTab() {
   const columns = [
     { key: 'name', header: 'POI Name' },
     { key: 'type', header: 'Type' },
+    { key: 'country', header: 'Country', render: r => r.country || '-' },
+    { key: 'region', header: 'Region', render: r => r.region || '-' },
+    { key: 'createdBy', header: 'Created By', render: r => r.createdBy || '-' },
+    { key: 'lastUpdatedBy', header: 'Last Updated By', render: r => r.lastUpdatedBy || '-' },
     { key: 'description', header: 'Description' },
     { key: 'area', header: 'Area (Acres)', render: r => r.area || '-' },
     { key: 'length', header: 'Length (Meters)', render: r => r.length || '-' }
@@ -257,13 +389,141 @@ export default function PoiTab() {
 
         <div style={{ padding: '20px' }}>
           {activeTab === 'roster' ? (
-            <CrudTable activeRowId={editingId}
-              data={poiList}
-              columns={columns}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-              itemLabel="Point of Interest"
-            />
+            <div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '15px' }}>
+                <button
+                  type="button"
+                  onClick={() => setShowGroupDeletePanel(!showGroupDeletePanel)}
+                  className="btn"
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    background: showGroupDeletePanel ? '#ffebee' : '#fafafa',
+                    color: showGroupDeletePanel ? '#c62828' : '#666',
+                    border: '1px solid ' + (showGroupDeletePanel ? '#ef9a9a' : '#ccc'),
+                    padding: '8px 12px',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontWeight: 600,
+                    fontSize: '0.85rem'
+                  }}
+                >
+                  {showGroupDeletePanel ? 'Hide Group Delete Panel' : 'Show Group Delete Panel'}
+                </button>
+              </div>
+
+              {showGroupDeletePanel && (
+                <div style={{
+                  background: '#fafafa',
+                  border: '1px solid #ef9a9a',
+                  borderLeft: '4px solid #c62828',
+                  borderRadius: '6px',
+                  padding: '16px',
+                  marginBottom: '20px',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.05)'
+                }}>
+                  <h4 style={{ margin: '0 0 12px 0', color: '#c62828', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    Group Delete Points of Interest
+                  </h4>
+                  <p style={{ margin: '0 0 16px 0', fontSize: '0.8rem', color: '#666' }}>
+                    Select search criteria below to permanently delete matching Points of Interest. Keep fields empty to ignore them.
+                  </p>
+                  
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                    gap: '12px',
+                    marginBottom: '16px'
+                  }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#555' }}>Created/Updated By User</label>
+                      <select
+                        value={groupDeleteCriteria.user}
+                        onChange={e => setGroupDeleteCriteria({ ...groupDeleteCriteria, user: e.target.value })}
+                        style={{ padding: '6px 8px', borderRadius: '4px', border: '1px solid #ccc', background: 'white', fontSize: '0.85rem' }}
+                      >
+                        <option value="">-- All Users --</option>
+                        {uniqueUsers.map(u => (
+                          <option key={u} value={u}>{u}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#555' }}>POI Type</label>
+                      <select
+                        value={groupDeleteCriteria.type}
+                        onChange={e => setGroupDeleteCriteria({ ...groupDeleteCriteria, type: e.target.value })}
+                        style={{ padding: '6px 8px', borderRadius: '4px', border: '1px solid #ccc', background: 'white', fontSize: '0.85rem' }}
+                      >
+                        <option value="">-- All Types --</option>
+                        <option value="Water Source">Water Source</option>
+                        <option value="Terrain Feature">Terrain Feature</option>
+                        <option value="Infrastructure">Infrastructure</option>
+                        <option value="Other">Other</option>
+                      </select>
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#555' }}>Start Date</label>
+                      <input
+                        type="date"
+                        value={groupDeleteCriteria.startDate}
+                        onChange={e => setGroupDeleteCriteria({ ...groupDeleteCriteria, startDate: e.target.value })}
+                        style={{ padding: '5px 8px', borderRadius: '4px', border: '1px solid #ccc', background: 'white', fontSize: '0.85rem' }}
+                      />
+                    </div>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                      <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#555' }}>End Date</label>
+                      <input
+                        type="date"
+                        value={groupDeleteCriteria.endDate}
+                        onChange={e => setGroupDeleteCriteria({ ...groupDeleteCriteria, endDate: e.target.value })}
+                        style={{ padding: '5px 8px', borderRadius: '4px', border: '1px solid #ccc', background: 'white', fontSize: '0.85rem' }}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                    <button
+                      type="button"
+                      onClick={() => setGroupDeleteCriteria({ user: '', type: '', startDate: '', endDate: '' })}
+                      className="btn"
+                      style={{ padding: '6px 12px', fontSize: '0.85rem', cursor: 'pointer' }}
+                    >
+                      Reset Filters
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleGroupDelete}
+                      className="btn"
+                      style={{
+                        padding: '6px 12px',
+                        fontSize: '0.85rem',
+                        background: '#c62828',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '4px',
+                        cursor: 'pointer',
+                        fontWeight: 600
+                      }}
+                    >
+                      Delete Matching POIs
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              <CrudTable activeRowId={editingId}
+                data={poiList}
+                columns={columns}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
+                itemLabel="Point of Interest"
+              />
+            </div>
           ) : (
             <>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
@@ -380,6 +640,26 @@ export default function PoiTab() {
                     <label>Description</label>
                     <input type="text" value={formData.description} onChange={e => setFormData({ ...formData, description: e.target.value })} placeholder="Short description" />
                   </div>
+                  <div className="form-group">
+                    <label>Country</label>
+                    <input type="text" value={formData.country || ''} onChange={e => setFormData({ ...formData, country: e.target.value })} placeholder="Auto-detecting / custom country" />
+                  </div>
+                  <div className="form-group">
+                    <label>Region / State</label>
+                    <input type="text" value={formData.region || ''} onChange={e => setFormData({ ...formData, region: e.target.value })} placeholder="Auto-detecting / custom region" />
+                  </div>
+                  {editingId && (
+                    <>
+                      <div className="form-group">
+                        <label>Created By</label>
+                        <input type="text" value={formData.createdBy || ''} readOnly style={{ background: '#f5f5f5', cursor: 'not-allowed', color: '#666' }} />
+                      </div>
+                      <div className="form-group">
+                        <label>Last Updated By</label>
+                        <input type="text" value={formData.lastUpdatedBy || ''} readOnly style={{ background: '#f5f5f5', cursor: 'not-allowed', color: '#666' }} />
+                      </div>
+                    </>
+                  )}
                   <div className="form-group">
                     <label>Calculated Length (Meters)</label>
                     <input type="number" step="0.01" value={formData.length} onChange={e => setFormData({ ...formData, length: e.target.value })} />

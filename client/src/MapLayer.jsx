@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { MapContainer, TileLayer, Polygon, Polyline, Popup, GeoJSON, Marker, useMap } from 'react-leaflet';
+import { fetchGeoLocationInfo } from './components/PoiTab';
 import FieldImageryOverlay, { getDeterministicSceneDate, getDeterministicCloudCover } from './components/FieldImageryOverlay';
 import CropRecommendationPanel from './components/CropRecommendationPanel';
 import { MapResizer } from './components/ResizableMapWrapper';
@@ -62,6 +63,8 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
   const soilTests = useSelector(state => state.soilTests?.tests) || [];
   const themeFontImagerCapitalize = useSelector(state => state.settings?.themeFontImagerCapitalize) || false;
   const formatLabel = (txt) => themeFontImagerCapitalize ? txt.toUpperCase() : txt;
+  const currentUser = useSelector(state => state.auth?.currentUser);
+  const googleMapsApiKey = useSelector(state => state.settings?.googleMapsApiKey) || '';
   
   const [geoJsonLayers, setGeoJsonLayers] = useState([]);
   const [errors, setErrors] = useState([]);
@@ -269,6 +272,20 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
         return;
       }
       
+      let country = '';
+      let region = '';
+      if (data.points && data.points.length > 0) {
+        const firstPt = data.points[0];
+        try {
+          const geoInfo = await fetchGeoLocationInfo(firstPt[0], firstPt[1], googleMapsApiKey);
+          country = geoInfo.country || '';
+          region = geoInfo.region || '';
+        } catch (geoErr) {
+          console.warn('Geocoding error in handleFindWaterwayPOI:', geoErr);
+        }
+      }
+
+      const userEmail = currentUser?.email || currentUser?.name || 'Unknown User';
       const poiId = `poi_${Date.now()}`;
       const newPoi = {
         id: poiId,
@@ -279,7 +296,12 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
         drawColor: '#0288d1',
         area: '',
         length: '',
-        isLine: true
+        isLine: true,
+        country,
+        region,
+        createdBy: userEmail,
+        lastUpdatedBy: userEmail,
+        createdAt: new Date().toISOString()
       };
       
       dispatch(addPoi(newPoi));

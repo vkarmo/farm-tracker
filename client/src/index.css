@@ -317,7 +317,7 @@ textarea[data-populated="true"]:not(:focus) {
   .container.container-wide {
     width: 100% !important;
     max-width: 100% !important;
-    padding: 12px !important;
+    padding: 20px !important;
     margin: 0 !important;
     border-radius: 0 !important;
   }

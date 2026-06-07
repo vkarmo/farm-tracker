@@ -1556,12 +1556,13 @@ app.post('/api/sync', async (req, res) => {
           results.push({ actionId: action.meta?.id, status: 'success' });
         }
         else if (action.type === 'poi/addPoi') {
-          const { id, name, type, description, area, length, points, drawColor, isLine } = action.payload;
+          const { id, name, type, description, area, length, points, drawColor, isLine, country, region, createdBy } = action.payload;
           await session.run(`
             MERGE (n:PointOfInterest {id: $id})
+            ON CREATE SET n.createdBy = $createdBy, n.createdAt = datetime()
             SET n.name = $name, n.type = $type, n.description = $description,
                 n.area = $area, n.length = $length, n.points = $points, n.drawColor = $drawColor,
-                n.isLine = $isLine,
+                n.isLine = $isLine, n.country = $country, n.region = $region,
                 n.lastUpdatedBy = $userEmail, n.lastUpdatedAt = datetime()
             RETURN n
           `, { 
@@ -1574,7 +1575,10 @@ app.post('/api/sync', async (req, res) => {
             length: length || '', 
             points: (typeof points === 'string') ? points : (points ? JSON.stringify(points) : '[]'),
             drawColor: drawColor || null,
-            isLine: isLine === true || isLine === 'true'
+            isLine: isLine === true || isLine === 'true',
+            country: country || '',
+            region: region || '',
+            createdBy: createdBy || userEmail
           });
           results.push({ actionId: action.meta?.id, status: 'success' });
         }
