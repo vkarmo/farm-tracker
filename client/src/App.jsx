@@ -65,9 +65,9 @@ import { logAction } from './store/auditSlice';
 
 const MODULES = {
   overview: ['dashboard', 'map'],
-  agronomy: ['field', 'nursery', 'crop', 'soilTests', 'harvest', 'pest'],
+  agronomy: ['field', 'nursery', 'crop', 'soilTests', 'pest'],
   livestock: ['livestock', 'breeding', 'kits', 'livestockDiseases'],
-  finance: ['finance', 'budget'],
+  finance: ['finance', 'budget', 'harvest'],
   operations: ['employee', 'assignment', 'planning', 'equipment', 'deadline', 'incident'],
   admin: ['settings', 'admin', 'access', 'audit', 'gps']
 };
@@ -866,7 +866,6 @@ export default function App() {
               {hasAccess('nursery') && <button onClick={() => setActiveTab('nursery')} className={`btn ${activeTab === 'nursery' ? 'tab-btn-active' : ''}`}><Box size={16} style={{ marginRight: 6 }} /> Nursery</button>}
               {hasAccess('crop') && <button onClick={() => setActiveTab('crop')} className={`btn ${activeTab === 'crop' ? 'tab-btn-active' : ''}`}><Leaf size={16} style={{ marginRight: 6 }} /> Crops</button>}
               {hasAccess('soilTests') && <button onClick={() => setActiveTab('soilTests')} className={`btn ${activeTab === 'soilTests' ? 'tab-btn-active' : ''}`}><FlaskConical size={16} style={{ marginRight: 6 }} /> Soil Tests</button>}
-              {hasAccess('harvest') && <button onClick={() => setActiveTab('harvest')} className={`btn ${activeTab === 'harvest' ? 'tab-btn-active' : ''}`}><BarChart size={16} style={{ marginRight: 6 }} /> Harvests</button>}
               {hasAccess('pest') && <button onClick={() => setActiveTab('pest')} className={`btn ${activeTab === 'pest' ? 'tab-btn-active' : ''}`}><AlertTriangle size={16} style={{ marginRight: 6 }} /> Pests</button>}
             </>
           )}
@@ -882,6 +881,7 @@ export default function App() {
             <>
               {hasAccess('finance') && <button onClick={() => setActiveTab('finance')} className={`btn ${activeTab === 'finance' ? 'tab-btn-active' : ''}`}><DollarSign size={16} style={{ marginRight: 6 }} /> Ledger</button>}
               {hasAccess('budget') && <button onClick={() => setActiveTab('budget')} className={`btn ${activeTab === 'budget' ? 'tab-btn-active' : ''}`}><Calculator size={16} style={{ marginRight: 6 }} /> Budgets</button>}
+              {hasAccess('harvest') && <button onClick={() => setActiveTab('harvest')} className={`btn ${activeTab === 'harvest' ? 'tab-btn-active' : ''}`}><BarChart size={16} style={{ marginRight: 6 }} /> Harvests</button>}
             </>
           )}
           {activeModule === 'operations' && (

@@ -12,18 +12,18 @@ const INIT_TX = { assetId: '', txType: 'Expense', category: '', amount: '', amou
 export default function FinanceTab() {
   const dispatch = useDispatch();
   const transactions = useSelector(state => state.financials.transactions) || [];
-  
+
   const fields = useSelector(state => state.fields.data) || [];
   const crops = useSelector(state => state.assets.crops) || [];
   const livestock = useSelector(state => state.assets.livestock) || [];
   const harvests = useSelector(state => state.assets.harvests) || [];
-  
+
   const expenseCategories = useSelector(state => state.settings?.expenseCategories) || ['Equipment Maintenance', 'Fertilizer', 'Fuel', 'Labor', 'Seed'];
   const incomeCategories = useSelector(state => state.settings?.incomeCategories) || ['Crop Sale', 'Livestock Sale', 'Subsidy'];
 
   const historicalRate = React.useMemo(() => {
     if (!transactions.length) return '';
-    const sorted = [...transactions].sort((a,b) => new Date(b.date) - new Date(a.date));
+    const sorted = [...transactions].sort((a, b) => new Date(b.date) - new Date(a.date));
     const recentWithRate = sorted.find(t => t.exchangeRate && String(t.exchangeRate).trim() !== '');
     return recentWithRate ? recentWithRate.exchangeRate : '';
   }, [transactions]);
@@ -51,6 +51,7 @@ export default function FinanceTab() {
   const [activeView, setActiveView] = useState('transactions');
   const [isInitialized, setIsInitialized] = useState(false);
   const [activeTab, setActiveTab] = useState('roster');
+  const [analyticsTab, setAnalyticsTab] = useState('monthly');
 
   const resetForm = () => {
     setTxData(getInitTx());
@@ -65,9 +66,21 @@ export default function FinanceTab() {
     }
   }, [activeRate, isInitialized, editingId]);
 
+  React.useEffect(() => {
+    const card = document.querySelector('.card');
+    const main = document.querySelector('main');
+    const cardParent = card ? card.parentElement : null;
+    const style = card ? window.getComputedStyle(card) : null;
+    const mainStyle = main ? window.getComputedStyle(main) : null;
+    const parentStyle = cardParent ? window.getComputedStyle(cardParent) : null;
+    console.log("STYLE_LOG_CARD width:", style ? style.width : 'none', "max-width:", style ? style.maxWidth : 'none', "display:", style ? style.display : 'none');
+    console.log("STYLE_LOG_MAIN width:", mainStyle ? mainStyle.width : 'none', "display:", mainStyle ? mainStyle.display : 'none');
+    console.log("STYLE_LOG_PARENT width:", parentStyle ? parentStyle.width : 'none', "display:", parentStyle ? parentStyle.display : 'none');
+  }, [activeView, activeTab, analyticsTab]);
+
   const handleSubmit = (e) => {
     e.preventDefault();
-        const parsedUsd = parseFloat(txData.amount);
+    const parsedUsd = parseFloat(txData.amount);
     const parsedLd = parseFloat(txData.amountLd);
     if ((!txData.amount || isNaN(parsedUsd) || parsedUsd < 0) && (!txData.amountLd || isNaN(parsedLd) || parsedLd < 0)) {
       return alert("Validation Error: A valid positive Amount (USD or LD) is required.");
@@ -83,7 +96,7 @@ export default function FinanceTab() {
       dispatch(addTransaction(newTx));
       dispatch(queueAction({ type: 'financials/addTransaction', payload: newTx, meta: { id: Date.now() } }));
     }
-    
+
     resetForm();
   };
 
@@ -106,8 +119,8 @@ export default function FinanceTab() {
 
   const columns = [
     { key: 'date', header: 'Date' },
-    { 
-      key: 'txType', 
+    {
+      key: 'txType',
       header: 'Type',
       render: (r) => (
         <span title={r.txType === 'Sale' ? 'Revenue' : 'Expense'} style={{ display: 'flex', alignItems: 'center', color: r.txType === 'Sale' ? '#2e7d32' : '#d32f2f' }}>
@@ -116,12 +129,34 @@ export default function FinanceTab() {
       )
     },
     { key: 'category', header: 'Category' },
-    { key: 'assetId', header: 'Description', render: (r) => getAssetName(r.assetId) },
-    { 
-      key: 'amount', 
+    {
+      key: 'assetId',
+      header: 'Description',
+      render: (r) => {
+        const isLinkedToHarvest = r.assetId && harvests.some(h => h.id === r.assetId);
+        if (r.txType === 'Sale' && !isLinkedToHarvest) {
+          const parts = [];
+          if (r.vendor && r.vendor.trim()) parts.push(r.vendor.trim());
+          if (r.notes && r.notes.trim()) parts.push(r.notes.trim());
+          return parts.join(' - ') || getAssetName(r.assetId);
+        }
+
+        const desc = getAssetName(r.assetId);
+        if (r.txType === 'Expense' && (desc === '-' || desc === 'Unknown Asset' || !desc || !desc.trim())) {
+          const parts = [];
+          if (r.vendor && r.vendor.trim()) parts.push(r.vendor.trim());
+          if (r.notes && r.notes.trim()) parts.push(r.notes.trim());
+          return parts.join(' - ') || desc;
+        }
+
+        return desc;
+      }
+    },
+    {
+      key: 'amount',
       header: 'Amount',
       render: (r) => (
-        <strong style={{color: r.txType === 'Sale' ? 'green' : 'red'}}>
+        <strong style={{ color: r.txType === 'Sale' ? 'green' : 'red' }}>
           {r.amount && `$${parseFloat(r.amount).toFixed(2)}`}
           {r.amount && r.amountLd && ' / '}
           {r.amountLd && `LD$${parseFloat(r.amountLd).toFixed(2)}`}
@@ -138,7 +173,7 @@ export default function FinanceTab() {
     if (curr.txType === 'Expense') acc[month].Expenses += parseFloat(curr.amount);
     return acc;
   }, {});
-  const barData = Object.values(monthlyData).sort((a,b) => (a.name || '').localeCompare(b.name || ''));
+  const barData = Object.values(monthlyData).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 
   const pieDataRaw = transactions.reduce((acc, curr) => {
     if (curr.txType === 'Sale') acc.Sales += parseFloat(curr.amount);
@@ -152,18 +187,18 @@ export default function FinanceTab() {
   const COLORS = ['#2e7d32', '#d32f2f'];
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', width: '100%' }}>
 
-      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+      <div className="card" style={{ padding: 0, overflow: 'hidden', width: '100%' }}>
         <div style={{ display: 'flex', borderBottom: '1px solid var(--color-border-light)', background: '#f5f7fa' }}>
-          <button 
+          <button
             type="button"
-            onClick={() => setActiveTab('roster')} 
-            style={{ 
-              flex: 1, 
-              padding: '12px 16px', 
-              border: 'none', 
-              background: activeTab === 'roster' ? 'white' : 'transparent', 
+            onClick={() => setActiveTab('roster')}
+            style={{
+              flex: 1,
+              padding: '12px 16px',
+              border: 'none',
+              background: activeTab === 'roster' ? 'white' : 'transparent',
               borderBottom: activeTab === 'roster' ? '3px solid var(--color-primary)' : 'none',
               color: activeTab === 'roster' ? 'var(--color-primary)' : 'var(--color-text-light)',
               fontWeight: 600,
@@ -174,14 +209,14 @@ export default function FinanceTab() {
           >
             Ledger Roster
           </button>
-          <button 
+          <button
             type="button"
-            onClick={() => setActiveTab('entry')} 
-            style={{ 
-              flex: 1, 
-              padding: '12px 16px', 
-              border: 'none', 
-              background: activeTab === 'entry' ? 'white' : 'transparent', 
+            onClick={() => setActiveTab('entry')}
+            style={{
+              flex: 1,
+              padding: '12px 16px',
+              border: 'none',
+              background: activeTab === 'entry' ? 'white' : 'transparent',
               borderBottom: activeTab === 'entry' ? '3px solid var(--color-primary)' : 'none',
               color: activeTab === 'entry' ? 'var(--color-primary)' : 'var(--color-text-light)',
               fontWeight: 600,
@@ -198,30 +233,30 @@ export default function FinanceTab() {
           {activeTab === 'roster' ? (
             <>
               <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', justifyContent: 'center' }}>
-                <button 
+                <button
                   type="button"
-                  onClick={() => setActiveView('transactions')} 
-                  className={`btn ${activeView === 'transactions' ? 'btn-primary' : ''}`} 
-                  style={{ 
-                    borderRadius: '20px', 
-                    padding: '8px 20px', 
-                    background: activeView === 'transactions' ? '#2e7d32' : '#f0f0f0', 
-                    color: activeView === 'transactions' ? 'white' : '#333', 
-                    border: 'none' 
+                  onClick={() => setActiveView('transactions')}
+                  className={`btn ${activeView === 'transactions' ? 'btn-primary' : ''}`}
+                  style={{
+                    borderRadius: '20px',
+                    padding: '8px 20px',
+                    background: activeView === 'transactions' ? '#2e7d32' : '#f0f0f0',
+                    color: activeView === 'transactions' ? 'white' : '#333',
+                    border: 'none'
                   }}
                 >
                   Active Transactions
                 </button>
-                <button 
+                <button
                   type="button"
-                  onClick={() => setActiveView('analytics')} 
-                  className={`btn ${activeView === 'analytics' ? 'btn-primary' : ''}`} 
-                  style={{ 
-                    borderRadius: '20px', 
-                    padding: '8px 20px', 
-                    background: activeView === 'analytics' ? '#2e7d32' : '#f0f0f0', 
-                    color: activeView === 'analytics' ? 'white' : '#333', 
-                    border: 'none' 
+                  onClick={() => setActiveView('analytics')}
+                  className={`btn ${activeView === 'analytics' ? 'btn-primary' : ''}`}
+                  style={{
+                    borderRadius: '20px',
+                    padding: '8px 20px',
+                    background: activeView === 'analytics' ? '#2e7d32' : '#f0f0f0',
+                    color: activeView === 'analytics' ? 'white' : '#333',
+                    border: 'none'
                   }}
                 >
                   Financial Analytics
@@ -229,32 +264,70 @@ export default function FinanceTab() {
               </div>
 
               {activeView === 'analytics' && transactions.length > 0 && (
-                <div style={{ marginBottom: '30px' }}>
+                <div style={{ marginBottom: '30px', width: '600px' }}>
                   <h3 style={{ marginBottom: '15px', color: '#444' }}>Financial Analytics</h3>
-                  <div className="form-grid">
-                    <div className="card" style={{ padding: '10px', boxShadow: 'none', background: '#fafafa' }}>
-                      <h4 style={{textAlign: 'center', marginBottom: 10, fontSize: '0.9rem'}}>Monthly Revenue vs Expenses</h4>
+
+                  <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', borderBottom: '1px solid var(--color-border-light)' }}>
+                    <button
+                      type="button"
+                      onClick={() => setAnalyticsTab('monthly')}
+                      style={{
+                        padding: '10px 16px',
+                        border: 'none',
+                        background: 'transparent',
+                        borderBottom: analyticsTab === 'monthly' ? '3px solid var(--color-primary)' : '3px solid transparent',
+                        color: analyticsTab === 'monthly' ? 'var(--color-primary)' : 'var(--color-text-light)',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                        fontSize: '0.9rem'
+                      }}
+                    >
+                      Monthly Flow
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAnalyticsTab('aggregate')}
+                      style={{
+                        padding: '10px 16px',
+                        border: 'none',
+                        background: 'transparent',
+                        borderBottom: analyticsTab === 'aggregate' ? '3px solid var(--color-primary)' : '3px solid transparent',
+                        color: analyticsTab === 'aggregate' ? 'var(--color-primary)' : 'var(--color-text-light)',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        transition: 'all 0.2s',
+                        fontSize: '0.9rem'
+                      }}
+                    >
+                      Aggregate Flow
+                    </button>
+                  </div>
+
+                  {analyticsTab === 'monthly' ? (
+                    <div className="card" style={{ padding: '10px', boxShadow: 'none', background: '#fafafa', width: '100%' }}>
+                      <h4 style={{ textAlign: 'center', marginBottom: 10, fontSize: '0.9rem' }}>Monthly Revenue vs Expenses</h4>
                       <div style={{ width: '100%', height: 300 }}>
                         <ResponsiveContainer width="100%" height="100%">
                           <BarChart data={barData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                             <CartesianGrid strokeDasharray="3 3" />
-                            <XAxis dataKey="name" tick={{fontSize: 12}} />
-                            <YAxis tick={{fontSize: 12}} />
-                            <Tooltip cursor={{fill: '#f5f5f5'}} />
-                            <Legend wrapperStyle={{fontSize: 12}} />
+                            <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                            <YAxis tick={{ fontSize: 12 }} />
+                            <Tooltip cursor={{ fill: '#f5f5f5' }} />
+                            <Legend wrapperStyle={{ fontSize: 12 }} />
                             <Bar dataKey="Sales" fill="#2e7d32" />
                             <Bar dataKey="Expenses" fill="#d32f2f" />
                           </BarChart>
                         </ResponsiveContainer>
                       </div>
                     </div>
-
-                    <div className="card" style={{ padding: '10px', boxShadow: 'none', background: '#fafafa' }}>
-                      <h4 style={{textAlign: 'center', marginBottom: 10, fontSize: '0.9rem'}}>Total Aggregate Flow</h4>
+                  ) : (
+                    <div className="card" style={{ padding: '10px', boxShadow: 'none', background: '#fafafa', width: '100%' }}>
+                      <h4 style={{ textAlign: 'center', marginBottom: 10, fontSize: '0.9rem' }}>Total Aggregate Flow</h4>
                       <div style={{ width: '100%', height: 300 }}>
                         <ResponsiveContainer width="100%" height="100%">
                           <PieChart margin={{ top: 20, right: 30, bottom: 20, left: 30 }}>
-                            <Pie data={pieData} cx="50%" cy="50%" innerRadius={40} outerRadius={65} paddingAngle={5} dataKey="value" label={({name, percent}) => `${name} ${(percent * 100).toFixed(0)}%`} style={{ fontSize: '0.8rem' }}>
+                            <Pie data={pieData} cx="50%" cy="50%" innerRadius={40} outerRadius={65} paddingAngle={5} dataKey="value" label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`} style={{ fontSize: '0.8rem' }}>
                               {pieData.map((entry, index) => (
                                 <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                               ))}
@@ -264,26 +337,26 @@ export default function FinanceTab() {
                         </ResponsiveContainer>
                       </div>
                     </div>
-                  </div>
+                  )}
                 </div>
               )}
 
               {activeView === 'transactions' && (
-                <CrudTable activeRowId={editingId} 
-                  data={transactions} 
-                  columns={columns} 
-                  onEdit={(row) => { 
-                    setTxData(row); 
-                    setEditingId(row.id); 
+                <CrudTable activeRowId={editingId}
+                  data={transactions}
+                  columns={columns}
+                  onEdit={(row) => {
+                    setTxData(row);
+                    setEditingId(row.id);
                     setActiveTab('entry');
                     window.scrollTo({ top: 0, behavior: 'smooth' });
-                  }} 
+                  }}
                   onDelete={(id) => {
                     dispatch(deleteTransaction(id));
                     dispatch(queueAction({ type: 'core/deleteNode', payload: { id }, meta: { id: Date.now() } }));
                     if (editingId === id) resetForm();
-                  }} 
-                  itemLabel="Transaction" 
+                  }}
+                  itemLabel="Transaction"
                   defaultSort={{ key: 'date', direction: 'desc' }}
                   rowStyle={() => ({ fontSize: '0.85rem' })}
                 />
@@ -291,40 +364,40 @@ export default function FinanceTab() {
             </>
           ) : (
             <form onSubmit={handleSubmit}>
-              <div className="form-grid" style={{marginBottom: '15px'}}>
+              <div className="form-grid" style={{ marginBottom: '15px' }}>
                 <div className="form-group form-grid-full">
-                  <div style={{display: 'flex', gap: '10px', background: '#f5f5f5', padding: '4px', borderRadius: '8px'}}>
-                    <select value={txData.assetId} onChange={e => setTxData({...txData, assetId: e.target.value})}>
+                  <div style={{ display: 'flex', gap: '10px', background: '#f5f5f5', padding: '4px', borderRadius: '8px' }}>
+                    <select value={txData.assetId} onChange={e => setTxData({ ...txData, assetId: e.target.value })}>
                       <option value="">General ledger...</option>
                       <optgroup label="Harvest Pulls">
-                        {[...harvests].sort((a,b) => (a.date || '').localeCompare(b.date || '')).map(h => {
+                        {[...harvests].sort((a, b) => (a.date || '').localeCompare(b.date || '')).map(h => {
                           const crop = crops.find(c => c.id === h.cropId);
                           const cropLabel = crop ? `${crop.name} ${crop.variety ? `(${crop.variety})` : ''}` : 'Unknown';
                           return <option key={h.id} value={h.id}>{cropLabel} - {h.amount} {h.unit} ({h.date})</option>;
                         })}
                       </optgroup>
                       <optgroup label="Livestock">
-                        {[...livestock].sort((a,b) => (a.type || '').localeCompare(b.type || '')).map(l => <option key={l.id} value={l.id}>Animal Type: {l.type} - Tag: {l.tagNumber}</option>)}
+                        {[...livestock].sort((a, b) => (a.type || '').localeCompare(b.type || '')).map(l => <option key={l.id} value={l.id}>Animal Type: {l.type} - Tag: {l.tagNumber}</option>)}
                       </optgroup>
                       <optgroup label="Fields">
-                        {[...fields].sort((a,b) => (a.name || '').localeCompare(b.name || '')).map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+                        {[...fields].sort((a, b) => (a.name || '').localeCompare(b.name || '')).map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
                       </optgroup>
                       <optgroup label="Crops">
-                        {[...crops].sort((a,b) => (a.name || '').localeCompare(b.name || '')).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+                        {[...crops].sort((a, b) => (a.name || '').localeCompare(b.name || '')).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                       </optgroup>
                     </select>
                   </div>
                 </div>
                 <div className="form-group">
                   <label>Transaction Date</label>
-                  <input type="date" value={txData.date} onChange={e => setTxData({...txData, date: e.target.value})} />
+                  <input type="date" value={txData.date} onChange={e => setTxData({ ...txData, date: e.target.value })} />
                 </div>
                 <div className="form-group">
                   <label>Transaction Type</label>
                   <select value={txData.txType} onChange={e => {
                     const newType = e.target.value;
                     const newCategory = '';
-                    setTxData({...txData, txType: newType, category: newCategory});
+                    setTxData({ ...txData, txType: newType, category: newCategory });
                   }}>
                     <option value="Expense">Expense</option>
                     <option value="Sale">Sale</option>
@@ -332,7 +405,7 @@ export default function FinanceTab() {
                 </div>
                 <div className="form-group">
                   <label>Category</label>
-                  <select value={txData.category} onChange={e => setTxData({...txData, category: e.target.value})}>
+                  <select value={txData.category} onChange={e => setTxData({ ...txData, category: e.target.value })}>
                     <option value="">Select a category...</option>
                     {txData.txType === 'Expense' ? (
                       expenseCategories.map(c => <option key={c} value={c}>{c}</option>)
@@ -347,8 +420,8 @@ export default function FinanceTab() {
                     const val = e.target.value;
                     let newLd = txData.amountLd;
                     if (val && txData.amount) newLd = (parseFloat(txData.amount) * parseFloat(val)).toFixed(2);
-                    setTxData({...txData, exchangeRate: val, amountLd: newLd});
-                  }} placeholder="e.g. 195.50"/>
+                    setTxData({ ...txData, exchangeRate: val, amountLd: newLd });
+                  }} placeholder="e.g. 195.50" />
                 </div>
                 <div className="form-group">
                   <label>Amount (USD)</label>
@@ -356,8 +429,8 @@ export default function FinanceTab() {
                     const val = e.target.value;
                     let newLd = txData.amountLd;
                     if (val && txData.exchangeRate) newLd = (parseFloat(val) * parseFloat(txData.exchangeRate)).toFixed(2);
-                    setTxData({...txData, amount: val, amountLd: newLd});
-                  }} placeholder="250.00"/>
+                    setTxData({ ...txData, amount: val, amountLd: newLd });
+                  }} placeholder="250.00" />
                 </div>
                 <div className="form-group">
                   <label>Amount (LD)</label>
@@ -365,21 +438,21 @@ export default function FinanceTab() {
                     const val = e.target.value;
                     let newUsd = txData.amount;
                     if (val && txData.exchangeRate) newUsd = (parseFloat(val) / parseFloat(txData.exchangeRate)).toFixed(2);
-                    setTxData({...txData, amountLd: val, amount: newUsd});
-                  }} placeholder="e.g. 48875.00"/>
+                    setTxData({ ...txData, amountLd: val, amount: newUsd });
+                  }} placeholder="e.g. 48875.00" />
                 </div>
                 <div className="form-group">
                   <label>Vendor / Buyer</label>
-                  <input type="text" value={txData.vendor} onChange={e => setTxData({...txData, vendor: e.target.value})} placeholder="John Deere, Local Co-op..."/>
+                  <input type="text" value={txData.vendor} onChange={e => setTxData({ ...txData, vendor: e.target.value })} placeholder="John Deere, Local Co-op..." />
                 </div>
                 <div className="form-group form-grid-full">
                   <label>Notes / Memo</label>
-                  <textarea rows="2" value={txData.notes} onChange={e => setTxData({...txData, notes: e.target.value})}></textarea>
+                  <textarea rows="2" value={txData.notes} onChange={e => setTxData({ ...txData, notes: e.target.value })}></textarea>
                 </div>
               </div>
               <div style={{ display: 'flex', gap: '10px', marginTop: 10 }}>
                 <button type="submit" className="btn btn-primary">
-                  <DollarSign size={16} style={{marginRight: 6}}/> 
+                  <DollarSign size={16} style={{ marginRight: 6 }} />
                   {editingId ? 'Update Ledger Entry' : txData.txType === 'Sale' ? 'Save Sale in Ledger' : 'Save Expense in Ledger'}
                 </button>
                 <button type="button" className="btn" onClick={resetForm}>
