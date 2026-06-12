@@ -135,6 +135,16 @@ export default function ActivityTab() {
             />
           ) : (
             <form onSubmit={handleSubmit}>
+              <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', justifyContent: 'flex-end' }}>
+                {editingId && (
+                  <button type="button" className="btn" onClick={resetForm}>
+                    Cancel
+                  </button>
+                )}
+                <button type="submit" className="btn btn-primary">
+                  <ClipboardList size={16} style={{marginRight: 6}}/> {editingId ? 'Update Activity' : 'Save Activity Data'}
+                </button>
+              </div>
               <div className="form-grid">
                 <div className="form-group form-grid-full">
                   <label>Target Asset (Where is this passing?)</label>
@@ -173,16 +183,6 @@ export default function ActivityTab() {
                   <label>Notes / Custom Description</label>
                   <textarea rows="2" value={actData.notes} onChange={e => setActData({...actData, notes: e.target.value})} placeholder="Optional details..."></textarea>
                 </div>
-              </div>
-              <div style={{ marginTop: '20px', display: 'flex', gap: '10px' }}>
-                <button type="submit" className="btn btn-primary">
-                  <ClipboardList size={16} style={{marginRight: 6}}/> {editingId ? 'Update Activity' : 'Save Activity Data'}
-                </button>
-                {editingId && (
-                  <button type="button" className="btn" onClick={resetForm}>
-                    Cancel
-                  </button>
-                )}
               </div>
             </form>
           )}

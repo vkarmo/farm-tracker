@@ -111,6 +111,16 @@ export default function IncidentTab() {
             />
           ) : (
             <form onSubmit={handleSubmit}>
+              <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', justifyContent: 'flex-end' }}>
+                {editingId && (
+                  <button type="button" className="btn" onClick={resetForm}>
+                    Cancel
+                  </button>
+                )}
+                <button type="submit" className="btn btn-primary">
+                  <AlertTriangle size={16} style={{ marginRight: 6 }} /> {editingId ? 'Update Incident' : 'Report Incident'}
+                </button>
+              </div>
               <div className="form-grid">
                 <div className="form-group form-grid-full">
                   <label>Title</label>
@@ -150,16 +160,6 @@ export default function IncidentTab() {
                   <label>Detailed Notes</label>
                   <textarea rows="2" value={formData.notes} onChange={e => setFormData({ ...formData, notes: e.target.value })} placeholder="Explain what happened and action items..."></textarea>
                 </div>
-              </div>
-              <div style={{ marginTop: '20px', display: 'flex', gap: '10px' }}>
-                <button type="submit" className="btn btn-primary">
-                  <AlertTriangle size={16} style={{ marginRight: 6 }} /> {editingId ? 'Update Incident' : 'Report Incident'}
-                </button>
-                {editingId && (
-                  <button type="button" className="btn" onClick={resetForm}>
-                    Cancel
-                  </button>
-                )}
               </div>
             </form>
           )}

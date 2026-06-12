@@ -364,6 +364,15 @@ export default function FinanceTab() {
             </>
           ) : (
             <form onSubmit={handleSubmit}>
+              <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', justifyContent: 'flex-end' }}>
+                <button type="button" className="btn" onClick={resetForm}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-primary">
+                  <DollarSign size={16} style={{ marginRight: 6 }} />
+                  {editingId ? 'Update Ledger Entry' : txData.txType === 'Sale' ? 'Save Sale in Ledger' : 'Save Expense in Ledger'}
+                </button>
+              </div>
               <div className="form-grid" style={{ marginBottom: '15px' }}>
                 <div className="form-group form-grid-full">
                   <div style={{ display: 'flex', gap: '10px', background: '#f5f5f5', padding: '4px', borderRadius: '8px' }}>
@@ -449,15 +458,6 @@ export default function FinanceTab() {
                   <label>Notes / Memo</label>
                   <textarea rows="2" value={txData.notes} onChange={e => setTxData({ ...txData, notes: e.target.value })}></textarea>
                 </div>
-              </div>
-              <div style={{ display: 'flex', gap: '10px', marginTop: 10 }}>
-                <button type="submit" className="btn btn-primary">
-                  <DollarSign size={16} style={{ marginRight: 6 }} />
-                  {editingId ? 'Update Ledger Entry' : txData.txType === 'Sale' ? 'Save Sale in Ledger' : 'Save Expense in Ledger'}
-                </button>
-                <button type="button" className="btn" onClick={resetForm}>
-                  Cancel
-                </button>
               </div>
             </form>
           )}

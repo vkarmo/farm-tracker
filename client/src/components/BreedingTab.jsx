@@ -124,6 +124,10 @@ export default function BreedingTab() {
             </div>
           ) : (
             <div>
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', justifyContent: 'flex-end' }}>
+                {editingId && <button className="btn" onClick={reset}>Cancel</button>}
+                <button className="btn btn-primary" onClick={handleSave}>{editingId ? 'Update' : 'Add'} Pairing</button>
+              </div>
               <div style={{ display: 'grid', gap: 15, gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', marginBottom: 15 }}>
                 <div className="form-group" style={{ marginBottom: 0 }}>
                   <label>Doe (Female)</label>
@@ -155,10 +159,6 @@ export default function BreedingTab() {
                   <label>Notes</label>
                   <input value={notes} onChange={e => setNotes(e.target.value)} placeholder="Notes" />
                 </div>
-              </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button className="btn btn-primary" onClick={handleSave}>{editingId ? 'Update' : 'Add'} Pairing</button>
-                {editingId && <button className="btn" onClick={reset}>Cancel</button>}
               </div>
             </div>
           )}

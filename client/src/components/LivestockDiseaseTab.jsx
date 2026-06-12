@@ -117,6 +117,16 @@ export default function LivestockDiseaseTab() {
             />
           ) : (
             <form onSubmit={handleSubmit}>
+              <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', justifyContent: 'flex-end' }}>
+                {editingId && (
+                  <button type="button" className="btn" onClick={resetForm}>
+                    Cancel
+                  </button>
+                )}
+                <button type="submit" className="btn btn-primary">
+                  <Syringe size={16} style={{ marginRight: 6 }} /> {editingId ? 'Update Entry' : 'Save Entry'}
+                </button>
+              </div>
               <div className="form-grid">
                 <div className="form-group form-grid-full">
                   <label>Name</label>
@@ -140,16 +150,6 @@ export default function LivestockDiseaseTab() {
                     placeholder="Select affected types..."
                   />
                 </div>
-              </div>
-              <div style={{ marginTop: '20px', display: 'flex', gap: '10px' }}>
-                <button type="submit" className="btn btn-primary">
-                  <Syringe size={16} style={{ marginRight: 6 }} /> {editingId ? 'Update Entry' : 'Save Entry'}
-                </button>
-                {editingId && (
-                  <button type="button" className="btn" onClick={resetForm}>
-                    Cancel
-                  </button>
-                )}
               </div>
             </form>
           )}

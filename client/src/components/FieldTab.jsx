@@ -230,26 +230,35 @@ export default function FieldTab() {
                 <>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
                     <h2 style={{ margin: 0 }}>{editingId ? 'Edit Field Data' : 'Enter New Field Data'}</h2>
-                    <div style={{ display: 'flex', gap: '10px' }}>
-                      <button type="button" onClick={() => {
-                        if (!editingId) {
-                          setShowRecAlert(true);
-                        } else {
-                          setShowRecommendations(true);
-                        }
-                      }} className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                        <Lightbulb size={14} /> Recommendations
+                    {editingId && (
+                      <button type="button" onClick={resetForm} className="btn" style={{ background: '#f5f5f5', color: '#333' }}>
+                        <X size={14} style={{ marginRight: 4 }} /> Cancel Edit
                       </button>
-                      {editingId && (
-                        <button type="button" onClick={resetForm} className="btn" style={{ background: '#f5f5f5', color: '#333' }}>
-                          <X size={14} style={{ marginRight: 4 }} /> Cancel Edit
-                        </button>
-                      )}
-                    </div>
+                    )}
                   </div>
 
                   <form onSubmit={handleSubmit}>
+                    <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', justifyContent: 'flex-end' }}>
+                      <button type="submit" className="btn btn-primary">
+                        <CheckCircle2 size={16} style={{ marginRight: 6 }} /> {editingId ? 'Update Field' : 'Save Field Data'}
+                      </button>
+                    </div>
                     <div className="form-grid">
+                      <div className="form-group form-grid-full" style={{ display: 'flex', gap: '15px', alignItems: 'flex-end', marginBottom: '15px' }}>
+                        <div style={{ flex: 1 }}>
+                          <label>Field Name / Identifier</label>
+                          <input type="text" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} placeholder="e.g. North Pasture" />
+                        </div>
+                        <button type="button" onClick={() => {
+                          if (!editingId) {
+                            setShowRecAlert(true);
+                          } else {
+                            setShowRecommendations(true);
+                          }
+                        }} className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px 24px', height: '44px', fontSize: '1rem', fontWeight: 600 }}>
+                          <Lightbulb size={20} /> Recommendations
+                        </button>
+                      </div>
                       <div className="form-group form-grid-full" style={{ marginBottom: '15px' }}>
                         <label>Draw Field Location on Map (Click to add points to polygon)</label>
                         <div style={{ marginBottom: '10px', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
@@ -570,10 +579,6 @@ export default function FieldTab() {
                         </ResizableMapWrapper>
                       </div>
                       <div className="form-group">
-                        <label>Field Name / Identifier</label>
-                        <input type="text" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} placeholder="e.g. North Pasture" />
-                      </div>
-                      <div className="form-group">
                         <label>Harvest Year / Vintage</label>
                         <input type="number" value={formData.year} onChange={e => setFormData({ ...formData, year: e.target.value })} placeholder="2026" />
                       </div>
@@ -619,9 +624,6 @@ export default function FieldTab() {
                         <label htmlFor="includeInStats" style={{ margin: 0, fontWeight: 500, cursor: 'pointer' }}>Include in Dashboard Statistics</label>
                       </div>
                     </div>
-                    <button type="submit" className="btn btn-primary" style={{ marginTop: 10 }}>
-                      <CheckCircle2 size={16} style={{ marginRight: 6 }} /> {editingId ? 'Update Field' : 'Save Field Data'}
-                    </button>
                   </form>
 
                   {editingId && fieldTests.length > 0 && (

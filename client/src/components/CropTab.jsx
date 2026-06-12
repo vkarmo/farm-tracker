@@ -78,7 +78,7 @@ export default function CropTab() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+      <div className="card" style={{ padding: 0, overflow: 'hidden', width: '100%', maxWidth: '1520px', margin: '0 auto' }}>
         <div style={{ display: 'flex', borderBottom: '1px solid var(--color-border-light)', background: '#f5f7fa' }}>
           <button 
             type="button"
@@ -134,6 +134,16 @@ export default function CropTab() {
             />
           ) : (
             <form onSubmit={handleSubmit}>
+              <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', justifyContent: 'flex-end' }}>
+                {editingId && (
+                  <button type="button" className="btn" onClick={resetForm}>
+                    Cancel
+                  </button>
+                )}
+                <button type="submit" className="btn btn-primary">
+                  <Leaf size={16} style={{ marginRight: 6 }} /> {editingId ? 'Update Crop' : 'Save Crop Data'}
+                </button>
+              </div>
               <div className="form-group" style={{ background: '#f1f8e9', padding: '10px', borderRadius: '4px', border: '1px solid #c5e1a5', marginBottom: 15 }}>
                 <label style={{ marginBottom: 8, display: 'block', fontWeight: 'bold' }}>Sowing Strategy</label>
                 <div style={{ display: 'flex', flexDirection: 'row', gap: '10px', alignItems: 'left', width: 'auto' }}>
@@ -201,16 +211,6 @@ export default function CropTab() {
                     placeholder="Search and attach pests..."
                   />
                 </div>
-              </div>
-              <div style={{ marginTop: '20px', display: 'flex', gap: '10px' }}>
-                <button type="submit" className="btn btn-primary">
-                  <Leaf size={16} style={{ marginRight: 6 }} /> {editingId ? 'Update Crop' : 'Save Crop Data'}
-                </button>
-                {editingId && (
-                  <button type="button" className="btn" onClick={resetForm}>
-                    Cancel
-                  </button>
-                )}
               </div>
             </form>
           )}

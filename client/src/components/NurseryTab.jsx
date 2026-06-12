@@ -250,7 +250,14 @@ export default function NurseryTab() {
               {!editingId && <p style={{fontSize: '0.85rem', color: 'var(--color-text-light)', marginBottom: 20}}>Define greenhouse tables, plug trays, or starter beds where you germinate crops before field-transplantation.</p>}
               
               <form onSubmit={handleAddBed} style={{marginBottom: 30}}>
+                <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', justifyContent: 'flex-end' }}>
+                  <button type="submit" className="btn btn-primary"><Box size={16} style={{marginRight: 6}}/> {editingId ? 'Update Bed' : 'Save Nursery Bed Data'}</button>
+                </div>
                 <div className="form-grid">
+                  <div className="form-group form-grid-full">
+                    <label>Bed/Tray Designation *</label>
+                    <input type="text" value={bedData.name} onChange={e => setBedData({...bedData, name: e.target.value})} placeholder="e.g. Greenhouse Rack A" required />
+                  </div>
                   <div className="form-group form-grid-full" style={{ marginBottom: '15px' }}>
                     <label>Draw Nursery Location on Map (Click to add points to polygon)</label>
                     <div style={{ marginBottom: '10px', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
@@ -447,10 +454,7 @@ export default function NurseryTab() {
                       </MapContainer>
                     </ResizableMapWrapper>
                   </div>
-                  <div className="form-group">
-                    <label>Bed/Tray Designation</label>
-                    <input type="text" value={bedData.name} onChange={e => setBedData({...bedData, name: e.target.value})} placeholder="e.g. Greenhouse Rack A"/>
-                  </div>
+
                   <div className="form-group">
                     <label>Physical Area (Sq Ft)</label>
                     <input type="number" step="0.01" value={bedData.area} onChange={e => setBedData({...bedData, area: e.target.value})} placeholder="e.g. 50.0"/>
@@ -469,7 +473,6 @@ export default function NurseryTab() {
                     </div>
                   </div>
                 </div>
-                <button type="submit" className="btn btn-primary" style={{marginTop: 10}}><Box size={16} style={{marginRight: 6}}/> {editingId ? 'Update Bed' : 'Save Nursery Bed Data'}</button>
               </form>
             </>
           )}

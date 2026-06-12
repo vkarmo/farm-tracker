@@ -291,6 +291,16 @@ export default function EmployeeTab() {
             />
           ) : (
             <form onSubmit={handleSubmit}>
+              <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', justifyContent: 'flex-end' }}>
+                {editingId && (
+                  <button type="button" className="btn" onClick={resetForm}>
+                    Cancel
+                  </button>
+                )}
+                <button type="submit" className="btn btn-primary">
+                  {editingId ? 'Save' : 'Register Employee'}
+                </button>
+              </div>
               <div className="form-grid">
                 <div className="form-group">
                   <label>First Name *</label>
@@ -399,16 +409,6 @@ export default function EmployeeTab() {
 
               </div>
 
-              <div style={{ marginTop: '20px', display: 'flex', gap: '10px' }}>
-                <button type="submit" className="btn btn-primary">
-                  {editingId ? 'Save' : 'Register Employee'}
-                </button>
-                {editingId && (
-                  <button type="button" className="btn" onClick={resetForm}>
-                    Cancel
-                  </button>
-                )}
-              </div>
             </form>
           )}
         </div>

@@ -111,6 +111,16 @@ export default function DeadlineTab() {
             />
           ) : (
             <form onSubmit={handleSubmit}>
+              <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', justifyContent: 'flex-end' }}>
+                {editingId && (
+                  <button type="button" className="btn" onClick={resetForm}>
+                    Cancel
+                  </button>
+                )}
+                <button type="submit" className="btn btn-primary">
+                  <Calendar size={16} style={{ marginRight: 6 }} /> {editingId ? 'Update Deadline' : 'Save Deadline'}
+                </button>
+              </div>
               <div className="form-grid">
                 <div className="form-group form-grid-full">
                   <label>Title</label>
@@ -142,16 +152,6 @@ export default function DeadlineTab() {
                   <label>Notes / Context</label>
                   <textarea rows="2" value={formData.notes} onChange={e => setFormData({ ...formData, notes: e.target.value })} placeholder="Additional details..."></textarea>
                 </div>
-              </div>
-              <div style={{ marginTop: '20px', display: 'flex', gap: '10px' }}>
-                <button type="submit" className="btn btn-primary">
-                  <Calendar size={16} style={{ marginRight: 6 }} /> {editingId ? 'Update Deadline' : 'Save Deadline'}
-                </button>
-                {editingId && (
-                  <button type="button" className="btn" onClick={resetForm}>
-                    Cancel
-                  </button>
-                )}
               </div>
             </form>
           )}

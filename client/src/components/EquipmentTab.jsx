@@ -167,7 +167,21 @@ export default function EquipmentTab() {
             />
           ) : (
             <form onSubmit={handleSubmit}>
+              <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', justifyContent: 'flex-end' }}>
+                {editingId && (
+                  <button type="button" className="btn" onClick={resetForm}>
+                    Cancel
+                  </button>
+                )}
+                <button type="submit" className="btn btn-primary">
+                  <CheckCircle2 size={16} style={{marginRight: 6}}/> {editingId ? 'Update Asset Core' : 'Register To Database'}
+                </button>
+              </div>
               <div className="form-grid">
+                <div className="form-group form-grid-full">
+                  <label>Asset Identifier *</label>
+                  <input type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} placeholder="e.g. Ford F-150, Camera 1" required/>
+                </div>
                 <div className="form-group form-grid-full" style={{ marginBottom: '15px' }}>
                   <label>Drop Hardware Map Pin (Click to mark location)</label>
                   <div style={{ marginBottom: '10px', display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
@@ -242,10 +256,7 @@ export default function EquipmentTab() {
                   </ResizableMapWrapper>
                 </div>
 
-                <div className="form-group">
-                  <label>Asset Identifier *</label>
-                  <input type="text" value={formData.name} onChange={e => setFormData({...formData, name: e.target.value})} placeholder="e.g. Ford F-150, Camera 1" required/>
-                </div>
+
 
                 <div className="form-group">
                   <label>Asset Classification</label>
@@ -290,16 +301,6 @@ export default function EquipmentTab() {
                 </div>
               </div>
 
-              <div style={{ marginTop: '20px', display: 'flex', gap: '10px' }}>
-                <button type="submit" className="btn btn-primary">
-                  <CheckCircle2 size={16} style={{marginRight: 6}}/> {editingId ? 'Update Asset Core' : 'Register To Database'}
-                </button>
-                {editingId && (
-                  <button type="button" className="btn" onClick={resetForm}>
-                    Cancel
-                  </button>
-                )}
-              </div>
             </form>
           )}
         </div>

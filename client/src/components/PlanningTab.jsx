@@ -375,6 +375,14 @@ export default function PlanningTab() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
                     <h2 style={{ margin: 0 }}>{editingGoalId ? 'Edit Goal' : 'New Goal'}</h2>
                   </div>
+                  <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', justifyContent: 'flex-end' }}>
+                    <button type="button" className="btn" onClick={resetForm}>
+                      Cancel
+                    </button>
+                    <button type="submit" className="btn btn-primary">
+                      <Target size={16} style={{ marginRight: 6 }} /> {editingGoalId ? 'Update Goal' : 'Save Goal'}
+                    </button>
+                  </div>
                   <div className="form-grid">
                     <div className="form-group form-grid-full">
                       <label>Parent Goal (Optional)</label>
@@ -422,19 +430,19 @@ export default function PlanningTab() {
                       />
                     </div>
                   </div>
-                  <div style={{ display: 'flex', gap: '10px', marginTop: 15 }}>
-                    <button type="submit" className="btn btn-primary">
-                      <Target size={16} style={{ marginRight: 6 }} /> {editingGoalId ? 'Update Goal' : 'Save Goal'}
-                    </button>
-                    <button type="button" className="btn" onClick={resetForm}>
-                      Cancel
-                    </button>
-                  </div>
                 </form>
               ) : (
                 <form onSubmit={handleObjectiveSubmit}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
                     <h2 style={{ margin: 0 }}>{editingObjId ? 'Edit Objective' : 'New Objective'}</h2>
+                  </div>
+                  <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', justifyContent: 'flex-end' }}>
+                    <button type="button" className="btn" onClick={resetForm}>
+                      Cancel
+                    </button>
+                    <button type="submit" className="btn btn-primary">
+                      <PlusCircle size={16} style={{ marginRight: 6 }} /> {editingObjId ? 'Update Objective' : 'Save Objective'}
+                    </button>
                   </div>
                   <div className="form-grid">
                     <div className="form-group form-grid-full">
@@ -482,14 +490,6 @@ export default function PlanningTab() {
                         placeholder="Search employees..."
                       />
                     </div>
-                  </div>
-                  <div style={{ display: 'flex', gap: '10px', marginTop: 15 }}>
-                    <button type="submit" className="btn btn-primary">
-                      <PlusCircle size={16} style={{ marginRight: 6 }} /> {editingObjId ? 'Update Objective' : 'Save Objective'}
-                    </button>
-                    <button type="button" className="btn" onClick={resetForm}>
-                      Cancel
-                    </button>
                   </div>
                 </form>
               )}

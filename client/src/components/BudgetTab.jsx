@@ -488,6 +488,16 @@ export default function BudgetTab() {
             <Calculator size={18} style={{ marginRight: 8 }} /> {editingItemId ? 'Edit Line Item' : 'Add New Line Item'}
           </h3>
           <form onSubmit={handleSaveItem} className="form-grid" style={{ marginBottom: 30, background: '#fafafa', padding: 15, borderRadius: 8, border: '1px dashed #ccc' }}>
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', gridColumn: '1 / -1', justifyContent: 'flex-end' }}>
+              {editingItemId && (
+                <button type="button" onClick={() => { setEditingItemId(null); setItemForm(INIT_ITEM); }} className="btn" style={{ background: '#efefef', color: '#333' }}>
+                  Cancel
+                </button>
+              )}
+              <button type="submit" className="btn btn-primary" style={{ padding: '10px 16px', display: 'flex', gap: 6 }}>
+                {editingItemId ? <Check size={16} /> : <Plus size={16} />} {editingItemId ? 'Update' : 'Add Item'}
+              </button>
+            </div>
             <div className="form-group">
               <label>Category</label>
               <select value={itemForm.category} onChange={e => setItemForm({ ...itemForm, category: e.target.value })}>
@@ -514,25 +524,13 @@ export default function BudgetTab() {
                 </select>
               </div>
             </div>
-            <div className="form-group" style={{ display: 'flex', gap: 10 }}>
-              <div style={{ flex: 1 }}>
-                <label>Approval Status</label>
-                <select value={itemForm.status} onChange={e => setItemForm({ ...itemForm, status: e.target.value })}>
-                  <option value="Approved">Approved</option>
-                  <option value="Pending Review">Pending Review</option>
-                  <option value="Rejected">Rejected</option>
-                </select>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'flex-end', paddingBottom: 4 }}>
-                <button type="submit" className="btn btn-primary" style={{ padding: '10px 16px', display: 'flex', gap: 6 }}>
-                  {editingItemId ? <Check size={16} /> : <Plus size={16} />} {editingItemId ? 'Update' : 'Add Item'}
-                </button>
-                {editingItemId && (
-                  <button type="button" onClick={() => { setEditingItemId(null); setItemForm(INIT_ITEM); }} className="btn" style={{ marginLeft: 8, background: '#efefef', color: '#333' }}>
-                    Cancel
-                  </button>
-                )}
-              </div>
+            <div className="form-group">
+              <label>Approval Status</label>
+              <select value={itemForm.status} onChange={e => setItemForm({ ...itemForm, status: e.target.value })}>
+                <option value="Approved">Approved</option>
+                <option value="Pending Review">Pending Review</option>
+                <option value="Rejected">Rejected</option>
+              </select>
             </div>
           </form>
 

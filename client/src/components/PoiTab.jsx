@@ -581,108 +581,115 @@ export default function PoiTab() {
               />
             </div>
           ) : (
-            <>
+            <form onSubmit={handleSubmit}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
                 <h2 style={{ margin: 0 }}>{editingId ? 'Edit Point of Interest' : 'Record Point of Interest'}</h2>
+              </div>
+              <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', justifyContent: 'flex-end' }}>
                 {editingId && (
                   <button type="button" onClick={resetForm} className="btn" style={{ background: '#f5f5f5', color: '#333' }}>
                     <X size={14} style={{ marginRight: 4 }} /> Cancel Edit
                   </button>
                 )}
-              </div>
-
-              <div style={{ marginBottom: '10px', display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
-                <div style={{ flex: 1, minWidth: '200px' }}>
-                  <MapSearchBox onLocationFound={handleLocationFound} onClear={clearDrawing} polygon={points} setPolygon={setPoints} activeId={editingId} />
-                </div>
-                <button
-                  type="button"
-                  onClick={handleAutoDetectWaterway}
-                  disabled={loadingWaterway}
-                  className="btn"
-                  style={{
-                    padding: '8px 12px',
-                    fontSize: '0.85rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    cursor: 'pointer',
-                    background: '#e0f7fa',
-                    color: '#006064',
-                    border: '1px solid #b2ebf2',
-                    borderRadius: '4px',
-                    height: '38px',
-                    boxSizing: 'border-box'
-                  }}
-                  title="Detect waterway centerline in visible map view"
-                >
-                  <Droplet size={16} />
-                  {loadingWaterway ? 'Scanning...' : 'Auto-Detect Waterway'}
+                <button type="submit" className="btn btn-primary">
+                  <MapPin size={16} style={{ marginRight: 6 }} /> {editingId ? 'Update POI' : 'Save POI'}
                 </button>
               </div>
-              <ResizableMapWrapper initialHeight={500} style={{ marginBottom: '20px' }}>
-                <MapContainer center={mapCenter} zoom={mapZoom} maxZoom={24} style={{ height: '100%', width: '100%' }} zoomControl={false}>
-                  <MapEventsHelper setMapInstance={setMapInstance} />
-                  <MapResizer />
-                  <TileLayer attribution="Google Maps" url="https://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}&s=Ga" maxZoom={24} maxNativeZoom={20} />
 
-                  <MapFlyTo center={searchResultCenter} />
-                  <ClickToDrawComponent points={points} setPoints={setPoints} setCenter={setSearchResultCenter} />
+              <div className="form-grid">
+                <div className="form-group form-grid-full">
+                  <label>Point of Interest Name *</label>
+                  <input type="text" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} placeholder="e.g. North Creek, Water Well 1" required />
+                </div>
 
-                  {latLngs.length > 2 && !formData.isLine && <Polygon positions={latLngs} pathOptions={{ color: formData.drawColor || polygonColor, weight: 1.5, opacity: 0.6, fillOpacity: 0.3 }} />}
-                  {latLngs.length > 1 && (formData.isLine || latLngs.length <= 2) && <Polyline positions={latLngs} pathOptions={{ color: formData.drawColor || '#4fc3f7', weight: (formData.name || '').toLowerCase().includes('waterway') ? 8 : 4, opacity: 0.85, dashArray: '10, 10' }} />}
-                  {latLngs.map((pos, idx) => (
-                    <Marker key={idx} position={pos} opacity={0.8} />
-                  ))}
-
-                  {/* Render existing POIs for editing (clickable) */}
-                  {poiList.filter(p => p.id !== editingId).map(p => {
-                    let existingPts = [];
-                    try { existingPts = typeof p.points === 'string' ? JSON.parse(p.points) : p.points; } catch (e) { }
-                    if (!existingPts || existingPts.length === 0) return null;
-                    const mappedPts = existingPts.map(pt => [pt[0], pt[1]]);
-
-                    const handleClick = (e) => {
-                      e.originalEvent.stopPropagation();
-                      if (editingId || points.length > 0) return;
-                      handleEdit(p);
-                    };
-
-                    const isPolyline = p.isLine || p.drawType === 'polyline' || mappedPts.length === 2;
-                    if (isPolyline && mappedPts.length > 1) {
-                      return <Polyline key={p.id} positions={mappedPts} pathOptions={{ color: p.drawColor || '#4fc3f7', weight: (p.name || '').toLowerCase().includes('waterway') ? 8 : 3, opacity: 0.8, bubblingMouseEvents: false }} eventHandlers={{ click: handleClick }} />
-                    } else if (mappedPts.length > 2) {
-                      return <Polygon key={p.id} positions={mappedPts} pathOptions={{ color: p.drawColor || polygonColor, weight: 1.2, opacity: 0.6, fillOpacity: 0.1, bubblingMouseEvents: false }} eventHandlers={{ click: handleClick }} />
-                    } else {
-                      return <Marker key={p.id} position={mappedPts[0]} opacity={0.5} bubblingMouseEvents={false} eventHandlers={{ click: handleClick }} />
-                    }
-                  })}
-
-                  {/* Render fields for context (unclickable) */}
-                  {fields.map(f => {
-                    let positions = [];
-                    if (f.polygon) { try { positions = typeof f.polygon === 'string' ? JSON.parse(f.polygon) : f.polygon; } catch (e) { } }
-                    if (positions.length === 0) return null;
-                    return <Polygon key={f.id} positions={positions} pathOptions={{ color: f.drawColor || '#ffffff', weight: 0.8, opacity: 0.5, dashArray: '5,5', fillOpacity: 0.1 }} interactive={false} />;
-                  })}
-
-                  {/* Render nurseries for context (unclickable) */}
-                  {nurseries.map(n => {
-                    let positions = [];
-                    if (n.polygon) { try { positions = typeof n.polygon === 'string' ? JSON.parse(n.polygon) : n.polygon; } catch (e) { } }
-                    if (positions.length === 0) return null;
-                    return <Polygon key={n.id} positions={positions} pathOptions={{ color: n.drawColor || 'orange', weight: 0.8, opacity: 0.5, dashArray: '5,5', fillOpacity: 0.1 }} interactive={false} />;
-                  })}
-
-                </MapContainer>
-              </ResizableMapWrapper>
-
-              <form onSubmit={handleSubmit}>
-                <div className="form-grid">
-                  <div className="form-group form-grid-full">
-                    <label>Point of Interest Name</label>
-                    <input type="text" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} placeholder="e.g. North Creek, Water Well 1" required />
+                <div className="form-group form-grid-full" style={{ marginBottom: '15px' }}>
+                  <label>Draw Location / Auto-Detect Waterway</label>
+                  <div style={{ marginBottom: '10px', display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+                    <div style={{ flex: 1, minWidth: '200px' }}>
+                      <MapSearchBox onLocationFound={handleLocationFound} onClear={clearDrawing} polygon={points} setPolygon={setPoints} activeId={editingId} />
+                    </div>
+                    <button
+                      type="button"
+                      onClick={handleAutoDetectWaterway}
+                      disabled={loadingWaterway}
+                      className="btn"
+                      style={{
+                        padding: '8px 12px',
+                        fontSize: '0.85rem',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '4px',
+                        cursor: 'pointer',
+                        background: '#e0f7fa',
+                        color: '#006064',
+                        border: '1px solid #b2ebf2',
+                        borderRadius: '4px',
+                        height: '38px',
+                        boxSizing: 'border-box'
+                      }}
+                      title="Detect waterway centerline in visible map view"
+                    >
+                      <Droplet size={16} />
+                      {loadingWaterway ? 'Scanning...' : 'Auto-Detect Waterway'}
+                    </button>
                   </div>
+                  <ResizableMapWrapper initialHeight={500} style={{ marginBottom: '20px' }}>
+                    <MapContainer center={mapCenter} zoom={mapZoom} maxZoom={24} style={{ height: '100%', width: '100%' }} zoomControl={false}>
+                      <MapEventsHelper setMapInstance={setMapInstance} />
+                      <MapResizer />
+                      <TileLayer attribution="Google Maps" url="https://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}&s=Ga" maxZoom={24} maxNativeZoom={20} />
+
+                      <MapFlyTo center={searchResultCenter} />
+                      <ClickToDrawComponent points={points} setPoints={setPoints} setCenter={setSearchResultCenter} />
+
+                      {latLngs.length > 2 && !formData.isLine && <Polygon positions={latLngs} pathOptions={{ color: formData.drawColor || polygonColor, weight: 1.5, opacity: 0.6, fillOpacity: 0.3 }} />}
+                      {latLngs.length > 1 && (formData.isLine || latLngs.length <= 2) && <Polyline positions={latLngs} pathOptions={{ color: formData.drawColor || '#4fc3f7', weight: (formData.name || '').toLowerCase().includes('waterway') ? 8 : 4, opacity: 0.85, dashArray: '10, 10' }} />}
+                      {latLngs.map((pos, idx) => (
+                        <Marker key={idx} position={pos} opacity={0.8} />
+                      ))}
+
+                      {/* Render existing POIs for editing (clickable) */}
+                      {poiList.filter(p => p.id !== editingId).map(p => {
+                        let existingPts = [];
+                        try { existingPts = typeof p.points === 'string' ? JSON.parse(p.points) : p.points; } catch (e) { }
+                        if (!existingPts || existingPts.length === 0) return null;
+                        const mappedPts = existingPts.map(pt => [pt[0], pt[1]]);
+
+                        const handleClick = (e) => {
+                          e.originalEvent.stopPropagation();
+                          if (editingId || points.length > 0) return;
+                          handleEdit(p);
+                        };
+
+                        const isPolyline = p.isLine || p.drawType === 'polyline' || mappedPts.length === 2;
+                        if (isPolyline && mappedPts.length > 1) {
+                          return <Polyline key={p.id} positions={mappedPts} pathOptions={{ color: p.drawColor || '#4fc3f7', weight: (p.name || '').toLowerCase().includes('waterway') ? 8 : 3, opacity: 0.8, bubblingMouseEvents: false }} eventHandlers={{ click: handleClick }} />
+                        } else if (mappedPts.length > 2) {
+                          return <Polygon key={p.id} positions={mappedPts} pathOptions={{ color: p.drawColor || polygonColor, weight: 1.2, opacity: 0.6, fillOpacity: 0.1, bubblingMouseEvents: false }} eventHandlers={{ click: handleClick }} />
+                        } else {
+                          return <Marker key={p.id} position={mappedPts[0]} opacity={0.5} bubblingMouseEvents={false} eventHandlers={{ click: handleClick }} />
+                        }
+                      })}
+
+                      {/* Render fields for context (unclickable) */}
+                      {fields.map(f => {
+                        let positions = [];
+                        if (f.polygon) { try { positions = typeof f.polygon === 'string' ? JSON.parse(f.polygon) : f.polygon; } catch (e) { } }
+                        if (positions.length === 0) return null;
+                        return <Polygon key={f.id} positions={positions} pathOptions={{ color: f.drawColor || '#ffffff', weight: 0.8, opacity: 0.5, dashArray: '5,5', fillOpacity: 0.1 }} interactive={false} />;
+                      })}
+
+                      {/* Render nurseries for context (unclickable) */}
+                      {nurseries.map(n => {
+                        let positions = [];
+                        if (n.polygon) { try { positions = typeof n.polygon === 'string' ? JSON.parse(n.polygon) : n.polygon; } catch (e) { } }
+                        if (positions.length === 0) return null;
+                        return <Polygon key={n.id} positions={positions} pathOptions={{ color: n.drawColor || 'orange', weight: 0.8, opacity: 0.5, dashArray: '5,5', fillOpacity: 0.1 }} interactive={false} />;
+                      })}
+
+                    </MapContainer>
+                  </ResizableMapWrapper>
+                </div>
                   <div className="form-group">
                     <label>Type</label>
                     <select value={formData.type} onChange={e => setFormData({ ...formData, type: e.target.value })}>
@@ -762,11 +769,7 @@ export default function PoiTab() {
                   </div>
                 </div>
 
-                <button type="submit" className="btn btn-primary" style={{ marginTop: 10 }}>
-                  <MapPin size={16} style={{ marginRight: 6 }} /> {editingId ? 'Update POI' : 'Save POI'}
-                </button>
-              </form>
-            </>
+            </form>
           )}
         </div>
       </div>

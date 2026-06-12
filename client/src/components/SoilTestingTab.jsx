@@ -241,6 +241,11 @@ export default function SoilTestingTab() {
               </div>
               
               <form onSubmit={handleSubmit}>
+                <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', justifyContent: 'flex-end' }}>
+                  <button type="submit" className="btn btn-primary">
+                    <FlaskConical size={16} style={{ marginRight: 6 }} /> {editingId ? 'Update Soil Test' : 'Save Soil Test'}
+                  </button>
+                </div>
                 <div className="form-grid">
                   
                   <div className="form-group form-grid-full">
@@ -534,9 +539,6 @@ export default function SoilTestingTab() {
                   </div>
                 </div>
 
-                <button type="submit" className="btn btn-primary" style={{ marginTop: 20 }}>
-                  <FlaskConical size={16} style={{ marginRight: 6 }} /> {editingId ? 'Update Soil Test' : 'Save Soil Test'}
-                </button>
               </form>
             </>
           )}

@@ -130,6 +130,9 @@ export default function RecommendationViewer({ fieldId, onToggleBack }) {
 
           {showNewForm && (
             <form onSubmit={handleCreateNew} style={{ marginTop: '15px', background: '#fff', padding: '15px', borderRadius: '6px', border: '1px solid #ccc' }}>
+              <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', justifyContent: 'flex-end' }}>
+                <button type="submit" className="btn btn-primary">Save & Link</button>
+              </div>
               <div className="form-group">
                 <label>Name</label>
                 <input type="text" value={newRec.name} onChange={e => setNewRec({...newRec, name: e.target.value})} required placeholder="Recommendation Name" />
@@ -142,7 +145,6 @@ export default function RecommendationViewer({ fieldId, onToggleBack }) {
                 <input type="checkbox" checked={newRec.active} onChange={e => setNewRec({...newRec, active: e.target.checked})} id="recActive" style={{ width: 'auto', margin: 0 }} />
                 <label htmlFor="recActive" style={{ margin: 0 }}>Active Recommendation</label>
               </div>
-              <button type="submit" className="btn btn-primary" style={{ marginTop: '10px', width: '100%' }}>Save & Link</button>
             </form>
           )}
         </div>

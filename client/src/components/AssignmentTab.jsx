@@ -295,6 +295,14 @@ function AssignmentTabComponent() {
             )
           ) : (
             <form onSubmit={handleSubmit}>
+              <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', justifyContent: 'flex-end' }}>
+                <button type="button" className="btn" onClick={resetForm}>
+                  Cancel
+                </button>
+                <button type="submit" className="btn btn-primary">
+                  {editingId ? 'Update Assignment' : 'Assign Task'}
+                </button>
+              </div>
               <div className="form-grid">
                 <div className="form-group" style={{ gridColumn: '1 / -1' }}>
                   <label>Target Asset (Where is this passing?) *</label>
@@ -430,14 +438,6 @@ function AssignmentTabComponent() {
                 </div>
               </div>
               
-              <div style={{ marginTop: '20px', display: 'flex', gap: '10px' }}>
-                <button type="submit" className="btn btn-primary">
-                  {editingId ? 'Update Assignment' : 'Assign Task'}
-                </button>
-                <button type="button" className="btn" onClick={resetForm}>
-                  Cancel
-                </button>
-              </div>
             </form>
           )}
         </div>

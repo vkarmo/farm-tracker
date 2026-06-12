@@ -194,6 +194,16 @@ export default function HarvestTab() {
             </>
           ) : (
             <form onSubmit={handleSubmit}>
+              <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', justifyContent: 'flex-end' }}>
+                {editingId && (
+                  <button type="button" className="btn" onClick={resetForm}>
+                    Cancel
+                  </button>
+                )}
+                <button type="submit" className="btn btn-primary">
+                  <BarChartIcon size={16} style={{marginRight: 6}}/> {editingId ? 'Update Harvest' : 'Save Harvest Info'}
+                </button>
+              </div>
               <div className="form-grid">
                 <div className="form-group">
                   <label>Date Harvested</label>
@@ -230,16 +240,6 @@ export default function HarvestTab() {
                     {[...units].sort((a,b) => (a || '').localeCompare(b || '')).map(u => <option key={u} value={u}>{u}</option>)}
                   </select>
                 </div>
-              </div>
-              <div style={{ marginTop: '20px', display: 'flex', gap: '10px' }}>
-                <button type="submit" className="btn btn-primary">
-                  <BarChartIcon size={16} style={{marginRight: 6}}/> {editingId ? 'Update Harvest' : 'Save Harvest Info'}
-                </button>
-                {editingId && (
-                  <button type="button" className="btn" onClick={resetForm}>
-                    Cancel
-                  </button>
-                )}
               </div>
             </form>
           )}
