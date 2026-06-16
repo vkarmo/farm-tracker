@@ -130,7 +130,7 @@ export default function CropTab() {
                 if (editingId === id) resetForm();
               }}
               itemLabel="Crop"
-              defaultSort={{ key: 'name', direction: 'asc' }}
+              defaultSort={{ key: 'updatedAt', direction: 'desc' }}
             />
           ) : (
             <form onSubmit={handleSubmit}>

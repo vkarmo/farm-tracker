@@ -68,21 +68,71 @@ const reduxLoggingMiddleware = store => next => action => {
 };
 
 const timestampMiddleware = store => next => action => {
+  let nextAction = action;
   if (action.type && action.payload && typeof action.payload === 'object' && !Array.isArray(action.payload)) {
-    if (action.type.includes('/add') || action.type.includes('/update')) {
+    if (
+      action.type.includes('/add') || 
+      action.type.includes('/update') || 
+      action.type.includes('/save') || 
+      action.type.includes('/upsert') || 
+      action.type.includes('/transplant')
+    ) {
       if (!action.type.startsWith('sync/') && !action.type.startsWith('settings/') && !action.type.startsWith('auth/')) {
-        const newAction = {
+        nextAction = {
           ...action,
           payload: {
             ...action.payload,
             updatedAt: action.payload.updatedAt || Date.now()
           }
         };
-        return next(newAction);
       }
     }
   }
-  return next(action);
+
+  // Also add timestamp to sync queue actions so the backend receives it
+  if (nextAction.type === 'sync/queueAction' && nextAction.payload && typeof nextAction.payload === 'object') {
+    const innerAction = nextAction.payload;
+    if (innerAction && innerAction.payload && typeof innerAction.payload === 'object' && !Array.isArray(innerAction.payload)) {
+      if (
+        innerAction.type.includes('/add') || 
+        innerAction.type.includes('/update') || 
+        innerAction.type.includes('/save') || 
+        innerAction.type.includes('/upsert') || 
+        innerAction.type.includes('/transplant') || 
+        innerAction.type === 'core/updateNode'
+      ) {
+        const now = Date.now();
+        if (innerAction.type === 'core/updateNode') {
+          nextAction = {
+            ...nextAction,
+            payload: {
+              ...innerAction,
+              payload: {
+                ...innerAction.payload,
+                properties: {
+                  ...innerAction.payload.properties,
+                  updatedAt: innerAction.payload.properties?.updatedAt || now
+                }
+              }
+            }
+          };
+        } else {
+          nextAction = {
+            ...nextAction,
+            payload: {
+              ...innerAction,
+              payload: {
+                ...innerAction.payload,
+                updatedAt: innerAction.payload.updatedAt || now
+              }
+            }
+          };
+        }
+      }
+    }
+  }
+
+  return next(nextAction);
 };
 
 const injectUserMiddleware = store => next => action => {

@@ -143,7 +143,7 @@ export default function LivestockTab() {
                 if (editingId === id) resetForm();
               }} 
               itemLabel="Livestock Tag" 
-              defaultSort={{ key: 'tagNumber', direction: 'asc' }}
+              defaultSort={{ key: 'updatedAt', direction: 'desc' }}
               rowStyle={(row) => row.healthStatus === 'Deceased' ? { opacity: 0.6, background: '#fafafa' } : {}}
             />
           ) : (

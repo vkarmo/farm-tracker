@@ -1555,23 +1555,23 @@ app.post('/api/sync', async (req, res) => {
       try {
         const userEmail = (action.payload && action.payload.lastUpdatedBy) ? action.payload.lastUpdatedBy : 'system';
         if (action.type === 'fields/addField') {
-          const { id, name, area, soil_type, irrigation, status, year, polygon, drawColor } = action.payload;
+          const { id, name, area, soil_type, irrigation, status, year, polygon, drawColor, updatedAt } = action.payload;
           // Merge so we don't recreate if it exists somehow
           await session.run(
-            'MERGE (f:Field {id: $id}) SET f.name = $name, f.area = $area, f.soil_type = $soil_type, f.irrigation = $irrigation, f.status = $status, f.year = $year, f.polygon = $polygon, f.drawColor = $drawColor RETURN f', { userEmail, id, name, area, soil_type, irrigation, status, year, polygon: (typeof polygon === 'string') ? polygon : (polygon ? JSON.stringify(polygon) : null), drawColor: drawColor || null }
+            'MERGE (f:Field {id: $id}) SET f.name = $name, f.area = $area, f.soil_type = $soil_type, f.irrigation = $irrigation, f.status = $status, f.year = $year, f.polygon = $polygon, f.drawColor = $drawColor, f.updatedAt = toInteger($updatedAt) RETURN f', { userEmail, id, name, area, soil_type, irrigation, status, year, polygon: (typeof polygon === 'string') ? polygon : (polygon ? JSON.stringify(polygon) : null), drawColor: drawColor || null, updatedAt: updatedAt || Date.now() }
           );
           results.push({ actionId: action.meta?.id, status: 'success' });
         }
         else if (action.type === 'nurseries/addBed') {
-          const { id, name, capacity, status, polygon, drawColor } = action.payload;
+          const { id, name, capacity, status, polygon, drawColor, updatedAt } = action.payload;
           await session.run(
-            'MERGE (n:NurseryBed {id: $id}) SET n.name = $name, n.capacity = $capacity, n.status = $status, n.polygon = $polygon, n.drawColor = $drawColor RETURN n', { userEmail, id, name, capacity, status, polygon: (typeof polygon === 'string') ? polygon : (polygon ? JSON.stringify(polygon) : null), drawColor: drawColor || null }
+            'MERGE (n:NurseryBed {id: $id}) SET n.name = $name, n.capacity = $capacity, n.status = $status, n.polygon = $polygon, n.drawColor = $drawColor, n.updatedAt = toInteger($updatedAt) RETURN n', { userEmail, id, name, capacity, status, polygon: (typeof polygon === 'string') ? polygon : (polygon ? JSON.stringify(polygon) : null), drawColor: drawColor || null, updatedAt: updatedAt || Date.now() }
           );
           results.push({ actionId: action.meta?.id, status: 'success' });
         }
 
         else if (action.type === 'assets/addCrop') {
-          const { id, name, variety, fieldId, plantingDate, expectedHarvest, seedingRate, targetYield, sowType, phHi, phLo, pestIds } = action.payload;
+          const { id, name, variety, fieldId, plantingDate, expectedHarvest, seedingRate, targetYield, sowType, phHi, phLo, pestIds, updatedAt } = action.payload;
 
           if (sowType === 'Nursery') {
             await session.run(`
@@ -1579,7 +1579,8 @@ app.post('/api/sync', async (req, res) => {
               SET c.name = $name, c.variety = $variety, c.fieldId = $fieldId, c.sowType = $sowType,
                   c.plantingDate = $plantingDate, c.expectedHarvest = $expectedHarvest, 
                   c.seedingRate = $seedingRate, c.targetYield = $targetYield,
-                  c.phHi = toFloat($phHi), c.phLo = toFloat($phLo), c.pestIds = $pestIds
+                  c.phHi = toFloat($phHi), c.phLo = toFloat($phLo), c.pestIds = $pestIds,
+                  c.updatedAt = toInteger($updatedAt)
               WITH c 
               OPTIONAL MATCH (c)-[r1:SOWN_IN]->() DELETE r1
               WITH c
@@ -1594,14 +1595,15 @@ app.post('/api/sync', async (req, res) => {
               OPTIONAL MATCH (p:Pest {id: pId})
               FOREACH (ignore IN CASE WHEN p IS NOT NULL THEN [1] ELSE [] END | MERGE (c)-[rel_new:AFFECTED_BY]->(p) SET rel_new.lastUpdatedBy = $userEmail)
               SET c.lastUpdatedBy = $userEmail RETURN c
-            `, { userEmail, id, name, variety, fieldId, plantingDate, expectedHarvest, seedingRate, targetYield, sowType, phHi: phHi || null, phLo: phLo || null, pestIds: pestIds ? JSON.stringify(pestIds) : '[]', pestIdList: pestIds || [] });
+            `, { userEmail, id, name, variety, fieldId, plantingDate, expectedHarvest, seedingRate, targetYield, sowType, phHi: phHi || null, phLo: phLo || null, pestIds: pestIds ? JSON.stringify(pestIds) : '[]', pestIdList: pestIds || [], updatedAt: updatedAt || Date.now() });
           } else {
             await session.run(`
               MERGE (c:Crop {id: $id}) 
               SET c.name = $name, c.variety = $variety, c.fieldId = $fieldId, c.sowType = $sowType,
                   c.plantingDate = $plantingDate, c.expectedHarvest = $expectedHarvest, 
                   c.seedingRate = $seedingRate, c.targetYield = $targetYield,
-                  c.phHi = toFloat($phHi), c.phLo = toFloat($phLo), c.pestIds = $pestIds
+                  c.phHi = toFloat($phHi), c.phLo = toFloat($phLo), c.pestIds = $pestIds,
+                  c.updatedAt = toInteger($updatedAt)
               WITH c 
               OPTIONAL MATCH (c)-[r1:SOWN_IN]->() DELETE r1
               WITH c
@@ -1616,15 +1618,16 @@ app.post('/api/sync', async (req, res) => {
               OPTIONAL MATCH (p:Pest {id: pId})
               FOREACH (ignore IN CASE WHEN p IS NOT NULL THEN [1] ELSE [] END | MERGE (c)-[rel_new:AFFECTED_BY]->(p) SET rel_new.lastUpdatedBy = $userEmail)
               SET c.lastUpdatedBy = $userEmail RETURN c
-            `, { userEmail, id, name, variety, fieldId, plantingDate, expectedHarvest, seedingRate, targetYield, sowType, phHi: phHi || null, phLo: phLo || null, pestIds: pestIds ? JSON.stringify(pestIds) : '[]', pestIdList: pestIds || [] });
+            `, { userEmail, id, name, variety, fieldId, plantingDate, expectedHarvest, seedingRate, targetYield, sowType, phHi: phHi || null, phLo: phLo || null, pestIds: pestIds ? JSON.stringify(pestIds) : '[]', pestIdList: pestIds || [], updatedAt: updatedAt || Date.now() });
           }
 
           results.push({ actionId: action.meta?.id, status: 'success' });
         }
         else if (action.type === 'assets/transplantCrop') {
-          const { id, fieldId, transplantDate } = action.payload;
+          const { id, fieldId, transplantDate, updatedAt } = action.payload;
           await session.run(`
             MERGE (c:Crop {id: $id})
+            SET c.updatedAt = toInteger($updatedAt)
             WITH c
             OPTIONAL MATCH (c)-[r1:TRANSPLANTED_TO]->() DELETE r1
             WITH c
@@ -1634,16 +1637,16 @@ app.post('/api/sync', async (req, res) => {
               SET r.date = $transplantDate
             )
             SET c.lastUpdatedBy = $userEmail RETURN c
-          `, { userEmail, id, fieldId, transplantDate });
+          `, { userEmail, id, fieldId, transplantDate, updatedAt: updatedAt || Date.now() });
           results.push({ actionId: action.meta?.id, status: 'success' });
         }
         else if (action.type === 'assets/addLivestock') {
-          const { id, fieldId, type: animalType, breed, birthDate, tagNumber, healthStatus, causeOfDeath, medicalRecords } = action.payload;
+          const { id, fieldId, type: animalType, breed, birthDate, tagNumber, healthStatus, causeOfDeath, medicalRecords, updatedAt } = action.payload;
           await session.run(`
             MERGE (l:Livestock {id: $id})
             SET l.type = $animalType, l.breed = $breed, l.birthDate = $birthDate, 
                 l.tagNumber = $tagNumber, l.healthStatus = $healthStatus, l.fieldId = $fieldId, l.causeOfDeath = $causeOfDeath,
-                l.medicalRecords = $medicalRecords
+                l.medicalRecords = $medicalRecords, l.updatedAt = toInteger($updatedAt)
             WITH l
             OPTIONAL MATCH (l)-[r:LOCATED_IN]->() DELETE r
             WITH l
@@ -1652,7 +1655,7 @@ app.post('/api/sync', async (req, res) => {
               MERGE (l)-[:LOCATED_IN]->(f)
             )
             SET l.lastUpdatedBy = $userEmail RETURN l
-          `, { userEmail, id, animalType, breed, birthDate, tagNumber, healthStatus, fieldId, causeOfDeath: causeOfDeath || '', medicalRecords: medicalRecords ? JSON.stringify(medicalRecords) : '[]' });
+          `, { userEmail, id, animalType, breed, birthDate, tagNumber, healthStatus, fieldId, causeOfDeath: causeOfDeath || '', medicalRecords: medicalRecords ? JSON.stringify(medicalRecords) : '[]', updatedAt: updatedAt || Date.now() });
           results.push({ actionId: action.meta?.id, status: 'success' });
         }
         else if (action.type === 'breeding/addEvent' || action.type === 'breeding/updateEvent') {
@@ -1714,7 +1717,7 @@ app.post('/api/sync', async (req, res) => {
           results.push({ actionId: action.meta?.id, status: 'success' });
         }
         else if (action.type === 'poi/addPoi') {
-          const { id, name, type, description, area, length, points, drawColor, isLine, country, region, county, city, zoomLevel, mapElevation, createdBy } = action.payload;
+          const { id, name, type, description, area, length, points, drawColor, isLine, country, region, county, city, zoomLevel, mapElevation, createdBy, updatedAt } = action.payload;
           await session.run(`
             MERGE (n:PointOfInterest {id: $id})
             ON CREATE SET n.createdBy = $createdBy, n.createdAt = datetime()
@@ -1723,7 +1726,8 @@ app.post('/api/sync', async (req, res) => {
                 n.isLine = $isLine, n.country = $country, n.region = $region,
                 n.county = $county, n.city = $city,
                 n.zoomLevel = toInteger($zoomLevel), n.mapElevation = toFloat($mapElevation),
-                n.lastUpdatedBy = $userEmail, n.lastUpdatedAt = datetime()
+                n.lastUpdatedBy = $userEmail, n.lastUpdatedAt = datetime(),
+                n.updatedAt = toInteger($updatedAt)
             RETURN n
           `, { 
             userEmail, 
@@ -1742,7 +1746,8 @@ app.post('/api/sync', async (req, res) => {
             city: city || '',
             zoomLevel: zoomLevel !== undefined ? zoomLevel : null,
             mapElevation: mapElevation !== undefined ? mapElevation : null,
-            createdBy: createdBy || userEmail
+            createdBy: createdBy || userEmail,
+            updatedAt: updatedAt || Date.now()
           });
           results.push({ actionId: action.meta?.id, status: 'success' });
         }
@@ -2137,18 +2142,19 @@ app.post('/api/sync', async (req, res) => {
           results.push({ actionId: action.meta?.id, status: 'success' });
         }
         else if (action.type === 'soilTests/saveSoilTest') {
-          const { id, fieldId, description, testResults, location, drawColor } = action.payload;
+          const { id, fieldId, description, testResults, location, drawColor, updatedAt } = action.payload;
           await session.run(`
             MERGE (s:SoilTest {id: $id})
             SET s.fieldId = $fieldId, s.description = $description,
-                s.testResults = $testResults, s.location = $location, s.drawColor = $drawColor
+                s.testResults = $testResults, s.location = $location, s.drawColor = $drawColor,
+                s.updatedAt = toInteger($updatedAt)
             WITH s
             OPTIONAL MATCH (s)-[r1:TESTED_ON]->() DELETE r1
             WITH s
             OPTIONAL MATCH (f:Field {id: $fieldId})
             FOREACH (ignore IN CASE WHEN f IS NOT NULL THEN [1] ELSE [] END | MERGE (s)-[rel_new:TESTED_ON]->(f) SET rel_new.lastUpdatedBy = $userEmail)
             SET s.lastUpdatedBy = $userEmail RETURN s
-          `, { userEmail, id, fieldId, description: description || '', testResults: testResults ? JSON.stringify(testResults) : '[]', location: (typeof location === 'string') ? location : (location ? JSON.stringify(location) : null), drawColor: drawColor || null });
+          `, { userEmail, id, fieldId, description: description || '', testResults: testResults ? JSON.stringify(testResults) : '[]', location: (typeof location === 'string') ? location : (location ? JSON.stringify(location) : null), drawColor: drawColor || null, updatedAt: updatedAt || Date.now() });
           results.push({ actionId: action.meta?.id, status: 'success' });
         }
         else if (action.type === 'planning/saveGoal') {

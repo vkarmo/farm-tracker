@@ -378,8 +378,8 @@ export default function PoiTab() {
 
   const columns = [
     { key: 'name', header: 'POI Name' },
-    { key: 'type', header: 'Type' },
-    { key: 'city', header: 'City/Town', render: r => r.city || '-' },
+    { key: 'type', header: 'Type', style: { whiteSpace: 'nowrap', minWidth: '160px' } },
+    { key: 'city', header: 'City/Town', render: r => r.city || '-', style: { whiteSpace: 'nowrap' } },
     { key: 'county', header: 'County', render: r => r.county || '-' },
     { key: 'region', header: 'Region/State', render: r => r.region || '-' },
     { key: 'country', header: 'Country', render: r => r.country || '-' },

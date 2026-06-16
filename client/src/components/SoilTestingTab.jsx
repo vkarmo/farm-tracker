@@ -227,7 +227,7 @@ export default function SoilTestingTab() {
               onEdit={handleEdit}
               onDelete={handleDelete}
               itemLabel="Soil Test"
-              defaultSort={{ key: 'date', direction: 'desc' }}
+              defaultSort={{ key: 'updatedAt', direction: 'desc' }}
             />
           ) : (
             <>

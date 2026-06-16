@@ -211,7 +211,7 @@ export default function NurseryTab() {
                 onEdit={handleEdit} 
                 onDelete={handleDelete} 
                 itemLabel="Bed" 
-                defaultSort={{ key: 'name', direction: 'asc' }}
+                defaultSort={{ key: 'updatedAt', direction: 'desc' }}
               />
 
               <hr style={{border: 'none', borderTop: '1px solid var(--color-border)', margin: '40px 0 20px 0'}} />
