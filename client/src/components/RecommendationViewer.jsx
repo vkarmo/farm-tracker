@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { ArrowLeft, ExternalLink, Link as LinkIcon, Plus, Unlink, Sparkles, AlertCircle, Calendar, ClipboardList, Info, HelpCircle, Layers, CheckCircle } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Link as LinkIcon, Plus, Unlink, Sparkles, AlertCircle, Calendar, ClipboardList, Info, HelpCircle, Layers, CheckCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { addRecommendation } from '../store/recommendationsSlice';
 import { updateField } from '../store/fieldsSlice';
 import { queueAction } from '../store/syncSlice';
 import { extractSpatialStats } from './CropRecommendationPanel';
 import { fetchGeoLocationInfo } from './PoiTab';
+import { setAiProvider, saveSettings } from '../store/settingsSlice';
 
 const AGRI_TIPS = [
   "Analyzing regional topography and elevation variations...",
@@ -231,6 +232,7 @@ export default function RecommendationViewer({ fieldId, onToggleBack }) {
 
   const [viewTab, setViewTab] = useState('ai'); // 'ai' or 'links'
   const [streamingText, setStreamingText] = useState('');
+  const [leftActiveTab, setLeftActiveTab] = useState('request'); // 'request' or 'reports'
 
   // AI Input States
   const [season, setSeason] = useState('Rainy Season');
@@ -238,6 +240,8 @@ export default function RecommendationViewer({ fieldId, onToggleBack }) {
   const [cropHistory, setCropHistory] = useState('');
   const [notes, setNotes] = useState('');
   const [targetCategory, setTargetCategory] = useState('all');
+  const [startDate, setStartDate] = useState(new Date().toISOString().split('T')[0]);
+  const [selectedCrops, setSelectedCrops] = useState('');
 
   // AI Generation Loading / Tip state
   const [loading, setLoading] = useState(false);
@@ -415,7 +419,9 @@ export default function RecommendationViewer({ fieldId, onToggleBack }) {
           season,
           priorities,
           cropHistory,
-          notes
+          notes,
+          startDate,
+          selectedCrops
         })
       });
 
@@ -460,7 +466,9 @@ export default function RecommendationViewer({ fieldId, onToggleBack }) {
         notes,
         elevation: stats.elevation,
         soilMoisture: stats.soilMoisture,
-        resolvedLocation: locStr
+        resolvedLocation: locStr,
+        startDate,
+        selectedCrops
       };
 
       const newRecObj = {
@@ -486,6 +494,7 @@ export default function RecommendationViewer({ fieldId, onToggleBack }) {
       setCropHistory('');
       setNotes('');
       setPriorities([]);
+      setSelectedCrops('');
       setStreamingText('');
     } catch (err) {
       console.error(err);
@@ -564,179 +573,270 @@ export default function RecommendationViewer({ fieldId, onToggleBack }) {
       {viewTab === 'ai' && (
         <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', alignItems: 'stretch' }}>
           
-          {/* Left Column: Form & History */}
-          <div style={{ flex: '1 1 350px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          {/* Left Column: Form & History (Togglable Tabs) */}
+          <div style={{ flex: '1 1 350px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
             
-            {/* Generated Reports History */}
-            <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-              <h3 style={{ margin: '0 0 12px 0', fontSize: '0.98rem', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <ClipboardList size={18} /> Generated AI Reports
-              </h3>
-              {aiReports.length === 0 ? (
-                <p style={{ margin: 0, fontSize: '0.82rem', color: '#64748b', fontStyle: 'italic' }}>
-                  No AI reports generated for this field. Use the tool below to generate your first advisor report!
-                </p>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '180px', overflowY: 'auto' }}>
-                  {aiReports.map(report => (
-                    <div 
-                      key={report.id}
-                      onClick={() => setSelectedReportId(report.id)}
-                      style={{
-                        padding: '10px 12px',
-                        background: selectedReportId === report.id ? '#e8f5e9' : 'white',
-                        border: selectedReportId === report.id ? '1px solid #2e7d32' : '1px solid #e2e8f0',
-                        borderRadius: '6px',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        justifyContent: 'space-between',
-                        alignItems: 'center',
-                        transition: 'all 0.15s ease'
-                      }}
-                    >
-                      <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        <span style={{ fontSize: '0.85rem', fontWeight: 600, color: selectedReportId === report.id ? '#1b5e20' : '#334155' }}>
-                          {report.name}
-                        </span>
-                        <span style={{ fontSize: '0.7rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
-                          <Calendar size={10} /> {new Date(report.createdAt).toLocaleDateString()}
-                        </span>
-                      </div>
-                      <button 
-                        type="button" 
-                        onClick={(e) => { e.stopPropagation(); handleUnlink(report.id); }}
-                        style={{ border: 'none', background: 'transparent', color: '#ef4444', padding: '4px', cursor: 'pointer', borderRadius: '4px' }}
-                        title="Delete Report"
-                      >
-                        <Unlink size={14} />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
+            {/* Left Column Tab selector */}
+            <div style={{ display: 'flex', gap: '8px', background: '#f1f5f9', padding: '4px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+              <button
+                type="button"
+                onClick={() => setLeftActiveTab('request')}
+                style={{
+                  flex: 1,
+                  padding: '8px 12px',
+                  border: 'none',
+                  borderRadius: '6px',
+                  background: leftActiveTab === 'request' ? 'white' : 'transparent',
+                  color: leftActiveTab === 'request' ? '#1b5e20' : '#475569',
+                  fontWeight: 700,
+                  fontSize: '0.82rem',
+                  cursor: 'pointer',
+                  boxShadow: leftActiveTab === 'request' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <Sparkles size={14} color={leftActiveTab === 'request' ? '#2e7d32' : '#64748b'} /> Request Tool
+              </button>
+              <button
+                type="button"
+                onClick={() => setLeftActiveTab('reports')}
+                style={{
+                  flex: 1,
+                  padding: '8px 12px',
+                  border: 'none',
+                  borderRadius: '6px',
+                  background: leftActiveTab === 'reports' ? 'white' : 'transparent',
+                  color: leftActiveTab === 'reports' ? '#1b5e20' : '#475569',
+                  fontWeight: 700,
+                  fontSize: '0.82rem',
+                  cursor: 'pointer',
+                  boxShadow: leftActiveTab === 'reports' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: '6px',
+                  transition: 'all 0.15s ease'
+                }}
+              >
+                <ClipboardList size={14} color={leftActiveTab === 'reports' ? '#2e7d32' : '#64748b'} /> AI Reports ({aiReports.length})
+              </button>
             </div>
 
-            {/* AI Input Form */}
-            <div style={{ background: '#f8fafc', padding: '20px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
-              <h3 style={{ margin: '0 0 4px 0', fontSize: '0.98rem', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Sparkles size={16} color="#2e7d32" /> Advisor Request Tool
-              </h3>
-              <p style={{ margin: '0 0 16px 0', fontSize: '0.78rem', color: '#64748b' }}>
-                Generate localized agronomic recommendations using current spatial characteristics:
-              </p>
-
-              {/* Spatial Metadata Summary */}
-              <div style={{ background: '#f1f5f9', padding: '12px', borderRadius: '8px', fontSize: '0.82rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '16px', border: '1px solid #e2e8f0' }}>
-                <div><strong>Elevation:</strong> {stats.elevation}m</div>
-                <div><strong>Moisture:</strong> {stats.soilMoisture} m³/m³</div>
-                <div><strong>Soil:</strong> {currentField.soil_type || 'Loam'}</div>
-                <div><strong>Irrig:</strong> {currentField.irrigation || 'None'}</div>
-              </div>
-
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                {/* Season selection */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#444' }}>Season</label>
-                  <select
-                    value={season}
-                    onChange={(e) => setSeason(e.target.value)}
-                    style={{ padding: '6px 8px', borderRadius: '4px', border: '1px solid #ccc', fontSize: '0.85rem' }}
-                  >
-                    <option value="Rainy Season (Wet)">Rainy Season (Wet)</option>
-                    <option value="Dry Season">Dry Season</option>
-                  </select>
-                </div>
-
-                {/* Target Crop Type selection */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#444' }}>Target Crop Type</label>
-                  <select
-                    value={targetCategory}
-                    onChange={(e) => setTargetCategory(e.target.value)}
-                    style={{ padding: '6px 8px', borderRadius: '4px', border: '1px solid #ccc', fontSize: '0.85rem' }}
-                  >
-                    <option value="all">All Crop Types</option>
-                    <option value="Cash Crops">Cash Crops (e.g. Cocoa, Oil Palm, Rubber)</option>
-                    <option value="Food Crops">Food Crops (e.g. Rice, Cassava, Plantain)</option>
-                    <option value="Cover Crops">Cover Crops & Soil Enhancers</option>
-                    <option value="Vegetables">Vegetables & Short-Cycle Crops</option>
-                  </select>
-                </div>
-
-                {/* Farm Priorities */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#444' }}>Farm Priorities</label>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', background: 'white', padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }}>
-                    {[
-                      'Maximize Yield & Profit',
-                      'Soil Conservation & Health',
-                      'Drought Resilience',
-                      'Low Capital / Cost'
-                    ].map(p => (
-                      <label key={p} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.82rem', cursor: 'pointer', fontWeight: 'normal' }}>
-                        <input
-                          type="checkbox"
-                          checked={priorities.includes(p)}
-                          onChange={() => handlePriorityToggle(p)}
-                          style={{ margin: 0 }}
-                        />
-                        {p}
-                      </label>
+            {/* AI Reports History Tab content */}
+            {leftActiveTab === 'reports' && (
+              <div style={{ background: '#f8fafc', padding: '20px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                <h3 style={{ margin: '0 0 16px 0', fontSize: '0.98rem', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <ClipboardList size={18} /> Generated AI Reports
+                </h3>
+                {aiReports.length === 0 ? (
+                  <p style={{ margin: 0, fontSize: '0.82rem', color: '#64748b', fontStyle: 'italic' }}>
+                    No AI reports generated for this field. Switch to the Request Tool to generate your first advisor report!
+                  </p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '450px', overflowY: 'auto' }}>
+                    {aiReports.map(report => (
+                      <div 
+                        key={report.id}
+                        onClick={() => setSelectedReportId(report.id)}
+                        style={{
+                          padding: '10px 12px',
+                          background: selectedReportId === report.id ? '#e8f5e9' : 'white',
+                          border: selectedReportId === report.id ? '1px solid #2e7d32' : '1px solid #e2e8f0',
+                          borderRadius: '6px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          transition: 'all 0.15s ease'
+                        }}
+                      >
+                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                          <span style={{ fontSize: '0.85rem', fontWeight: 600, color: selectedReportId === report.id ? '#1b5e20' : '#334155' }}>
+                            {report.name}
+                          </span>
+                          <span style={{ fontSize: '0.7rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                            <Calendar size={10} /> {new Date(report.createdAt).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <button 
+                          type="button" 
+                          onClick={(e) => { e.stopPropagation(); handleUnlink(report.id); }}
+                          style={{ border: 'none', background: 'transparent', color: '#ef4444', padding: '4px', cursor: 'pointer', borderRadius: '4px' }}
+                          title="Delete Report"
+                        >
+                          <Unlink size={14} />
+                        </button>
+                      </div>
                     ))}
                   </div>
-                </div>
-
-                {/* Crop History Textbox */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#444' }}>Crop History (Rotation)</label>
-                  <input
-                    type="text"
-                    value={cropHistory}
-                    onChange={(e) => setCropHistory(e.target.value)}
-                    placeholder="e.g. Fallow last year, Maize previously"
-                    style={{ padding: '6px 8px', borderRadius: '4px', border: '1px solid #ccc', fontSize: '0.85rem' }}
-                  />
-                </div>
-
-                {/* Special Observations */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                  <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#444' }}>Special Observations</label>
-                  <textarea
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    placeholder="e.g. Sandy patches, high weed presence, slope drainage issues"
-                    rows={3}
-                    style={{ padding: '6px 8px', borderRadius: '4px', border: '1px solid #ccc', fontSize: '0.85rem', resize: 'vertical' }}
-                  />
-                </div>
-
-                {/* Generate Button */}
-                <button
-                  type="button"
-                  onClick={handleGenerateAIRecommendations}
-                  disabled={loading}
-                  style={{
-                    marginTop: '8px',
-                    padding: '10px',
-                    background: '#2e7d32',
-                    color: 'white',
-                    border: 'none',
-                    borderRadius: '6px',
-                    fontWeight: 700,
-                    fontSize: '0.9rem',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '6px',
-                    boxShadow: '0 2px 8px rgba(46, 125, 50, 0.2)'
-                  }}
-                >
-                  <Sparkles size={16} />
-                  {loading ? 'Analyzing...' : 'Generate AI Report'}
-                </button>
+                )}
               </div>
-            </div>
+            )}
+
+            {/* AI Advisor Request Tool Form Tab content */}
+            {leftActiveTab === 'request' && (
+              <div style={{ background: '#f8fafc', padding: '20px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+                <h3 style={{ margin: '0 0 4px 0', fontSize: '0.98rem', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Sparkles size={16} color="#2e7d32" /> Advisor Request Tool
+                </h3>
+                <p style={{ margin: '0 0 16px 0', fontSize: '0.78rem', color: '#64748b' }}>
+                  Generate localized agronomic recommendations using current spatial characteristics:
+                </p>
+
+                {/* Spatial Metadata Summary */}
+                <div style={{ background: '#f1f5f9', padding: '12px', borderRadius: '8px', fontSize: '0.82rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '16px', border: '1px solid #e2e8f0' }}>
+                  <div><strong>Elevation:</strong> {stats.elevation}m</div>
+                  <div><strong>Moisture:</strong> {stats.soilMoisture} m³/m³</div>
+                  <div><strong>Soil:</strong> {currentField.soil_type || 'Loam'}</div>
+                  <div><strong>Irrig:</strong> {currentField.irrigation || 'None'}</div>
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                  {/* Preferred AI Provider selection */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#444' }}>Preferred AI Provider</label>
+                    <select
+                      value={aiProvider}
+                      onChange={(e) => { dispatch(setAiProvider(e.target.value)); dispatch(saveSettings()); }}
+                      disabled={currentUser?.role === 'Admin Viewer'}
+                      style={{ padding: '6px 8px', borderRadius: '4px', border: '1px solid #ccc', fontSize: '0.85rem', background: '#fff', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer' }}
+                    >
+                      <option value="gemini">Google Gemini (gemini-2.5-flash)</option>
+                      <option value="claude">Anthropic Claude (claude-3-5-sonnet)</option>
+                    </select>
+                  </div>
+
+                  {/* Season selection */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#444' }}>Season</label>
+                    <select
+                      value={season}
+                      onChange={(e) => setSeason(e.target.value)}
+                      style={{ padding: '6px 8px', borderRadius: '4px', border: '1px solid #ccc', fontSize: '0.85rem' }}
+                    >
+                      <option value="Rainy Season (Wet)">Rainy Season (Wet)</option>
+                      <option value="Dry Season">Dry Season</option>
+                    </select>
+                  </div>
+
+                  {/* Target Crop Type selection */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#444' }}>Target Crop Type</label>
+                    <select
+                      value={targetCategory}
+                      onChange={(e) => setTargetCategory(e.target.value)}
+                      style={{ padding: '6px 8px', borderRadius: '4px', border: '1px solid #ccc', fontSize: '0.85rem' }}
+                    >
+                      <option value="all">All Crop Types</option>
+                      <option value="Cash Crops">Cash Crops (e.g. Cocoa, Oil Palm, Rubber)</option>
+                      <option value="Food Crops">Food Crops (e.g. Rice, Cassava, Plantain)</option>
+                      <option value="Cover Crops">Cover Crops & Soil Enhancers</option>
+                      <option value="Vegetables">Vegetables & Short-Cycle Crops</option>
+                    </select>
+                  </div>
+
+                  {/* Start Date selection */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#444' }}>Start Date</label>
+                    <input
+                      type="date"
+                      value={startDate}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      style={{ padding: '6px 8px', borderRadius: '4px', border: '1px solid #ccc', fontSize: '0.85rem' }}
+                    />
+                  </div>
+
+                  {/* Crops of Interest */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#444' }}>Crops of Interest</label>
+                    <input
+                      type="text"
+                      value={selectedCrops}
+                      onChange={(e) => setSelectedCrops(e.target.value)}
+                      placeholder="e.g. Fever Leaf, Cassava, Rice"
+                      style={{ padding: '6px 8px', borderRadius: '4px', border: '1px solid #ccc', fontSize: '0.85rem' }}
+                    />
+                  </div>
+
+                  {/* Farm Priorities */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#444' }}>Farm Priorities</label>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', background: 'white', padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }}>
+                      {[
+                        'Maximize Yield & Profit',
+                        'Soil Conservation & Health',
+                        'Drought Resilience',
+                        'Low Capital / Cost'
+                      ].map(p => (
+                        <label key={p} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.82rem', cursor: 'pointer', fontWeight: 'normal' }}>
+                          <input
+                            type="checkbox"
+                            checked={priorities.includes(p)}
+                            onChange={() => handlePriorityToggle(p)}
+                            style={{ margin: 0 }}
+                          />
+                          {p}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Crop History Textbox */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#444' }}>Crop History (Rotation)</label>
+                    <input
+                      type="text"
+                      value={cropHistory}
+                      onChange={(e) => setCropHistory(e.target.value)}
+                      placeholder="e.g. Fallow last year, Maize previously"
+                      style={{ padding: '6px 8px', borderRadius: '4px', border: '1px solid #ccc', fontSize: '0.85rem' }}
+                    />
+                  </div>
+
+                  {/* Special Observations */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#444' }}>Special Observations</label>
+                    <textarea
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      placeholder="e.g. Sandy patches, high weed presence, slope drainage issues"
+                      rows={3}
+                      style={{ padding: '6px 8px', borderRadius: '4px', border: '1px solid #ccc', fontSize: '0.85rem', resize: 'vertical' }}
+                    />
+                  </div>
+
+                  {/* Generate Button */}
+                  <button
+                    type="button"
+                    onClick={handleGenerateAIRecommendations}
+                    disabled={loading}
+                    style={{
+                      marginTop: '8px',
+                      padding: '10px',
+                      background: '#2e7d32',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '6px',
+                      fontWeight: 700,
+                      fontSize: '0.9rem',
+                      cursor: 'pointer',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      gap: '6px',
+                      boxShadow: '0 2px 8px rgba(46, 125, 50, 0.2)'
+                    }}
+                  >
+                    <Sparkles size={16} />
+                    {loading ? 'Analyzing...' : 'Generate AI Report'}
+                  </button>
+                </div>
+              </div>
+            )}
 
           </div>
 
@@ -806,7 +906,7 @@ export default function RecommendationViewer({ fieldId, onToggleBack }) {
                 </div>
 
                 {/* Sub tab content pane */}
-                <div style={{ padding: '24px', overflowY: 'auto', background: 'white', flex: 1, minHeight: '380px', maxHeight: '500px' }}>
+                <div style={{ padding: '24px', overflowY: 'auto', background: 'white', flex: 1, minHeight: '400px', maxHeight: 'calc(100vh - 320px)' }}>
                   {(() => {
                     const currentTabObj = (activeReport.responseTabs || []).find(t => t.id === selectedAiSubTab);
                     if (!currentTabObj) {

@@ -1435,7 +1435,7 @@ function processSSEBuffer(buffer, provider, res) {
 
 // AI Crop recommendations Generator Proxy Route (Streaming)
 app.post('/api/recommendations/generate', async (req, res) => {
-  const { fieldId, fieldName, area, soilType, irrigation, status, elevation, soilMoisture, location, season, priorities, cropHistory, notes } = req.body;
+  const { fieldId, fieldName, area, soilType, irrigation, status, elevation, soilMoisture, location, season, priorities, cropHistory, notes, startDate, selectedCrops } = req.body;
 
   const session = driver.session();
   try {
@@ -1465,21 +1465,45 @@ Please generate crop recommendations for the following field profile:
 - Farm Priorities: ${Array.isArray(priorities) ? priorities.join(', ') : (priorities || 'None specified')}
 - Crop History: ${cropHistory || 'None specified'}
 - Additional Notes: ${notes || 'None specified'}
+- Model Start Date: ${startDate || 'Immediate'}
+- Crops to Focus On: ${selectedCrops || 'High margin crops suited for local context (e.g. Fever Leaf, Cassava, swamp rice, vegetables, etc.)'}
 
 You must respond in Markdown format. The sections should be separated by H2 headings (##) which will be parsed into tabs.
 The output structure must be EXACTLY:
 
 ## Agro-Ecological Overview
-[Provide rich, detailed Markdown content for this section, structured with bullet points, and tables where helpful. Keep it localized for Bomi County (agro-ecological thresholds, acidic soil correction, rainy/dry seasons, local crops like swamp rice, cassava, oil palm, vegetables).]
+[Provide rich, detailed Markdown content for this section, structured with bullet points. Keep it localized for Bomi County, Liberia (agro-ecological thresholds, acidic soil correction, rainy/dry seasons, water logging or slopes).]
 
 ## Recommended Crops
-[Provide recommended crops details here...]
+[Provide recommended crops details here. Detail which crops are chosen from the crops of interest: "${selectedCrops || 'specified crops'}" and other local agronomic fits.]
 
 ## Cultivation Guide
-[Provide the guides here...]
+[Provide the cultivation guides here for the selected crops.]
 
 ## Risk & Soil Management
 [Provide the risk and soil management details here...]
+
+## Revenue Model
+[Generate a high-margin, realistic revenue model for the ${area || 'specified'} acres starting on ${startDate || 'the specified start date'}. It should focus on targeting a higher annual gross revenue realistically based on local Liberian farming standards.]
+
+## 12-Month Projections
+[Generate a detailed 12-month high-margin projection table containing the following columns:
+1. Month (e.g. Month 1, Month 2, ..., Month 12)
+2. Crop(s)
+3. Planting & Rotating Details
+4. Harvest Information (Timing & actions)
+5. Estimated Quantity Harvested (in kg or relevant units)
+6. Price per kg in LD and USD (fluctuating according to seasonal scarcity)
+7. Fever Leaf quantity (estimated number of bundles harvested, if Fever Leaf is modeled/relevant)
+8. Fever Leaf price in LD and USD (per bundle, fluctuating)
+9. Roll Totals (Monthly totals in USD)
+Apply fluctuating market prices for each crop across different months to reflect real-world seasonal supply/demand. Provide the row totals and a final annual gross revenue total.]
+
+## 2-Week Projections
+[Generate a 2nd 12-month projection table using a 2-week interval breakdown (e.g., Week 1-2, Week 3-4, ..., Week 49-52) outlining planting, rotation, and harvest schedule details for each crop, emphasizing the operational flow.]
+
+## Field Layout
+[Generate a textual or ASCII representation and details of the agricultural field layout, including properly spaced rows, beds, walkways, and spacing details in meters/feet for the specified crops.]
 
 Do not wrap the whole response in a JSON block or code blocks. Start directly with the first heading.`;
 
