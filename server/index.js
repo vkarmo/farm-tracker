@@ -1400,6 +1400,196 @@ app.post('/api/gee/find-waterways', async (req, res) => {
   }
 });
 
+// Utility to parse Server-Sent Events (SSE) buffer for Gemini and Claude streaming
+function processSSEBuffer(buffer, provider, res) {
+  const lines = buffer.split('\n');
+  const lastLine = lines.pop(); // Keep partial line in buffer
+  
+  for (const line of lines) {
+    const trimmed = line.trim();
+    if (!trimmed) continue;
+    
+    if (trimmed.startsWith('data:')) {
+      const dataStr = trimmed.slice(5).trim();
+      if (dataStr === '[DONE]') continue;
+      try {
+        const parsed = JSON.parse(dataStr);
+        if (provider === 'gemini') {
+          const text = parsed.candidates?.[0]?.content?.parts?.[0]?.text;
+          if (text) {
+            res.write(text);
+          }
+        } else {
+          // Claude
+          if (parsed.type === 'content_block_delta' && parsed.delta?.text) {
+            res.write(parsed.delta.text);
+          }
+        }
+      } catch (err) {
+        // Ignore parsing errors for partial/incomplete SSE JSON lines
+      }
+    }
+  }
+  return lastLine;
+}
+
+// AI Crop recommendations Generator Proxy Route (Streaming)
+app.post('/api/recommendations/generate', async (req, res) => {
+  const { fieldId, fieldName, area, soilType, irrigation, status, elevation, soilMoisture, location, season, priorities, cropHistory, notes } = req.body;
+
+  const session = driver.session();
+  try {
+    // 1. Fetch credentials from settings
+    const result = await session.run("MATCH (n:GlobalSettings {id: 'default'}) RETURN n");
+    if (result.records.length === 0) {
+      return res.status(404).json({ error: 'Global settings not found.' });
+    }
+    const settingsNode = result.records[0].get('n').properties;
+    const provider = settingsNode.aiProvider || 'gemini';
+    const geminiKey = settingsNode.geminiApiKey || '';
+    const claudeKey = settingsNode.claudeApiKey || '';
+
+    let promptText = `You are an expert tropical agronomist specializing in West African agriculture, specifically Bomi County, Liberia.
+Your task is to provide a comprehensive, actionable, and localized crop recommendation report for a specific field on a farm.
+
+Please generate crop recommendations for the following field profile:
+- Field Name: ${fieldName || 'Unnamed Field'}
+- Area Size: ${area || 'Unknown'} acres
+- Soil Type: ${soilType || 'Loam'}
+- Irrigation Type: ${irrigation || 'None'}
+- Current Status: ${status || 'Fallow'}
+- Median Elevation: ${elevation || 'Unknown'} meters
+- Average Soil Moisture: ${soilMoisture || 'Unknown'} m³/m³
+- Geographic Location: ${location || 'Liberia'}
+- Season: ${season || 'Rainy Season'}
+- Farm Priorities: ${Array.isArray(priorities) ? priorities.join(', ') : (priorities || 'None specified')}
+- Crop History: ${cropHistory || 'None specified'}
+- Additional Notes: ${notes || 'None specified'}
+
+You must respond in Markdown format. The sections should be separated by H2 headings (##) which will be parsed into tabs.
+The output structure must be EXACTLY:
+
+## Agro-Ecological Overview
+[Provide rich, detailed Markdown content for this section, structured with bullet points, and tables where helpful. Keep it localized for Bomi County (agro-ecological thresholds, acidic soil correction, rainy/dry seasons, local crops like swamp rice, cassava, oil palm, vegetables).]
+
+## Recommended Crops
+[Provide recommended crops details here...]
+
+## Cultivation Guide
+[Provide the guides here...]
+
+## Risk & Soil Management
+[Provide the risk and soil management details here...]
+
+Do not wrap the whole response in a JSON block or code blocks. Start directly with the first heading.`;
+
+    // 2. Set streaming headers
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader('Transfer-Encoding', 'chunked');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
+
+    if (provider === 'gemini') {
+      if (!geminiKey) {
+        return res.status(400).json({ error: 'Google Gemini API key is not configured in settings.' });
+      }
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:streamGenerateContent?key=${geminiKey}&alt=sse`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: promptText }] }]
+        })
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`Gemini API Error: ${response.statusText} - ${errText}`);
+      }
+
+      let buffer = '';
+      if (response.body.getReader) {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          buffer = processSSEBuffer(buffer, 'gemini', res);
+        }
+      } else {
+        for await (const chunk of response.body) {
+          buffer += chunk.toString();
+          buffer = processSSEBuffer(buffer, 'gemini', res);
+        }
+      }
+
+      if (buffer.trim()) {
+        processSSEBuffer(buffer + '\n', 'gemini', res);
+      }
+      res.end();
+    } else {
+      // Claude
+      if (!claudeKey) {
+        return res.status(400).json({ error: 'Anthropic Claude API key is not configured in settings.' });
+      }
+      const url = 'https://api.anthropic.com/v1/messages';
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': claudeKey,
+          'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 8000,
+          system: 'You are an expert tropical agronomist. Respond in plain Markdown format directly matching the requested outline. Do not wrap the response in any JSON format or HTML or backticks.',
+          messages: [{ role: 'user', content: promptText }],
+          stream: true
+        })
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`Claude API Error: ${response.statusText} - ${errText}`);
+      }
+
+      let buffer = '';
+      if (response.body.getReader) {
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buffer += decoder.decode(value, { stream: true });
+          buffer = processSSEBuffer(buffer, 'claude', res);
+        }
+      } else {
+        for await (const chunk of response.body) {
+          buffer += chunk.toString();
+          buffer = processSSEBuffer(buffer, 'claude', res);
+        }
+      }
+
+      if (buffer.trim()) {
+        processSSEBuffer(buffer + '\n', 'claude', res);
+      }
+      res.end();
+    }
+  } catch (err) {
+    console.error('Failed to generate AI crop recommendations:', err);
+    if (!res.headersSent) {
+      res.status(500).json({ error: err.message || 'AI Generation failed.' });
+    } else {
+      res.write(`\n\n[ERROR: ${err.message || 'AI Generation failed.'}]`);
+      res.end();
+    }
+  } finally {
+    await session.close();
+  }
+});
+
 // Global Data Hydration
 app.get('/api/all-data', async (req, res) => {
   const session = driver.session();
@@ -1428,7 +1618,8 @@ app.get('/api/all-data', async (req, res) => {
        goals: 'MATCH (n:Goal) RETURN n',
        objectives: 'MATCH (n:Objective) RETURN n',
        livestockDiseases: 'MATCH (n:LivestockDisease) RETURN n',
-       poi: 'MATCH (n:PointOfInterest) RETURN n'
+       poi: 'MATCH (n:PointOfInterest) RETURN n',
+       recommendations: 'MATCH (n:Recommendation) RETURN n'
     };
 
     const data = {};
@@ -1458,6 +1649,12 @@ app.get('/api/all-data', async (req, res) => {
            }
            if (props.allowedTabs) {
                try { props.allowedTabs = JSON.parse(props.allowedTabs); } catch(e){}
+           }
+           if (props.promptInputs) {
+               try { props.promptInputs = JSON.parse(props.promptInputs); } catch(e){}
+           }
+           if (props.responseTabs) {
+               try { props.responseTabs = JSON.parse(props.responseTabs); } catch(e){}
            }
            if (props.pestIds) {
                try { props.pestIds = JSON.parse(props.pestIds); } catch(e){}
@@ -1748,6 +1945,27 @@ app.post('/api/sync', async (req, res) => {
             mapElevation: mapElevation !== undefined ? mapElevation : null,
             createdBy: createdBy || userEmail,
             updatedAt: updatedAt || Date.now()
+          });
+          results.push({ actionId: action.meta?.id, status: 'success' });
+        }
+        else if (action.type === 'recommendations/addRecommendation') {
+          const { id, name, link, active, isAI, promptInputs, responseTabs, createdAt } = action.payload;
+          await session.run(`
+            MERGE (r:Recommendation {id: $id})
+            SET r.name = $name, r.link = $link, r.active = $active,
+                r.isAI = $isAI, r.promptInputs = $promptInputs, r.responseTabs = $responseTabs,
+                r.createdAt = toInteger($createdAt), r.lastUpdatedBy = $userEmail
+            RETURN r
+          `, {
+            userEmail,
+            id,
+            name: name || '',
+            link: link || '',
+            active: active !== false,
+            isAI: isAI || false,
+            promptInputs: promptInputs ? (typeof promptInputs === 'string' ? promptInputs : JSON.stringify(promptInputs)) : null,
+            responseTabs: responseTabs ? (typeof responseTabs === 'string' ? responseTabs : JSON.stringify(responseTabs)) : null,
+            createdAt: createdAt || Date.now()
           });
           results.push({ actionId: action.meta?.id, status: 'success' });
         }

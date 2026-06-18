@@ -1,38 +1,339 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { ExternalLink, Plus, Link as LinkIcon, Unlink, ArrowLeft } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Link as LinkIcon, Plus, Unlink, Sparkles, AlertCircle, Calendar, ClipboardList, Info, HelpCircle, Layers, CheckCircle } from 'lucide-react';
 import { addRecommendation } from '../store/recommendationsSlice';
 import { updateField } from '../store/fieldsSlice';
 import { queueAction } from '../store/syncSlice';
+import { extractSpatialStats } from './CropRecommendationPanel';
+import { fetchGeoLocationInfo } from './PoiTab';
+
+const AGRI_TIPS = [
+  "Analyzing regional topography and elevation variations...",
+  "Consulting the Bomi County soil classification catalog...",
+  "Determining drainage coefficients and water saturation zones...",
+  "Matching crop thresholds against volumetric soil moisture averages...",
+  "Structuring operational timelines for the dry/rainy season cycle...",
+  "Formulating soil amendment strategies and organic pH corrections...",
+  "Evaluating traditional crop rotation sequences for West Africa...",
+  "Assessing typical local pests, weeds, and mitigation practices..."
+];
+
+const parseBoldAndItalic = (text) => {
+  if (!text) return '';
+  const boldParts = text.split('**');
+  return boldParts.map((bPart, bIdx) => {
+    if (bIdx % 2 === 1) {
+      return <strong key={`b_${bIdx}`}>{bPart}</strong>;
+    }
+    const italicParts = bPart.split('*');
+    return italicParts.map((iPart, iIdx) => {
+      if (iIdx % 2 === 1) {
+        return <em key={`i_${iIdx}`}>{iPart}</em>;
+      }
+      return iPart;
+    });
+  });
+};
+
+const parseMarkdownToReact = (text) => {
+  if (!text) return null;
+  const lines = text.split('\n');
+  const elements = [];
+  let currentTableRows = [];
+  let currentListItems = [];
+
+  const flushTable = (key) => {
+    if (currentTableRows.length > 0) {
+      elements.push(
+        <div key={`table_${key}`} style={{ overflowX: 'auto', margin: '15px 0', borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px rgba(0,0,0,0.02)' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.9rem' }}>
+            <tbody>
+              {currentTableRows}
+            </tbody>
+          </table>
+        </div>
+      );
+      currentTableRows = [];
+    }
+  };
+
+  const flushList = (key) => {
+    if (currentListItems.length > 0) {
+      elements.push(
+        <ul key={`list_${key}`} style={{ margin: '10px 0 15px 20px', padding: 0, listStyleType: 'disc', color: '#334155' }}>
+          {currentListItems}
+        </ul>
+      );
+      currentListItems = [];
+    }
+  };
+
+  for (let idx = 0; idx < lines.length; idx++) {
+    const line = lines[idx];
+    const trimmed = line.trim();
+
+    if (trimmed.startsWith('###')) {
+      flushTable(idx);
+      flushList(idx);
+      elements.push(
+        <h4 key={`h3_${idx}`} style={{ fontSize: '1.05rem', color: '#1e293b', margin: '20px 0 8px 0', fontWeight: 700 }}>
+          {parseBoldAndItalic(trimmed.slice(3).trim())}
+        </h4>
+      );
+      continue;
+    }
+    if (trimmed.startsWith('##')) {
+      flushTable(idx);
+      flushList(idx);
+      elements.push(
+        <h3 key={`h2_${idx}`} style={{ fontSize: '1.2rem', color: '#0f172a', margin: '24px 0 12px 0', fontWeight: 800, borderBottom: '1px solid #f1f5f9', paddingBottom: '6px' }}>
+          {parseBoldAndItalic(trimmed.slice(2).trim())}
+        </h3>
+      );
+      continue;
+    }
+    if (trimmed.startsWith('#')) {
+      flushTable(idx);
+      flushList(idx);
+      elements.push(
+        <h2 key={`h1_${idx}`} style={{ fontSize: '1.4rem', color: '#1b5e20', margin: '28px 0 16px 0', fontWeight: 800 }}>
+          {parseBoldAndItalic(trimmed.slice(1).trim())}
+        </h2>
+      );
+      continue;
+    }
+
+    if (trimmed.startsWith('|')) {
+      flushList(idx);
+      if (trimmed.includes('---') || trimmed.includes('-|-')) {
+        continue;
+      }
+      const cells = trimmed.split('|').map(c => c.trim()).filter((_, cIdx, arr) => cIdx > 0 && cIdx < arr.length - 1);
+      const isHeaderRow = idx > 0 && lines[idx - 1].trim().startsWith('|') && (lines[idx + 1] && (lines[idx + 1].trim().includes('---') || lines[idx + 1].trim().includes('-|-')));
+      
+      currentTableRows.push(
+        <tr 
+          key={`tr_${idx}`} 
+          style={{ 
+            borderBottom: '1px solid #e2e8f0', 
+            background: isHeaderRow ? '#f8fafc' : (currentTableRows.length % 2 === 1 ? '#fcfdfd' : 'transparent'),
+            fontWeight: isHeaderRow ? 'bold' : 'normal'
+          }}
+        >
+          {cells.map((cell, cIdx) => (
+            <td 
+              key={`td_${cIdx}`} 
+              style={{ 
+                padding: '12px 16px', 
+                border: '1px solid #e2e8f0',
+                color: isHeaderRow ? '#1e293b' : '#334155'
+              }}
+            >
+              {parseBoldAndItalic(cell)}
+            </td>
+          ))}
+        </tr>
+      );
+      continue;
+    }
+
+    if (trimmed.startsWith('*') || trimmed.startsWith('-')) {
+      flushTable(idx);
+      const content = trimmed.slice(1).trim();
+      currentListItems.push(
+        <li key={`li_${idx}`} style={{ marginBottom: '6px', lineHeight: '1.5' }}>
+          {parseBoldAndItalic(content)}
+        </li>
+      );
+      continue;
+    }
+
+    if (trimmed) {
+      flushTable(idx);
+      flushList(idx);
+      elements.push(
+        <p key={`p_${idx}`} style={{ margin: '0 0 12px 0', color: '#334155', lineHeight: '1.6', fontSize: '0.92rem' }}>
+          {parseBoldAndItalic(trimmed)}
+        </p>
+      );
+    } else {
+      flushTable(idx);
+      flushList(idx);
+    }
+  }
+
+  flushTable('end');
+  flushList('end');
+  return elements;
+};
+
+const splitMarkdownToTabs = (markdown) => {
+  if (!markdown) return [];
+  const sections = [];
+  const headerRegex = /^##\s+(.+)$/gm;
+  
+  let match;
+  const matches = [];
+  headerRegex.lastIndex = 0;
+  while ((match = headerRegex.exec(markdown)) !== null) {
+    matches.push({
+      title: match[1].trim(),
+      index: match.index,
+      headerLength: match[0].length
+    });
+  }
+  
+  if (matches.length === 0) {
+    return [{ id: 'overview', title: 'Advisor Report', content: markdown }];
+  }
+  
+  if (matches[0].index > 0) {
+    const initialText = markdown.slice(0, matches[0].index).trim();
+    if (initialText) {
+      sections.push({
+        id: 'overview',
+        title: 'Overview',
+        content: initialText
+      });
+    }
+  }
+  
+  for (let i = 0; i < matches.length; i++) {
+    const start = matches[i].index + matches[i].headerLength;
+    const end = i + 1 < matches.length ? matches[i + 1].index : markdown.length;
+    const tabTitle = matches[i].title;
+    const tabId = tabTitle.toLowerCase().replace(/[^a-z0-9]+/g, '-');
+    sections.push({
+      id: tabId || `tab_${i}`,
+      title: tabTitle,
+      content: markdown.slice(start, end).trim()
+    });
+  }
+  
+  return sections;
+};
 
 export default function RecommendationViewer({ fieldId, onToggleBack }) {
   const dispatch = useDispatch();
   const allRecommendations = useSelector(state => state.recommendations?.data) || [];
   const fields = useSelector(state => state.fields.data) || [];
-  
+  const googleMapsApiKey = useSelector(state => state.settings?.googleMapsApiKey) || '';
+  const geminiApiKey = useSelector(state => state.settings?.geminiApiKey) || '';
+  const claudeApiKey = useSelector(state => state.settings?.claudeApiKey) || '';
+  const aiProvider = useSelector(state => state.settings?.aiProvider) || 'gemini';
+  const currentUser = useSelector(state => state.auth?.currentUser);
+
   const currentField = fields.find(f => f.id === fieldId) || { recommendationIds: [] };
   const linkedIds = currentField.recommendationIds || [];
   
   const linkedRecommendations = allRecommendations.filter(r => linkedIds.includes(r.id));
   const unlinkedRecommendations = allRecommendations.filter(r => !linkedIds.includes(r.id) && r.active !== false);
 
-  const [selectedViewerRecId, setSelectedViewerRecId] = useState(linkedRecommendations.length > 0 ? linkedRecommendations[0].id : '');
-  
+  const [viewTab, setViewTab] = useState('ai'); // 'ai' or 'links'
+  const [streamingText, setStreamingText] = useState('');
+
+  // AI Input States
+  const [season, setSeason] = useState('Rainy Season');
+  const [priorities, setPriorities] = useState([]);
+  const [cropHistory, setCropHistory] = useState('');
+  const [notes, setNotes] = useState('');
+  const [targetCategory, setTargetCategory] = useState('all');
+
+  // AI Generation Loading / Tip state
+  const [loading, setLoading] = useState(false);
+  const [loadingTipIndex, setLoadingTipIndex] = useState(0);
+  const loadingTipTimer = useRef(null);
+
+  // AI Active Run selections
+  const [selectedReportId, setSelectedReportId] = useState('');
+  const [selectedAiSubTab, setSelectedAiSubTab] = useState('');
+
+  // Legacy links states
+  const [selectedViewerRecId, setSelectedViewerRecId] = useState(
+    linkedRecommendations.filter(r => !r.isAI).length > 0 ? linkedRecommendations.filter(r => !r.isAI)[0].id : ''
+  );
   const [showNewForm, setShowNewForm] = useState(false);
   const [newRec, setNewRec] = useState({ name: '', link: '', active: true });
   const [existingRecToAdd, setExistingRecToAdd] = useState('');
 
-  const handleCreateNew = (e) => {
+  // Geocoding cache on mount for dynamic lookup
+  const [geoLoc, setGeoLoc] = useState({ country: '', region: '', county: '', city: '' });
+  const stats = useMemo(() => {
+    if (!currentField || !currentField.polygon) return { elevation: 120, soilMoisture: 0.28 };
+    return extractSpatialStats(currentField.polygon);
+  }, [currentField]);
+
+  useEffect(() => {
+    const resolveGeo = async () => {
+      let pts = [];
+      if (currentField.polygon) {
+        try { pts = typeof currentField.polygon === 'string' ? JSON.parse(currentField.polygon) : currentField.polygon; } catch(e) {}
+      }
+      if (Array.isArray(pts) && pts.length > 0) {
+        const [lat, lng] = pts[0];
+        const res = await fetchGeoLocationInfo(lat, lng, googleMapsApiKey);
+        setGeoLoc(res);
+      }
+    };
+    resolveGeo();
+  }, [currentField, googleMapsApiKey]);
+
+  // Rotate tips
+  useEffect(() => {
+    if (loading) {
+      loadingTipTimer.current = setInterval(() => {
+        setLoadingTipIndex(prev => (prev + 1) % AGRI_TIPS.length);
+      }, 2500);
+    } else {
+      if (loadingTipTimer.current) {
+        clearInterval(loadingTipTimer.current);
+        loadingTipTimer.current = null;
+      }
+      setLoadingTipIndex(0);
+    }
+    return () => {
+      if (loadingTipTimer.current) clearInterval(loadingTipTimer.current);
+    };
+  }, [loading]);
+
+  // AI Advisor reports filters
+  const aiReports = linkedRecommendations.filter(r => r.isAI);
+
+  const streamingReport = useMemo(() => {
+    if (!streamingText) return null;
+    return {
+      id: 'streaming_temp',
+      name: `AI Advisor Report - Generating...`,
+      isAI: true,
+      responseTabs: splitMarkdownToTabs(streamingText),
+      createdAt: Date.now(),
+      createdBy: 'AI Assistant'
+    };
+  }, [streamingText]);
+
+  const activeReport = streamingText ? streamingReport : (aiReports.find(r => r.id === selectedReportId) || (aiReports.length > 0 ? aiReports[0] : null));
+
+  useEffect(() => {
+    if (activeReport && !selectedReportId && !streamingText) {
+      setSelectedReportId(activeReport.id);
+    }
+    if (activeReport && activeReport.responseTabs && activeReport.responseTabs.length > 0) {
+      if (!selectedAiSubTab || !activeReport.responseTabs.some(t => t.id === selectedAiSubTab)) {
+        setSelectedAiSubTab(activeReport.responseTabs[0].id);
+      }
+    }
+  }, [activeReport, selectedReportId, selectedAiSubTab, streamingText]);
+
+  const handleCreateNewLink = (e) => {
     e.preventDefault();
     if (!newRec.name || !newRec.link) return alert("Name and link are required.");
     
     const newId = `rec_${Date.now()}`;
-    const recObj = { ...newRec, id: newId, createdAt: Date.now() };
+    const recObj = { ...newRec, id: newId, isAI: false, createdAt: Date.now() };
     
     dispatch(addRecommendation(recObj));
-    dispatch(queueAction({ type: 'core/updateNode', payload: recObj, meta: { id: Date.now() } }));
+    dispatch(queueAction({ type: 'recommendations/addRecommendation', payload: recObj, meta: { id: Date.now() } }));
 
-    // Link to field
     handleLinkToField(newId);
     
     setNewRec({ name: '', link: '', active: true });
@@ -44,9 +345,10 @@ export default function RecommendationViewer({ fieldId, onToggleBack }) {
     const updatedIds = [...linkedIds, recId];
     updateFieldLinks(updatedIds);
     setExistingRecToAdd('');
-    setSelectedViewerRecId(recId);
+    if (viewTab === 'links') {
+      setSelectedViewerRecId(recId);
+    }
     
-    // Send relationship action
     dispatch(queueAction({ 
       type: 'core/createRelationship', 
       payload: { sourceId: fieldId, targetId: recId, relationshipType: 'HAS_RECOMMENDATION' }, 
@@ -60,8 +362,10 @@ export default function RecommendationViewer({ fieldId, onToggleBack }) {
     if (selectedViewerRecId === recId) {
       setSelectedViewerRecId('');
     }
+    if (selectedReportId === recId) {
+      setSelectedReportId('');
+    }
     
-    // Send relationship action
     dispatch(queueAction({ 
       type: 'core/deleteRelationship', 
       payload: { sourceId: fieldId, targetId: recId, relationshipType: 'HAS_RECOMMENDATION' }, 
@@ -75,103 +379,625 @@ export default function RecommendationViewer({ fieldId, onToggleBack }) {
     dispatch(queueAction({ type: 'core/updateNode', payload: { id: fieldId, properties: updatedField }, meta: { id: Date.now() } }));
   };
 
-  const activeRec = linkedRecommendations.find(r => r.id === selectedViewerRecId);
+  const handlePriorityToggle = (val) => {
+    if (priorities.includes(val)) {
+      setPriorities(priorities.filter(p => p !== val));
+    } else {
+      setPriorities([...priorities, val]);
+    }
+  };
+
+  const handleGenerateAIRecommendations = async () => {
+    const activeKey = aiProvider === 'gemini' ? geminiApiKey : claudeApiKey;
+    if (!activeKey) {
+      alert(`AI Configuration Error: Please configure your ${aiProvider === 'gemini' ? 'Google Gemini' : 'Anthropic Claude'} API key in the settings tab first.`);
+      return;
+    }
+
+    setLoading(true);
+    setStreamingText('');
+    try {
+      const locStr = `${geoLoc.city ? geoLoc.city + ', ' : ''}${geoLoc.region ? geoLoc.region + ', ' : ''}${geoLoc.country || 'Liberia'}`;
+      
+      const res = await fetch('/api/recommendations/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          fieldId,
+          fieldName: currentField.name,
+          area: currentField.area,
+          soilType: currentField.soil_type,
+          irrigation: currentField.irrigation,
+          status: currentField.status,
+          elevation: stats.elevation,
+          soilMoisture: stats.soilMoisture,
+          location: locStr,
+          season,
+          priorities,
+          cropHistory,
+          notes
+        })
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({ error: 'Server failed to generate recommendations' }));
+        throw new Error(errData.error || 'Server failed to generate recommendations');
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder('utf-8');
+      let accumulatedText = '';
+
+      while (true) {
+        const { value, done } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value, { stream: true });
+        accumulatedText += chunk;
+        if (accumulatedText.includes('[ERROR:')) {
+          const match = accumulatedText.match(/\[ERROR:\s*([^\]]+)\]/);
+          const errMsg = match ? match[1] : 'Streaming failed';
+          throw new Error(errMsg);
+        }
+        setStreamingText(accumulatedText);
+      }
+
+      if (!accumulatedText.trim()) {
+        throw new Error('Received empty response from agronomist advisor service.');
+      }
+
+      const finalTabs = splitMarkdownToTabs(accumulatedText);
+      if (finalTabs.length === 0) {
+        throw new Error('Failed to generate structured recommendation report.');
+      }
+
+      const newId = `rec_${Date.now()}`;
+      const userEmail = currentUser?.email || currentUser?.name || 'Unknown User';
+      const promptInputs = {
+        season,
+        priorities,
+        cropHistory,
+        targetCategory,
+        notes,
+        elevation: stats.elevation,
+        soilMoisture: stats.soilMoisture,
+        resolvedLocation: locStr
+      };
+
+      const newRecObj = {
+        id: newId,
+        name: `AI Advisor Report - ${new Date().toLocaleDateString()}`,
+        link: '',
+        active: true,
+        isAI: true,
+        promptInputs,
+        responseTabs: finalTabs,
+        createdAt: Date.now(),
+        createdBy: userEmail
+      };
+
+      dispatch(addRecommendation(newRecObj));
+      dispatch(queueAction({ type: 'recommendations/addRecommendation', payload: newRecObj, meta: { id: Date.now() } }));
+
+      handleLinkToField(newId);
+      
+      setSelectedReportId(newId);
+      setSelectedAiSubTab(finalTabs[0].id);
+      
+      setCropHistory('');
+      setNotes('');
+      setPriorities([]);
+      setStreamingText('');
+    } catch (err) {
+      console.error(err);
+      alert(`AI Advisor failed: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const activeRecLink = linkedRecommendations.find(r => !r.isAI && r.id === selectedViewerRecId);
 
   return (
-    <div className="card recommendation-viewer">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-        <h2>Recommendations for {currentField.name}</h2>
-        <button type="button" onClick={onToggleBack} className="btn" style={{ background: '#f5f5f5', color: '#333' }}>
-          <ArrowLeft size={14} style={{ marginRight: 4 }} /> Back to Data Entry
+    <div className="card recommendation-viewer" style={{ padding: '24px', background: 'white', border: '1px solid var(--color-border)', borderRadius: '12px', boxShadow: '0 4px 20px rgba(0,0,0,0.06)' }}>
+      {/* Header */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', borderBottom: '1px solid #f0f0f0', paddingBottom: '16px' }}>
+        <div>
+          <h2 style={{ margin: 0, fontSize: '1.4rem', color: '#1b5e20', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <Sparkles size={24} color="#2e7d32" /> Recommendations Center
+          </h2>
+          <span style={{ fontSize: '0.85rem', color: '#666' }}>Managing agronomy intelligence for <strong>{currentField.name}</strong></span>
+        </div>
+        <button type="button" onClick={onToggleBack} className="btn" style={{ background: '#f5f5f5', color: '#333', display: 'flex', alignItems: 'center', gap: '6px', border: '1px solid #ddd', padding: '8px 14px', borderRadius: '6px', fontWeight: 600, cursor: 'pointer' }}>
+          <ArrowLeft size={16} /> Back to Field
         </button>
       </div>
 
-      <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
-        {/* Left column: Manage Links */}
-        <div style={{ flex: '1 1 300px', background: '#f9f9f9', padding: '15px', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
-          <h3>Linked Recommendations</h3>
-          
-          {linkedRecommendations.length === 0 ? (
-            <p style={{ color: '#666', fontSize: '0.9rem' }}>No recommendations linked to this field yet.</p>
-          ) : (
-            <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 20px 0' }}>
-              {linkedRecommendations.map(r => (
-                <li key={r.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px', background: selectedViewerRecId === r.id ? '#e3f2fd' : '#fff', border: '1px solid #ccc', borderRadius: '4px', marginBottom: '8px', cursor: 'pointer' }} onClick={() => setSelectedViewerRecId(r.id)}>
-                  <span>{r.name} {r.active === false && '(Inactive)'}</span>
-                  <button type="button" onClick={(e) => { e.stopPropagation(); handleUnlink(r.id); }} className="btn btn-icon" style={{ padding: '4px', color: '#dc3545', background: 'transparent' }} title="Unlink">
-                    <Unlink size={14} />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          <hr style={{ margin: '15px 0' }} />
-
-          <h4>Link Existing</h4>
-          <div style={{ display: 'flex', gap: '8px', marginBottom: '15px' }}>
-            <select value={existingRecToAdd} onChange={(e) => setExistingRecToAdd(e.target.value)} style={{ flex: 1, padding: '8px' }}>
-              <option value="">Select recommendation...</option>
-              {unlinkedRecommendations.map(r => (
-                <option key={r.id} value={r.id}>{r.name}</option>
-              ))}
-            </select>
-            <button type="button" onClick={() => handleLinkToField(existingRecToAdd)} disabled={!existingRecToAdd} className="btn btn-secondary">
-              <LinkIcon size={14} />
-            </button>
-          </div>
-
-          <div style={{ textAlign: 'center' }}>
-            <span style={{ fontSize: '0.85rem', color: '#666', display: 'block', marginBottom: '10px' }}>or</span>
-            <button type="button" onClick={() => setShowNewForm(!showNewForm)} className="btn btn-primary" style={{ width: '100%' }}>
-              <Plus size={14} style={{ marginRight: 4 }} /> {showNewForm ? 'Cancel New Recommendation' : 'Create New Recommendation'}
-            </button>
-          </div>
-
-          {showNewForm && (
-            <form onSubmit={handleCreateNew} style={{ marginTop: '15px', background: '#fff', padding: '15px', borderRadius: '6px', border: '1px solid #ccc' }}>
-              <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', justifyContent: 'flex-end' }}>
-                <button type="submit" className="btn btn-primary">Save & Link</button>
-              </div>
-              <div className="form-group">
-                <label>Name</label>
-                <input type="text" value={newRec.name} onChange={e => setNewRec({...newRec, name: e.target.value})} required placeholder="Recommendation Name" />
-              </div>
-              <div className="form-group">
-                <label>Link (URL)</label>
-                <input type="url" value={newRec.link} onChange={e => setNewRec({...newRec, link: e.target.value})} required placeholder="https://" />
-              </div>
-              <div className="form-group" style={{ flexDirection: 'row', alignItems: 'center', gap: '8px', display: 'flex' }}>
-                <input type="checkbox" checked={newRec.active} onChange={e => setNewRec({...newRec, active: e.target.checked})} id="recActive" style={{ width: 'auto', margin: 0 }} />
-                <label htmlFor="recActive" style={{ margin: 0 }}>Active Recommendation</label>
-              </div>
-            </form>
-          )}
-        </div>
-
-        {/* Right column: Viewer */}
-        <div style={{ flex: '2 1 400px', display: 'flex', flexDirection: 'column' }}>
-          {activeRec ? (
-            <div style={{ background: '#fff', border: '1px solid #e0e0e0', borderRadius: '8px', padding: '30px', textAlign: 'center', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}>
-              <ExternalLink size={48} color="#2e7d32" style={{ marginBottom: '20px' }} />
-              <h3 style={{ marginBottom: '10px' }}>{activeRec.name}</h3>
-              <p style={{ color: '#666', marginBottom: '30px', wordBreak: 'break-all', maxWidth: '100%' }}>
-                {activeRec.link}
-              </p>
-              <a href={activeRec.link} target="_blank" rel="noopener noreferrer" className="btn btn-primary" style={{ padding: '12px 24px', fontSize: '1.1rem', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                Open Recommendation in New Window <ExternalLink size={18} />
-              </a>
-              <p style={{ marginTop: '20px', fontSize: '0.85rem', color: '#888' }}>
-                (This link will open safely in a new tab)
-              </p>
-            </div>
-          ) : (
-            <div style={{ background: '#f5f5f5', border: '1px dashed #ccc', borderRadius: '8px', padding: '30px', textAlign: 'center', flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-              <p style={{ color: '#888' }}>Select a recommendation to view details.</p>
-            </div>
-          )}
-        </div>
+      {/* Main Tab Controls */}
+      <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', background: '#f5f5f5', padding: '4px', borderRadius: '8px', border: '1px solid #e0e0e0', maxWidth: '350px' }}>
+        <button
+          onClick={() => setViewTab('ai')}
+          style={{
+            flex: 1,
+            padding: '8px 12px',
+            border: 'none',
+            borderRadius: '6px',
+            background: viewTab === 'ai' ? 'white' : 'transparent',
+            color: viewTab === 'ai' ? 'var(--color-primary)' : '#555',
+            fontWeight: 700,
+            fontSize: '0.88rem',
+            cursor: 'pointer',
+            boxShadow: viewTab === 'ai' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '6px',
+            transition: 'all 0.15s ease'
+          }}
+        >
+          <Sparkles size={14} /> AI Advisor
+        </button>
+        <button
+          onClick={() => setViewTab('links')}
+          style={{
+            flex: 1,
+            padding: '8px 12px',
+            border: 'none',
+            borderRadius: '6px',
+            background: viewTab === 'links' ? 'white' : 'transparent',
+            color: viewTab === 'links' ? 'var(--color-primary)' : '#555',
+            fontWeight: 700,
+            fontSize: '0.88rem',
+            cursor: 'pointer',
+            boxShadow: viewTab === 'links' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '6px',
+            transition: 'all 0.15s ease'
+          }}
+        >
+          <LinkIcon size={14} /> Web Links
+        </button>
       </div>
+
+      {/* AI ADVISOR CONTENT */}
+      {viewTab === 'ai' && (
+        <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', alignItems: 'stretch' }}>
+          
+          {/* Left Column: Form & History */}
+          <div style={{ flex: '1 1 350px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            
+            {/* Generated Reports History */}
+            <div style={{ background: '#f8fafc', padding: '16px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+              <h3 style={{ margin: '0 0 12px 0', fontSize: '0.98rem', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <ClipboardList size={18} /> Generated AI Reports
+              </h3>
+              {aiReports.length === 0 ? (
+                <p style={{ margin: 0, fontSize: '0.82rem', color: '#64748b', fontStyle: 'italic' }}>
+                  No AI reports generated for this field. Use the tool below to generate your first advisor report!
+                </p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '180px', overflowY: 'auto' }}>
+                  {aiReports.map(report => (
+                    <div 
+                      key={report.id}
+                      onClick={() => setSelectedReportId(report.id)}
+                      style={{
+                        padding: '10px 12px',
+                        background: selectedReportId === report.id ? '#e8f5e9' : 'white',
+                        border: selectedReportId === report.id ? '1px solid #2e7d32' : '1px solid #e2e8f0',
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      <div style={{ display: 'flex', flexDirection: 'column' }}>
+                        <span style={{ fontSize: '0.85rem', fontWeight: 600, color: selectedReportId === report.id ? '#1b5e20' : '#334155' }}>
+                          {report.name}
+                        </span>
+                        <span style={{ fontSize: '0.7rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                          <Calendar size={10} /> {new Date(report.createdAt).toLocaleDateString()}
+                        </span>
+                      </div>
+                      <button 
+                        type="button" 
+                        onClick={(e) => { e.stopPropagation(); handleUnlink(report.id); }}
+                        style={{ border: 'none', background: 'transparent', color: '#ef4444', padding: '4px', cursor: 'pointer', borderRadius: '4px' }}
+                        title="Delete Report"
+                      >
+                        <Unlink size={14} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* AI Input Form */}
+            <div style={{ background: '#f8fafc', padding: '20px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+              <h3 style={{ margin: '0 0 4px 0', fontSize: '0.98rem', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <Sparkles size={16} color="#2e7d32" /> Advisor Request Tool
+              </h3>
+              <p style={{ margin: '0 0 16px 0', fontSize: '0.78rem', color: '#64748b' }}>
+                Generate localized agronomic recommendations using current spatial characteristics:
+              </p>
+
+              {/* Spatial Metadata Summary */}
+              <div style={{ background: '#f1f5f9', padding: '12px', borderRadius: '8px', fontSize: '0.82rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '16px', border: '1px solid #e2e8f0' }}>
+                <div><strong>Elevation:</strong> {stats.elevation}m</div>
+                <div><strong>Moisture:</strong> {stats.soilMoisture} m³/m³</div>
+                <div><strong>Soil:</strong> {currentField.soil_type || 'Loam'}</div>
+                <div><strong>Irrig:</strong> {currentField.irrigation || 'None'}</div>
+              </div>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                {/* Season selection */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#444' }}>Season</label>
+                  <select
+                    value={season}
+                    onChange={(e) => setSeason(e.target.value)}
+                    style={{ padding: '6px 8px', borderRadius: '4px', border: '1px solid #ccc', fontSize: '0.85rem' }}
+                  >
+                    <option value="Rainy Season (Wet)">Rainy Season (Wet)</option>
+                    <option value="Dry Season">Dry Season</option>
+                  </select>
+                </div>
+
+                {/* Target Crop Type selection */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#444' }}>Target Crop Type</label>
+                  <select
+                    value={targetCategory}
+                    onChange={(e) => setTargetCategory(e.target.value)}
+                    style={{ padding: '6px 8px', borderRadius: '4px', border: '1px solid #ccc', fontSize: '0.85rem' }}
+                  >
+                    <option value="all">All Crop Types</option>
+                    <option value="Cash Crops">Cash Crops (e.g. Cocoa, Oil Palm, Rubber)</option>
+                    <option value="Food Crops">Food Crops (e.g. Rice, Cassava, Plantain)</option>
+                    <option value="Cover Crops">Cover Crops & Soil Enhancers</option>
+                    <option value="Vegetables">Vegetables & Short-Cycle Crops</option>
+                  </select>
+                </div>
+
+                {/* Farm Priorities */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#444' }}>Farm Priorities</label>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', background: 'white', padding: '10px', borderRadius: '6px', border: '1px solid #ccc' }}>
+                    {[
+                      'Maximize Yield & Profit',
+                      'Soil Conservation & Health',
+                      'Drought Resilience',
+                      'Low Capital / Cost'
+                    ].map(p => (
+                      <label key={p} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.82rem', cursor: 'pointer', fontWeight: 'normal' }}>
+                        <input
+                          type="checkbox"
+                          checked={priorities.includes(p)}
+                          onChange={() => handlePriorityToggle(p)}
+                          style={{ margin: 0 }}
+                        />
+                        {p}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Crop History Textbox */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#444' }}>Crop History (Rotation)</label>
+                  <input
+                    type="text"
+                    value={cropHistory}
+                    onChange={(e) => setCropHistory(e.target.value)}
+                    placeholder="e.g. Fallow last year, Maize previously"
+                    style={{ padding: '6px 8px', borderRadius: '4px', border: '1px solid #ccc', fontSize: '0.85rem' }}
+                  />
+                </div>
+
+                {/* Special Observations */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#444' }}>Special Observations</label>
+                  <textarea
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="e.g. Sandy patches, high weed presence, slope drainage issues"
+                    rows={3}
+                    style={{ padding: '6px 8px', borderRadius: '4px', border: '1px solid #ccc', fontSize: '0.85rem', resize: 'vertical' }}
+                  />
+                </div>
+
+                {/* Generate Button */}
+                <button
+                  type="button"
+                  onClick={handleGenerateAIRecommendations}
+                  disabled={loading}
+                  style={{
+                    marginTop: '8px',
+                    padding: '10px',
+                    background: '#2e7d32',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '6px',
+                    fontWeight: 700,
+                    fontSize: '0.9rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    boxShadow: '0 2px 8px rgba(46, 125, 50, 0.2)'
+                  }}
+                >
+                  <Sparkles size={16} />
+                  {loading ? 'Analyzing...' : 'Generate AI Report'}
+                </button>
+              </div>
+            </div>
+
+          </div>
+
+          {/* Right panel: Dynamic Tabs Output Viewer */}
+          <div style={{ flex: '2 1 450px', border: '1px solid #e2e8f0', borderRadius: '10px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            
+            {loading && !streamingText ? (
+              // Loading screen with agronomic tips
+              <div style={{ flex: 1, padding: '40px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '400px', background: '#fafafa', textAlign: 'center' }}>
+                <div className="ai-advisor-spinner" style={{
+                  width: '50px',
+                  height: '50px',
+                  border: '4px solid #c8e6c9',
+                  borderTop: '4px solid #2e7d32',
+                  borderRadius: '50%',
+                  animation: 'spin 1s linear infinite',
+                  marginBottom: '24px'
+                }} />
+                
+                <style>{`
+                  @keyframes spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                  }
+                `}</style>
+                
+                <h4 style={{ margin: '0 0 10px 0', fontSize: '1.1rem', color: '#1b5e20', fontWeight: 700 }}>
+                  Generating Recommendations...
+                </h4>
+                <div style={{
+                  maxWidth: '380px',
+                  height: '40px',
+                  fontSize: '0.85rem',
+                  color: '#666',
+                  fontStyle: 'italic',
+                  lineHeight: '1.4',
+                  transition: 'opacity 0.3s ease'
+                }}>
+                  {AGRI_TIPS[loadingTipIndex]}
+                </div>
+              </div>
+            ) : activeReport ? (
+              // AI Report display
+              <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+                {/* AI report Sub-Tabs Bar */}
+                <div style={{ display: 'flex', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', overflowX: 'auto' }}>
+                  {(activeReport.responseTabs || []).map(tab => (
+                    <button
+                      key={tab.id}
+                      onClick={() => setSelectedAiSubTab(tab.id)}
+                      style={{
+                        padding: '12px 16px',
+                        border: 'none',
+                        background: selectedAiSubTab === tab.id ? 'white' : 'transparent',
+                        color: selectedAiSubTab === tab.id ? '#1b5e20' : '#475569',
+                        fontWeight: selectedAiSubTab === tab.id ? 700 : 500,
+                        borderBottom: selectedAiSubTab === tab.id ? '3px solid #2e7d32' : 'none',
+                        cursor: 'pointer',
+                        fontSize: '0.82rem',
+                        whiteSpace: 'nowrap',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      {tab.title}
+                    </button>
+                  ))}
+                </div>
+
+                {/* Sub tab content pane */}
+                <div style={{ padding: '24px', overflowY: 'auto', background: 'white', flex: 1, minHeight: '380px', maxHeight: '500px' }}>
+                  {(() => {
+                    const currentTabObj = (activeReport.responseTabs || []).find(t => t.id === selectedAiSubTab);
+                    if (!currentTabObj) {
+                      return <div style={{ color: '#888', textAlign: 'center', padding: '20px' }}>Select a tab to view analysis.</div>;
+                    }
+                    return parseMarkdownToReact(currentTabObj.content);
+                  })()}
+                </div>
+                
+                {/* Meta details footer */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px 20px', background: '#f8fafc', borderTop: '1px solid #e2e8f0', fontSize: '0.72rem', color: '#64748b' }}>
+                  <span>Generated by AI ({aiProvider === 'gemini' ? 'Gemini' : 'Claude'})</span>
+                  {streamingText ? (
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#2e7d32', fontWeight: 600 }}>
+                      Streaming response...
+                    </span>
+                  ) : (
+                    <span>Created by: {activeReport.createdBy || 'System'}</span>
+                  )}
+                </div>
+              </div>
+            ) : (
+              // Empty/Instructions State
+              <div style={{ flex: 1, padding: '40px', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '400px', background: '#fafafa', color: '#888', border: '1px dashed #e2e8f0', borderRadius: '10px', textAlign: 'center' }}>
+                <Sparkles size={40} color="#ccc" style={{ marginBottom: '16px' }} />
+                <h3 style={{ margin: '0 0 8px 0', fontSize: '1.1rem', color: '#555' }}>No active report loaded</h3>
+                <p style={{ margin: 0, fontSize: '0.82rem', maxWidth: '320px', lineHeight: '1.4' }}>
+                  Configure your crop specifications and click the <strong>Generate AI Report</strong> button on the left to invoke the tropical agronomist service.
+                </p>
+              </div>
+            )}
+
+          </div>
+        </div>
+      )}
+
+      {/* WEB LINKS CONTENT (LEGACY FUNCTIONALITY) */}
+      {viewTab === 'links' && (
+        <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
+          
+          {/* Left Column: Manage Links */}
+          <div style={{ flex: '1 1 300px', background: '#f9f9f9', padding: '15px', borderRadius: '8px', border: '1px solid #e0e0e0' }}>
+            <h3 style={{ margin: '0 0 12px 0', fontSize: '1.05rem', color: '#333' }}>Linked Recommendations</h3>
+            
+            {linkedRecommendations.filter(r => !r.isAI).length === 0 ? (
+              <p style={{ color: '#666', fontSize: '0.9rem' }}>No external links recommendations connected yet.</p>
+            ) : (
+              <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 20px 0' }}>
+                {linkedRecommendations.filter(r => !r.isAI).map(r => (
+                  <li
+                    key={r.id}
+                    style={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      padding: '8px 10px',
+                      background: selectedViewerRecId === r.id ? '#e3f2fd' : '#fff',
+                      border: '1px solid #ccc',
+                      borderRadius: '4px',
+                      marginBottom: '8px',
+                      cursor: 'pointer'
+                    }}
+                    onClick={() => setSelectedViewerRecId(r.id)}
+                  >
+                    <span style={{ fontSize: '0.85rem' }}>{r.name} {r.active === false && '(Inactive)'}</span>
+                    <button
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); handleUnlink(r.id); }}
+                      className="btn btn-icon"
+                      style={{ padding: '4px', color: '#dc3545', background: 'transparent', border: 'none', cursor: 'pointer' }}
+                      title="Unlink"
+                    >
+                      <Unlink size={14} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            <hr style={{ margin: '15px 0', border: 'none', borderTop: '1px solid #ccc' }} />
+
+            <h4 style={{ margin: '0 0 10px 0', fontSize: '0.95rem' }}>Link Existing Web Reference</h4>
+            <div style={{ display: 'flex', gap: '8px', marginBottom: '15px' }}>
+              <select
+                value={existingRecToAdd}
+                onChange={(e) => setExistingRecToAdd(e.target.value)}
+                style={{ flex: 1, padding: '8px', borderRadius: '4px', border: '1px solid #ccc' }}
+              >
+                <option value="">Select recommendation...</option>
+                {unlinkedRecommendations.map(r => (
+                  <option key={r.id} value={r.id}>{r.name}</option>
+                ))}
+              </select>
+              <button
+                type="button"
+                onClick={() => handleLinkToField(existingRecToAdd)}
+                disabled={!existingRecToAdd}
+                className="btn btn-secondary"
+                style={{ padding: '8px 12px', background: '#ccc', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+              >
+                <LinkIcon size={14} />
+              </button>
+            </div>
+
+            <div style={{ textAlign: 'center' }}>
+              <span style={{ fontSize: '0.85rem', color: '#666', display: 'block', marginBottom: '10px' }}>or</span>
+              <button
+                type="button"
+                onClick={() => setShowNewForm(!showNewForm)}
+                className="btn btn-primary"
+                style={{ width: '100%', padding: '10px', background: '#2e7d32', border: 'none', borderRadius: '4px', color: 'white', fontWeight: 600, cursor: 'pointer' }}
+              >
+                <Plus size={14} style={{ marginRight: 4 }} /> {showNewForm ? 'Cancel New Link' : 'Create New Link'}
+              </button>
+            </div>
+
+            {showNewForm && (
+              <form onSubmit={handleCreateNewLink} style={{ marginTop: '15px', background: '#fff', padding: '15px', borderRadius: '6px', border: '1px solid #ccc', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
+                  <button type="submit" className="btn btn-primary" style={{ background: '#2e7d32', color: 'white', padding: '6px 12px', border: 'none', borderRadius: '4px', fontWeight: 600, cursor: 'pointer' }}>
+                    Save & Link
+                  </button>
+                </div>
+                <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Link Name</label>
+                  <input
+                    type="text"
+                    value={newRec.name}
+                    onChange={e => setNewRec({...newRec, name: e.target.value})}
+                    required
+                    placeholder="e.g. FAO Cassava Guide"
+                    style={{ padding: '6px 8px', borderRadius: '4px', border: '1px solid #ccc' }}
+                  />
+                </div>
+                <div className="form-group" style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                  <label style={{ fontSize: '0.8rem', fontWeight: 600 }}>Link (URL)</label>
+                  <input
+                    type="url"
+                    value={newRec.link}
+                    onChange={e => setNewRec({...newRec, link: e.target.value})}
+                    required
+                    placeholder="https://"
+                    style={{ padding: '6px 8px', borderRadius: '4px', border: '1px solid #ccc' }}
+                  />
+                </div>
+                <div className="form-group" style={{ flexDirection: 'row', alignItems: 'center', gap: '8px', display: 'flex' }}>
+                  <input
+                    type="checkbox"
+                    checked={newRec.active}
+                    onChange={e => setNewRec({...newRec, active: e.target.checked})}
+                    id="recActive"
+                    style={{ width: 'auto', margin: 0 }}
+                  />
+                  <label htmlFor="recActive" style={{ margin: 0, fontSize: '0.85rem' }}>Active Link</label>
+                </div>
+              </form>
+            )}
+          </div>
+
+          {/* Right Column: Viewer */}
+          <div style={{ flex: '2 1 400px', display: 'flex', flexDirection: 'column' }}>
+            {activeRecLink ? (
+              <div style={{ background: '#fff', border: '1px solid #e0e0e0', borderRadius: '8px', padding: '30px', textAlign: 'center', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', boxShadow: '0 4px 6px rgba(0,0,0,0.05)' }}>
+                <ExternalLink size={48} color="#2e7d32" style={{ marginBottom: '20px' }} />
+                <h3 style={{ marginBottom: '10px' }}>{activeRecLink.name}</h3>
+                <p style={{ color: '#666', marginBottom: '30px', wordBreak: 'break-all', maxWidth: '100%', fontSize: '0.9rem' }}>
+                  {activeRecLink.link}
+                </p>
+                <a
+                  href={activeRecLink.link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn btn-primary"
+                  style={{ padding: '12px 24px', fontSize: '1rem', textDecoration: 'none', display: 'flex', alignItems: 'center', gap: '8px', background: '#2e7d32', border: 'none', borderRadius: '6px', color: 'white', fontWeight: 600 }}
+                >
+                  Open Recommendation in New Window <ExternalLink size={18} />
+                </a>
+                <p style={{ marginTop: '20px', fontSize: '0.85rem', color: '#888' }}>
+                  (This link will open safely in a new tab)
+                </p>
+              </div>
+            ) : (
+              <div style={{ background: '#f5f5f5', border: '1px dashed #ccc', borderRadius: '8px', padding: '30px', textAlign: 'center', flex: 1, display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '300px' }}>
+                <p style={{ color: '#888' }}>Select a linked recommendation to view details.</p>
+              </div>
+            )}
+          </div>
+
+        </div>
+      )}
+
     </div>
   );
 }

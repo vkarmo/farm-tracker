@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import Select from 'react-select';
 import { fetchFields } from './store/fieldsSlice';
-import { addUnit, removeUnit, addJobTitle, removeJobTitle, addExpenseCategory, removeExpenseCategory, addIncomeCategory, removeIncomeCategory, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold, setAppName, addAnimalType, removeAnimalType, saveSettings, setGeeClientEmail, setGeePrivateKey, setGeeProjectId, setGeeScale, setOwmApiKey, setThemeAppBgColor, setThemeCardBgColor, setThemeCardBorderColor, setThemeCardBorderThickness, setThemeAppBorderColor, setThemeAppBorderThickness, setThemeFontName, setThemeFontSizeBase, setThemeFontSizeCardTitle, setThemeFontSizeTabs, setThemeColorPrimary, setThemeColorCardTitle, setThemeColorTabsActiveBg, setThemeColorTabsActiveText, setThemeColorTabsInactiveBg, setThemeColorTabsInactiveText, setThemeFontAppName, setThemeFontSizeAppName, setThemeFontAppNameBold, setThemeFontAppNameCapitalize, setThemeFontSizeBaseBold, setThemeFontSizeBaseCapitalize, setThemeFontSizeCardTitleBold, setThemeFontSizeCardTitleCapitalize, setThemeFontSizeTabsBold, setThemeFontSizeTabsCapitalize, setThemeFontImager, setThemeFontSizeImager, setThemeFontImagerBold, setThemeFontImagerCapitalize, setMtnClientId, setMtnClientSecret, setMtnEnvironment, setSimulateHighWinds, setGoogleMapsApiKey } from './store/settingsSlice';
+import { addUnit, removeUnit, addJobTitle, removeJobTitle, addExpenseCategory, removeExpenseCategory, addIncomeCategory, removeIncomeCategory, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold, setAppName, addAnimalType, removeAnimalType, saveSettings, setGeeClientEmail, setGeePrivateKey, setGeeProjectId, setGeeScale, setOwmApiKey, setThemeAppBgColor, setThemeCardBgColor, setThemeCardBorderColor, setThemeCardBorderThickness, setThemeAppBorderColor, setThemeAppBorderThickness, setThemeFontName, setThemeFontSizeBase, setThemeFontSizeCardTitle, setThemeFontSizeTabs, setThemeColorPrimary, setThemeColorCardTitle, setThemeColorTabsActiveBg, setThemeColorTabsActiveText, setThemeColorTabsInactiveBg, setThemeColorTabsInactiveText, setThemeFontAppName, setThemeFontSizeAppName, setThemeFontAppNameBold, setThemeFontAppNameCapitalize, setThemeFontSizeBaseBold, setThemeFontSizeBaseCapitalize, setThemeFontSizeCardTitleBold, setThemeFontSizeCardTitleCapitalize, setThemeFontSizeTabsBold, setThemeFontSizeTabsCapitalize, setThemeFontImager, setThemeFontSizeImager, setThemeFontImagerBold, setThemeFontImagerCapitalize, setMtnClientId, setMtnClientSecret, setMtnEnvironment, setSimulateHighWinds, setGoogleMapsApiKey, setGeminiApiKey, setClaudeApiKey, setAiProvider } from './store/settingsSlice';
 import { addLocation } from './store/gpsSlice';
 import { queueAction, fetchInitialData } from './store/syncSlice';
 import { MapSearchBox, MapFlyTo, FarmLocationButton } from './components/MapSearchBox';
@@ -102,6 +102,9 @@ export default function App() {
   const mtnClientSecret = useSelector(state => state.settings?.mtnClientSecret) || '';
   const mtnEnvironment = useSelector(state => state.settings?.mtnEnvironment) || 'sandbox';
   const googleMapsApiKey = useSelector(state => state.settings?.googleMapsApiKey) || '';
+  const geminiApiKey = useSelector(state => state.settings?.geminiApiKey) || '';
+  const claudeApiKey = useSelector(state => state.settings?.claudeApiKey) || '';
+  const aiProvider = useSelector(state => state.settings?.aiProvider) || 'gemini';
   const employees = useSelector(state => state.employees?.list) || [];
   const themeAppBgColor = useSelector(state => state.settings?.themeAppBgColor) || '#eeeef1';
   const themeCardBgColor = useSelector(state => state.settings?.themeCardBgColor) || '#ffffff';
@@ -146,7 +149,7 @@ export default function App() {
   const totalActionsQueued = useSelector(state => state.sync.totalActionsQueued || 0);
 
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [openSettings, setOpenSettings] = useState({ general: true, dropdown: false, map: false, units: false, jobs: false, animals: false, ledgers: false, gee: false, mtn: false, owm: false, theme: false, typography: false, simulation: false });
+  const [openSettings, setOpenSettings] = useState({ general: true, dropdown: false, map: false, units: false, jobs: false, animals: false, ledgers: false, gee: false, mtn: false, owm: false, theme: false, typography: false, simulation: false, ai: false });
   const [showSaveToast, setShowSaveToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("Record Saved Successfully");
   const [mtnTesting, setMtnTesting] = useState(false);
@@ -2272,6 +2275,69 @@ export default function App() {
                         </div>
                       </div>
 
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Crop Advisor AI Settings Card */}
+              <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 0 }}>
+                <button
+                  onClick={() => setOpenSettings({ ...openSettings, ai: !openSettings.ai })}
+                  type="button"
+                  style={{ width: '100%', padding: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f5f7fa', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '1.1rem', color: '#333' }}
+                >
+                  AI Crop Advisor Settings
+                  {openSettings.ai ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
+                </button>
+
+                {openSettings.ai && (
+                  <div style={{ padding: '20px', background: 'var(--color-surface)' }}>
+                    <div style={{ marginBottom: 20 }}>
+                      <h3 style={{ marginTop: 0 }}>AI Provider Credentials</h3>
+                      <p style={{ fontSize: '0.8rem', color: '#666', marginBottom: 16 }}>
+                        Configure API keys for Google Gemini and Anthropic Claude models. These keys are used to generate custom crop recommendations and soil management plans.
+                      </p>
+
+                      <div style={{ marginBottom: 16 }}>
+                        <label style={{ fontWeight: '600', display: 'block', marginBottom: '8px' }}>Preferred AI Provider</label>
+                        <select
+                          value={aiProvider}
+                          onChange={(e) => { dispatch(setAiProvider(e.target.value)); dispatch(saveSettings()); }}
+                          disabled={currentUser?.role === 'Admin Viewer'}
+                          className="btn"
+                          style={{ display: 'block', marginTop: 8, padding: '8px', width: '100%', maxWidth: '500px', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer', background: '#fff', border: '1px solid #ccc' }}
+                        >
+                          <option value="gemini">Google Gemini (gemini-2.5-flash)</option>
+                          <option value="claude">Anthropic Claude (claude-3-5-sonnet)</option>
+                        </select>
+                      </div>
+
+                      <div style={{ marginBottom: 16 }}>
+                        <label style={{ fontWeight: '600', display: 'block', marginBottom: '8px' }}>Google Gemini API Key</label>
+                        <input
+                          type="password"
+                          value={geminiApiKey || ''}
+                          onChange={(e) => { dispatch(setGeminiApiKey(e.target.value)); dispatch(saveSettings()); }}
+                          disabled={currentUser?.role === 'Admin Viewer'}
+                          placeholder="AIzaSy..."
+                          className="btn"
+                          style={{ display: 'block', marginTop: 8, padding: '8px', width: '100%', maxWidth: '500px', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'text', background: '#fff', border: '1px solid #ccc' }}
+                        />
+                      </div>
+
+                      <div style={{ marginBottom: 16 }}>
+                        <label style={{ fontWeight: '600', display: 'block', marginBottom: '8px' }}>Anthropic Claude API Key</label>
+                        <input
+                          type="password"
+                          value={claudeApiKey || ''}
+                          onChange={(e) => { dispatch(setClaudeApiKey(e.target.value)); dispatch(saveSettings()); }}
+                          disabled={currentUser?.role === 'Admin Viewer'}
+                          placeholder="sk-ant-..."
+                          className="btn"
+                          style={{ display: 'block', marginTop: 8, padding: '8px', width: '100%', maxWidth: '500px', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'text', background: '#fff', border: '1px solid #ccc' }}
+                        />
+                      </div>
                     </div>
                   </div>
                 )}

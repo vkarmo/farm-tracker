@@ -112,6 +112,8 @@ export default function PoiTab() {
     startDate: '',
     endDate: ''
   });
+  const [showConfirmGroupDelete, setShowConfirmGroupDelete] = useState(false);
+  const [matchingPoisToDelete, setMatchingPoisToDelete] = useState([]);
 
   const getPoiDate = (poi) => {
     if (poi.createdAt) return new Date(poi.createdAt);
@@ -151,20 +153,20 @@ export default function PoiTab() {
       return;
     }
 
-    const confirmMsg = `Are you sure you want to permanently delete ${matching.length} Points of Interest matching the criteria?\n\n` +
-      `User: ${groupDeleteCriteria.user || 'All'}\n` +
-      `Type: ${groupDeleteCriteria.type || 'All'}\n` +
-      `Date Range: ${groupDeleteCriteria.startDate || 'Any'} to ${groupDeleteCriteria.endDate || 'Any'}`;
+    setMatchingPoisToDelete(matching);
+    setShowConfirmGroupDelete(true);
+  };
 
-    if (window.confirm(confirmMsg)) {
-      matching.forEach(poi => {
-        dispatch(deletePoi(poi.id));
-        dispatch(queueAction({ type: 'core/deleteNode', payload: { id: poi.id }, meta: { id: Date.now() } }));
-      });
-      alert(`Successfully deleted ${matching.length} Points of Interest.`);
-      setGroupDeleteCriteria({ user: '', type: '', startDate: '', endDate: '' });
-      setShowGroupDeletePanel(false);
-    }
+  const executeGroupDelete = () => {
+    matchingPoisToDelete.forEach(poi => {
+      dispatch(deletePoi(poi.id));
+      dispatch(queueAction({ type: 'core/deleteNode', payload: { id: poi.id }, meta: { id: Date.now() } }));
+    });
+    alert(`Successfully deleted ${matchingPoisToDelete.length} Points of Interest.`);
+    setGroupDeleteCriteria({ user: '', type: '', startDate: '', endDate: '' });
+    setShowGroupDeletePanel(false);
+    setShowConfirmGroupDelete(false);
+    setMatchingPoisToDelete([]);
   };
 
   const uniqueUsers = Array.from(new Set(
@@ -773,6 +775,24 @@ export default function PoiTab() {
           )}
         </div>
       </div>
+      {showConfirmGroupDelete && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 9999, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setShowConfirmGroupDelete(false)}>
+          <div className="card" style={{ width: '450px', padding: '20px', background: 'white', display: 'flex', flexDirection: 'column', gap: '15px' }} onClick={e => e.stopPropagation()}>
+            <h3 style={{ marginTop: 0, color: '#c62828', display: 'flex', alignItems: 'center', gap: '8px' }}>Confirm Group Deletion</h3>
+            <p>Are you sure you want to permanently delete <strong>{matchingPoisToDelete.length}</strong> Points of Interest matching the following criteria?</p>
+            <div style={{ background: '#f5f5f5', padding: '12px', borderRadius: '4px', fontSize: '0.85rem', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              <div><strong>User:</strong> {groupDeleteCriteria.user || 'All Users'}</div>
+              <div><strong>Type:</strong> {groupDeleteCriteria.type || 'All Types'}</div>
+              <div><strong>Date Range:</strong> {groupDeleteCriteria.startDate || 'Any'} to {groupDeleteCriteria.endDate || 'Any'}</div>
+            </div>
+            <p style={{ color: '#c62828', fontWeight: 600, fontSize: '0.9rem', margin: 0 }}>This action cannot be undone and will delete these POIs from both the local cache and Neo4j database.</p>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px', marginTop: '10px' }}>
+              <button type="button" onClick={() => setShowConfirmGroupDelete(false)} className="btn" style={{ background: '#f5f5f5', color: '#333' }}>Cancel</button>
+              <button type="button" onClick={executeGroupDelete} className="btn btn-primary" style={{ background: '#c62828', borderColor: '#c62828' }}>Delete All Matching</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
