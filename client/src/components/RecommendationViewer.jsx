@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { ArrowLeft, ExternalLink, Link as LinkIcon, Plus, Unlink, Sparkles, AlertCircle, Calendar, ClipboardList, Info, HelpCircle, Layers, CheckCircle, ChevronDown, ChevronUp } from 'lucide-react';
-import { addRecommendation } from '../store/recommendationsSlice';
+import { ArrowLeft, ExternalLink, Link as LinkIcon, Plus, Unlink, Sparkles, AlertCircle, Calendar, ClipboardList, Info, HelpCircle, Layers, CheckCircle, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
+import { addRecommendation, deleteRecommendation } from '../store/recommendationsSlice';
 import { updateField } from '../store/fieldsSlice';
 import { queueAction } from '../store/syncSlice';
 import { extractSpatialStats } from './CropRecommendationPanel';
@@ -211,7 +211,7 @@ const splitMarkdownToTabs = (markdown) => {
   return sections;
 };
 
-const parseStructuredData = (text, area, selectedCrops) => {
+export const parseStructuredData = (text, area, selectedCrops) => {
   let data = null;
   if (text) {
     const jsonMatch = text.match(/```json\s*(\{[\s\S]*?\})\s*```/);
@@ -229,9 +229,14 @@ const parseStructuredData = (text, area, selectedCrops) => {
   }
   
   // Fallback data generator if JSON is missing or incomplete
-  const cropsList = selectedCrops 
-    ? selectedCrops.split(',').map(c => c.trim()).filter(Boolean)
-    : ['Fever Leaf', 'Cassava', 'Swamp Rice'];
+  let cropsList = [];
+  if (selectedCrops && typeof selectedCrops === 'string') {
+    cropsList = selectedCrops.split(',').map(c => c.trim()).filter(Boolean);
+  } else if (Array.isArray(selectedCrops)) {
+    cropsList = selectedCrops.map(c => String(c).trim()).filter(Boolean);
+  } else {
+    cropsList = ['Fever Leaf', 'Cassava', 'Swamp Rice'];
+  }
   if (cropsList.length === 0) cropsList.push('Fever Leaf', 'Cassava', 'Swamp Rice');
   
   const totalAcres = Number(area) || 5;
@@ -328,7 +333,17 @@ const extractAndStripJson = (markdown) => {
 
 const getReportStructuredData = (report, area, selectedCrops) => {
   if (!report) return null;
-  if (report.structuredData) return report.structuredData;
+  if (report.structuredData) {
+    if (typeof report.structuredData === 'string') {
+      try {
+        return JSON.parse(report.structuredData);
+      } catch (e) {
+        // ignore and fallback
+      }
+    } else {
+      return report.structuredData;
+    }
+  }
   let fullText = '';
   if (report.responseTabs) {
     fullText = report.responseTabs.map(t => `## ${t.title}\n${t.content}`).join('\n');
@@ -533,6 +548,7 @@ export default function RecommendationViewer({ fieldId, onToggleBack }) {
   const claudeApiKey = useSelector(state => state.settings?.claudeApiKey) || '';
   const aiProvider = useSelector(state => state.settings?.aiProvider) || 'gemini';
   const currentUser = useSelector(state => state.auth?.currentUser);
+  const budgets = useSelector(state => state.budgets?.list) || [];
 
   const currentField = fields.find(f => f.id === fieldId) || { recommendationIds: [] };
   const linkedIds = currentField.recommendationIds || [];
@@ -540,8 +556,38 @@ export default function RecommendationViewer({ fieldId, onToggleBack }) {
   const linkedRecommendations = allRecommendations.filter(r => linkedIds.includes(r.id));
   const unlinkedRecommendations = allRecommendations.filter(r => !linkedIds.includes(r.id) && r.active !== false);
 
-  const [viewTab, setViewTab] = useState('ai'); // 'ai' or 'links'
+  const [viewTab, setViewTab] = useState('ai'); // 'ai', 'links', or 'group-delete'
   const [streamingText, setStreamingText] = useState('');
+  const [selectedDeleteIds, setSelectedDeleteIds] = useState([]);
+  const [deleteFilterFieldId, setDeleteFilterFieldId] = useState('all');
+
+  const sortedRecommendations = useMemo(() => {
+    return [...allRecommendations].sort((a, b) => {
+      const fieldsA = fields.filter(f => f.recommendationIds && f.recommendationIds.includes(a.id));
+      const fieldsB = fields.filter(f => f.recommendationIds && f.recommendationIds.includes(b.id));
+      
+      const nameA = fieldsA.length > 0 ? fieldsA[0].name.toLowerCase() : 'zzz_unlinked';
+      const nameB = fieldsB.length > 0 ? fieldsB[0].name.toLowerCase() : 'zzz_unlinked';
+      
+      if (nameA < nameB) return -1;
+      if (nameA > nameB) return 1;
+      
+      return b.createdAt - a.createdAt;
+    });
+  }, [allRecommendations, fields]);
+
+  const displayRecommendations = useMemo(() => {
+    let list = sortedRecommendations;
+    if (deleteFilterFieldId === 'unlinked') {
+      list = list.filter(r => !fields.some(f => f.recommendationIds && f.recommendationIds.includes(r.id)));
+    } else if (deleteFilterFieldId !== 'all') {
+      list = list.filter(r => {
+        const fieldNode = fields.find(f => f.id === deleteFilterFieldId);
+        return fieldNode && fieldNode.recommendationIds && fieldNode.recommendationIds.includes(r.id);
+      });
+    }
+    return list;
+  }, [sortedRecommendations, deleteFilterFieldId, fields]);
   const [leftActiveTab, setLeftActiveTab] = useState('request'); // 'request' or 'reports'
 
   // AI Input States
@@ -569,6 +615,38 @@ export default function RecommendationViewer({ fieldId, onToggleBack }) {
   const [showNewForm, setShowNewForm] = useState(false);
   const [newRec, setNewRec] = useState({ name: '', link: '', active: true });
   const [existingRecToAdd, setExistingRecToAdd] = useState('');
+
+  const [customExchangeRate, setCustomExchangeRate] = useState('');
+
+  const historicalRate = useMemo(() => {
+    if (!budgets.length) return 150;
+    const sorted = [...budgets].sort((a,b) => (b.id || '').localeCompare(a.id || ''));
+    const recentWithRate = sorted.find(b => b.exchangeRate && String(b.exchangeRate).trim() !== '');
+    return recentWithRate ? recentWithRate.exchangeRate : 150;
+  }, [budgets]);
+
+  const [liveRate, setLiveRate] = useState(null);
+
+  useEffect(() => {
+    let mounted = true;
+    fetch('https://open.er-api.com/v6/latest/USD')
+      .then(res => res.json())
+      .then(data => {
+        if (mounted && data?.rates?.LRD) {
+          setLiveRate(data.rates.LRD.toFixed(2));
+        }
+      })
+      .catch(err => console.warn('Could not fetch live exchange rate (offline mode active):', err));
+    return () => { mounted = false; };
+  }, []);
+
+  useEffect(() => {
+    if (liveRate || historicalRate) {
+      setCustomExchangeRate(liveRate || historicalRate);
+    }
+  }, [liveRate, historicalRate]);
+
+  const exchangeRate = customExchangeRate || liveRate || historicalRate;
 
   // Geocoding cache on mount for dynamic lookup
   const [geoLoc, setGeoLoc] = useState({ country: '', region: '', county: '', city: '' });
@@ -688,7 +766,21 @@ export default function RecommendationViewer({ fieldId, onToggleBack }) {
     };
   }, [streamingText]);
 
-  const activeReport = streamingText ? streamingReport : (aiReports.find(r => r.id === selectedReportId) || (aiReports.length > 0 ? aiReports[0] : null));
+  const rawActiveReport = streamingText ? streamingReport : (aiReports.find(r => r.id === selectedReportId) || (aiReports.length > 0 ? aiReports[0] : null));
+
+  const activeReport = useMemo(() => {
+    if (!rawActiveReport) return null;
+    const tabs = [...(rawActiveReport.responseTabs || [])];
+    const hasLayout = tabs.some(t => t.id.toLowerCase().includes('layout') || t.title.toLowerCase().includes('layout'));
+    if (tabs.length > 0 && !hasLayout) {
+      tabs.push({
+        id: 'field-layout',
+        title: 'Field Layout',
+        content: '### Recommended Field Layout\nThis layout maps the recommended crops and support structures (thatch kitchen, compost pit, ash pit) onto the field area.'
+      });
+    }
+    return { ...rawActiveReport, responseTabs: tabs };
+  }, [rawActiveReport]);
 
   const structuredData = useMemo(() => {
     return getReportStructuredData(activeReport, currentField.area || 5, selectedCrops || (activeReport?.promptInputs?.selectedCrops) || '');
@@ -754,6 +846,87 @@ export default function RecommendationViewer({ fieldId, onToggleBack }) {
     }));
   };
 
+  const handleBulkUnlink = () => {
+    if (selectedDeleteIds.length === 0) return;
+    
+    selectedDeleteIds.forEach(recId => {
+      const linkedFields = fields.filter(f => f.recommendationIds && f.recommendationIds.includes(recId));
+      
+      linkedFields.forEach(fieldNode => {
+        const updatedIds = (fieldNode.recommendationIds || []).filter(id => id !== recId);
+        const updatedFieldObj = { ...fieldNode, recommendationIds: updatedIds };
+        dispatch(updateField(updatedFieldObj));
+        dispatch(queueAction({ 
+          type: 'core/updateNode', 
+          payload: { id: fieldNode.id, properties: updatedFieldObj }, 
+          meta: { id: Date.now() + Math.random() } 
+        }));
+        
+        dispatch(queueAction({ 
+          type: 'core/deleteRelationship', 
+          payload: { sourceId: fieldNode.id, targetId: recId, relationshipType: 'HAS_RECOMMENDATION' }, 
+          meta: { id: Date.now() + Math.random() } 
+        }));
+      });
+    });
+    
+    if (selectedViewerRecId && selectedDeleteIds.includes(selectedViewerRecId)) {
+      setSelectedViewerRecId('');
+    }
+    if (selectedReportId && selectedDeleteIds.includes(selectedReportId)) {
+      setSelectedReportId('');
+    }
+    
+    setSelectedDeleteIds([]);
+  };
+
+  const handleBulkDelete = () => {
+    if (selectedDeleteIds.length === 0) return;
+    
+    const confirmDelete = window.confirm(
+      `Are you sure you want to permanently delete the ${selectedDeleteIds.length} selected recommendation(s)? This will remove them from the system and unlink them from all fields.`
+    );
+    if (!confirmDelete) return;
+
+    selectedDeleteIds.forEach(recId => {
+      const linkedFields = fields.filter(f => f.recommendationIds && f.recommendationIds.includes(recId));
+      
+      linkedFields.forEach(fieldNode => {
+        const updatedIds = (fieldNode.recommendationIds || []).filter(id => id !== recId);
+        const updatedFieldObj = { ...fieldNode, recommendationIds: updatedIds };
+        dispatch(updateField(updatedFieldObj));
+        dispatch(queueAction({ 
+          type: 'core/updateNode', 
+          payload: { id: fieldNode.id, properties: updatedFieldObj }, 
+          meta: { id: Date.now() + Math.random() } 
+        }));
+        
+        dispatch(queueAction({ 
+          type: 'core/deleteRelationship', 
+          payload: { sourceId: fieldNode.id, targetId: recId, relationshipType: 'HAS_RECOMMENDATION' }, 
+          meta: { id: Date.now() + Math.random() } 
+        }));
+      });
+
+      dispatch(deleteRecommendation(recId));
+      
+      dispatch(queueAction({ 
+        type: 'core/deleteNode', 
+        payload: { id: recId }, 
+        meta: { id: Date.now() + Math.random() } 
+      }));
+    });
+
+    if (selectedViewerRecId && selectedDeleteIds.includes(selectedViewerRecId)) {
+      setSelectedViewerRecId('');
+    }
+    if (selectedReportId && selectedDeleteIds.includes(selectedReportId)) {
+      setSelectedReportId('');
+    }
+
+    setSelectedDeleteIds([]);
+  };
+
   const updateFieldLinks = (newIds) => {
     const updatedField = { ...currentField, recommendationIds: newIds };
     dispatch(updateField(updatedField));
@@ -798,7 +971,8 @@ export default function RecommendationViewer({ fieldId, onToggleBack }) {
           cropHistory,
           notes,
           startDate,
-          selectedCrops
+          selectedCrops,
+          exchangeRate
         })
       });
 
@@ -901,7 +1075,7 @@ export default function RecommendationViewer({ fieldId, onToggleBack }) {
       </div>
 
       {/* Main Tab Controls */}
-      <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', background: '#f5f5f5', padding: '4px', borderRadius: '8px', border: '1px solid #e0e0e0', maxWidth: '350px' }}>
+      <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', background: '#f5f5f5', padding: '4px', borderRadius: '8px', border: '1px solid #e0e0e0', maxWidth: '480px' }}>
         <button
           onClick={() => setViewTab('ai')}
           style={{
@@ -945,6 +1119,28 @@ export default function RecommendationViewer({ fieldId, onToggleBack }) {
           }}
         >
           <LinkIcon size={14} /> Web Links
+        </button>
+        <button
+          onClick={() => { setViewTab('group-delete'); setSelectedDeleteIds([]); }}
+          style={{
+            flex: 1,
+            padding: '8px 12px',
+            border: 'none',
+            borderRadius: '6px',
+            background: viewTab === 'group-delete' ? 'white' : 'transparent',
+            color: viewTab === 'group-delete' ? 'var(--color-primary)' : '#555',
+            fontWeight: 700,
+            fontSize: '0.88rem',
+            cursor: 'pointer',
+            boxShadow: viewTab === 'group-delete' ? '0 2px 4px rgba(0,0,0,0.05)' : 'none',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '6px',
+            transition: 'all 0.15s ease'
+          }}
+        >
+          <Trash2 size={14} /> Group Delete
         </button>
       </div>
 
@@ -1068,10 +1264,11 @@ export default function RecommendationViewer({ fieldId, onToggleBack }) {
 
                 {/* Spatial Metadata Summary */}
                 <div style={{ background: '#f1f5f9', padding: '12px', borderRadius: '8px', fontSize: '0.82rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '16px', border: '1px solid #e2e8f0' }}>
+                  <div><strong>Area:</strong> {currentField.area || 'Unknown'} acres</div>
                   <div><strong>Elevation:</strong> {stats.elevation}m</div>
                   <div><strong>Moisture:</strong> {stats.soilMoisture} m³/m³</div>
                   <div><strong>Soil:</strong> {currentField.soil_type || 'Loam'}</div>
-                  <div><strong>Irrig:</strong> {currentField.irrigation || 'None'}</div>
+                  <div style={{ gridColumn: 'span 2' }}><strong>Irrig:</strong> {currentField.irrigation || 'None'}</div>
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -1087,6 +1284,19 @@ export default function RecommendationViewer({ fieldId, onToggleBack }) {
                       <option value="gemini">Google Gemini (gemini-2.5-flash)</option>
                       <option value="claude">Anthropic Claude (claude-3-5-sonnet)</option>
                     </select>
+                  </div>
+
+                  {/* USD/LRD Exchange Rate Input */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                    <label style={{ fontSize: '0.8rem', fontWeight: 600, color: '#444' }}>USD/LRD Exchange Rate</label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={customExchangeRate}
+                      onChange={(e) => setCustomExchangeRate(e.target.value)}
+                      placeholder="e.g. 150.00"
+                      style={{ padding: '6px 8px', borderRadius: '4px', border: '1px solid #ccc', fontSize: '0.85rem' }}
+                    />
                   </div>
 
                   {/* Season selection */}
@@ -1293,8 +1503,10 @@ export default function RecommendationViewer({ fieldId, onToggleBack }) {
                     }
                     
                     const markdownContent = parseMarkdownToReact(currentTabObj.content);
+                    const isChartTab = selectedAiSubTab && (selectedAiSubTab.toLowerCase().includes('revenue') || selectedAiSubTab.toLowerCase().includes('projection'));
+                    const isLayoutTab = selectedAiSubTab && selectedAiSubTab.toLowerCase().includes('layout');
                     
-                    if (selectedAiSubTab === 'revenue-model' || selectedAiSubTab === '12-month-projections') {
+                    if (isChartTab) {
                       return (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                           {markdownContent}
@@ -1303,7 +1515,7 @@ export default function RecommendationViewer({ fieldId, onToggleBack }) {
                       );
                     }
                     
-                    if (selectedAiSubTab === 'field-layout') {
+                    if (isLayoutTab) {
                       return (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                           {structuredData?.fieldLayout && (
@@ -1500,6 +1712,185 @@ export default function RecommendationViewer({ fieldId, onToggleBack }) {
             )}
           </div>
 
+        </div>
+      )}
+
+      {/* GROUP DELETE CONTENT */}
+      {viewTab === 'group-delete' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+          <div style={{ background: '#f8fafc', padding: '20px', borderRadius: '10px', border: '1px solid #e2e8f0' }}>
+            <h3 style={{ margin: '0 0 8px 0', fontSize: '1.1rem', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <Trash2 size={20} color="#2e7d32" /> Bulk Manage Recommendations
+            </h3>
+            <p style={{ margin: '0 0 20px 0', fontSize: '0.88rem', color: '#64748b' }}>
+              Manage and bulk-delete or unlink recommendations across all fields.
+            </p>
+
+            {allRecommendations.length === 0 ? (
+              <div style={{ padding: '40px', textAlign: 'center', color: '#888', border: '1px dashed #cbd5e1', borderRadius: '8px', background: 'white' }}>
+                No recommendations found in the system.
+              </div>
+            ) : (
+              <div>
+                {/* Field Filter Dropdown */}
+                <div style={{ display: 'flex', gap: '15px', alignItems: 'center', marginBottom: '16px', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', minWidth: '220px' }}>
+                    <label style={{ fontSize: '0.8rem', fontWeight: 700, color: '#475569', margin: 0 }}>Filter by Field</label>
+                    <select
+                      value={deleteFilterFieldId}
+                      onChange={(e) => {
+                        setDeleteFilterFieldId(e.target.value);
+                        setSelectedDeleteIds([]);
+                      }}
+                      style={{ padding: '8px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem', background: '#fff', fontWeight: 600, color: '#334155', cursor: 'pointer' }}
+                    >
+                      <option value="all">All Fields</option>
+                      <option value="unlinked">Unlinked Recommendations</option>
+                      {fields.map(f => (
+                        <option key={f.id} value={f.id}>{f.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                {/* Bulk Actions Header Controls */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', background: '#f1f5f9', padding: '12px 16px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.88rem', margin: 0, fontWeight: 600, cursor: 'pointer', color: '#334155' }}>
+                    <input
+                      type="checkbox"
+                      checked={displayRecommendations.length > 0 && selectedDeleteIds.length === displayRecommendations.length}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedDeleteIds(displayRecommendations.map(r => r.id));
+                        } else {
+                          setSelectedDeleteIds([]);
+                        }
+                      }}
+                      style={{ margin: 0 }}
+                    />
+                    Select All ({selectedDeleteIds.length} of {displayRecommendations.length} selected)
+                  </label>
+                  
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <button
+                      type="button"
+                      disabled={selectedDeleteIds.length === 0}
+                      onClick={handleBulkUnlink}
+                      style={{
+                        padding: '8px 14px',
+                        fontSize: '0.85rem',
+                        fontWeight: 600,
+                        background: selectedDeleteIds.length === 0 ? '#e2e8f0' : '#f59e0b',
+                        color: selectedDeleteIds.length === 0 ? '#94a3b8' : 'white',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: selectedDeleteIds.length === 0 ? 'not-allowed' : 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      <Unlink size={14} /> Unlink Selected
+                    </button>
+                    <button
+                      type="button"
+                      disabled={selectedDeleteIds.length === 0}
+                      onClick={handleBulkDelete}
+                      style={{
+                        padding: '8px 14px',
+                        fontSize: '0.85rem',
+                        fontWeight: 600,
+                        background: selectedDeleteIds.length === 0 ? '#e2e8f0' : '#ef4444',
+                        color: selectedDeleteIds.length === 0 ? '#94a3b8' : 'white',
+                        border: 'none',
+                        borderRadius: '6px',
+                        cursor: selectedDeleteIds.length === 0 ? 'not-allowed' : 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        transition: 'all 0.15s ease'
+                      }}
+                    >
+                      <Trash2 size={14} /> Delete Selected
+                    </button>
+                  </div>
+                </div>
+
+                {/* Table of Recommendations */}
+                <div className="premium-table-container">
+                  <table className="premium-table">
+                    <thead>
+                      <tr>
+                        <th style={{ width: '60px', textAlign: 'center' }}>Select</th>
+                        <th>Name</th>
+                        <th>Type</th>
+                        <th>Linked Field(s)</th>
+                        <th>Source / Info</th>
+                        <th>Date Created</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {displayRecommendations.map(r => {
+                        const linkedFields = fields.filter(f => f.recommendationIds && f.recommendationIds.includes(r.id));
+                        const linkedFieldNames = linkedFields.length > 0 
+                          ? linkedFields.map(f => f.name).join(', ') 
+                          : 'Unlinked';
+                        return (
+                          <tr key={r.id} style={{ background: selectedDeleteIds.includes(r.id) ? '#fef2f2' : undefined }}>
+                            <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>
+                              <input
+                                type="checkbox"
+                                checked={selectedDeleteIds.includes(r.id)}
+                                onChange={() => {
+                                  if (selectedDeleteIds.includes(r.id)) {
+                                    setSelectedDeleteIds(selectedDeleteIds.filter(id => id !== r.id));
+                                  } else {
+                                    setSelectedDeleteIds([...selectedDeleteIds, r.id]);
+                                  }
+                                }}
+                                style={{ margin: 0, cursor: 'pointer' }}
+                              />
+                            </td>
+                            <td style={{ fontWeight: 600, color: '#1e293b' }}>
+                              {r.name}
+                            </td>
+                            <td>
+                              {r.isAI ? (
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', fontWeight: 700, padding: '2px 8px', borderRadius: '12px', background: '#e8f5e9', color: '#2e7d32' }}>
+                                  <Sparkles size={10} /> AI Advisor
+                                </span>
+                              ) : (
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', fontWeight: 700, padding: '2px 8px', borderRadius: '12px', background: '#e3f2fd', color: '#1976d2' }}>
+                                  <LinkIcon size={10} /> Web Link
+                                </span>
+                              )}
+                            </td>
+                            <td style={{ fontSize: '0.85rem', fontWeight: 500, color: linkedFields.length > 0 ? '#1b5e20' : '#64748b' }}>
+                              {linkedFieldNames}
+                            </td>
+                            <td style={{ fontSize: '0.82rem', color: '#64748b', wordBreak: 'break-all' }}>
+                              {r.isAI ? (
+                                <span>Generated via {r.promptInputs?.season || 'AI Service'}</span>
+                              ) : (
+                                <a href={r.link} target="_blank" rel="noopener noreferrer" style={{ color: '#1976d2', textDecoration: 'none', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                                  {r.link?.substring(0, 40)}{r.link?.length > 40 ? '...' : ''} <ExternalLink size={12} />
+                                </a>
+                              )}
+                            </td>
+                            <td style={{ fontSize: '0.82rem', color: '#64748b' }}>
+                              {new Date(r.createdAt).toLocaleString()}
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+
+              </div>
+            )}
+          </div>
         </div>
       )}
 

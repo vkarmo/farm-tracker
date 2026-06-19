@@ -1433,9 +1433,107 @@ function processSSEBuffer(buffer, provider, res) {
   return lastLine;
 }
 
+// Fetch Earth Engine satellite derived indicators for a specific field polygon
+async function getGeeSatelliteStats(coords, settingsNode) {
+  return new Promise((resolve) => {
+    if (!coords || !Array.isArray(coords) || coords.length < 3) {
+      return resolve(null);
+    }
+    const perfectPrivateKey = (settingsNode.geePrivateKey || '').replace(/\\n/g, '\n');
+    const creds = {
+      client_email: settingsNode.geeClientEmail || '',
+      private_key: perfectPrivateKey,
+      project_id: settingsNode.geeProjectId || ''
+    };
+
+    if (!creds.client_email || !creds.private_key || !creds.project_id) {
+      console.log('GEE credentials missing or incomplete, skipping GEE stats.');
+      return resolve(null);
+    }
+
+    initializeGee(creds)
+      .then(() => {
+        try {
+          const lats = coords.map(pt => pt[0]);
+          const lngs = coords.map(pt => pt[1]);
+          const minLat = Math.min(...lats);
+          const maxLat = Math.max(...lats);
+          const minLng = Math.min(...lngs);
+          const maxLng = Math.max(...lngs);
+
+          const boundsGeometry = ee.Geometry.Rectangle([minLng, minLat, maxLng, maxLat]);
+          const validCoords = coords.filter(pt => Array.isArray(pt) && pt.length >= 2 && pt[0] !== null && pt[1] !== null);
+          if (validCoords.length < 3) {
+            return resolve(null);
+          }
+          const eePolygon = ee.Geometry.Polygon([validCoords.map(pt => [pt[1], pt[0]])]);
+
+          const baseDate = new Date('2026-06-07T12:00:00-04:00');
+          const oneYearAgo = new Date(baseDate.getTime() - 365 * 24 * 60 * 60 * 1000);
+          const startDateStr = oneYearAgo.toISOString().split('T')[0];
+          const endDateStr = baseDate.toISOString().split('T')[0];
+
+          // 1. DEM elevation & drainage indices
+          const merit = ee.Image('MERIT/Hydro/v1_0_1');
+          const meritHnd = merit.select('hnd'); // Height above nearest drainage
+          const srtm = ee.Image('USGS/SRTMGL1_003').select('elevation');
+
+          // 2. Active water surfaces (Sentinel-1 SAR)
+          const s1Collection = ee.ImageCollection('COPERNICUS/S1_GRD')
+            .filterBounds(boundsGeometry)
+            .filterDate(startDateStr, endDateStr)
+            .filter(ee.Filter.eq('instrumentMode', 'IW'))
+            .filter(ee.Filter.listContains('transmitterReceiverPolarisation', 'VV'))
+            .select('VV');
+          const s1Median = s1Collection.median().unmask(0).rename('sar_vv');
+
+          // 3. Dry-season NDWI composite (Sentinel-2)
+          const s2Collection = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
+            .filterBounds(boundsGeometry)
+            .filterDate(startDateStr, endDateStr)
+            .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 30));
+          const ndwiCollection = s2Collection.map((img) => {
+            return img.normalizedDifference(['B3', 'B8']).rename('NDWI');
+          });
+          const ndwiDry = ndwiCollection.reduce(ee.Reducer.percentile([15])).unmask(-1).rename('ndwi_dry');
+
+          const compositeImage = ee.Image.cat([
+            srtm.rename('elevation'),
+            meritHnd.rename('hnd'),
+            s1Median.rename('sar_vv'),
+            ndwiDry.rename('ndwi_dry')
+          ]);
+
+          const reducer = compositeImage.reduceRegion({
+            reducer: ee.Reducer.mean(),
+            geometry: eePolygon,
+            scale: 30, // Scale appropriate for field level
+            maxPixels: 1e9
+          });
+
+          reducer.evaluate((info, err) => {
+            if (err) {
+              console.error('GEE evaluate stats error:', err);
+              resolve(null);
+            } else {
+              resolve(info);
+            }
+          });
+        } catch (err) {
+          console.error('GEE build image error:', err);
+          resolve(null);
+        }
+      })
+      .catch(err => {
+        console.error('Failed to initialize GEE:', err);
+        resolve(null);
+      });
+  });
+}
+
 // AI Crop recommendations Generator Proxy Route (Streaming)
 app.post('/api/recommendations/generate', async (req, res) => {
-  const { fieldId, fieldName, area, soilType, irrigation, status, elevation, soilMoisture, location, season, priorities, cropHistory, notes, startDate, selectedCrops } = req.body;
+  const { fieldId, fieldName, area, soilType, irrigation, status, elevation, soilMoisture, location, season, priorities, cropHistory, notes, startDate, selectedCrops, exchangeRate } = req.body;
 
   const session = driver.session();
   try {
@@ -1448,6 +1546,54 @@ app.post('/api/recommendations/generate', async (req, res) => {
     const provider = settingsNode.aiProvider || 'gemini';
     const geminiKey = settingsNode.geminiApiKey || '';
     const claudeKey = settingsNode.claudeApiKey || '';
+
+    // Query field node from Neo4j to get polygon coordinates
+    let fieldPolygon = null;
+    if (fieldId) {
+      const fieldRes = await session.run("MATCH (f:Field {id: $fieldId}) RETURN f", { fieldId });
+      if (fieldRes.records.length > 0) {
+        fieldPolygon = fieldRes.records[0].get('f').properties.polygon;
+        if (typeof fieldPolygon === 'string') {
+          try { fieldPolygon = JSON.parse(fieldPolygon); } catch (e) {}
+        }
+      }
+    }
+
+    let coords = [];
+    if (Array.isArray(fieldPolygon)) {
+      if (Array.isArray(fieldPolygon[0]) && Array.isArray(fieldPolygon[0][0])) {
+        coords = fieldPolygon[0];
+      } else {
+        coords = fieldPolygon;
+      }
+    }
+
+    // Try fetching satellite GEE metrics if possible
+    let geeStats = null;
+    if (coords && coords.length >= 3) {
+      geeStats = await getGeeSatelliteStats(coords, settingsNode);
+    }
+
+    let geeStatsSection = '';
+    if (geeStats) {
+      const geeElevation = geeStats.elevation !== undefined && geeStats.elevation !== null ? Math.round(geeStats.elevation) : (elevation || 'Unknown');
+      const geeHnd = geeStats.hnd !== undefined && geeStats.hnd !== null ? Number(geeStats.hnd.toFixed(2)) : 'Unknown';
+      const geeSarVv = geeStats.sar_vv !== undefined && geeStats.sar_vv !== null ? Number(geeStats.sar_vv.toFixed(2)) : 'Unknown';
+      const geeNdwi = geeStats.ndwi_dry !== undefined && geeStats.ndwi_dry !== null ? Number(geeStats.ndwi_dry.toFixed(3)) : 'Unknown';
+
+      geeStatsSection = `
+- GEE Satellite & Topographical Data for this field:
+  - Average elevation (SRTM DEM): ${geeElevation} meters
+  - Height Above Nearest Drainage (HND): ${geeHnd} meters (Low values e.g. <10m indicate valley floors or depression zones prone to water accumulation)
+  - Sentinel-1 SAR Backscatter (VV): ${geeSarVv} dB (Values < -16 dB indicate presence of standing water or high soil moisture)
+  - Sentinel-2 Dry Season NDWI (Water Index): ${geeNdwi} (Positive values indicate high surface moisture or standing water)
+`;
+    } else {
+      geeStatsSection = `
+- GEE Satellite & Topographical Data:
+  - GEE services were temporarily unavailable or credentials were not configured. Please rely on the average field metadata: Elevation ${elevation}m and Soil Moisture ${soilMoisture} m³/m³ to guide recommendations.
+`;
+    }
 
     let promptText = `You are an expert tropical agronomist specializing in West African agriculture, specifically Bomi County, Liberia.
 Your task is to provide a comprehensive, actionable, and localized crop recommendation report for a specific field on a farm.
@@ -1467,21 +1613,35 @@ Please generate crop recommendations for the following field profile:
 - Additional Notes: ${notes || 'None specified'}
 - Model Start Date: ${startDate || 'Immediate'}
 - Crops to Focus On: ${selectedCrops || 'High margin crops suited for local context (e.g. Fever Leaf, Cassava, swamp rice, vegetables, etc.)'}
+- USD/LRD Exchange Rate: 1 USD = ${exchangeRate || '150'} LRD (You must use this exact exchange rate for all conversions in your tables, text, and JSON calculations, e.g. price per kg or Fever Leaf price.)
+${geeStatsSection}
 
 You must respond in Markdown format. The sections should be separated by H2 headings (##) which will be parsed into tabs.
 The output structure must be EXACTLY:
 
 ## Agro-Ecological Overview
-[Provide rich, detailed Markdown content for this section, structured with bullet points. Keep it localized for Bomi County, Liberia (agro-ecological thresholds, acidic soil correction, rainy/dry seasons, water logging or slopes).]
+[Provide rich, detailed Markdown content for this section, structured with bullet points. Keep it localized for Bomi County, Liberia (agro-ecological thresholds, acidic soil correction, rainy/dry seasons, water logging or slopes). You MUST explicitly incorporate the field's specific elevation of ${elevation}m and average soil moisture of ${soilMoisture} m³/m³, along with the GEE satellite metrics, detailing their implications for local crop viability, microclimate, and slope runoff/drainage.]
 
 ## Recommended Crops
-[Provide recommended crops details here. Detail which crops are chosen from the crops of interest: "${selectedCrops || 'specified crops'}" and other local agronomic fits.]
+[Provide recommended crops details here. Detail which crops are chosen from the crops of interest: "${selectedCrops || 'specified crops'}" and other local agronomic fits. You MUST explicitly evaluate and justify crop selections by matching them against the field's specific physical characteristics: soil moisture, elevation, soil type, irrigation, and season. Use the following agro-ecological matching guidelines:
+- Swamp Rice: Suited for lowland valley depressions/floodplains (low elevation, e.g., <110m) with high soil moisture saturation (>0.40 m³/m³) or high rainfall.
+- Cassava / Yam: Suited ONLY for well-drained upland sloped hills (higher elevation, e.g., >160m) with moderate/low soil moisture (0.15 - 0.30 m³/m³).
+- Oil Palm: Suited for flat/rolling plains (elevation 110m - 160m) with consistently high soil moisture (>0.35 m³/m³) but well-drained soil.
+- Vegetables (such as Eddoe, Sweet Potato, Peppers, Fever Leaf): Suited for areas with moderate, consistent soil moisture (0.20 - 0.35 m³/m³) and manageable irrigation/drainage control.
+
+CRITICAL AGRONOMIC RULE FOR CASSAVA: You MUST NOT suggest Cassava if the field is in a low-elevation area (average elevation < 110 meters, or height above nearest drainage HND < 10 meters) where water can gather or accumulate in the rainy season. Cassava roots are extremely susceptible to rot and will die in waterlogged soils. In such low-lying fields, exclude Cassava and suggest swamp rice or other water-tolerant alternatives instead.
+
+Detail how the field's specific elevation of ${elevation}m and soil moisture of ${soilMoisture} m³/m³, combined with soil type (${soilType}) and irrigation (${irrigation}) and GEE satellite telemetry, dictate the viability of the recommended crops.]
 
 ## Cultivation Guide
-[Provide the cultivation guides here for the selected crops.]
+[Provide the cultivation guides here for the selected crops. Customize the guidance according to the field's soil type (${soilType}), season (${season}), and irrigation type (${irrigation}).]
 
 ## Risk & Soil Management
-[Provide the risk and soil management details here...]
+[Provide the risk and soil management details here. Detail specific risks and mitigation strategies based on the field's physical factors:
+- Elevation & Slopes: e.g., terracing, contours, runoff prevention if sloped (elev > 160m).
+- Soil Moisture & Drainage: e.g., raised beds, drainage trenches if moisture is high (>0.40 m³/m³) or low-lying; mulching/irrigation if moisture is low (<0.20 m³/m³).
+- Soil Type (${soilType}): e.g., compost/fertilization needs, pH correction (Liberian soils are often acidic latosols requiring ash or lime).
+- Crop History (${cropHistory}) & Priorities (${Array.isArray(priorities) ? priorities.join(', ') : priorities}): e.g., rotational plans to prevent nutrient depletion.]
 
 ## Revenue Model
 [Generate a high-margin, realistic revenue model for the ${area || 'specified'} acres starting on ${startDate || 'the specified start date'}. It should focus on targeting a higher annual gross revenue realistically based on local Liberian farming standards.]
@@ -1503,7 +1663,10 @@ Apply fluctuating market prices for each crop across different months to reflect
 [Generate a 2nd 12-month projection table using a 2-week interval breakdown (e.g., Week 1-2, Week 3-4, ..., Week 49-52) outlining planting, rotation, and harvest schedule details for each crop, emphasizing the operational flow.]
 
 ## Field Layout
-[Generate a textual or ASCII representation and details of the agricultural field layout, including properly spaced rows, beds, walkways, and spacing details in meters/feet for the specified crops.]
+[Generate a textual or ASCII representation and details of the agricultural field layout. In your layout design, you MUST:
+1. Account for median elevation (${elevation || 'Unknown'}m), average soil moisture (${soilMoisture || 'Unknown'} m³/m³), and other relevant topography or satellite data (e.g. place water-loving crops like Swamp Rice in lower, high-moisture zones, and root or cash crops in higher, well-drained zones).
+2. Explicitly include intercropping details, showing how specific companion plants (like nitrogen-fixing legumes for soil building, or trap crops/pest-repelling flowers for natural pest control) are integrated.
+3. Detail spacing guidelines (rows, beds, walkways in meters or feet) to ensure the main crop is not choked by the intercrops (e.g. tall main crops spaced so intercrops can grow beneath or beside them without choking them).]
 
 Crucial: At the very end of your response, after the Field Layout section, output exactly one JSON code block enclosed in \`\`\`json and \`\`\`. This JSON block will fuel dynamic charts and interactive UI maps on the client side. The math in the JSON block must align perfectly with your tables above.
 The JSON structure must match this template exactly:
@@ -1542,7 +1705,7 @@ The JSON structure must match this template exactly:
 Ensure that:
 1. "annualRevenue" contains all recommended crops with their projected annual USD revenue.
 2. "monthlyProjections" contains exactly 12 items (Month 1 to Month 12), with each crop's monthly revenue (using the exact crop names as keys) and the monthly total.
-3. "fieldLayout" specifies "rows" (between 6 and 15), "bedsPerRow" (between 2 and 6), "bedWidth" and "rowSpacing" in meters, and "cropAssignments" containing a color (hex code) and startRow/endRow (0-indexed ranges spanning from 0 to rows-1) mapping all crops.
+3. "fieldLayout" specifies "rows" (between 6 and 15), "bedsPerRow" (between 2 and 6), "bedWidth" and "rowSpacing" in meters, and "cropAssignments" containing a color (hex code) and startRow/endRow (0-indexed ranges spanning from 0 to rows-1) mapping all crops. Ensure your row assignments place crops strategically based on elevation, moisture, and intercropping spacing patterns described above.
 
 Do not wrap the whole response in a JSON block or code blocks. Start directly with the first heading.`;
 
@@ -1718,6 +1881,9 @@ app.get('/api/all-data', async (req, res) => {
            }
            if (props.responseTabs) {
                try { props.responseTabs = JSON.parse(props.responseTabs); } catch(e){}
+           }
+           if (props.structuredData) {
+               try { props.structuredData = JSON.parse(props.structuredData); } catch(e){}
            }
            if (props.pestIds) {
                try { props.pestIds = JSON.parse(props.pestIds); } catch(e){}
@@ -2012,11 +2178,12 @@ app.post('/api/sync', async (req, res) => {
           results.push({ actionId: action.meta?.id, status: 'success' });
         }
         else if (action.type === 'recommendations/addRecommendation') {
-          const { id, name, link, active, isAI, promptInputs, responseTabs, createdAt } = action.payload;
+          const { id, name, link, active, isAI, promptInputs, responseTabs, structuredData, createdAt } = action.payload;
           await session.run(`
             MERGE (r:Recommendation {id: $id})
             SET r.name = $name, r.link = $link, r.active = $active,
                 r.isAI = $isAI, r.promptInputs = $promptInputs, r.responseTabs = $responseTabs,
+                r.structuredData = $structuredData,
                 r.createdAt = toInteger($createdAt), r.lastUpdatedBy = $userEmail
             RETURN r
           `, {
@@ -2028,6 +2195,7 @@ app.post('/api/sync', async (req, res) => {
             isAI: isAI || false,
             promptInputs: promptInputs ? (typeof promptInputs === 'string' ? promptInputs : JSON.stringify(promptInputs)) : null,
             responseTabs: responseTabs ? (typeof responseTabs === 'string' ? responseTabs : JSON.stringify(responseTabs)) : null,
+            structuredData: structuredData ? (typeof structuredData === 'string' ? structuredData : JSON.stringify(structuredData)) : null,
             createdAt: createdAt || Date.now()
           });
           results.push({ actionId: action.meta?.id, status: 'success' });

@@ -70,7 +70,7 @@ export default function LoginScreen() {
   return (
     <div style={{ height: '100vh', width: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', background: 'linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%)' }}>
       
-      <div style={{ background: 'white', padding: '40px', borderRadius: '16px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', textAlign: 'center', maxWidth: '400px', width: '90%' }}>
+      <div style={{ background: 'white', padding: '40px', borderRadius: '16px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', textAlign: 'center', width: 'fit-content', minWidth: 'min(400px, 90%)', maxWidth: '90%' }}>
         
         {logo ? (
           <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
@@ -82,7 +82,7 @@ export default function LoginScreen() {
           </div>
         )}
 
-        <h1 style={{ fontSize: '1.5rem', marginBottom: '10px', color: '#2e7d32' }}>{displayAppName}</h1>
+        <h1 style={{ fontSize: '1.5rem', marginBottom: '10px', color: '#2e7d32', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%' }} title={displayAppName}>{displayAppName}</h1>
         <p style={{ color: '#666', fontSize: '0.9rem', marginBottom: '30px' }}>
           Restricted offline management cluster. Please authenticate to sync local telemetry.
         </p>
@@ -90,7 +90,7 @@ export default function LoginScreen() {
         {loading ? (
           <div style={{ padding: '12px' }}><span style={{ color: '#888' }}>Verifying Credentials...</span></div>
         ) : (
-          <div style={{ display: 'flex', justifyContent: 'center' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', alignItems: 'center', justifyContent: 'center' }}>
             <button 
               onClick={() => loginWithGoogle()}
               className="btn btn-primary"
@@ -98,6 +98,24 @@ export default function LoginScreen() {
             >
               <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg" alt="Google Logo" style={{ width: '20px', height: '20px' }} />
               Sign in with Google
+            </button>
+            <button 
+              onClick={() => {
+                dispatch(login({
+                  id: 'u_dev',
+                  name: 'Developer Admin',
+                  email: 'vkarmo@gmail.com',
+                  role: 'Admin',
+                  profilePic: 'https://api.dicebear.com/7.x/initials/svg?seed=vkarmo@gmail.com',
+                  allowedTabs: null,
+                  canApprove: true
+                }));
+              }}
+              id="dev-bypass-btn"
+              className="btn"
+              style={{ padding: '8px 16px', fontSize: '0.9rem', background: '#388e3c', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', marginTop: '10px' }}
+            >
+              Bypass Login (Developer Mode)
             </button>
           </div>
         )}

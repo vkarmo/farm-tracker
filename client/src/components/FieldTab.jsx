@@ -23,7 +23,7 @@ const ClickToDrawComponent = ({ polygon, setPolygon, setCenter }) => {
   return null;
 };
 
-const INIT_STATE = { name: '', area: '', year: String(new Date().getFullYear()), soil_type: 'Loam', irrigation: 'None', status: 'Fallow', gps: '', drawColor: '', includeInStats: true };
+const INIT_STATE = { name: '', area: '', year: String(new Date().getFullYear()), soil_type: 'Loam', irrigation: 'None', status: 'Fallow', gps: '', drawColor: '', includeInStats: true, layoutRotation: '' };
 const INIT_TEST_STATE = { date: new Date().toISOString().split('T')[0], ph: '', nitrogen: '', phosphorus: '', potassium: '', notes: '' };
 
 export default function FieldTab() {
@@ -612,6 +612,17 @@ export default function FieldTab() {
                             <button type="button" onClick={() => setFormData({ ...formData, drawColor: '' })} className="btn" style={{ padding: '2px 8px', fontSize: '0.8rem' }}>Clear</button>
                           )}
                         </div>
+                      </div>
+                      <div className="form-group">
+                        <label>Layout Rotation (Degrees)</label>
+                        <input 
+                          type="number" 
+                          min="0" 
+                          max="360" 
+                          value={formData.layoutRotation !== undefined && formData.layoutRotation !== null ? formData.layoutRotation : ''} 
+                          onChange={e => setFormData({ ...formData, layoutRotation: e.target.value === '' ? '' : parseInt(e.target.value) })} 
+                          placeholder="Auto-aligned" 
+                        />
                       </div>
                       <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '20px' }}>
                         <input 

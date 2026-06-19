@@ -1,12 +1,14 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { MapContainer, TileLayer, Polygon, Polyline, Popup, GeoJSON, Marker, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Polygon, Polyline, Popup, GeoJSON, Marker, useMap, SVGOverlay } from 'react-leaflet';
 import { fetchGeoLocationInfo } from './components/PoiTab';
-import FieldImageryOverlay, { getDeterministicSceneDate, getDeterministicCloudCover } from './components/FieldImageryOverlay';
-import CropRecommendationPanel from './components/CropRecommendationPanel';
+import { parseStructuredData } from './components/RecommendationViewer';
+import FieldImageryOverlay, { getDeterministicSceneDate, getDeterministicCloudCover, isPointInPolygon, getDistanceToCreek } from './components/FieldImageryOverlay';
+import CropRecommendationPanel, { extractSpatialStats } from './components/CropRecommendationPanel';
 import { MapResizer } from './components/ResizableMapWrapper';
 import { setMapCenter, setVisibleMapLayers, saveSettings } from './store/settingsSlice';
 import { addPoi } from './store/poiSlice';
+import { updateField } from './store/fieldsSlice';
 import { queueAction } from './store/syncSlice';
 import { kml } from '@tmcw/togeojson';
 import L from 'leaflet';
@@ -51,6 +53,708 @@ const LAYER_OPTIONS = [
   { value: 'soilTests', label: 'Soil Tests' }
 ];
 
+const rotatePoint = (x, y, angle, cx = 50, cy = 50) => {
+  if (!angle) return { x, y };
+  const rad = (angle * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  const rx = cx + (x - cx) * cos - (y - cy) * sin;
+  const ry = cy + (x - cx) * sin + (y - cy) * cos;
+  return { x: rx, y: ry };
+};
+
+const FieldLayoutMapOverlay = ({ field, recommendations, selectedRecId }) => {
+  const dispatch = useDispatch();
+  const map = useMap();
+  const [zoom, setZoom] = useState(map.getZoom());
+
+  useEffect(() => {
+    const handleZoomEnd = () => {
+      setZoom(map.getZoom());
+    };
+    map.on('zoomend', handleZoomEnd);
+    return () => {
+      map.off('zoomend', handleZoomEnd);
+    };
+  }, [map]);
+  const sanitizedPolygon = useMemo(() => {
+    if (!field || !field.polygon) return [];
+    let poly = field.polygon;
+    if (typeof poly === 'string') {
+      try {
+        poly = JSON.parse(poly);
+      } catch (e) {
+        return [];
+      }
+    }
+    if (Array.isArray(poly) && poly.length > 0) {
+      if (Array.isArray(poly[0]) && Array.isArray(poly[0][0])) {
+        return poly[0];
+      }
+      return poly;
+    }
+    return [];
+  }, [field]);
+
+  const bounds = useMemo(() => {
+    if (sanitizedPolygon.length < 3) return null;
+    let minLat = Infinity, maxLat = -Infinity;
+    let minLng = Infinity, maxLng = -Infinity;
+
+    for (const pt of sanitizedPolygon) {
+      const lat = pt[0];
+      const lng = pt[1];
+      if (lat < minLat) minLat = lat;
+      if (lat > maxLat) maxLat = lat;
+      if (lng < minLng) minLng = lng;
+      if (lng > maxLng) maxLng = lng;
+    }
+    return [[minLat, minLng], [maxLat, maxLng]];
+  }, [sanitizedPolygon]);
+
+  // Extract spatial stats to check elevation profile
+  const stats = useMemo(() => {
+    if (sanitizedPolygon.length < 3) return { elevation: 120, soilMoisture: 0.28 };
+    try {
+      return extractSpatialStats(sanitizedPolygon);
+    } catch (e) {
+      return { elevation: 120, soilMoisture: 0.28 };
+    }
+  }, [sanitizedPolygon]);
+
+  // Only use curved contour farming if elevation is steep (>= 180m)
+  const curveDepth = useMemo(() => {
+    return stats.elevation >= 180 ? 1.2 : 0.0;
+  }, [stats.elevation]);
+
+  // Get rotation angle: if not set in field properties, auto-calculate to align with the longest dimension of the polygon
+  const rotationAngle = useMemo(() => {
+    if (field.layoutRotation !== undefined && field.layoutRotation !== null && field.layoutRotation !== '') {
+      return parseInt(field.layoutRotation);
+    }
+    
+    // Auto-calculate the angle of the longest axis
+    if (sanitizedPolygon.length < 3 || !bounds) return 0;
+    const [[minLat, minLng], [maxLat, maxLng]] = bounds;
+    const svgVertices = sanitizedPolygon.map(pt => {
+      const x = ((pt[1] - minLng) / (maxLng - minLng)) * 100;
+      const y = (1.0 - (pt[0] - minLat) / (maxLat - minLat)) * 100;
+      return { x, y };
+    });
+
+    let maxDist = -1;
+    let bestPair = null;
+    for (let i = 0; i < svgVertices.length; i++) {
+      for (let j = i + 1; j < svgVertices.length; j++) {
+        const dist = Math.hypot(svgVertices[i].x - svgVertices[j].x, svgVertices[i].y - svgVertices[j].y);
+        if (dist > maxDist) {
+          maxDist = dist;
+          bestPair = [svgVertices[i], svgVertices[j]];
+        }
+      }
+    }
+
+    if (bestPair) {
+      const dx = bestPair[1].x - bestPair[0].x;
+      const dy = bestPair[1].y - bestPair[0].y;
+      let angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+      // Bring angle to range [0, 180]
+      if (angle < 0) angle += 180;
+      return Math.round(angle);
+    }
+    return 0;
+  }, [field.layoutRotation, sanitizedPolygon, bounds]);
+
+  // Compute the bounding box of the polygon inside the rotated frame
+  const rotatedBounds = useMemo(() => {
+    if (sanitizedPolygon.length < 3 || !bounds) {
+      return { minX: 4, maxX: 96, minY: 4, maxY: 96 };
+    }
+    const [[minLat, minLng], [maxLat, maxLng]] = bounds;
+    
+    const svgPts = sanitizedPolygon.map(pt => {
+      const x = ((pt[1] - minLng) / (maxLng - minLng)) * 100;
+      const y = (1.0 - (pt[0] - minLat) / (maxLat - minLat)) * 100;
+      return { x, y };
+    });
+
+    const rad = (-rotationAngle * Math.PI) / 180;
+    const cos = Math.cos(rad);
+    const sin = Math.sin(rad);
+
+    let minX = Infinity, maxX = -Infinity;
+    let minY = Infinity, maxY = -Infinity;
+
+    svgPts.forEach(pt => {
+      // Rotate around the center (50, 50)
+      const rx = 50 + (pt.x - 50) * cos - (pt.y - 50) * sin;
+      const ry = 50 + (pt.x - 50) * sin + (pt.y - 50) * cos;
+      if (rx < minX) minX = rx;
+      if (rx > maxX) maxX = rx;
+      if (ry < minY) minY = ry;
+      if (ry > maxY) maxY = ry;
+    });
+
+    // Add a tiny buffer (e.g. 0.5%) so elements don't get clipped exactly at the stroke boundaries
+    return {
+      minX: Math.max(0.0, minX + 0.5),
+      maxX: Math.min(100.0, maxX - 0.5),
+      minY: Math.max(0.0, minY + 0.5),
+      maxY: Math.min(100.0, maxY - 0.5)
+    };
+  }, [sanitizedPolygon, bounds, rotationAngle]);
+
+  // Dynamically calculate the highest elevation point inside the polygon for the kitchen area (rotated frame aware)
+  const kitchenPos = useMemo(() => {
+    if (sanitizedPolygon.length < 3 || !bounds) {
+      return { x: 84, y: 11, radius: 4.0 };
+    }
+    const [[minLat, minLng], [maxLat, maxLng]] = bounds;
+    
+    let maxElev = -Infinity;
+    let bestX = 50;
+    let bestY = 50;
+
+    const rad = (rotationAngle * Math.PI) / 180;
+    const cos = Math.cos(rad);
+    const sin = Math.sin(rad);
+    
+    // Sample a 15x15 grid within standard bounds, transforming each candidate to final space
+    const steps = 15;
+    for (let i = 0; i <= steps; i++) {
+      for (let j = 0; j <= steps; j++) {
+        const x = (i / steps) * 100;
+        const y = (j / steps) * 100;
+        
+        // Transformed (rotated) screen coordinate
+        const rx = 50 + (x - 50) * cos - (y - 50) * sin;
+        const ry = 50 + (x - 50) * sin + (y - 50) * cos;
+        
+        const lng = minLng + (rx / 100) * (maxLng - minLng);
+        const lat = minLat + (1.0 - ry / 100) * (maxLat - minLat);
+        
+        if (isPointInPolygon([lat, lng], sanitizedPolygon)) {
+          // Calculate simulated elevation at [lat, lng]
+          const globalMinLat = 6.7290;
+          const globalMaxLat = 6.7366;
+          const globalMinLng = -10.8759;
+          const globalMaxLng = -10.8622;
+          const globalLatCenter = (globalMinLat + globalMaxLat) / 2;
+          const globalLngCenter = (globalMinLng + globalMaxLng) / 2;
+
+          const dx = (lat - globalLatCenter) / (globalMaxLat - globalMinLat || 0.0001);
+          const dy = (lng - globalLngCenter) / (globalMaxLng - globalMinLng || 0.0001);
+
+          const sinSeed = Math.sin(lat * 12345 + lng * 67890);
+          const noise = (sinSeed - Math.floor(sinSeed)) * 0.08 - 0.04;
+
+          const distToCreek = getDistanceToCreek([lat, lng]);
+          const maxInfluenceDist = 0.0012;
+          const creekInfluence = Math.max(0, 1.0 - distToCreek / maxInfluenceDist);
+
+          const distanceToCenter = Math.sqrt(dx * dx + dy * dy);
+          let baseElev = 1.0 - distanceToCenter;
+          baseElev = baseElev * 0.7 + (dx + dy + 1.0) * 0.15;
+          baseElev = baseElev * (1.0 - 0.75 * creekInfluence);
+          let elevVal = baseElev + noise * 0.5;
+          elevVal = Math.max(0.01, Math.min(0.99, elevVal));
+          const elevMeters = 50 + elevVal * 200;
+          
+          if (elevMeters > maxElev) {
+            maxElev = elevMeters;
+            bestX = x;
+            bestY = y;
+          }
+        }
+      }
+    }
+    
+    // Scale kitchen area
+    const fieldArea = field.area || 5.0;
+    const targetAreaUnits = (0.0625 / fieldArea) * 10000;
+    const computedR = Math.sqrt(targetAreaUnits / Math.PI);
+    const radius = Math.max(3.5, Math.min(10.0, computedR));
+    
+    return { x: bestX, y: bestY, radius };
+  }, [sanitizedPolygon, bounds, field.area, rotationAngle]);
+
+  const layoutData = useMemo(() => {
+    if (!field) return null;
+    const linkedIds = field.recommendationIds || [];
+    const linkedAiRecs = (recommendations || []).filter(r => r.isAI && linkedIds.includes(r.id));
+    
+    let report = null;
+    if (selectedRecId) {
+      report = linkedAiRecs.find(r => r.id === selectedRecId);
+    }
+    if (!report && linkedAiRecs.length > 0) {
+      report = [...linkedAiRecs].sort((a, b) => b.createdAt - a.createdAt)[0];
+    }
+
+    let structuredData = null;
+    if (report) {
+      if (report.structuredData) {
+        structuredData = report.structuredData;
+      } else {
+        let fullText = '';
+        if (report.responseTabs) {
+          fullText = report.responseTabs.map(t => `## ${t.title}\n${t.content}`).join('\n');
+        }
+        structuredData = parseStructuredData(fullText, field.area || 5, report.promptInputs?.selectedCrops || '');
+      }
+      return structuredData?.fieldLayout;
+    }
+    
+    // Do not generate fallback crop layout if no recommendation was generated
+    return null;
+  }, [field, recommendations, selectedRecId]);
+
+  // Helper to check if a percentage SVG coordinate is inside the field polygon
+  const isSvgPointInPolygon = useCallback((px, py) => {
+    if (sanitizedPolygon.length < 3 || !bounds) return false;
+    const [[minLat, minLng], [maxLat, maxLng]] = bounds;
+    const lng = minLng + (px / 100) * (maxLng - minLng);
+    const lat = minLat + (1.0 - py / 100) * (maxLat - minLat);
+    return isPointInPolygon([lat, lng], sanitizedPolygon);
+  }, [sanitizedPolygon, bounds]);
+
+  if (!bounds || !layoutData) return null;
+
+  const [[minLat, minLng], [maxLat, maxLng]] = bounds;
+
+  // Convert polygon coordinates to SVG percentage points (0 to 100)
+  const pointsStr = sanitizedPolygon.map(pt => {
+    const x = ((pt[1] - minLng) / (maxLng - minLng)) * 100;
+    const y = (1.0 - (pt[0] - minLat) / (maxLat - minLat)) * 100;
+    return `${x},${y}`;
+  }).join(' ');
+
+  const { rows = 10, bedsPerRow = 4, cropAssignments = [] } = layoutData;
+
+  // Crop beds grid placement limits (dynamically scaled to fit rotated bounds)
+  const gridMinX = rotatedBounds.minX;
+  const gridMaxX = rotatedBounds.maxX;
+  const gridMinY = rotatedBounds.minY;
+  const gridMaxY = rotatedBounds.maxY;
+
+  const gridWidth = gridMaxX - gridMinX;
+  const gridHeight = gridMaxY - gridMinY;
+
+  const rowHeight = gridHeight / rows;
+
+  // Position compost and ash pits dynamically to avoid the kitchen area
+  const shiftPitsRight = kitchenPos.x < 50;
+  const pitCenterX = shiftPitsRight ? 84 : 16;
+
+  // Dynamically scale compost and ash pits so they collectively occupy exactly 1/4 of a lot (matching the kitchen area).
+  const compostWidth = kitchenPos.radius * 1.77;
+  const compostHeight = kitchenPos.radius * 1.18;
+  const ashRadius = kitchenPos.radius * 0.577;
+
+  const compostX = pitCenterX - compostWidth / 2;
+  const ashX = pitCenterX;
+
+  // Place compost pit above kitchen's Y-coordinate and ash pit below it on the opposite side of the field
+  let compostY = kitchenPos.y - compostHeight - 2.0;
+  let ashY = kitchenPos.y + kitchenPos.radius + 2.0;
+
+  // Prevent shifting out of field bounds vertically
+  if (compostY < 6) {
+    const diff = 6 - compostY;
+    compostY += diff;
+    ashY += diff;
+  }
+  if (ashY > 94 - ashRadius) {
+    const diff = ashY - (94 - ashRadius);
+    compostY -= diff;
+    ashY -= diff;
+  }
+
+  // Safe clamps to guarantee bounding box fits within [4, 96]
+  compostY = Math.max(4, Math.min(96 - compostHeight, compostY));
+  ashY = Math.max(ashRadius + 4, Math.min(96 - ashRadius, ashY));
+
+  // Designate the middle row as the horizontal walkway
+  const horizontalWalkwayRow = Math.floor(rows / 2);
+  const horizontalWalkwayRowY = gridMinY + horizontalWalkwayRow * rowHeight + rowHeight / 2;
+
+  // Generate curved horizontal walkway path line
+  const horizontalWalkwayPoints = [];
+  for (let i = 0; i <= 16; i++) {
+    const pct = i / 16;
+    const px = gridMinX + pct * gridWidth;
+    const py = horizontalWalkwayRowY + curveDepth * Math.sin(pct * Math.PI);
+    horizontalWalkwayPoints.push(`${px},${py}`);
+  }
+  const horizontalWalkwayD = `M ${horizontalWalkwayPoints.join(' L ')}`;
+
+  // Vertical walkway line down the center
+  const verticalWalkwayX = gridMinX + gridWidth / 2;
+
+  // Generate curved beds following the contour curves, excluding the kitchen, pits, and walkway zones
+  const beds = [];
+
+  for (let r = 0; r < rows; r++) {
+    // Skip the horizontal walkway row to leave an open walking passage
+    if (r === horizontalWalkwayRow) continue;
+
+    const assignment = cropAssignments.find(ass => r >= ass.startRow && r <= ass.endRow);
+    const color = assignment?.color || '#8d6e63';
+    const cropName = assignment?.crop || 'Unassigned';
+
+    for (let b = 0; b < bedsPerRow; b++) {
+      const bedStartPct = b / bedsPerRow;
+      const bedEndPct = (b + 1) / bedsPerRow;
+      
+      const gapPct = 0.025;
+      let sPct = bedStartPct + gapPct;
+      let ePct = bedEndPct - gapPct;
+
+      // Introduce a distinct vertical walkway gap in the center of the columns
+      const halfBeds = bedsPerRow / 2;
+      const verticalWalkwayGap = 0.06; // 6% of the grid width
+      if (b < halfBeds) {
+        sPct = sPct * (1.0 - verticalWalkwayGap);
+        ePct = ePct * (1.0 - verticalWalkwayGap);
+      } else {
+        sPct = sPct * (1.0 - verticalWalkwayGap) + verticalWalkwayGap;
+        ePct = ePct * (1.0 - verticalWalkwayGap) + verticalWalkwayGap;
+      }
+
+      const points = [];
+      const subdivisions = 6;
+      const yBase = gridMinY + r * rowHeight + rowHeight / 2;
+
+      for (let i = 0; i <= subdivisions; i++) {
+        const pct = sPct + (i / subdivisions) * (ePct - sPct);
+        const px = gridMinX + pct * gridWidth;
+        const py = yBase + curveDepth * Math.sin(pct * Math.PI);
+        points.push(`${px},${py}`);
+      }
+
+      const midPct = (sPct + ePct) / 2;
+      const midX = gridMinX + midPct * gridWidth;
+      const midY = yBase + curveDepth * Math.sin(midPct * Math.PI);
+
+      // Rotate points to check if the actual rotated bed is inside the field polygon boundaries
+      const rotatedPointsForCheck = points.map(ptStr => {
+        const [px, py] = ptStr.split(',').map(Number);
+        return rotatePoint(px, py, rotationAngle);
+      });
+
+      // Skip strict boundary check to let SVG clip-path crop irregular shapes automatically
+
+      // 2. Collision check with kitchen, compost, and ash pits (relative coordinates in grid frame remain invariant)
+      const distToKitchen = Math.hypot(midX - kitchenPos.x, midY - kitchenPos.y);
+      if (distToKitchen < kitchenPos.radius + 2.0) {
+        continue; // Skip this bed
+      }
+
+      if (midX >= compostX - 2.0 && midX <= compostX + compostWidth + 2.0 &&
+          midY >= compostY - 2.0 && midY <= compostY + compostHeight + 2.0) {
+        continue; // Skip this bed
+      }
+
+      const distToAsh = Math.hypot(midX - ashX, midY - ashY);
+      if (distToAsh < ashRadius + 2.0) {
+        continue; // Skip this bed
+      }
+
+      let label = cropName.substring(0, 5);
+      if (cropName.toLowerCase().includes('rice')) label = 'Rice';
+      else if (cropName.toLowerCase().includes('fever')) label = 'Fever';
+      else if (cropName.toLowerCase().includes('cassava')) label = 'Cass';
+
+      beds.push({
+        id: `bed_${r}_${b}`,
+        d: `M ${points.join(' L ')}`,
+        midX,
+        midY,
+        color,
+        crop: cropName,
+        label,
+        row: r + 1,
+        bed: b + 1
+      });
+    }
+  }
+
+  // Generate parallel contour terrace walkway paths, cutting holes through kitchen and pit zones
+  const terraceWalkways = [];
+  for (let r = 0; r <= rows; r++) {
+    const yBase = gridMinY + r * rowHeight;
+    let pathD = '';
+    const segments = 16;
+    let isDrawing = false;
+    for (let i = 0; i <= segments; i++) {
+      const pct = i / segments;
+      const px = gridMinX + pct * gridWidth;
+      const py = yBase + curveDepth * Math.sin(pct * Math.PI);
+      const distToKitchen = Math.hypot(px - kitchenPos.x, py - kitchenPos.y);
+      const distToAsh = Math.hypot(px - ashX, py - ashY);
+      
+      const inKitchenZone = distToKitchen < kitchenPos.radius + 1.0;
+      const inCompostZone = px >= compostX - 1.0 && px <= compostX + compostWidth + 1.0 && py >= compostY - 1.0 && py <= compostY + compostHeight + 1.0;
+      const inAshZone = distToAsh < ashRadius + 1.0;
+
+      if (inKitchenZone || inCompostZone || inAshZone) {
+        isDrawing = false;
+      } else {
+        if (!isDrawing) {
+          pathD += ` M ${px},${py}`;
+          isDrawing = true;
+        } else {
+          pathD += ` L ${px},${py}`;
+        }
+      }
+    }
+    if (pathD.trim()) {
+      terraceWalkways.push(pathD);
+    }
+  }
+
+  const clipPathId = `field-clip-${field.id}`;
+
+  const kitchenBuildingRadius = kitchenPos.radius * 0.45;
+  const vegBedWidth = kitchenPos.radius * 0.7;
+  const vegBedHeight = kitchenPos.radius * 0.3;
+  const vegBedX = kitchenPos.x - kitchenPos.radius * 0.9;
+  const vegBedY = kitchenPos.y - kitchenPos.radius * 0.55;
+  
+  const herbBedWidth = kitchenPos.radius * 0.7;
+  const herbBedHeight = kitchenPos.radius * 0.3;
+  const herbBedX = kitchenPos.x - kitchenPos.radius * 0.9;
+  const herbBedY = kitchenPos.y + kitchenPos.radius * 0.25;
+
+  const needsFlip = rotationAngle > 90 && rotationAngle < 270;
+
+  return (
+    <SVGOverlay key={`${field.id}_zoom_${zoom}_rot_${rotationAngle}`} bounds={bounds} viewBox="0 0 100 100">
+      <defs>
+        <clipPath id={clipPathId}>
+          <polygon points={pointsStr} />
+        </clipPath>
+      </defs>
+      
+      {/* Clip everything to the irregular field polygon bounds */}
+      <g clipPath={`url(#${clipPathId})`}>
+        {/* Underlay representing soil / general field ground */}
+        <rect x="0" y="0" width="100" height="100" fill="#5d4037" opacity="0.35" />
+        
+        {/* Wrap elements in rotated group to align layout grid to field */}
+        <g transform={`rotate(${rotationAngle}, 50, 50)`}>
+          {/* Draw terrace contour walkway lines between rows */}
+          {terraceWalkways.map((wPath, idx) => (
+            <path
+              key={`walkway_${idx}`}
+              d={wPath}
+              fill="none"
+              stroke="#d7ccc8"
+              strokeWidth="1.2"
+              opacity="0.65"
+            />
+          ))}
+          
+          {/* Main Vertical Walkway down the center */}
+          <line 
+            x1={verticalWalkwayX} 
+            y1={gridMinY} 
+            x2={verticalWalkwayX} 
+            y2={gridMaxY} 
+            stroke="#d7ccc8" 
+            strokeWidth="1.5" 
+            strokeDasharray="2 2" 
+            opacity="0.75" 
+          />
+
+          {/* Main Horizontal Walkway through the center */}
+          <path 
+            d={horizontalWalkwayD} 
+            fill="none" 
+            stroke="#d7ccc8" 
+            strokeWidth="1.5" 
+            strokeDasharray="2 2" 
+            opacity="0.75" 
+          />
+
+          {/* Walkways tracks (Stepping stones paths) */}
+          {/* Main path from kitchen center to central vertical walkway */}
+          <line 
+            x1={kitchenPos.x} 
+            y1={kitchenPos.y} 
+            x2={verticalWalkwayX} 
+            y2={kitchenPos.y} 
+            stroke="#8d6e63" 
+            strokeWidth="1.2" 
+            strokeDasharray="1 1" 
+          />
+          {/* Main path from compost pit center to central vertical walkway */}
+          <line 
+            x1={compostX + compostWidth / 2} 
+            y1={compostY + compostHeight / 2} 
+            x2={verticalWalkwayX} 
+            y2={compostY + compostHeight / 2} 
+            stroke="#8d6e63" 
+            strokeWidth="1.2" 
+            strokeDasharray="1 1" 
+          />
+          
+          {/* Draw Curved Crop Beds with distinct row spacing */}
+          {beds.map(bed => (
+            <g key={bed.id}>
+              <path
+                d={bed.d}
+                fill="none"
+                stroke={bed.color}
+                // strokeWidth is slightly narrower (0.62) to leave clear space between rows
+                strokeWidth={rowHeight * 0.62}
+                strokeLinecap="round"
+                opacity={0.9}
+                style={{ pointerEvents: 'auto', cursor: 'pointer' }}
+              >
+                <title>{`${bed.crop} (Row ${bed.row}, Bed ${bed.bed})`}</title>
+              </path>
+              {/* Crop Label Inside Bed - dynamically flipped if layout is upside down */}
+              <text
+                x={bed.midX}
+                y={bed.midY + 0.8}
+                fill="#ffffff"
+                fontSize="2.0"
+                fontWeight="bold"
+                textAnchor="middle"
+                transform={needsFlip ? `rotate(180, ${bed.midX}, ${bed.midY + 0.8})` : undefined}
+                style={{ pointerEvents: 'none', userSelect: 'none', textShadow: '0.5px 0.5px 1px rgba(0,0,0,0.8)' }}
+              >
+                {bed.label}
+              </text>
+            </g>
+          ))}
+
+          {/* THATCH KITCHEN: Sized dynamically to 1/4 of a lot and placed at highest elevation */}
+          <g>
+            {/* Thatch roof circular base */}
+            <circle cx={kitchenPos.x} cy={kitchenPos.y} r={kitchenBuildingRadius} fill="#d7ccc8" stroke="#8d6e63" strokeWidth="0.6" />
+            {/* Roof thatch radial lines */}
+            <line x1={kitchenPos.x} y1={kitchenPos.y} x2={kitchenPos.x} y2={kitchenPos.y - kitchenBuildingRadius} stroke="#a1887f" strokeWidth="0.3" />
+            <line x1={kitchenPos.x} y1={kitchenPos.y} x2={kitchenPos.x} y2={kitchenPos.y + kitchenBuildingRadius} stroke="#a1887f" strokeWidth="0.3" />
+            <line x1={kitchenPos.x} y1={kitchenPos.y} x2={kitchenPos.x - kitchenBuildingRadius} y2={kitchenPos.y} stroke="#a1887f" strokeWidth="0.3" />
+            <line x1={kitchenPos.x} y1={kitchenPos.y} x2={kitchenPos.x + kitchenBuildingRadius} y2={kitchenPos.y} stroke="#a1887f" strokeWidth="0.3" />
+            <line x1={kitchenPos.x} y1={kitchenPos.y} x2={kitchenPos.x - kitchenBuildingRadius * 0.7} y2={kitchenPos.y - kitchenBuildingRadius * 0.7} stroke="#a1887f" strokeWidth="0.3" />
+            <line x1={kitchenPos.x} y1={kitchenPos.y} x2={kitchenPos.x + kitchenBuildingRadius * 0.7} y2={kitchenPos.y + kitchenBuildingRadius * 0.7} stroke="#a1887f" strokeWidth="0.3" />
+            <line x1={kitchenPos.x} y1={kitchenPos.y} x2={kitchenPos.x - kitchenBuildingRadius * 0.7} y2={kitchenPos.y + kitchenBuildingRadius * 0.7} stroke="#a1887f" strokeWidth="0.3" />
+            <line x1={kitchenPos.x} y1={kitchenPos.y} x2={kitchenPos.x + kitchenBuildingRadius * 0.7} y2={kitchenPos.y - kitchenBuildingRadius * 0.7} stroke="#a1887f" strokeWidth="0.3" />
+            {/* Smoke outlet central chimney */}
+            <circle cx={kitchenPos.x} cy={kitchenPos.y} r={kitchenBuildingRadius * 0.15} fill="#3e2723" />
+            {/* Text Label */}
+            <text 
+              x={kitchenPos.x} 
+              y={kitchenPos.y + kitchenBuildingRadius + 2.0} 
+              fill="#ffffff" 
+              fontSize="1.8" 
+              fontWeight="bold" 
+              textAnchor="middle" 
+              transform={needsFlip ? `rotate(180, ${kitchenPos.x}, ${kitchenPos.y + kitchenBuildingRadius + 2.0})` : undefined}
+              style={{ textShadow: '0.8px 0.8px 1.5px rgba(0,0,0,0.9)' }}
+            >
+              Kitchen
+            </text>
+          </g>
+
+          {/* Small crop area surrounding the kitchen */}
+          <g>
+            {/* Small vegetable garden bed to the left of the kitchen */}
+            <rect x={vegBedX} y={vegBedY} width={vegBedWidth} height={vegBedHeight} rx="0.5" fill="#4fc3f7" opacity="0.85" />
+            <text 
+              x={vegBedX + vegBedWidth / 2} 
+              y={vegBedY + vegBedHeight / 2 + 0.6} 
+              fill="#ffffff" 
+              fontSize="1.4" 
+              fontWeight="bold" 
+              textAnchor="middle" 
+              transform={needsFlip ? `rotate(180, ${vegBedX + vegBedWidth / 2}, ${vegBedY + vegBedHeight / 2 + 0.6})` : undefined}
+              style={{ textShadow: '0.4px 0.4px 0.8px rgba(0,0,0,0.8)' }}
+            >
+              Veg
+            </text>
+            {/* Small herb garden bed below the kitchen */}
+            <rect x={herbBedX} y={herbBedY} width={herbBedWidth} height={herbBedHeight} rx="0.5" fill="#ec407a" opacity="0.85" />
+            <text 
+              x={herbBedX + herbBedWidth / 2} 
+              y={herbBedY + herbBedHeight / 2 + 0.6} 
+              fill="#ffffff" 
+              fontSize="1.4" 
+              fontWeight="bold" 
+              textAnchor="middle" 
+              transform={needsFlip ? `rotate(180, ${herbBedX + herbBedWidth / 2}, ${herbBedY + herbBedHeight / 2 + 0.6})` : undefined}
+              style={{ textShadow: '0.4px 0.4px 0.8px rgba(0,0,0,0.8)' }}
+            >
+              Herb
+            </text>
+          </g>
+
+          {/* COMPOST PIT: Sized down slightly, adjacent to field (upper left or right area) */}
+          <g>
+            <rect x={compostX} y={compostY} width={compostWidth} height={compostHeight} rx="1.0" fill="#4e342e" stroke="#5d4037" strokeWidth="0.6" />
+            <circle cx={compostX + compostWidth * 0.15} cy={compostY + compostHeight * 0.3} r="0.5" fill="#4caf50" opacity="0.7" />
+            <circle cx={compostX + compostWidth * 0.8} cy={compostY + compostHeight * 0.7} r="0.4" fill="#81c784" opacity="0.7" />
+            <circle cx={compostX + compostWidth * 0.5} cy={compostY + compostHeight * 0.45} r="0.5" fill="#2e7d32" opacity="0.6" />
+            <text 
+              x={compostX + compostWidth / 2} 
+              y={compostY + compostHeight / 2 + 1.0} 
+              fill="#ffffff" 
+              fontSize="1.8" 
+              fontWeight="bold" 
+              textAnchor="middle" 
+              transform={needsFlip ? `rotate(180, ${compostX + compostWidth / 2}, ${compostY + compostHeight / 2 + 1.0})` : undefined}
+              style={{ textShadow: '0.5px 0.5px 1px rgba(0,0,0,0.8)' }}
+            >
+              Compost
+            </text>
+          </g>
+
+          {/* ASH PIT: Sized down, adjacent to field */}
+          <g>
+            <circle cx={ashX} cy={ashY} r={ashRadius} fill="#9e9e9e" stroke="#757575" strokeWidth="0.6" />
+            <circle cx={ashX - ashRadius * 0.43} cy={ashY - ashRadius * 0.29} r="0.5" fill="#e0e0e0" opacity="0.8" />
+            <circle cx={ashX + ashRadius * 0.43} cy={ashY + ashRadius * 0.29} r="0.4" fill="#757575" opacity="0.6" />
+            <text 
+              x={ashX} 
+              y={ashY + ashRadius * 0.2} 
+              fill="#ffffff" 
+              fontSize="1.8" 
+              fontWeight="bold" 
+              textAnchor="middle" 
+              transform={needsFlip ? `rotate(180, ${ashX}, ${ashY + ashRadius * 0.2})` : undefined}
+              style={{ textShadow: '0.5px 0.5px 1px rgba(0,0,0,0.8)' }}
+            >
+              Ash
+            </text>
+          </g>
+        </g>
+      </g>
+      {/* Legend showing sublist of actual recommended layout crops directly on the overlay */}
+      {cropAssignments && cropAssignments.length > 0 && (
+        <g style={{ pointerEvents: 'none' }}>
+          <rect x="5" y="1" width="90" height="5" rx="1" fill="rgba(0,0,0,0.65)" />
+          <g transform="translate(8, 2.5)">
+            {cropAssignments.map((ass, idx) => {
+              const cropName = ass.crop || 'Unassigned';
+              return (
+                <g key={idx} transform={`translate(${idx * (80 / cropAssignments.length)}, 1.2)`}>
+                  <rect x="0" y="-1.2" width="2.2" height="2.2" rx="0.5" fill={ass.color} />
+                  <text x="3.2" y="0.5" fill="#ffffff" fontSize="1.8" fontWeight="bold">
+                    {cropName.length > 10 ? `${cropName.substring(0, 9)}.` : cropName}
+                  </text>
+                </g>
+              );
+            })}
+          </g>
+        </g>
+      )}
+    </SVGOverlay>
+  );
+};
+
 const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
   const dispatch = useDispatch();
   const [mapInstance, setMapInstance] = useState(null);
@@ -65,6 +769,7 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
   const formatLabel = (txt) => themeFontImagerCapitalize ? txt.toUpperCase() : txt;
   const currentUser = useSelector(state => state.auth?.currentUser);
   const googleMapsApiKey = useSelector(state => state.settings?.googleMapsApiKey) || '';
+  const recommendations = useSelector(state => state.recommendations?.data) || [];
   
   const [geoJsonLayers, setGeoJsonLayers] = useState([]);
   const [errors, setErrors] = useState([]);
@@ -79,6 +784,10 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
   const weatherFetchCache = useRef(new Set());
   const [waterways, setWaterways] = useState(null);
   const [showWaterways, setShowWaterways] = useState(true);
+
+  const anyFieldHasCropLayout = useMemo(() => {
+    return Object.values(fieldImagery).some(val => val && val.startsWith('CropLayout'));
+  }, [fieldImagery]);
 
   useEffect(() => {
     fetch('/api/lisgis/waterways')
@@ -711,6 +1420,7 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
                 )}
                 <option value="none">{formatLabel("None (Standard)")}</option>
                 <option value="Elevation">{formatLabel("Elevation (Topography)")}</option>
+                <option value="CropLayout">{formatLabel("Crop Layout Overlay")}</option>
                 <optgroup label={formatLabel("Satellite Indices")}>
                   <option value="CurrentSatellite">{formatLabel("Current Satellite View")}</option>
                   <option value="TrueColor">{formatLabel("True Color (RGB)")}</option>
@@ -1037,9 +1747,15 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
           }
           if (!Array.isArray(positions) || positions.length === 0) return null;
           
+          const linkedIds = field.recommendationIds || [];
+          const linkedAiRecs = (recommendations || []).filter(r => r.isAI && linkedIds.includes(r.id));
+          const hasAiRec = linkedAiRecs.length > 0;
+
           const showImagery = fieldImagery[field.id] && fieldImagery[field.id] !== 'none';
           const isLoaded = geeStatus[field.id]?.status === 'success' || geeStatus[field.id]?.status === 'failed';
-          const makeTransparent = showImagery && isLoaded;
+          
+          const showCropLayoutForField = (fieldImagery[field.id] && fieldImagery[field.id].startsWith('CropLayout_')) || (fieldImagery[field.id] === 'CropLayout' && hasAiRec);
+          const makeTransparent = (showImagery && isLoaded) || showCropLayoutForField;
 
           return (
             <React.Fragment key={field.id}>
@@ -1085,6 +1801,12 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
                       >
                         <option value="none">{formatLabel("None (Standard)")}</option>
                         <option value="Elevation">{formatLabel("Elevation (Topography)")}</option>
+                        {linkedAiRecs.map(rec => (
+                          <option key={rec.id} value={`CropLayout_${rec.id}`}>
+                            {formatLabel(`Layout: ${rec.name}`)}
+                          </option>
+                        ))}
+                        {/* No default crop layout option rendered when no recommendation exists */}
                         <optgroup label={formatLabel("Satellite Indices")}>
                           <option value="CurrentSatellite">{formatLabel("Current Satellite View")}</option>
                           <option value="TrueColor">{formatLabel("True Color (RGB)")}</option>
@@ -1097,7 +1819,7 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
                         <option value="GEE_Weather">{formatLabel("Weather Forecast (GEE GFS)")}</option>
                       </select>
                     </div>
-                    {fieldImagery[field.id] && fieldImagery[field.id] !== 'none' && (
+                    {fieldImagery[field.id] && fieldImagery[field.id] !== 'none' && !fieldImagery[field.id].startsWith('CropLayout') && (
                       <div style={{ marginTop: '8px', padding: '6px', background: '#f1f8e9', borderRadius: '4px', border: '1px solid #c5e1a5', fontSize: '0.72rem', color: '#33691e' }}>
                         {fieldImagery[field.id] === 'GEE_Weather' ? (
                           (() => {
@@ -1213,15 +1935,143 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
                         </div>
                       </div>
                     )}
+                    {showCropLayoutForField && (
+                      <div style={{ marginTop: '8px', padding: '10px', background: '#f5f7fa', borderRadius: '6px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        {(() => {
+                          const linkedIds = field.recommendationIds || [];
+                          const linkedAiRecs = (recommendations || []).filter(r => r.isAI && linkedIds.includes(r.id));
+                          
+                          // Determine selected report ID from fieldImagery
+                          const selectedRecVal = fieldImagery[field.id] || '';
+                          const selectedRecId = selectedRecVal.startsWith('CropLayout_') ? selectedRecVal.substring(11) : null;
+                          
+                          let report = null;
+                          if (selectedRecId) {
+                            report = linkedAiRecs.find(r => r.id === selectedRecId);
+                          }
+                          if (!report && linkedAiRecs.length > 0) {
+                            report = [...linkedAiRecs].sort((a, b) => b.createdAt - a.createdAt)[0];
+                          }
+                          
+                          const layoutData = report?.structuredData?.fieldLayout || (report ? parseStructuredData(
+                            (report.responseTabs || []).map(t => `## ${t.title}\n${t.content}`).join('\n'),
+                            field.area || 5,
+                            report.promptInputs?.selectedCrops || ''
+                          ).fieldLayout : parseStructuredData('', field.area || 5).fieldLayout);
+                          
+                           // Auto-calculate the angle of the longest axis
+                           let autoAngle = 0;
+                           if (positions.length >= 3) {
+                             let minLat = Infinity, maxLat = -Infinity;
+                             let minLng = Infinity, maxLng = -Infinity;
+                             for (const pt of positions) {
+                               if (pt[0] < minLat) minLat = pt[0];
+                               if (pt[0] > maxLat) maxLat = pt[0];
+                               if (pt[1] < minLng) minLng = pt[1];
+                               if (pt[1] > maxLng) maxLng = pt[1];
+                             }
+                             const svgVertices = positions.map(pt => {
+                               const x = ((pt[1] - minLng) / (maxLng - minLng || 0.0001)) * 100;
+                               const y = (1.0 - (pt[0] - minLat) / (maxLat - minLat || 0.0001)) * 100;
+                               return { x, y };
+                             });
+                             let maxDist = -1;
+                             let bestPair = null;
+                             for (let i = 0; i < svgVertices.length; i++) {
+                               for (let j = i + 1; j < svgVertices.length; j++) {
+                                 const dist = Math.hypot(svgVertices[i].x - svgVertices[j].x, svgVertices[i].y - svgVertices[j].y);
+                                 if (dist > maxDist) {
+                                   maxDist = dist;
+                                   bestPair = [svgVertices[i], svgVertices[j]];
+                                 }
+                               }
+                             }
+                             if (bestPair) {
+                               const dx = bestPair[1].x - bestPair[0].x;
+                               const dy = bestPair[1].y - bestPair[0].y;
+                               let angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+                               if (angle < 0) angle += 180;
+                               autoAngle = Math.round(angle);
+                             }
+                           }
+                           const currentAngle = (field.layoutRotation !== undefined && field.layoutRotation !== null && field.layoutRotation !== '') ? parseInt(field.layoutRotation) : autoAngle;
+
+                           return (
+                             <>
+                               <div style={{ fontWeight: 600, fontSize: '0.75rem', color: '#1b5e20', borderBottom: '1px solid #e2e8f0', paddingBottom: '4px', marginBottom: '2px' }}>
+                                 {report ? `Layout: ${report.name}` : 'Default Standard Layout'}
+                               </div>
+                               <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                 {!layoutData || !layoutData.cropAssignments ? (
+                                   <div style={{ fontSize: '0.68rem', color: '#666' }}>No crop layout active. Use Crop Advisor to generate one.</div>
+                                 ) : (
+                                   layoutData.cropAssignments.map((ass, idx) => (
+                                     <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.7rem' }}>
+                                       <span style={{ display: 'inline-block', width: '12px', height: '12px', borderRadius: '3px', backgroundColor: ass.color, flexShrink: 0 }} />
+                                       <span style={{ fontWeight: 600 }}>{ass.crop || 'Unassigned'}</span>
+                                       <span style={{ color: '#666', fontSize: '0.65rem' }}>(Rows {ass.startRow + 1}-{ass.endRow + 1})</span>
+                                     </div>
+                                   ))
+                                 )}
+                               </div>
+                               <div style={{ marginTop: '10px', borderTop: '1px solid #e2e8f0', paddingTop: '8px' }}>
+                                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                                   <label style={{ fontSize: '0.7rem', fontWeight: 600, color: '#333', margin: 0 }}>
+                                     Layout Rotation:
+                                   </label>
+                                   <span style={{ fontSize: '0.7rem', fontWeight: 700, color: '#2e7d32' }}>
+                                     {currentAngle}° {(field.layoutRotation === undefined || field.layoutRotation === null || field.layoutRotation === '') && '(Auto)'}
+                                   </span>
+                                 </div>
+                                 <input
+                                   type="range"
+                                   min="0"
+                                   max="360"
+                                   value={currentAngle}
+                                   onChange={(e) => {
+                                     const val = parseInt(e.target.value);
+                                     const updatedField = { ...field, layoutRotation: val };
+                                     dispatch(updateField(updatedField));
+                                     dispatch(queueAction({ type: 'core/updateNode', payload: { id: field.id, properties: updatedField }, meta: { id: Date.now() } }));
+                                   }}
+                                   style={{ width: '100%', cursor: 'pointer', height: '4px', background: '#ccc', borderRadius: '2px', outline: 'none' }}
+                                 />
+                                 {field.layoutRotation !== undefined && field.layoutRotation !== null && field.layoutRotation !== '' && (
+                                   <button
+                                     type="button"
+                                     onClick={() => {
+                                       const updatedField = { ...field, layoutRotation: '' };
+                                       dispatch(updateField(updatedField));
+                                       dispatch(queueAction({ type: 'core/updateNode', payload: { id: field.id, properties: updatedField }, meta: { id: Date.now() } }));
+                                     }}
+                                     className="btn"
+                                     style={{ padding: '2px 6px', fontSize: '0.65rem', marginTop: '6px', width: '100%', background: '#f5f5f5', border: '1px solid #ddd', cursor: 'pointer' }}
+                                   >
+                                     Reset to Auto-Align
+                                   </button>
+                                 )}
+                               </div>
+                             </>
+                           );
+                        })()}
+                      </div>
+                    )}
                   </div>
                 </Popup>
               </Polygon>
-              {fieldImagery[field.id] && fieldImagery[field.id] !== 'none' && fieldImagery[field.id] !== 'GEE_Weather' && (
+              {fieldImagery[field.id] && fieldImagery[field.id] !== 'none' && fieldImagery[field.id] !== 'GEE_Weather' && !fieldImagery[field.id].startsWith('CropLayout') && (
                 <FieldImageryOverlay 
                   polygon={positions} 
                   indexType={fieldImagery[field.id]} 
                   dateOffset={fieldImageryOffsets[field.id] || 0}
                   fieldId={field.id}
+                />
+              )}
+              {showCropLayoutForField && (
+                <FieldLayoutMapOverlay 
+                  field={field}
+                  recommendations={recommendations}
+                  selectedRecId={fieldImagery[field.id] && fieldImagery[field.id].startsWith('CropLayout_') ? fieldImagery[field.id].substring(11) : null}
                 />
               )}
             </React.Fragment>
