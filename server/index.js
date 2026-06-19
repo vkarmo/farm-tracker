@@ -1505,6 +1505,45 @@ Apply fluctuating market prices for each crop across different months to reflect
 ## Field Layout
 [Generate a textual or ASCII representation and details of the agricultural field layout, including properly spaced rows, beds, walkways, and spacing details in meters/feet for the specified crops.]
 
+Crucial: At the very end of your response, after the Field Layout section, output exactly one JSON code block enclosed in \`\`\`json and \`\`\`. This JSON block will fuel dynamic charts and interactive UI maps on the client side. The math in the JSON block must align perfectly with your tables above.
+The JSON structure must match this template exactly:
+\`\`\`json
+{
+  "annualRevenue": [
+    { "crop": "Crop A", "revenue": 4500 },
+    { "crop": "Crop B", "revenue": 3200 }
+  ],
+  "monthlyProjections": [
+    { "month": "Month 1", "Crop A": 375, "Crop B": 260, "total": 635 },
+    { "month": "Month 2", "Crop A": 380, "Crop B": 270, "total": 650 },
+    { "month": "Month 3", "Crop A": 390, "Crop B": 280, "total": 670 },
+    { "month": "Month 4", "Crop A": 400, "Crop B": 290, "total": 690 },
+    { "month": "Month 5", "Crop A": 410, "Crop B": 300, "total": 710 },
+    { "month": "Month 6", "Crop A": 420, "Crop B": 310, "total": 730 },
+    { "month": "Month 7", "Crop A": 430, "Crop B": 320, "total": 750 },
+    { "month": "Month 8", "Crop A": 440, "Crop B": 330, "total": 770 },
+    { "month": "Month 9", "Crop A": 450, "Crop B": 340, "total": 790 },
+    { "month": "Month 10", "Crop A": 460, "Crop B": 350, "total": 810 },
+    { "month": "Month 11", "Crop A": 470, "Crop B": 360, "total": 830 },
+    { "month": "Month 12", "Crop A": 480, "Crop B": 370, "total": 850 }
+  ],
+  "fieldLayout": {
+    "rows": 10,
+    "bedsPerRow": 4,
+    "bedWidth": 1.2,
+    "rowSpacing": 0.6,
+    "cropAssignments": [
+      { "crop": "Crop A", "color": "#2e7d32", "startRow": 0, "endRow": 4 },
+      { "crop": "Crop B", "color": "#8d6e63", "startRow": 5, "endRow": 9 }
+    ]
+  }
+}
+\`\`\`
+Ensure that:
+1. "annualRevenue" contains all recommended crops with their projected annual USD revenue.
+2. "monthlyProjections" contains exactly 12 items (Month 1 to Month 12), with each crop's monthly revenue (using the exact crop names as keys) and the monthly total.
+3. "fieldLayout" specifies "rows" (between 6 and 15), "bedsPerRow" (between 2 and 6), "bedWidth" and "rowSpacing" in meters, and "cropAssignments" containing a color (hex code) and startRow/endRow (0-indexed ranges spanning from 0 to rows-1) mapping all crops.
+
 Do not wrap the whole response in a JSON block or code blocks. Start directly with the first heading.`;
 
     // 2. Set streaming headers
@@ -1568,7 +1607,7 @@ Do not wrap the whole response in a JSON block or code blocks. Start directly wi
         body: JSON.stringify({
           model: 'claude-sonnet-4-6',
           max_tokens: 8000,
-          system: 'You are an expert tropical agronomist. Respond in plain Markdown format directly matching the requested outline. Do not wrap the response in any JSON format or HTML or backticks.',
+          system: 'You are an expert tropical agronomist. Respond in plain Markdown format directly matching the requested outline. Do not wrap the entire response in a JSON block, but ensure you include the requested JSON block code fence at the bottom of the message.',
           messages: [{ role: 'user', content: promptText }],
           stream: true
         })

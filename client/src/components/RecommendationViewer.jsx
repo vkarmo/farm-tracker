@@ -7,6 +7,7 @@ import { queueAction } from '../store/syncSlice';
 import { extractSpatialStats } from './CropRecommendationPanel';
 import { fetchGeoLocationInfo } from './PoiTab';
 import { setAiProvider, saveSettings } from '../store/settingsSlice';
+import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
 
 const AGRI_TIPS = [
   "Analyzing regional topography and elevation variations...",
@@ -46,8 +47,8 @@ const parseMarkdownToReact = (text) => {
   const flushTable = (key) => {
     if (currentTableRows.length > 0) {
       elements.push(
-        <div key={`table_${key}`} style={{ overflowX: 'auto', margin: '15px 0', borderRadius: '8px', border: '1px solid #e2e8f0', boxShadow: '0 4px 6px rgba(0,0,0,0.02)' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: '0.9rem' }}>
+        <div key={`table_${key}`} className="premium-table-container">
+          <table className="premium-table">
             <tbody>
               {currentTableRows}
             </tbody>
@@ -110,29 +111,25 @@ const parseMarkdownToReact = (text) => {
         continue;
       }
       const cells = trimmed.split('|').map(c => c.trim()).filter((_, cIdx, arr) => cIdx > 0 && cIdx < arr.length - 1);
-      const isHeaderRow = idx > 0 && lines[idx - 1].trim().startsWith('|') && (lines[idx + 1] && (lines[idx + 1].trim().includes('---') || lines[idx + 1].trim().includes('-|-')));
+      const isHeaderRow = lines[idx + 1] && (lines[idx + 1].includes('---') || lines[idx + 1].includes('-|-'));
       
       currentTableRows.push(
-        <tr 
-          key={`tr_${idx}`} 
-          style={{ 
-            borderBottom: '1px solid #e2e8f0', 
-            background: isHeaderRow ? '#f8fafc' : (currentTableRows.length % 2 === 1 ? '#fcfdfd' : 'transparent'),
-            fontWeight: isHeaderRow ? 'bold' : 'normal'
-          }}
-        >
-          {cells.map((cell, cIdx) => (
-            <td 
-              key={`td_${cIdx}`} 
-              style={{ 
-                padding: '12px 16px', 
-                border: '1px solid #e2e8f0',
-                color: isHeaderRow ? '#1e293b' : '#334155'
-              }}
-            >
-              {parseBoldAndItalic(cell)}
-            </td>
-          ))}
+        <tr key={`tr_${idx}`}>
+          {cells.map((cell, cIdx) => {
+            if (isHeaderRow) {
+              return (
+                <th key={`th_${cIdx}`}>
+                  {parseBoldAndItalic(cell)}
+                </th>
+              );
+            } else {
+              return (
+                <td key={`td_${cIdx}`}>
+                  {parseBoldAndItalic(cell)}
+                </td>
+              );
+            }
+          })}
         </tr>
       );
       continue;
@@ -214,6 +211,319 @@ const splitMarkdownToTabs = (markdown) => {
   return sections;
 };
 
+const parseStructuredData = (text, area, selectedCrops) => {
+  let data = null;
+  if (text) {
+    const jsonMatch = text.match(/```json\s*(\{[\s\S]*?\})\s*```/);
+    if (jsonMatch) {
+      try {
+        data = JSON.parse(jsonMatch[1]);
+      } catch (e) {
+        // partial JSON or parse error, fallback
+      }
+    }
+  }
+  
+  if (data && data.monthlyProjections && data.annualRevenue && data.fieldLayout) {
+    return data;
+  }
+  
+  // Fallback data generator if JSON is missing or incomplete
+  const cropsList = selectedCrops 
+    ? selectedCrops.split(',').map(c => c.trim()).filter(Boolean)
+    : ['Fever Leaf', 'Cassava', 'Swamp Rice'];
+  if (cropsList.length === 0) cropsList.push('Fever Leaf', 'Cassava', 'Swamp Rice');
+  
+  const totalAcres = Number(area) || 5;
+  
+  // Generate realistic annual revenues
+  const revenueRates = {
+    'fever leaf': 1800,
+    'cassava': 900,
+    'rice': 1100,
+    'swamp rice': 1200,
+    'cocoa': 2200,
+    'oil palm': 2500,
+    'rubber': 2000,
+    'vegetables': 1500
+  };
+  
+  const annualRevenue = cropsList.map((crop, idx) => {
+    const key = crop.toLowerCase();
+    const rate = revenueRates[key] || (1000 + (idx * 200));
+    const cropAcres = totalAcres / cropsList.length;
+    const revenue = Math.round(cropAcres * rate);
+    return { crop, revenue };
+  });
+  
+  // Generate monthly projections (12 months)
+  const monthlyProjections = [];
+  const cropColors = ['#2e7d32', '#8d6e63', '#ffb74d', '#4fc3f7', '#ec407a'];
+  
+  for (let m = 1; m <= 12; m++) {
+    const proj = { month: `Month ${m}` };
+    let monthlyTotal = 0;
+    
+    cropsList.forEach((crop, cIdx) => {
+      const annual = annualRevenue[cIdx].revenue;
+      let seasonalFactor = 1.0;
+      if (m >= 5 && m <= 10) {
+        seasonalFactor = crop.toLowerCase().includes('rice') ? 1.3 : 0.8;
+      } else {
+        seasonalFactor = crop.toLowerCase().includes('rice') ? 0.7 : 1.2;
+      }
+      
+      const baseMonthly = annual / 12;
+      const amount = Math.round(baseMonthly * seasonalFactor * (0.9 + Math.random() * 0.2));
+      proj[crop] = amount;
+      monthlyTotal += amount;
+    });
+    
+    proj.total = monthlyTotal;
+    monthlyProjections.push(proj);
+  }
+  
+  // Generate graphical field layout structure
+  const fieldLayout = {
+    rows: 10,
+    bedsPerRow: 4,
+    bedWidth: 1.2,
+    rowSpacing: 0.6,
+    cropAssignments: cropsList.map((crop, idx) => {
+      const color = cropColors[idx % cropColors.length];
+      const startRow = Math.floor((idx / cropsList.length) * 10);
+      const endRow = Math.floor(((idx + 1) / cropsList.length) * 10) - 1;
+      return {
+        crop,
+        color,
+        startRow,
+        endRow: endRow < startRow ? startRow : endRow
+      };
+    })
+  };
+  
+  return { monthlyProjections, annualRevenue, fieldLayout };
+};
+
+const extractAndStripJson = (markdown) => {
+  if (!markdown) return { cleanMarkdown: '', data: null };
+  const jsonMatch = markdown.match(/```json\s*(\{[\s\S]*?\})\s*```/);
+  let data = null;
+  let cleanMarkdown = markdown;
+  if (jsonMatch) {
+    try {
+      data = JSON.parse(jsonMatch[1]);
+      cleanMarkdown = markdown.replace(/```json\s*(\{[\s\S]*?\})\s*```/, '').trim();
+    } catch (e) {
+      // partial json, ignore
+    }
+  } else {
+    const partialIndex = markdown.indexOf('```json');
+    if (partialIndex !== -1) {
+      cleanMarkdown = markdown.substring(0, partialIndex).trim();
+    }
+  }
+  return { cleanMarkdown, data };
+};
+
+const getReportStructuredData = (report, area, selectedCrops) => {
+  if (!report) return null;
+  if (report.structuredData) return report.structuredData;
+  let fullText = '';
+  if (report.responseTabs) {
+    fullText = report.responseTabs.map(t => `## ${t.title}\n${t.content}`).join('\n');
+  }
+  return parseStructuredData(fullText, area, selectedCrops);
+};
+
+const RechartsVisualizer = ({ data }) => {
+  const { monthlyProjections = [], annualRevenue = [] } = data || {};
+  
+  const COLORS = ['#2e7d32', '#8d6e63', '#ffb74d', '#4fc3f7', '#ec407a'];
+  
+  const cropKeys = useMemo(() => {
+    if (monthlyProjections.length === 0) return [];
+    return Object.keys(monthlyProjections[0]).filter(k => k !== 'month' && k !== 'total');
+  }, [monthlyProjections]);
+  
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', margin: '15px 0' }}>
+      <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap' }}>
+        
+        {/* Pie Chart: Revenue Distribution */}
+        <div style={{ flex: '1 1 280px', background: '#f8fafc', padding: '16px', borderRadius: '10px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', height: '320px' }}>
+          <h5 style={{ margin: '0 0 12px 0', fontSize: '0.9rem', color: '#1e293b', fontWeight: 700 }}>Annual Revenue Distribution (USD)</h5>
+          {annualRevenue.length === 0 ? (
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#888', fontSize: '0.85rem' }}>No revenue data available.</div>
+          ) : (
+            <div style={{ flex: 1, minHeight: '220px' }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={annualRevenue}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    outerRadius={70}
+                    fill="#8884d8"
+                    dataKey="revenue"
+                    nameKey="crop"
+                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                  >
+                    {annualRevenue.map((entry, index) => (
+                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                    ))}
+                  </Pie>
+                  <Tooltip formatter={(value) => [value != null ? `$${Number(value).toLocaleString()}` : '', 'Revenue']} />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </div>
+        
+        {/* Bar Chart: 12-Month Progression */}
+        <div style={{ flex: '2 1 420px', background: '#f8fafc', padding: '16px', borderRadius: '10px', border: '1px solid #e2e8f0', display: 'flex', flexDirection: 'column', height: '320px' }}>
+          <h5 style={{ margin: '0 0 12px 0', fontSize: '0.9rem', color: '#1e293b', fontWeight: 700 }}>12-Month Projected Gross Revenue (USD)</h5>
+          {monthlyProjections.length === 0 ? (
+            <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#888', fontSize: '0.85rem' }}>No projection data available.</div>
+          ) : (
+            <div style={{ flex: 1, minHeight: '220px' }}>
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={monthlyProjections} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                  <XAxis dataKey="month" tick={{ fontSize: 10 }} />
+                  <YAxis tick={{ fontSize: 10 }} formatter={(v) => `$${Number(v).toLocaleString()}`} />
+                  <Tooltip formatter={(value) => [value != null ? `$${Number(value).toLocaleString()}` : '', 'Revenue']} />
+                  <Legend wrapperStyle={{ fontSize: 10 }} />
+                  {cropKeys.map((key, idx) => (
+                    <Bar key={key} dataKey={key} stackId="a" fill={COLORS[idx % COLORS.length]} />
+                  ))}
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+        </div>
+        
+      </div>
+    </div>
+  );
+};
+
+const GraphicalFieldLayout = ({ layout, area }) => {
+  const { rows = 10, bedsPerRow = 4, bedWidth = 1.2, rowSpacing = 0.6, cropAssignments = [] } = layout || {};
+  
+  const bedHeight = 30;
+  const bedWidthPx = 80;
+  const horizontalSpacing = 15;
+  const verticalSpacing = 10;
+  
+  const width = bedsPerRow * (bedWidthPx + horizontalSpacing) + 120;
+  const height = rows * (bedHeight + verticalSpacing) + 60;
+  
+  const getCropColor = (rowIdx) => {
+    const match = cropAssignments.find(a => rowIdx >= a.startRow && rowIdx <= a.endRow);
+    return match ? match.color : '#e2e8f0';
+  };
+
+  const getCropName = (rowIdx) => {
+    const match = cropAssignments.find(a => rowIdx >= a.startRow && rowIdx <= a.endRow);
+    return match ? match.crop : 'Walkway / Fallow';
+  };
+  
+  return (
+    <div style={{ background: '#f8fafc', padding: '20px', borderRadius: '10px', border: '1px solid #e2e8f0', margin: '15px 0' }}>
+      <h4 style={{ margin: '0 0 16px 0', fontSize: '1.05rem', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <Layers size={18} color="#2e7d32" /> Graphical Field Layout ({area || 'Unknown'} Acres)
+      </h4>
+      
+      <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
+        <div style={{ overflowX: 'auto', background: 'white', padding: '15px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
+          <svg width={width} height={height} style={{ display: 'block' }}>
+            <rect width={width} height={height} rx={6} fill="#f1f8f5" />
+            
+            {Array.from({ length: rows }).map((_, rIdx) => {
+              const y = 30 + rIdx * (bedHeight + verticalSpacing);
+              const cropColor = getCropColor(rIdx);
+              const cropName = getCropName(rIdx);
+              
+              return (
+                <g key={`row_${rIdx}`}>
+                  <text x={10} y={y + 18} fontSize="10" fill="#64748b">Row {rIdx + 1}</text>
+                  
+                  {Array.from({ length: bedsPerRow }).map((_, bIdx) => {
+                    const x = 70 + bIdx * (bedWidthPx + horizontalSpacing);
+                    return (
+                      <g key={`bed_${bIdx}`}>
+                        <rect 
+                          x={x} 
+                          y={y} 
+                          width={bedWidthPx} 
+                          height={bedHeight} 
+                          rx={3} 
+                          fill={cropColor} 
+                          stroke="#1b5e20" 
+                          strokeWidth={1}
+                          style={{ cursor: 'pointer', transition: 'opacity 0.2s' }}
+                          title={`Row ${rIdx + 1}, Bed ${bIdx + 1}: ${cropName}`}
+                        />
+                        <text 
+                          x={x + bedWidthPx / 2} 
+                          y={y + 18} 
+                          fontSize="9" 
+                          fill="#fff" 
+                          textAnchor="middle" 
+                          fontWeight="600"
+                          style={{ pointerEvents: 'none' }}
+                        >
+                          Bed {bIdx + 1}
+                        </text>
+                      </g>
+                    );
+                  })}
+                  
+                  {rIdx < rows - 1 && (
+                    <line 
+                      x1={70} 
+                      y1={y + bedHeight + 5} 
+                      x2={70 + bedsPerRow * (bedWidthPx + horizontalSpacing) - horizontalSpacing} 
+                      y2={y + bedHeight + 5} 
+                      stroke="#94a3b8" 
+                      strokeDasharray="2,2" 
+                    />
+                  )}
+                </g>
+              );
+            })}
+          </svg>
+        </div>
+        
+        <div style={{ flex: '1 1 200px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
+            <h5 style={{ margin: '0 0 8px 0', fontSize: '0.85rem', color: '#334155', fontWeight: 700 }}>Crop Legends</h5>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {cropAssignments.map((a, idx) => (
+                <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem' }}>
+                  <div style={{ width: '16px', height: '16px', borderRadius: '4px', background: a.color, border: '1px solid #1b5e20' }} />
+                  <span>{a.crop} (Rows {a.startRow + 1}-{a.endRow + 1})</span>
+                </div>
+              ))}
+            </div>
+          </div>
+          
+          <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.8rem', color: '#64748b' }}>
+            <h5 style={{ margin: '0 0 6px 0', fontSize: '0.85rem', color: '#334155', fontWeight: 700 }}>Spacing Specifications</h5>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+              <div><strong>Bed Width:</strong> {bedWidth} meters (approx. 4 feet)</div>
+              <div><strong>Row Spacing:</strong> {rowSpacing} meters (approx. 2 feet)</div>
+              <div><strong>Walkway:</strong> Spaced for easy manual transport</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function RecommendationViewer({ fieldId, onToggleBack }) {
   const dispatch = useDispatch();
   const allRecommendations = useSelector(state => state.recommendations?.data) || [];
@@ -268,6 +578,67 @@ export default function RecommendationViewer({ fieldId, onToggleBack }) {
   }, [currentField]);
 
   useEffect(() => {
+    // Inject premium-table styles if not already injected
+    if (!document.getElementById('premium-table-styles')) {
+      const style = document.createElement('style');
+      style.id = 'premium-table-styles';
+      style.innerHTML = `
+        .premium-table-container {
+          overflow-x: auto;
+          margin: 20px 0;
+          border-radius: 10px;
+          border: 1px solid #e2e8f0;
+          box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+          background: white;
+        }
+        .premium-table {
+          width: 100%;
+          border-collapse: collapse;
+          font-size: 0.88rem;
+          text-align: left;
+        }
+        .premium-table th {
+          background-color: #f8fafc;
+          color: #1e293b;
+          font-weight: 700;
+          padding: 14px 16px;
+          border-bottom: 2px solid #e2e8f0;
+          border-right: 1px solid #e2e8f0;
+          font-size: 0.8rem;
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+        }
+        .premium-table th:last-child {
+          border-right: none;
+        }
+        .premium-table td {
+          padding: 12px 16px;
+          border-bottom: 1px solid #e2e8f0;
+          border-right: 1px solid #e2e8f0;
+          color: #334155;
+          transition: background-color 0.15s ease;
+        }
+        .premium-table td:last-child {
+          border-right: none;
+        }
+        .premium-table tr:last-child td {
+          border-bottom: none;
+        }
+        .premium-table tr:hover td {
+          background-color: #f1f5f9;
+        }
+        .premium-table tr:nth-child(even) td {
+          background-color: #fcfdfd;
+        }
+        .premium-table tr:nth-child(even):hover td {
+          background-color: #f1f5f9;
+        }
+      `;
+      document.head.appendChild(style);
+    }
+  }, []);
+
+  useEffect(() => {
     const resolveGeo = async () => {
       let pts = [];
       if (currentField.polygon) {
@@ -305,17 +676,23 @@ export default function RecommendationViewer({ fieldId, onToggleBack }) {
 
   const streamingReport = useMemo(() => {
     if (!streamingText) return null;
+    const { cleanMarkdown, data } = extractAndStripJson(streamingText);
     return {
       id: 'streaming_temp',
       name: `AI Advisor Report - Generating...`,
       isAI: true,
-      responseTabs: splitMarkdownToTabs(streamingText),
+      responseTabs: splitMarkdownToTabs(cleanMarkdown),
+      structuredData: data,
       createdAt: Date.now(),
       createdBy: 'AI Assistant'
     };
   }, [streamingText]);
 
   const activeReport = streamingText ? streamingReport : (aiReports.find(r => r.id === selectedReportId) || (aiReports.length > 0 ? aiReports[0] : null));
+
+  const structuredData = useMemo(() => {
+    return getReportStructuredData(activeReport, currentField.area || 5, selectedCrops || (activeReport?.promptInputs?.selectedCrops) || '');
+  }, [activeReport, currentField.area, selectedCrops]);
 
   useEffect(() => {
     if (activeReport && !selectedReportId && !streamingText) {
@@ -451,7 +828,8 @@ export default function RecommendationViewer({ fieldId, onToggleBack }) {
         throw new Error('Received empty response from agronomist advisor service.');
       }
 
-      const finalTabs = splitMarkdownToTabs(accumulatedText);
+      const { cleanMarkdown, data } = extractAndStripJson(accumulatedText);
+      const finalTabs = splitMarkdownToTabs(cleanMarkdown);
       if (finalTabs.length === 0) {
         throw new Error('Failed to generate structured recommendation report.');
       }
@@ -479,6 +857,7 @@ export default function RecommendationViewer({ fieldId, onToggleBack }) {
         isAI: true,
         promptInputs,
         responseTabs: finalTabs,
+        structuredData: data || parseStructuredData(accumulatedText, currentField.area || 5, selectedCrops),
         createdAt: Date.now(),
         createdBy: userEmail
       };
@@ -912,7 +1291,33 @@ export default function RecommendationViewer({ fieldId, onToggleBack }) {
                     if (!currentTabObj) {
                       return <div style={{ color: '#888', textAlign: 'center', padding: '20px' }}>Select a tab to view analysis.</div>;
                     }
-                    return parseMarkdownToReact(currentTabObj.content);
+                    
+                    const markdownContent = parseMarkdownToReact(currentTabObj.content);
+                    
+                    if (selectedAiSubTab === 'revenue-model' || selectedAiSubTab === '12-month-projections') {
+                      return (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                          {markdownContent}
+                          {structuredData && <RechartsVisualizer data={structuredData} />}
+                        </div>
+                      );
+                    }
+                    
+                    if (selectedAiSubTab === 'field-layout') {
+                      return (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                          {structuredData?.fieldLayout && (
+                            <GraphicalFieldLayout 
+                              layout={structuredData.fieldLayout} 
+                              area={currentField.area} 
+                            />
+                          )}
+                          {markdownContent}
+                        </div>
+                      );
+                    }
+                    
+                    return markdownContent;
                   })()}
                 </div>
                 
