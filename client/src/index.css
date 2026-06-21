@@ -429,6 +429,107 @@ textarea[data-populated="true"]:not(:focus) {
     padding-top: 15px;
     border-top: 1px solid #eee;
   }
+
+  /* Scale down standard dropdowns / select elements on mobile */
+  select {
+    font-size: 0.82rem !important;
+    padding: 6px 10px !important;
+    height: 34px !important;
+    border-radius: var(--radius-sm) !important;
+  }
+  select option, select optgroup {
+    font-size: 0.82rem !important;
+  }
+
+  /* Scale down custom react-select dropdowns on mobile */
+  div[class*="-control"] {
+    min-height: 32px !important;
+    height: auto !important;
+    font-size: 0.82rem !important;
+    border-radius: var(--radius-sm) !important;
+  }
+  div[class*="-ValueContainer"] {
+    padding: 2px 6px !important;
+  }
+  div[class*="-placeholder"],
+  div[class*="-singleValue"] {
+    font-size: 0.82rem !important;
+    margin: 0 !important;
+  }
+  div[class*="-Input"] {
+    margin: 0 !important;
+    padding: 0 !important;
+    font-size: 0.82rem !important;
+  }
+  div[class*="-indicatorContainer"] {
+    padding: 4px !important;
+  }
+  div[class*="-indicatorSeparator"] {
+    display: none !important;
+  }
+  div[class*="-menu"] {
+    font-size: 0.82rem !important;
+  }
+  div[class*="-option"] {
+    padding: 6px 10px !important;
+    font-size: 0.82rem !important;
+  }
+  div[class*="-multiValue"] {
+    margin: 2px !important;
+    font-size: 0.75rem !important;
+  }
+  div[class*="-multiValueLabel"] {
+    padding: 1px 4px !important;
+    font-size: 0.75rem !important;
+  }
+  div[class*="-multiValueRemove"] {
+    padding: 0 2px !important;
+  }
+
+  /* Scale down Leaflet map popups on mobile */
+  .leaflet-popup {
+    margin-bottom: 12px !important;
+  }
+  .leaflet-popup-content-wrapper {
+    border-radius: var(--radius-sm) !important;
+    padding: 2px !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15) !important;
+  }
+  .leaflet-popup-content {
+    font-size: 0.8rem !important;
+    margin: 8px 10px !important;
+    line-height: 1.35 !important;
+  }
+  .leaflet-popup-content h3 {
+    font-size: 0.9rem !important;
+    margin-bottom: 6px !important;
+  }
+  .leaflet-popup-content p {
+    margin-bottom: 4px !important;
+  }
+  .leaflet-popup-content select {
+    font-size: 0.75rem !important;
+    padding: 4px 6px !important;
+    height: 28px !important;
+    margin-top: 4px !important;
+  }
+  .leaflet-popup-content input {
+    font-size: 0.75rem !important;
+    padding: 4px 6px !important;
+    height: 28px !important;
+  }
+  .leaflet-popup-content button {
+    font-size: 0.75rem !important;
+    padding: 4px 8px !important;
+    margin-top: 4px !important;
+  }
+  .leaflet-container a.leaflet-popup-close-button {
+    width: 16px !important;
+    height: 16px !important;
+    font-size: 11px !important;
+    padding: 2px 0 0 0 !important;
+    color: #888 !important;
+  }
 }
 
 @keyframes spin {

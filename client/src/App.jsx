@@ -1001,15 +1001,15 @@ export default function App() {
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               <h1 style={{ margin: 0, padding: 0 }}>{displayAppName}</h1>
               <span style={{ fontSize: '0.75rem', opacity: 0.8, marginTop: '2px' }}>Version: {CACHE_NAME}</span>
+              <div className="db-info" title="neo4j+s://3fa11aa8.databases.neo4j.io | User: 3fa11aa8" style={{ marginTop: '4px' }}>
+                <Database size={14} style={{ flexShrink: 0 }} /> <span>neo4j+s://3fa11aa8.databases.neo4j.io | User: 3fa11aa8</span>
+              </div>
             </div>
           </div>
 
           <div className="header-right">
             <div style={{ display: 'flex', gap: '16px', width: '100%', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-                <div className="db-info" title="neo4j+s://3fa11aa8.databases.neo4j.io | User: 3fa11aa8">
-                  <Database size={14} style={{ flexShrink: 0 }} /> <span>neo4j+s://3fa11aa8.databases.neo4j.io | User: 3fa11aa8</span>
-                </div>
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                   <select 
                     value={activeFarmId} 
@@ -1023,14 +1023,19 @@ export default function App() {
                       fontSize: '0.8rem',
                       fontWeight: '600',
                       cursor: 'pointer',
-                      outline: 'none'
+                      outline: 'none',
+                      minWidth: '160px',
+                      maxWidth: '280px',
+                      width: 'auto',
+                      whiteSpace: 'normal',
+                      wordBreak: 'break-word'
                     }}
                   >
                     {farmsList.length === 0 ? (
-                      <option value="default_farm">NMK Farm</option>
+                      <option value="default_farm" style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>NMK Farm</option>
                     ) : (
                       farmsList.map(farm => (
-                        <option key={farm.id} value={farm.id}>{farm.name}</option>
+                        <option key={farm.id} value={farm.id} style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>{farm.name}</option>
                       ))
                     )}
                   </select>

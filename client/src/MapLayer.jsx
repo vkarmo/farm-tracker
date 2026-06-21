@@ -864,7 +864,7 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
 
   // Floating Filter Panel state
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(() => {
-    return localStorage.getItem('map_filter_panel_open') !== 'false';
+    return localStorage.getItem('map_filter_panel_open') === 'true';
   });
 
   // Granular picking states
@@ -1777,11 +1777,6 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
                   fillOpacity: makeTransparent ? 0.0 : 0.2
                 }} 
                 positions={positions}
-                eventHandlers={{
-                  click: () => {
-                    setSelectedFieldForRec(field);
-                  }
-                }}
               >
                 <Popup>
                   <div style={{ minWidth: '200px' }}>
