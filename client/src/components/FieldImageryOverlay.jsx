@@ -188,6 +188,7 @@ export default function FieldImageryOverlay({ polygon, indexType, dateOffset = 0
   const [geeLoading, setGeeLoading] = useState(false);
   const [geeError, setGeeError] = useState(false);
   const geeScale = useSelector(state => state.settings?.geeScale || 3);
+  const currentUser = useSelector(state => state.auth?.currentUser);
 
   // Robust polygon coordinate unnesting for Leaflet / GeoJSON coordinates
   const sanitizedPolygon = useMemo(() => {
@@ -229,7 +230,9 @@ export default function FieldImageryOverlay({ polygon, indexType, dateOffset = 0
         indexType,
         dateOffset,
         fieldId,
-        geeScale
+        geeScale,
+        farmId: localStorage.getItem('activeFarmId') || 'default_farm',
+        email: currentUser?.email
       })
     })
       .then(res => {

@@ -82,10 +82,13 @@ export const flushQueue = (forceSync = false) => async (dispatch, getState) => {
   dispatch(setSyncing(true));
 
   try {
+    const activeFarmId = localStorage.getItem('activeFarmId') || 'default_farm';
+    const currentUser = getState().auth?.currentUser;
+    const email = currentUser ? currentUser.email : '';
     const response = await fetch('/api/sync', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ queue: offlineActionQueue })
+      body: JSON.stringify({ queue: offlineActionQueue, farmId: activeFarmId, email })
     });
 
     if (response.ok) {
@@ -121,7 +124,10 @@ export const fetchInitialData = () => async (dispatch, getState) => {
   if (!navigator.onLine || offlineActionQueue.length > 0) return;
 
   try {
-    const response = await fetch('/api/all-data', {
+    const activeFarmId = localStorage.getItem('activeFarmId') || 'default_farm';
+    const currentUser = getState().auth?.currentUser;
+    const emailParam = currentUser ? `&email=${encodeURIComponent(currentUser.email)}` : '';
+    const response = await fetch(`/api/all-data?farmId=${activeFarmId}${emailParam}`, {
       headers: {
         'Cache-Control': 'no-cache, no-store, must-revalidate',
         'Pragma': 'no-cache',

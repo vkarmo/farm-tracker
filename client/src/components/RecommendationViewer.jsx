@@ -972,7 +972,9 @@ export default function RecommendationViewer({ fieldId, onToggleBack }) {
           notes,
           startDate,
           selectedCrops,
-          exchangeRate
+          exchangeRate,
+          farmId: localStorage.getItem('activeFarmId') || 'default_farm',
+          email: currentUser?.email
         })
       });
 

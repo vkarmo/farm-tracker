@@ -231,10 +231,86 @@ driver.session = function(config) {
   return session;
 };
 
+async function checkFarmAccess(session, email, farmId) {
+  if (!email) return true;
+  if (email === 'vkarmo@gmail.com') return true;
+  const fId = farmId || 'default_farm';
+  const result = await session.run(`
+    MATCH (u:User {email: $email})-[:BELONGS_TO]->(f:Farm {id: $fId})
+    RETURN count(u) > 0 AS hasAccess
+  `, { email, fId });
+  return result.records[0].get('hasAccess');
+}
+
+// Helper to get or create settings node for a specific farm
+async function getSettingsNode(session, farmId) {
+  const fId = farmId || 'default_farm';
+  // Ensure the farm node exists
+  await session.run(`
+    MERGE (f:Farm {id: $fId})
+    ON CREATE SET f.name = 'NMK Farm'
+  `, { fId });
+
+  // Try to find settings node belonging to the given farm
+  let result = await session.run(`
+    MATCH (s:GlobalSettings)-[:BELONGS_TO]->(:Farm {id: $fId})
+    RETURN s
+  `, { fId });
+  
+  if (result.records.length === 0) {
+    // Create farm-specific settings node and link it
+    const sId = 'settings_' + fId;
+    await session.run(`
+      MATCH (f:Farm {id: $fId})
+      MERGE (s:GlobalSettings {id: $sId})
+      MERGE (s)-[:BELONGS_TO]->(f)
+    `, { fId, sId });
+    
+    result = await session.run(`
+      MATCH (s:GlobalSettings)-[:BELONGS_TO]->(:Farm {id: $fId})
+      RETURN s
+    `, { fId });
+  }
+  
+  return result.records[0].get('s').properties;
+}
+
 driver.verifyConnectivity()
-  .then(() => {
+  .then(async () => {
     console.info(`[Neo4j Database] Attempting connection to ${neo4jUri} with username: ${neo4jUser} and password: ${neo4jPassword}`);
     console.info('[Neo4j Database] Connection SUCCESSFUL.');
+    
+    const session = driver.session();
+    try {
+      // 1. Ensure default farm node exists
+      await session.run(`
+        MERGE (f:Farm {id: 'default_farm'})
+        ON CREATE SET f.name = 'NMK Farm'
+      `);
+      
+      // 2. Link all existing nodes to default_farm if they are not already linked to any Farm
+      await session.run(`
+        MATCH (n)
+        WHERE NOT n:Farm
+          AND NOT (n)-[:BELONGS_TO]->(:Farm)
+        MATCH (f:Farm {id: 'default_farm'})
+        MERGE (n)-[:BELONGS_TO]->(f)
+      `);
+      
+      // 3. Link default settings and users to default_farm just in case
+      await session.run(`
+        MERGE (s:GlobalSettings {id: 'default'})
+        WITH s
+        MATCH (f:Farm {id: 'default_farm'})
+        MERGE (s)-[:BELONGS_TO]->(f)
+      `);
+      
+      console.info('[Neo4j Database] Bootstrapping completed successfully.');
+    } catch (err) {
+      console.error('[Neo4j Database] Bootstrapping failed:', err);
+    } finally {
+      await session.close();
+    }
   })
   .catch((err) => {
     console.error(`[Neo4j Database] Attempting connection to ${neo4jUri} with username: ${neo4jUser} and password: ${neo4jPassword}`);
@@ -253,14 +329,158 @@ app.get('/api/admin/db-config', (req, res) => {
   });
 });
 
-app.get('/api/users', async (req, res) => {
+// Farm management endpoints
+app.get('/api/farms', async (req, res) => {
+  const { email } = req.query;
   const session = driver.session();
   try {
-    const result = await session.run('MATCH (u:User) RETURN u');
+    let query = 'MATCH (f:Farm) RETURN f, "Admin" as role ORDER BY f.name ASC';
+    let params = {};
+    if (email && email !== 'vkarmo@gmail.com') {
+      query = `
+        MATCH (u:User {email: $email})-[r:BELONGS_TO]->(f:Farm)
+        RETURN f, coalesce(r.role, u.role, "Staff") as role
+        ORDER BY f.name ASC
+      `;
+      params = { email };
+    }
+    const result = await session.run(query, params);
+    const farms = result.records.map(r => ({
+      ...r.get('f').properties,
+      role: r.get('role')
+    }));
+    res.json(farms);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  } finally {
+    await session.close();
+  }
+});
+
+app.post('/api/farms', async (req, res) => {
+  const { name, userEmail } = req.body;
+  if (userEmail !== 'vkarmo@gmail.com') {
+    return res.status(403).json({ error: 'Forbidden. Only the super admin can create new farms.' });
+  }
+  if (!name || !name.trim()) {
+    return res.status(400).json({ error: 'Farm name is required.' });
+  }
+  const session = driver.session();
+  try {
+    const farmId = 'farm_' + Date.now();
+    await session.run(`
+      CREATE (f:Farm {id: $farmId, name: $name})
+      CREATE (s:GlobalSettings {id: $settingsId})
+      CREATE (s)-[:BELONGS_TO]->(f)
+    `, { farmId, name: name.trim(), settingsId: 'settings_' + farmId });
+    res.json({ success: true, farm: { id: farmId, name: name.trim() } });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  } finally {
+    await session.close();
+  }
+});
+
+app.get('/api/farms/:farmId/summary', async (req, res) => {
+  const { farmId } = req.params;
+  const { email } = req.query;
+  if (email !== 'vkarmo@gmail.com') {
+    return res.status(403).json({ error: 'Forbidden. Only the super admin can view farm summaries.' });
+  }
+  const session = driver.session();
+  try {
+    const result = await session.run(`
+      MATCH (n)-[:BELONGS_TO]->(f:Farm {id: $farmId})
+      RETURN labels(n) as labels, count(n) as count
+    `, { farmId });
+    const summary = result.records.map(r => ({
+      labels: r.get('labels'),
+      count: r.get('count')
+    }));
+    res.json({ success: true, summary });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  } finally {
+    await session.close();
+  }
+});
+
+app.delete('/api/farms/:farmId', async (req, res) => {
+  const { farmId } = req.params;
+  const { email } = req.query;
+  if (email !== 'vkarmo@gmail.com') {
+    return res.status(403).json({ error: 'Forbidden. Only the super admin can delete farms.' });
+  }
+  if (farmId === 'default_farm') {
+    return res.status(400).json({ error: 'System Block: The default NMK Farm dataset cannot be deleted.' });
+  }
+  const session = driver.session();
+  try {
+    // Delete BudgetItem child nodes, all nodes belonging to the farm, and the Farm node itself.
+    await session.run(`
+      MATCH (f:Farm {id: $farmId})
+      OPTIONAL MATCH (n)-[:BELONGS_TO]->(f)
+      OPTIONAL MATCH (n)-[:CONTAINS]->(bi:BudgetItem)
+      DETACH DELETE bi, n, f
+    `, { farmId });
+    res.json({ success: true, message: `Farm dataset ${farmId} and all associated telemetry deleted successfully.` });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  } finally {
+    await session.close();
+  }
+});
+
+app.get('/api/users/check', async (req, res) => {
+  const { email } = req.query;
+  if (!email) {
+    return res.status(400).json({ error: 'Email is required.' });
+  }
+  const cleanEmail = email.toLowerCase().trim();
+  const session = driver.session();
+  try {
+    const result = await session.run(`
+      MATCH (u:User {email: $email})-[:BELONGS_TO]->(:Farm)
+      RETURN u LIMIT 1
+    `, { email: cleanEmail });
+    if (result.records.length > 0) {
+      const userNode = result.records[0].get('u');
+      res.json({ whitelisted: true, user: userNode.properties });
+    } else {
+      res.json({ whitelisted: false });
+    }
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: 'Failed to check user whitelist status.' });
+  } finally {
+    await session.close();
+  }
+});
+
+app.get('/api/users', async (req, res) => {
+  const { farmId } = req.query;
+  const fId = farmId || 'default_farm';
+  const session = driver.session();
+  try {
+    const result = await session.run(`
+      MATCH (u:User)-[r:BELONGS_TO]->(f:Farm {id: $fId})
+      RETURN u, r.role as role, r.allowedTabs as allowedTabs, r.canApprove as canApprove
+    `, { fId });
+    
     const users = result.records.map(record => {
-      const props = record.get('u').properties;
+      const props = { ...record.get('u').properties };
+      const role = record.get('role');
+      const allowedTabs = record.get('allowedTabs');
+      const canApprove = record.get('canApprove');
+
+      props.role = role || props.role || 'Staff';
+      if (allowedTabs !== undefined) props.allowedTabs = allowedTabs;
+      if (canApprove !== undefined) props.canApprove = canApprove;
+
       if (props.allowedTabs) {
-        try { props.allowedTabs = JSON.parse(props.allowedTabs); } catch(e){}
+        if (typeof props.allowedTabs === 'string') {
+          try { props.allowedTabs = JSON.parse(props.allowedTabs); } catch(e){}
+        }
       }
       return props;
     });
@@ -373,20 +593,20 @@ app.post('/api/fields', async (req, res) => {
 app.post('/api/gee/test-connection', async (req, res) => {
   const session = driver.session();
   try {
-    const { client_email, private_key, project_id, polygon } = req.body;
+    const { client_email, private_key, project_id, polygon, farmId, email } = req.body;
+    if (email && !(await checkFarmAccess(session, email, farmId))) {
+      return res.status(403).json({ error: 'Forbidden. You do not have access to this farm.' });
+    }
     
     let creds = { client_email, private_key, project_id };
     
     if (!creds.client_email || !creds.private_key || !creds.project_id) {
-      const result = await session.run("MATCH (n:GlobalSettings {id: 'default'}) RETURN n");
-      if (result.records.length > 0) {
-        const props = result.records[0].get('n').properties;
-        creds = {
-          client_email: props.geeClientEmail || creds.client_email,
-          private_key: props.geePrivateKey || creds.private_key,
-          project_id: props.geeProjectId || creds.project_id
-        };
-      }
+      const props = await getSettingsNode(session, farmId);
+      creds = {
+        client_email: props.geeClientEmail || creds.client_email,
+        private_key: props.geePrivateKey || creds.private_key,
+        project_id: props.geeProjectId || creds.project_id
+      };
     }
     
     if (!creds.client_email || !creds.private_key || !creds.project_id) {
@@ -469,20 +689,20 @@ app.post('/api/gee/test-connection', async (req, res) => {
 app.post('/api/sms/test', async (req, res) => {
   const session = driver.session();
   try {
-    const { clientId, clientSecret, phoneNumber, message, environment } = req.body;
+    const { clientId, clientSecret, phoneNumber, message, environment, farmId, email } = req.body;
+    if (email && !(await checkFarmAccess(session, email, farmId))) {
+      return res.status(403).json({ error: 'Forbidden. You do not have access to this farm.' });
+    }
     
     let creds = { clientId, clientSecret, environment };
     
     if (!creds.clientId || !creds.clientSecret || !creds.environment) {
-      const result = await session.run("MATCH (n:GlobalSettings {id: 'default'}) RETURN n");
-      if (result.records.length > 0) {
-        const props = result.records[0].get('n').properties;
-        creds = {
-          clientId: props.mtnClientId || creds.clientId,
-          clientSecret: props.mtnClientSecret || creds.clientSecret,
-          environment: props.mtnEnvironment || creds.environment
-        };
-      }
+      const props = await getSettingsNode(session, farmId);
+      creds = {
+        clientId: props.mtnClientId || creds.clientId,
+        clientSecret: props.mtnClientSecret || creds.clientSecret,
+        environment: props.mtnEnvironment || creds.environment
+      };
     }
     
     if (!creds.clientId || !creds.clientSecret) {
@@ -642,15 +862,13 @@ function getSimulatedWeather(polygon, dateOffset) {
 app.post('/api/gee/weather', async (req, res) => {
   const session = driver.session();
   try {
-    const { polygon, dateOffset } = req.body;
-    
-    // 1. Fetch credentials from settings
-    const result = await session.run("MATCH (n:GlobalSettings {id: 'default'}) RETURN n");
-    if (result.records.length === 0) {
-      return res.status(404).json({ error: 'Global settings not found.' });
+    const { polygon, dateOffset, farmId, email } = req.body;
+    if (email && !(await checkFarmAccess(session, email, farmId))) {
+      return res.status(403).json({ error: 'Forbidden. You do not have access to this farm.' });
     }
     
-    const settingsNode = result.records[0].get('n').properties;
+    // 1. Fetch credentials from settings
+    const settingsNode = await getSettingsNode(session, farmId);
     let perfectPrivateKey = (settingsNode.geePrivateKey || '').replace(/\\n/g, '\n');
     const creds = {
       client_email: settingsNode.geeClientEmail || '',
@@ -784,15 +1002,13 @@ app.post('/api/gee/weather', async (req, res) => {
 app.post('/api/gee/tile-url', async (req, res) => {
   const session = driver.session();
   try {
-    const { polygon, indexType, dateOffset, fieldId, geeScale } = req.body;
-    
-    // 1. Fetch credentials from settings
-    const result = await session.run("MATCH (n:GlobalSettings {id: 'default'}) RETURN n");
-    if (result.records.length === 0) {
-      return res.status(404).json({ error: 'Global settings not found.' });
+    const { polygon, indexType, dateOffset, fieldId, geeScale, farmId, email } = req.body;
+    if (email && !(await checkFarmAccess(session, email, farmId))) {
+      return res.status(403).json({ error: 'Forbidden. You do not have access to this farm.' });
     }
     
-    const props = result.records[0].get('n').properties;
+    // 1. Fetch credentials from settings
+    const props = await getSettingsNode(session, farmId);
     const creds = {
       client_email: props.geeClientEmail || '',
       private_key: props.geePrivateKey || '',
@@ -1126,17 +1342,15 @@ app.post('/api/gee/tile-url', async (req, res) => {
 app.post('/api/gee/find-waterways', async (req, res) => {
   const session = driver.session();
   try {
-    const { minLat, maxLat, minLng, maxLng } = req.body;
+    const { minLat, maxLat, minLng, maxLng, farmId, email } = req.body;
+    if (email && !(await checkFarmAccess(session, email, farmId))) {
+      return res.status(403).json({ error: 'Forbidden. You do not have access to this farm.' });
+    }
     if (minLat === undefined || maxLat === undefined || minLng === undefined || maxLng === undefined) {
       return res.status(400).json({ error: 'Missing bounding box bounds' });
     }
 
-    const result = await session.run("MATCH (n:GlobalSettings {id: 'default'}) RETURN n");
-    if (result.records.length === 0) {
-      return res.status(404).json({ error: 'Global settings not found.' });
-    }
-
-    const props = result.records[0].get('n').properties;
+    const props = await getSettingsNode(session, farmId);
     const perfectPrivateKey = (props.geePrivateKey || '').replace(/\\n/g, '\n');
     const creds = {
       client_email: props.geeClientEmail || '',
@@ -1533,16 +1747,15 @@ async function getGeeSatelliteStats(coords, settingsNode) {
 
 // AI Crop recommendations Generator Proxy Route (Streaming)
 app.post('/api/recommendations/generate', async (req, res) => {
-  const { fieldId, fieldName, area, soilType, irrigation, status, elevation, soilMoisture, location, season, priorities, cropHistory, notes, startDate, selectedCrops, exchangeRate } = req.body;
+  const { fieldId, fieldName, area, soilType, irrigation, status, elevation, soilMoisture, location, season, priorities, cropHistory, notes, startDate, selectedCrops, exchangeRate, farmId, email } = req.body;
 
   const session = driver.session();
   try {
-    // 1. Fetch credentials from settings
-    const result = await session.run("MATCH (n:GlobalSettings {id: 'default'}) RETURN n");
-    if (result.records.length === 0) {
-      return res.status(404).json({ error: 'Global settings not found.' });
+    if (email && !(await checkFarmAccess(session, email, farmId))) {
+      return res.status(403).json({ error: 'Forbidden. You do not have access to this farm.' });
     }
-    const settingsNode = result.records[0].get('n').properties;
+    // 1. Fetch credentials from settings
+    const settingsNode = await getSettingsNode(session, farmId);
     const provider = settingsNode.aiProvider || 'gemini';
     const geminiKey = settingsNode.geminiApiKey || '';
     const claudeKey = settingsNode.claudeApiKey || '';
@@ -1819,43 +2032,60 @@ Do not wrap the whole response in a JSON block or code blocks. Start directly wi
 // Global Data Hydration
 app.get('/api/all-data', async (req, res) => {
   const session = driver.session();
+  const farmId = req.query.farmId || 'default_farm';
+  const email = req.query.email;
   try {
+    if (email && !(await checkFarmAccess(session, email, farmId))) {
+      return res.status(403).json({ error: 'Forbidden. You do not have access to this farm.' });
+    }
+    // Ensure settings exist for this farm
+    await getSettingsNode(session, farmId);
+
     const collections = {
-       fields: 'MATCH (n:Field) RETURN n',
-       nurseries: 'MATCH (n:NurseryBed) RETURN n',
-       crops: 'MATCH (n:Crop) RETURN n',
-       livestock: 'MATCH (n:Livestock) RETURN n',
-       equipment: 'MATCH (n:Equipment) RETURN n',
-       assignments: 'MATCH (n:TaskAssignment) RETURN n',
-       employees: 'MATCH (n:Employee) RETURN n',
-       financials: 'MATCH (n:Transaction) RETURN n',
-       budgets: 'MATCH (n:Budget) OPTIONAL MATCH (n)-[:CONTAINS]->(i:BudgetItem) RETURN n, collect(i) as items',
-       incidents: 'MATCH (n:Incident) RETURN n',
-       deadlines: 'MATCH (n:Deadline) RETURN n',
-       gps: 'MATCH (n:GpsLog) RETURN n',
-       audit: 'MATCH (n:AuditLog) RETURN n',
-       users: 'MATCH (n:User) RETURN n',
-       harvests: 'MATCH (n:Harvest) RETURN n',
-       kits: 'MATCH (n:LivestockKit) RETURN n',
-       breeding: 'MATCH (n:BreedingEvent) RETURN n',
-       settings: "MATCH (n:GlobalSettings {id: 'default'}) RETURN n",
-       pests: 'MATCH (n:Pest) RETURN n',
-       soilTests: 'MATCH (n:SoilTest) RETURN n',
-       goals: 'MATCH (n:Goal) RETURN n',
-       objectives: 'MATCH (n:Objective) RETURN n',
-       livestockDiseases: 'MATCH (n:LivestockDisease) RETURN n',
-       poi: 'MATCH (n:PointOfInterest) RETURN n',
-       recommendations: 'MATCH (n:Recommendation) RETURN n'
+       fields: 'MATCH (n:Field)-[:BELONGS_TO]->(:Farm {id: $farmId}) RETURN n',
+       nurseries: 'MATCH (n:NurseryBed)-[:BELONGS_TO]->(:Farm {id: $farmId}) RETURN n',
+       crops: 'MATCH (n:Crop)-[:BELONGS_TO]->(:Farm {id: $farmId}) RETURN n',
+       livestock: 'MATCH (n:Livestock)-[:BELONGS_TO]->(:Farm {id: $farmId}) RETURN n',
+       equipment: 'MATCH (n:Equipment)-[:BELONGS_TO]->(:Farm {id: $farmId}) RETURN n',
+       assignments: 'MATCH (n:TaskAssignment)-[:BELONGS_TO]->(:Farm {id: $farmId}) RETURN n',
+       employees: 'MATCH (n:Employee)-[:BELONGS_TO]->(:Farm {id: $farmId}) RETURN n',
+       financials: 'MATCH (n:Transaction)-[:BELONGS_TO]->(:Farm {id: $farmId}) RETURN n',
+       budgets: 'MATCH (n:Budget)-[:BELONGS_TO]->(:Farm {id: $farmId}) OPTIONAL MATCH (n)-[:CONTAINS]->(i:BudgetItem) RETURN n, collect(i) as items',
+       incidents: 'MATCH (n:Incident)-[:BELONGS_TO]->(:Farm {id: $farmId}) RETURN n',
+       deadlines: 'MATCH (n:Deadline)-[:BELONGS_TO]->(:Farm {id: $farmId}) RETURN n',
+       gps: 'MATCH (n:GpsLog)-[:BELONGS_TO]->(:Farm {id: $farmId}) RETURN n',
+       audit: 'MATCH (n:AuditLog)-[:BELONGS_TO]->(:Farm {id: $farmId}) RETURN n',
+       users: 'MATCH (n:User)-[r:BELONGS_TO]->(:Farm {id: $farmId}) RETURN n, r',
+       harvests: 'MATCH (n:Harvest)-[:BELONGS_TO]->(:Farm {id: $farmId}) RETURN n',
+       kits: 'MATCH (n:LivestockKit)-[:BELONGS_TO]->(:Farm {id: $farmId}) RETURN n',
+       breeding: 'MATCH (n:BreedingEvent)-[:BELONGS_TO]->(:Farm {id: $farmId}) RETURN n',
+       settings: "MATCH (n:GlobalSettings)-[:BELONGS_TO]->(:Farm {id: $farmId}) RETURN n",
+       pests: 'MATCH (n:Pest)-[:BELONGS_TO]->(:Farm {id: $farmId}) RETURN n',
+       soilTests: 'MATCH (n:SoilTest)-[:BELONGS_TO]->(:Farm {id: $farmId}) RETURN n',
+       goals: 'MATCH (n:Goal)-[:BELONGS_TO]->(:Farm {id: $farmId}) RETURN n',
+       objectives: 'MATCH (n:Objective)-[:BELONGS_TO]->(:Farm {id: $farmId}) RETURN n',
+       livestockDiseases: 'MATCH (n:LivestockDisease)-[:BELONGS_TO]->(:Farm {id: $farmId}) RETURN n',
+       poi: 'MATCH (n:PointOfInterest)-[:BELONGS_TO]->(:Farm {id: $farmId}) RETURN n',
+       recommendations: 'MATCH (n:Recommendation)-[:BELONGS_TO]->(:Farm {id: $farmId}) RETURN n'
     };
 
     const data = {};
     for (const [key, query] of Object.entries(collections)) {
-       const result = await session.run(query);
+       const result = await session.run(query, { farmId });
        data[key] = result.records.map(r => {
            const props = r.get('n').properties;
            if (key === 'budgets') {
                const itemsVal = r.get('items');
                props.items = Array.isArray(itemsVal) ? itemsVal.map(i => i.properties) : [];
+           }
+           if (key === 'users') {
+               const relVal = r.get('r');
+               if (relVal) {
+                   const rProps = relVal.properties;
+                   props.role = rProps.role || props.role || 'Staff';
+                   if (rProps.allowedTabs !== undefined) props.allowedTabs = rProps.allowedTabs;
+                   if (rProps.canApprove !== undefined) props.canApprove = rProps.canApprove;
+               }
            }
            // Parse JSON strings back to objects (e.g. polygon)
            if (props.polygon) {
@@ -1933,13 +2163,17 @@ app.get('/api/all-data', async (req, res) => {
 
 // Process Offline Actions Sync Queue
 app.post('/api/sync', async (req, res) => {
-  const { queue } = req.body;
+  const { queue, farmId, email } = req.body;
+  const activeFarmId = farmId || 'default_farm';
   if (!queue || !Array.isArray(queue)) {
     return res.status(400).json({ error: 'Invalid queue format' });
   }
 
   const session = driver.session();
   try {
+    if (email && !(await checkFarmAccess(session, email, activeFarmId))) {
+      return res.status(403).json({ error: 'Forbidden. You do not have access to this farm.' });
+    }
     const results = [];
     
     // Extract and bulk process GPS logs for extreme performance optimization
@@ -2267,20 +2501,24 @@ app.post('/api/sync', async (req, res) => {
           await session.run(`
             MERGE (u:User {email: $email})
             ON CREATE SET u.id = $id
-            SET u.name = $name, u.role = $role, u.profile_pic = $profilePic
-            ${allowedTabs !== undefined ? ', u.allowedTabs = $allowedTabs' : ''}
-            ${canApprove !== undefined ? ', u.canApprove = $canApprove' : ''}
+            SET u.name = $name, u.profile_pic = $profilePic
+            WITH u
+            MATCH (f:Farm {id: $activeFarmId})
+            MERGE (u)-[r:BELONGS_TO]->(f)
+            SET r.role = $role
+            ${allowedTabs !== undefined ? ', r.allowedTabs = $allowedTabs' : ''}
+            ${canApprove !== undefined ? ', r.canApprove = $canApprove' : ''}
             SET u.lastUpdatedBy = $userEmail RETURN u
-          `, { userEmail, id, email, name, role, profilePic, allowedTabs: allowedTabs !== undefined ? JSON.stringify(allowedTabs) : null, canApprove: canApprove !== undefined ? !!canApprove : false });
+          `, { userEmail, id, email, name, role, profilePic, allowedTabs: allowedTabs !== undefined ? JSON.stringify(allowedTabs) : null, canApprove: canApprove !== undefined ? !!canApprove : false, activeFarmId });
           results.push({ actionId: action.meta?.id, status: 'success' });
         }
         else if (action.type === 'users/updateUserAccess') {
           const { email, allowedTabs } = action.payload;
           await session.run(`
-            MATCH (u:User {email: $email})
-            SET u.allowedTabs = $allowedTabs
+            MATCH (u:User {email: $email})-[r:BELONGS_TO]->(f:Farm {id: $activeFarmId})
+            SET r.allowedTabs = $allowedTabs
             SET u.lastUpdatedBy = $userEmail RETURN u
-          `, { userEmail, email, allowedTabs: JSON.stringify(allowedTabs) });
+          `, { userEmail, email, allowedTabs: allowedTabs ? JSON.stringify(allowedTabs) : null, activeFarmId });
           results.push({ actionId: action.meta?.id, status: 'success' });
         }
         else if (action.type === 'assets/addEquipment') {
@@ -2570,15 +2808,20 @@ app.post('/api/sync', async (req, res) => {
           for (const [k, v] of Object.entries(payload)) {
              if (Array.isArray(v)) {
                  properties[k] = JSON.stringify(v);
-             } else {
-                 properties[k] = v;
-             }
+              } else {
+                  properties[k] = v;
+              }
           }
+          const settingsId = activeFarmId === 'default_farm' ? 'default' : 'settings_' + activeFarmId;
           await session.run(`
-            MERGE (s:GlobalSettings {id: 'default'})
+            MERGE (s:GlobalSettings {id: $settingsId})
             SET s += $properties
-            SET s.lastUpdatedBy = $userEmail RETURN s
-          `, { userEmail, properties });
+            SET s.lastUpdatedBy = $userEmail
+            WITH s
+            MATCH (f:Farm {id: $activeFarmId})
+            MERGE (s)-[:BELONGS_TO]->(f)
+            RETURN s
+          `, { userEmail, properties, settingsId, activeFarmId });
           results.push({ actionId: action.meta?.id, status: 'success' });
         }
         else if (action.type === 'pests/savePest') {
@@ -2674,6 +2917,15 @@ app.post('/api/sync', async (req, res) => {
         results.push({ actionId: action.meta?.id, status: 'error', error: actionErr.message });
       }
     }
+
+    // Post-processing: link any new nodes to the active farm
+    await session.run(`
+      MATCH (n)
+      WHERE NOT n:Farm
+        AND NOT (n)-[:BELONGS_TO]->(:Farm)
+      MATCH (f:Farm {id: $activeFarmId})
+      MERGE (n)-[:BELONGS_TO]->(f)
+    `, { activeFarmId });
 
     res.json({ success: true, processed: results });
   } catch (err) {

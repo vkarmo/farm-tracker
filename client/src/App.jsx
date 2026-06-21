@@ -78,6 +78,220 @@ export default function App() {
   const originalAdmin = useSelector(state => state.auth?.originalAdmin);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
+  const [activeFarmId, setActiveFarmId] = useState(localStorage.getItem('activeFarmId') || 'default_farm');
+  const [farmsList, setFarmsList] = useState([]);
+
+  // Clear active farm from localStorage if the logged-in user changes (including simulation mode)
+  useEffect(() => {
+    if (currentUser) {
+      const lastEmail = localStorage.getItem('lastUserEmail');
+      if (lastEmail !== currentUser.email) {
+        localStorage.removeItem('activeFarmId');
+        localStorage.setItem('lastUserEmail', currentUser.email);
+        setActiveFarmId('default_farm');
+      }
+    } else {
+      localStorage.removeItem('lastUserEmail');
+    }
+  }, [currentUser]);
+
+  const determineDefaultFarm = (farms) => {
+    if (!farms || farms.length === 0) return 'default_farm';
+    
+    // Helper to identify viewing rights (Viewer, Admin Viewer, or any role containing 'viewer' case-insensitively)
+    const isViewerRole = (role) => {
+      if (!role) return false;
+      const lower = role.toLowerCase();
+      return lower === 'viewer' || lower === 'admin viewer' || lower.includes('view');
+    };
+
+    // 1. the app should default to the farm the logged in user is admin for
+    const adminFarm = farms.find(f => f && typeof f.role === 'string' && f.role.toLowerCase() === 'admin');
+    if (adminFarm) return adminFarm.id;
+    
+    // 2. if a user is simply whitelisted for a farm then default to that farm (non-viewer, non-admin)
+    const simplyWhitelistedFarm = farms.find(f => f && !isViewerRole(f.role) && f.role && f.role.toLowerCase() !== 'admin');
+    if (simplyWhitelistedFarm) return simplyWhitelistedFarm.id;
+    
+    // 3. if the user has viewing rights in other farm data sets, those should not be the default farm for them
+    // (Only default to a viewing-rights farm if there are no admin or simply whitelisted options available)
+    const viewingRightsFarm = farms.find(f => f && isViewerRole(f.role));
+    if (viewingRightsFarm) return viewingRightsFarm.id;
+    
+    return farms[0].id;
+  };
+
+  const fetchFarms = async () => {
+    if (!currentUser) return;
+    try {
+      const response = await fetch(`/api/farms?email=${encodeURIComponent(currentUser.email)}`);
+      if (response.ok) {
+        const data = await response.json();
+        setFarmsList(data);
+
+        // Determine default farm
+        const defaultFarmId = determineDefaultFarm(data);
+        const storedFarmId = localStorage.getItem('activeFarmId');
+        const isStoredValid = data.some(f => f.id === storedFarmId);
+
+        if (!storedFarmId || !isStoredValid) {
+          handleFarmChange(defaultFarmId);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch farms:', err);
+    }
+  };
+
+  useEffect(() => {
+    if (currentUser) {
+      fetchFarms();
+    }
+  }, [currentUser]);
+
+  const handleFarmChange = (farmId) => {
+    localStorage.setItem('activeFarmId', farmId);
+    setActiveFarmId(farmId);
+    dispatch(fetchInitialData());
+  };
+
+  const handleCreateFarm = async () => {
+    const farmName = prompt('Enter the name of the new farm:');
+    if (!farmName || !farmName.trim()) return;
+
+    try {
+      const response = await fetch('/api/farms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: farmName.trim(),
+          userEmail: currentUser?.email
+        })
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success && data.farm) {
+          await fetchFarms();
+          handleFarmChange(data.farm.id);
+        } else {
+          alert(data.error || 'Failed to create farm');
+        }
+      } else {
+        const errText = await response.text();
+        alert('Failed to create farm: ' + errText);
+      }
+    } catch (err) {
+      alert('Error creating farm: ' + err.message);
+    }
+  };
+
+  const mapLabelToName = (labels) => {
+    if (!labels || labels.length === 0) return 'Unknown Node';
+    const primary = labels[0];
+    const mapping = {
+      'Field': 'Fields',
+      'NurseryBed': 'Nursery Beds',
+      'Crop': 'Crops',
+      'Livestock': 'Livestock',
+      'Transaction': 'Transactions',
+      'TaskAssignment': 'Task Assignments',
+      'Employee': 'Employees',
+      'Budget': 'Budgets',
+      'BudgetItem': 'Budget Items',
+      'Incident': 'Incidents',
+      'Deadline': 'Deadlines',
+      'GpsLog': 'GPS Log Pins',
+      'AuditLog': 'Audit Log Entries',
+      'User': 'Users',
+      'Harvest': 'Harvest Records',
+      'LivestockKit': 'Livestock Kits',
+      'BreedingEvent': 'Breeding Events',
+      'GlobalSettings': 'Farm Settings',
+      'Pest': 'Pests',
+      'SoilTest': 'Soil Tests',
+      'Goal': 'Goals',
+      'Objective': 'Objectives',
+      'LivestockDisease': 'Livestock Diseases',
+      'PointOfInterest': 'Points of Interest',
+      'Recommendation': 'Crop Recommendations'
+    };
+    return mapping[primary] || primary;
+  };
+
+  const handleScanFarmDataset = async () => {
+    if (!selectedDeleteFarmId) return;
+    setIsFetchingDeleteSummary(true);
+    setDeleteSummary(null);
+    setDeleteConfirmationText('');
+    try {
+      const response = await fetch(`/api/farms/${selectedDeleteFarmId}/summary?email=${encodeURIComponent(currentUser?.email)}`);
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setDeleteSummary(data.summary);
+        } else {
+          alert(data.error || 'Failed to fetch dataset summary.');
+        }
+      } else {
+        const errText = await response.text();
+        alert('Failed to scan: ' + errText);
+      }
+    } catch (err) {
+      alert('Error scanning farm: ' + err.message);
+    } finally {
+      setIsFetchingDeleteSummary(false);
+    }
+  };
+
+  const handleConfirmDeleteFarmDataset = async () => {
+    if (!selectedDeleteFarmId) return;
+    const targetFarm = farmsList.find(f => f.id === selectedDeleteFarmId);
+    if (!targetFarm) return;
+    
+    if (deleteConfirmationText !== targetFarm.name) {
+      alert('Confirmation name mismatch.');
+      return;
+    }
+
+    setIsDeletingFarm(true);
+    try {
+      const response = await fetch(`/api/farms/${selectedDeleteFarmId}?email=${encodeURIComponent(currentUser?.email)}`, {
+        method: 'DELETE'
+      });
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          alert(`Farm dataset "${targetFarm.name}" has been permanently deleted.`);
+          setDeleteSummary(null);
+          setDeleteConfirmationText('');
+          setSelectedDeleteFarmId('');
+          
+          // Refetch available farms list
+          const freshResponse = await fetch(`/api/farms?email=${encodeURIComponent(currentUser.email)}`);
+          if (freshResponse.ok) {
+            const freshFarms = await freshResponse.json();
+            setFarmsList(freshFarms);
+            
+            // Check if our active farm was the one deleted
+            if (activeFarmId === selectedDeleteFarmId) {
+              const newDefaultFarmId = determineDefaultFarm(freshFarms);
+              handleFarmChange(newDefaultFarmId);
+            }
+          }
+        } else {
+          alert(data.error || 'Failed to delete farm dataset.');
+        }
+      } else {
+        const errText = await response.text();
+        alert('Failed to delete: ' + errText);
+      }
+    } catch (err) {
+      alert('Error deleting farm: ' + err.message);
+    } finally {
+      setIsDeletingFarm(false);
+    }
+  };
+
   const fields = useSelector(state => state.fields.data) || [];
   const nurseries = useSelector(state => state.nurseries?.beds) || [];
   const equipment = useSelector(state => state.assets?.equipment) || [];
@@ -149,7 +363,12 @@ export default function App() {
   const totalActionsQueued = useSelector(state => state.sync.totalActionsQueued || 0);
 
   const [activeTab, setActiveTab] = useState('dashboard');
-  const [openSettings, setOpenSettings] = useState({ general: true, dropdown: false, map: false, units: false, jobs: false, animals: false, ledgers: false, gee: false, mtn: false, owm: false, theme: false, typography: false, simulation: false, ai: false });
+  const [openSettings, setOpenSettings] = useState({ general: true, dropdown: false, map: false, units: false, jobs: false, animals: false, ledgers: false, gee: false, mtn: false, owm: false, theme: false, typography: false, simulation: false, ai: false, deleteFarm: false });
+  const [selectedDeleteFarmId, setSelectedDeleteFarmId] = useState('');
+  const [deleteSummary, setDeleteSummary] = useState(null);
+  const [deleteConfirmationText, setDeleteConfirmationText] = useState('');
+  const [isFetchingDeleteSummary, setIsFetchingDeleteSummary] = useState(false);
+  const [isDeletingFarm, setIsDeletingFarm] = useState(false);
   const [showSaveToast, setShowSaveToast] = useState(false);
   const [toastMessage, setToastMessage] = useState("Record Saved Successfully");
   const [mtnTesting, setMtnTesting] = useState(false);
@@ -209,7 +428,9 @@ export default function App() {
           client_email: geeClientEmail,
           private_key: geePrivateKey,
           project_id: geeProjectId,
-          polygon: testPolygon
+          polygon: testPolygon,
+          farmId: activeFarmId,
+          email: currentUser?.email
         })
       });
       const data = await response.json();
@@ -259,7 +480,9 @@ export default function App() {
           clientSecret: mtnClientSecret,
           phoneNumber: combinedRecipients,
           message: mtnTestMessage,
-          environment: mtnEnvironment
+          environment: mtnEnvironment,
+          farmId: activeFarmId,
+          email: currentUser?.email
         })
       });
       const data = await response.json();
@@ -782,9 +1005,53 @@ export default function App() {
           </div>
 
           <div className="header-right">
-            <div style={{ display: 'flex', gap: '16px', width: '100%', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div className="db-info" title="neo4j+s://3fa11aa8.databases.neo4j.io | User: 3fa11aa8">
-                <Database size={14} style={{ flexShrink: 0 }} /> <span>neo4j+s://3fa11aa8.databases.neo4j.io | User: 3fa11aa8</span>
+            <div style={{ display: 'flex', gap: '16px', width: '100%', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                <div className="db-info" title="neo4j+s://3fa11aa8.databases.neo4j.io | User: 3fa11aa8">
+                  <Database size={14} style={{ flexShrink: 0 }} /> <span>neo4j+s://3fa11aa8.databases.neo4j.io | User: 3fa11aa8</span>
+                </div>
+                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <select 
+                    value={activeFarmId} 
+                    onChange={(e) => handleFarmChange(e.target.value)}
+                    style={{
+                      padding: '4px 8px',
+                      borderRadius: '4px',
+                      border: '1px solid #cbd5e1',
+                      background: 'white',
+                      color: '#334155',
+                      fontSize: '0.8rem',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      outline: 'none'
+                    }}
+                  >
+                    {farmsList.length === 0 ? (
+                      <option value="default_farm">NMK Farm</option>
+                    ) : (
+                      farmsList.map(farm => (
+                        <option key={farm.id} value={farm.id}>{farm.name}</option>
+                      ))
+                    )}
+                  </select>
+                  {currentUser?.email === 'vkarmo@gmail.com' && (
+                    <button 
+                      onClick={handleCreateFarm}
+                      style={{
+                        padding: '4px 8px',
+                        borderRadius: '4px',
+                        border: 'none',
+                        background: '#2e7d32',
+                        color: 'white',
+                        fontSize: '0.8rem',
+                        fontWeight: '600',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      + Create Farm
+                    </button>
+                  )}
+                </div>
               </div>
               {isSyncing ? (
                 <div className="status-indicator status-syncing"><RefreshCw size={16} className="spin" /> Pushing to DB...</div>
@@ -2418,8 +2685,145 @@ export default function App() {
                 )}
               </div>
 
+              {/* Delete Farm Dataset Card (Super Admin Only) */}
+              {currentUser?.email === 'vkarmo@gmail.com' && (
+                <div className="card" style={{ padding: 0, overflow: 'hidden', border: '1px solid #ffcdd2', marginBottom: 0 }}>
+                  <button
+                    onClick={() => setOpenSettings({ ...openSettings, deleteFarm: !openSettings.deleteFarm })}
+                    type="button"
+                    style={{ width: '100%', padding: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#ffebee', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '1.1rem', color: '#c62828' }}
+                  >
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <ShieldAlert size={20} color="#c62828" />
+                      <span>Delete Farm Dataset (Super Admin Only)</span>
+                    </div>
+                    {openSettings.deleteFarm ? <ChevronDown size={20} color="#c62828" /> : <ChevronRight size={20} color="#c62828" />}
+                  </button>
 
+                  {openSettings.deleteFarm && (
+                    <div style={{ padding: '20px', background: 'var(--color-surface)' }}>
+                      <div style={{ marginBottom: 20 }}>
+                        <h3 style={{ marginTop: 0, color: '#c62828' }}>Permanently Remove a Farm Dataset</h3>
+                        <p style={{ fontSize: '0.85rem', color: '#666', marginBottom: 16, lineHeight: '1.5' }}>
+                          Select a farm dataset to delete. Deleting a farm dataset is permanent. It will immediately purge the farm node, its global settings, and all connected telemetry, fields, crops, livestock, transactions, and logs. This operation cannot be undone.
+                        </p>
 
+                        <div style={{ display: 'flex', gap: '10px', alignItems: 'flex-end', flexWrap: 'wrap', marginBottom: '20px' }}>
+                          <div style={{ flex: '1 1 300px' }}>
+                            <label style={{ fontWeight: '600', display: 'block', marginBottom: '8px', fontSize: '0.9rem' }}>Select Target Farm Dataset</label>
+                            <select
+                              value={selectedDeleteFarmId}
+                              onChange={(e) => {
+                                setSelectedDeleteFarmId(e.target.value);
+                                setDeleteSummary(null);
+                                setDeleteConfirmationText('');
+                              }}
+                              style={{ padding: '8px', width: '100%', border: '1px solid #ccc', borderRadius: '4px', background: 'white' }}
+                            >
+                              <option value="">-- Choose Farm to Delete --</option>
+                              {farmsList.map(f => (
+                                <option key={f.id} value={f.id}>{f.name} ({f.id === 'default_farm' ? 'System Default' : f.id})</option>
+                              ))}
+                            </select>
+                          </div>
+                          
+                          <button
+                            type="button"
+                            onClick={handleScanFarmDataset}
+                            className="btn btn-primary"
+                            style={{ height: '38px', background: '#e2e8f0', color: '#334155', border: '1px solid #cbd5e1', cursor: (!selectedDeleteFarmId || isFetchingDeleteSummary) ? 'not-allowed' : 'pointer' }}
+                            disabled={!selectedDeleteFarmId || isFetchingDeleteSummary}
+                          >
+                            {isFetchingDeleteSummary ? 'Scanning...' : 'Scan Dataset'}
+                          </button>
+                        </div>
+
+                        {deleteSummary && (() => {
+                          const targetFarm = farmsList.find(f => f.id === selectedDeleteFarmId);
+                          const farmName = targetFarm ? targetFarm.name : 'Unknown';
+                          const totalNodes = deleteSummary.reduce((acc, curr) => acc + (curr.count || 0), 0);
+
+                          return (
+                            <div style={{ background: '#fff5f5', border: '1px solid #ffcdd2', borderRadius: '8px', padding: '16px', marginTop: '16px' }}>
+                              <h4 style={{ margin: '0 0 10px 0', color: '#c62828', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                <AlertTriangle size={18} color="#c62828" />
+                                Review Node Deletion Summary for "{farmName}"
+                              </h4>
+                              
+                              <p style={{ fontSize: '0.85rem', color: '#27272a', margin: '0 0 12px 0' }}>
+                                The selected farm dataset contains <strong>{totalNodes}</strong> total database nodes:
+                              </p>
+
+                              {deleteSummary.length === 0 ? (
+                                <p style={{ fontSize: '0.85rem', fontStyle: 'italic', color: '#666', margin: '0 0 12px 0' }}>
+                                  No nodes connected to this farm. (Empty dataset)
+                                </p>
+                              ) : (
+                                <div style={{ background: 'white', border: '1px solid #e4e4e7', borderRadius: '6px', overflow: 'hidden', marginBottom: '15px' }}>
+                                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem', textAlign: 'left' }}>
+                                    <thead>
+                                      <tr style={{ background: '#f4f4f5', borderBottom: '1px solid #e4e4e7' }}>
+                                        <th style={{ padding: '8px 12px', fontWeight: '600', color: '#52525b' }}>Data Type</th>
+                                        <th style={{ padding: '8px 12px', fontWeight: '600', color: '#52525b', textAlign: 'right' }}>Count</th>
+                                      </tr>
+                                    </thead>
+                                    <tbody>
+                                      {deleteSummary.map((item, idx) => (
+                                        <tr key={idx} style={{ borderBottom: idx < deleteSummary.length - 1 ? '1px solid #f4f4f5' : 'none' }}>
+                                          <td style={{ padding: '8px 12px', color: '#27272a' }}>{mapLabelToName(item.labels)}</td>
+                                          <td style={{ padding: '8px 12px', color: '#27272a', textAlign: 'right', fontWeight: '600' }}>{item.count}</td>
+                                        </tr>
+                                      ))}
+                                    </tbody>
+                                  </table>
+                                </div>
+                              )}
+
+                              <p style={{ fontSize: '0.8rem', color: '#ef4444', fontWeight: '600', margin: '0 0 12px 0' }}>
+                                WARNING: Performing this action will detach and permanently delete the farm node, all summary nodes listed above, and any associated nested budget items.
+                              </p>
+
+                              <div style={{ marginBottom: '12px' }}>
+                                <label style={{ display: 'block', marginBottom: '6px', fontSize: '0.85rem', fontWeight: '600', color: '#c62828' }}>
+                                  To confirm, please type the exact farm name "{farmName}":
+                                </label>
+                                <input
+                                  type="text"
+                                  value={deleteConfirmationText}
+                                  onChange={(e) => setDeleteConfirmationText(e.target.value)}
+                                  placeholder="Type farm name here"
+                                  style={{ padding: '8px', width: '100%', border: '1px solid #ef9a9a', borderRadius: '4px', background: 'white' }}
+                                />
+                              </div>
+
+                              <button
+                                type="button"
+                                onClick={handleConfirmDeleteFarmDataset}
+                                className="btn"
+                                style={{
+                                  background: deleteConfirmationText === farmName ? '#d32f2f' : '#e4e4e7',
+                                  color: deleteConfirmationText === farmName ? 'white' : '#a1a1aa',
+                                  border: 'none',
+                                  padding: '10px 16px',
+                                  borderRadius: '6px',
+                                  fontWeight: '600',
+                                  cursor: deleteConfirmationText === farmName ? 'pointer' : 'not-allowed',
+                                  width: '100%',
+                                  transition: 'all 0.3s'
+                                }}
+                                disabled={deleteConfirmationText !== farmName || isDeletingFarm}
+                              >
+                                {isDeletingFarm ? 'Permanently Purging Data...' : `Permanently Delete Dataset "${farmName}"`}
+                              </button>
+                            </div>
+                          );
+                        })()}
+
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
 
             </div>
           )}

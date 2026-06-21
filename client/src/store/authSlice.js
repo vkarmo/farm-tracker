@@ -18,6 +18,21 @@ export const authSlice = createSlice({
     },
     setUsersList: (state, action) => {
       state.usersList = action.payload;
+      if (state.currentUser) {
+        const email = state.currentUser.email?.toLowerCase();
+        if (email === 'vkarmo@gmail.com') {
+          state.currentUser.role = 'Admin';
+          state.currentUser.allowedTabs = null;
+          state.currentUser.canApprove = true;
+        } else {
+          const match = action.payload.find(u => u.email?.toLowerCase() === email);
+          if (match) {
+            state.currentUser.role = match.role || 'Staff';
+            state.currentUser.allowedTabs = match.allowedTabs || null;
+            state.currentUser.canApprove = !!match.canApprove;
+          }
+        }
+      }
     },
     removeUserOffline: (state, action) => {
       state.usersList = state.usersList.filter(u => u.email !== action.payload);
@@ -27,12 +42,19 @@ export const authSlice = createSlice({
       if (idx !== -1) {
         state.usersList[idx].allowedTabs = action.payload.allowedTabs;
       }
+      if (state.currentUser && state.currentUser.email === action.payload.email) {
+        state.currentUser.allowedTabs = action.payload.allowedTabs;
+      }
     },
     updateUserRole: (state, action) => {
       const idx = state.usersList.findIndex(u => u.email === action.payload.email);
       if (idx !== -1) {
         if (action.payload.role !== undefined) state.usersList[idx].role = action.payload.role;
         if (action.payload.canApprove !== undefined) state.usersList[idx].canApprove = action.payload.canApprove;
+      }
+      if (state.currentUser && state.currentUser.email === action.payload.email) {
+        if (action.payload.role !== undefined) state.currentUser.role = action.payload.role;
+        if (action.payload.canApprove !== undefined) state.currentUser.canApprove = action.payload.canApprove;
       }
     },
     impersonateUser: (state, action) => {
@@ -56,7 +78,8 @@ export const { login, logout, setUsersList, removeUserOffline, updateUserAccess,
 export const fetchAllUsers = () => async (dispatch) => {
   if (!navigator.onLine) return;
   try {
-    const res = await fetch('/api/users');
+    const farmId = localStorage.getItem('activeFarmId') || 'default_farm';
+    const res = await fetch(`/api/users?farmId=${farmId}`);
     if (res.ok) {
       const users = await res.json();
       dispatch(setUsersList(users));

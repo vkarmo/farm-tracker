@@ -320,7 +320,9 @@ export default function PoiTab() {
           minLat: southWest.lat,
           maxLat: northEast.lat,
           minLng: southWest.lng,
-          maxLng: northEast.lng
+          maxLng: northEast.lng,
+          farmId: localStorage.getItem('activeFarmId') || 'default_farm',
+          email: currentUser?.email
         })
       });
       

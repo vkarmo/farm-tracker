@@ -313,7 +313,7 @@ export default function DashboardTab() {
         const response = await fetch('/api/gee/weather', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ polygon, dateOffset: 0 })
+          body: JSON.stringify({ polygon, dateOffset: 0, farmId: localStorage.getItem('activeFarmId') || 'default_farm', email: currentUser?.email })
         });
         if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         const data = await response.json();

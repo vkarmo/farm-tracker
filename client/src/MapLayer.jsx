@@ -966,7 +966,9 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
           minLat: southWest.lat,
           maxLat: northEast.lat,
           minLng: southWest.lng,
-          maxLng: northEast.lng
+          maxLng: northEast.lng,
+          farmId: localStorage.getItem('activeFarmId') || 'default_farm',
+          email: currentUser?.email
         })
       });
       
@@ -1064,7 +1066,12 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
       fetch('/api/gee/weather', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ polygon: polygonCoords, dateOffset })
+        body: JSON.stringify({ 
+          polygon: polygonCoords, 
+          dateOffset, 
+          farmId: localStorage.getItem('activeFarmId') || 'default_farm',
+          email: currentUser?.email 
+        })
       })
         .then(res => {
           if (!res.ok) throw new Error('Failed to fetch weather');

@@ -34,7 +34,20 @@ export default function LoginScreen() {
         const email = decoded.email.toLowerCase();
 
         const isAdminRoot = email === 'vkarmo@gmail.com';
-        const existingUser = usersList.find(u => u.email.toLowerCase() === email);
+        let existingUser = null;
+        if (!isAdminRoot) {
+          try {
+            const checkRes = await fetch(`/api/users/check?email=${encodeURIComponent(email)}`);
+            if (checkRes.ok) {
+              const checkData = await checkRes.json();
+              if (checkData.whitelisted) {
+                existingUser = checkData.user;
+              }
+            }
+          } catch (e) {
+            console.error('Failed to check whitelist status', e);
+          }
+        }
 
         if (!isAdminRoot && !existingUser) {
           setLoading(false);
