@@ -599,6 +599,26 @@ textarea[data-populated="true"]:not(:focus) {
     margin-top: 4px !important;
     font-weight: 600 !important;
   }
+
+  /* Scale down Map Filters Panel on mobile */
+  .map-filters-panel {
+    top: 6px !important;
+    right: 6px !important;
+    width: calc(100% - 12px) !important;
+    max-width: 290px !important;
+    padding: 10px !important;
+    gap: 8px !important;
+    border-radius: var(--radius-sm) !important;
+  }
+  .map-filters-panel h4 {
+    font-size: 0.85rem !important;
+  }
+  .map-filters-panel div,
+  .map-filters-panel span,
+  .map-filters-panel p,
+  .map-filters-panel label {
+    line-height: 1.25 !important;
+  }
 }
 
 @keyframes spin {

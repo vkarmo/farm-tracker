@@ -1378,6 +1378,7 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
       {/* Floating Filter Panel (Top-Right, shows when open) */}
       {isFilterPanelOpen && (
         <div
+          className="map-filters-panel"
           style={{
             position: 'absolute',
             top: '12px',
@@ -1416,10 +1417,11 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
           {/* Global Options */}
           <div style={{ background: '#f5f7fa', padding: '10px', borderRadius: '6px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <label style={{ fontSize: '0.75rem', fontWeight: 600, margin: 0 }}>Global Overlay:</label>
+              <label className="imager-select-label" style={{ fontSize: '0.75rem', fontWeight: 600, margin: 0 }}>Global Overlay:</label>
               <select 
                 value={commonImagery} 
                 onChange={(e) => handleGlobalImageryChange(e.target.value)}
+                className="imager-select"
                 style={{ padding: '4px 8px', borderRadius: '4px', background: 'white', fontSize: '0.8rem', border: '1px solid #ccc', width: '100%' }}
               >
                 {commonImagery === 'mixed' && (
