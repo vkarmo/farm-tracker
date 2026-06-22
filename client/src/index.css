@@ -321,11 +321,11 @@ textarea[data-populated="true"]:not(:focus) {
 @media (max-width: 768px) {
   .container,
   .container.container-wide {
-    width: 100% !important;
+    width: auto !important;
     max-width: 100% !important;
-    padding: 20px !important;
-    margin: 0 !important;
-    border-radius: 0 !important;
+    padding: 16px !important;
+    margin: 12px 10px !important;
+    border-radius: var(--radius-md) !important;
   }
 
   .card {
@@ -338,6 +338,10 @@ textarea[data-populated="true"]:not(:focus) {
 
   .tab-nav {
     justify-content: flex-start;
+    margin: 8px 10px 0 10px !important;
+    border-radius: var(--radius-md) !important;
+    padding: 8px 12px !important;
+    border: 1px solid var(--color-border-light) !important;
   }
 
   .form-grid-full {
@@ -358,6 +362,8 @@ textarea[data-populated="true"]:not(:focus) {
     flex-direction: column;
     align-items: flex-start;
     gap: 12px;
+    margin: 8px 10px 0 10px !important;
+    border-radius: var(--radius-md) !important;
   }
 
   header h1 {
@@ -568,23 +574,29 @@ textarea[data-populated="true"]:not(:focus) {
   }
 
   /* Scale down field imagery dropdown (.imager-select) on mobile */
-  .imager-select {
+  .leaflet-popup-content select.imager-select,
+  .leaflet-popup-content .imager-select,
+  select.imager-select {
     font-size: 0.72rem !important;
     padding: 2px 4px !important;
     height: 24px !important;
     border-radius: var(--radius-sm) !important;
     border: 1px solid #ccc !important;
     line-height: 1.2 !important;
-    margin-top: 3px !important;
+    margin: 2px 0 0 0 !important;
     background-color: #fff !important;
   }
-  .imager-select option,
-  .imager-select optgroup {
+  .leaflet-popup-content select.imager-select option,
+  .leaflet-popup-content select.imager-select optgroup,
+  select.imager-select option,
+  select.imager-select optgroup {
     font-size: 0.72rem !important;
   }
-  .imager-select-label {
-    font-size: 0.7rem !important;
+  .leaflet-popup-content label.imager-select-label,
+  label.imager-select-label {
+    font-size: 0.72rem !important;
     margin-bottom: 2px !important;
+    margin-top: 4px !important;
     font-weight: 600 !important;
   }
 }
