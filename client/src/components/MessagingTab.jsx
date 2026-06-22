@@ -6,6 +6,11 @@ import { Send, User, Users, MessageSquare, AlertCircle, CheckCircle } from 'luci
 export default function MessagingTab() {
   const currentUser = useSelector(state => state.auth?.currentUser);
   const employees = useSelector(state => state.employees?.list) || [];
+  const activeFarmId = localStorage.getItem('activeFarmId') || 'default_farm';
+
+  // Check access inside tab
+  const isNmkFarm = activeFarmId === 'default_farm';
+  const isSuperAdmin = currentUser?.email === 'vkarmo@gmail.com';
 
   const [selectedRecipients, setSelectedRecipients] = useState([]);
   const [messageText, setMessageText] = useState('');
@@ -22,6 +27,10 @@ export default function MessagingTab() {
         phone: e.phone
       }));
   }, [employees]);
+
+  if (!isNmkFarm && !isSuperAdmin) {
+    return <div className="card" style={{ padding: 40, textAlign: 'center' }}>Unauthorized Access</div>;
+  }
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
@@ -54,7 +63,9 @@ export default function MessagingTab() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           phoneNumber: recipientNumbers,
-          message: messageText
+          message: messageText,
+          farmId: activeFarmId,
+          email: currentUser?.email
         })
       });
 

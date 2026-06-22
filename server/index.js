@@ -690,6 +690,13 @@ app.post('/api/sms/test', async (req, res) => {
   const session = driver.session();
   try {
     const { clientId, clientSecret, phoneNumber, message, environment, farmId, email } = req.body;
+    
+    const isNmkFarm = farmId === 'default_farm';
+    const isSuperAdmin = email === 'vkarmo@gmail.com';
+    if (!isNmkFarm && !isSuperAdmin) {
+      return res.status(403).json({ error: 'Forbidden. SMS messaging is only available for NMK Farm or the super admin.' });
+    }
+
     if (email && !(await checkFarmAccess(session, email, farmId))) {
       return res.status(403).json({ error: 'Forbidden. You do not have access to this farm.' });
     }

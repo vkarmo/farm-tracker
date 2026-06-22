@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { clearLogs } from '../store/auditSlice';
+import { clearLogs, deleteAuditLogs } from '../store/auditSlice';
 import { Trash2 } from 'lucide-react';
 import CrudTable from './CrudTable';
 
@@ -12,6 +12,7 @@ export default function AuditTab() {
   const [filterDate, setFilterDate] = useState('All');
   const [filterUser, setFilterUser] = useState('All');
   const [filterAction, setFilterAction] = useState('All');
+  const [selectedIds, setSelectedIds] = useState([]);
 
   const uniqueDates = Array.from(new Set(logs.map(l => new Date(l.timestamp).toLocaleDateString()))).sort((a, b) => (a || '').localeCompare(b || ''));
   const uniqueUsers = Array.from(new Set(logs.map(l => l.userEmail))).sort((a, b) => (a || '').localeCompare(b || ''));
@@ -20,6 +21,15 @@ export default function AuditTab() {
   const handleClear = () => {
     if (window.confirm('Are you sure you want to clear all audit logs?')) {
       dispatch(clearLogs());
+      setSelectedIds([]);
+    }
+  };
+
+  const handleDeleteSelected = () => {
+    if (selectedIds.length === 0) return;
+    if (window.confirm(`Are you sure you want to delete the ${selectedIds.length} selected audit logs?`)) {
+      dispatch(deleteAuditLogs(selectedIds));
+      setSelectedIds([]);
     }
   };
 
@@ -37,9 +47,20 @@ export default function AuditTab() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
         <h2>System Audit Logs</h2>
         {currentUser?.role !== 'Admin Viewer' && (
-          <button onClick={handleClear} className="btn" style={{ background: '#ffebee', color: '#c62828', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Trash2 size={16} /> Clear Logs
-          </button>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            {selectedIds.length > 0 && (
+              <button 
+                onClick={handleDeleteSelected} 
+                className="btn" 
+                style={{ background: '#ffebee', color: '#c62828', display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <Trash2 size={16} /> Delete Selected ({selectedIds.length})
+              </button>
+            )}
+            <button onClick={handleClear} className="btn" style={{ background: '#ffebee', color: '#c62828', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Trash2 size={16} /> Clear Logs
+            </button>
+          </div>
         )}
       </div>
 
@@ -84,6 +105,8 @@ export default function AuditTab() {
         ]}
         itemLabel="Audit Log"
         customTitle="Audit Logs"
+        selectedIds={selectedIds}
+        onSelectionChange={setSelectedIds}
       />
     </div>
   );

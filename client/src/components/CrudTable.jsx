@@ -1,7 +1,22 @@
 import React, { useState, useMemo } from 'react';
 import { Search, Edit2, Trash2, ArrowUp, ArrowDown } from 'lucide-react';
 
-export default function CrudTable({ data, columns, onEdit, onDelete, itemLabel = 'Item', customTitle, rowStyle, defaultSort, maxHeight, activeRowId, hideTitle, mobileRender }) {
+export default function CrudTable({ 
+  data, 
+  columns, 
+  onEdit, 
+  onDelete, 
+  itemLabel = 'Item', 
+  customTitle, 
+  rowStyle, 
+  defaultSort, 
+  maxHeight, 
+  activeRowId, 
+  hideTitle, 
+  mobileRender,
+  selectedIds = [],
+  onSelectionChange
+}) {
   const [searchTerm, setSearchTerm] = useState('');
   const [sortConfig, setSortConfig] = useState(defaultSort || { key: 'updatedAt', direction: 'desc' });
   const [confirmDeleteId, setConfirmDeleteId] = useState(null);
@@ -87,6 +102,21 @@ export default function CrudTable({ data, columns, onEdit, onDelete, itemLabel =
         <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', background: 'white', minWidth: '600px', position: 'relative' }}>
           <thead>
             <tr style={{ background: '#f5f7fa', borderBottom: '2px solid var(--color-border)' }}>
+              {onSelectionChange && (
+                <th style={{ position: 'sticky', top: 0, zIndex: 2, background: '#f5f7fa', padding: '8px 10px', width: '40px', textAlign: 'center' }}>
+                  <input 
+                    type="checkbox" 
+                    checked={filteredData.length > 0 && filteredData.every(row => selectedIds.includes(row.id))}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        onSelectionChange(filteredData.map(row => row.id));
+                      } else {
+                        onSelectionChange([]);
+                      }
+                    }}
+                  />
+                </th>
+              )}
               {columns.map((col, i) => (
                 <th key={i} onClick={() => handleSort(col.key)} style={{ position: 'sticky', top: 0, zIndex: 1, background: '#f5f7fa', padding: '8px 10px', color: '#555', fontSize: '0.85rem', textTransform: 'uppercase', cursor: 'pointer', userSelect: 'none', whiteSpace: 'nowrap', ...(col.style || {}) }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -105,7 +135,7 @@ export default function CrudTable({ data, columns, onEdit, onDelete, itemLabel =
           <tbody>
             {filteredData.length === 0 ? (
               <tr>
-                <td colSpan={(onEdit || onDelete) ? columns.length + 1 : columns.length} style={{ padding: '30px', textAlign: 'center', color: '#999', fontStyle: 'italic' }}>
+                <td colSpan={columns.length + (onEdit || onDelete ? 1 : 0) + (onSelectionChange ? 1 : 0)} style={{ padding: '30px', textAlign: 'center', color: '#999', fontStyle: 'italic' }}>
                   No {itemLabel.toLowerCase()}s found matching your search.
                 </td>
               </tr>
@@ -123,6 +153,21 @@ export default function CrudTable({ data, columns, onEdit, onDelete, itemLabel =
                     ...(rowStyle ? rowStyle(row) : {})
                   }}
                 >
+                  {onSelectionChange && (
+                    <td style={{ padding: '8px 10px', textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
+                      <input 
+                        type="checkbox" 
+                        checked={selectedIds.includes(row.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            onSelectionChange([...selectedIds, row.id]);
+                          } else {
+                            onSelectionChange(selectedIds.filter(id => id !== row.id));
+                          }
+                        }}
+                      />
+                    </td>
+                  )}
                   {columns.map((col, colIndex) => {
                     const isDateColumn = col.header.toLowerCase().includes('date') || col.header.toLowerCase().includes('time') || col.header.toLowerCase().includes('deadline') || col.header.toLowerCase() === 'dob' || col.key.toLowerCase().includes('date');
                     return (
@@ -203,6 +248,24 @@ export default function CrudTable({ data, columns, onEdit, onDelete, itemLabel =
                   ...(rowStyle ? rowStyle(row) : {})
                 }}
               >
+                {onSelectionChange && (
+                  <div style={{ display: 'flex', justifyContent: 'flex-start', paddingBottom: '10px', borderBottom: '1px solid var(--color-border-light)', marginBottom: '10px' }} onClick={(e) => e.stopPropagation()}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0 }}>
+                      <input 
+                        type="checkbox" 
+                        checked={selectedIds.includes(row.id)}
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            onSelectionChange([...selectedIds, row.id]);
+                          } else {
+                            onSelectionChange(selectedIds.filter(id => id !== row.id));
+                          }
+                        }}
+                      />
+                      Select this item
+                    </label>
+                  </div>
+                )}
                 {columns.map((col, colIndex) => (
                   <div key={colIndex} className="mobile-data-card-row">
                     <div className="mobile-data-card-label">{col.header}:</div>

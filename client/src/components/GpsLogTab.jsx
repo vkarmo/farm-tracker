@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { clearLocations } from '../store/gpsSlice';
+import { clearLocations, deleteGpsLocations } from '../store/gpsSlice';
 import { Trash2, Map, TrendingUp, List } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend } from 'recharts';
 import CrudTable from './CrudTable';
@@ -62,6 +62,7 @@ export default function GpsLogTab() {
   const [activeView, setActiveView] = useState('list');
   const [flyTarget, setFlyTarget] = useState(null);
   const [activeIndex, setActiveIndex] = useState(-1);
+  const [selectedIds, setSelectedIds] = useState([]);
 
   useEffect(() => {
     setActiveIndex(-1);
@@ -75,14 +76,28 @@ export default function GpsLogTab() {
   const handleClear = () => {
     if (window.confirm('Clear all stored GPS breadcrumbs?')) {
       dispatch(clearLocations());
+      setSelectedIds([]);
     }
   };
 
-  const uniqueUsers = Array.from(new Set(logs.map(log => log.userEmail?.trim()).filter(Boolean))).sort((a, b) => a.localeCompare(b));
+  const handleDeleteSelected = () => {
+    if (selectedIds.length === 0) return;
+    if (window.confirm(`Are you sure you want to delete the ${selectedIds.length} selected GPS coordinates?`)) {
+      dispatch(deleteGpsLocations(selectedIds));
+      setSelectedIds([]);
+      setActiveIndex(-1);
+    }
+  };
+
+  const uniqueUsers = Array.from(new Set(logs.map(log => log.userEmail?.trim()?.toLowerCase()).filter(Boolean))).sort((a, b) => a.localeCompare(b));
 
   const filteredLogs = logs.filter(log => {
-    return selectedUser === 'All' || (log.userEmail && log.userEmail.trim() === selectedUser);
+    if (selectedUser === 'All') return true;
+    if (!log.userEmail) return false;
+    return log.userEmail.trim().toLowerCase() === selectedUser.trim().toLowerCase();
   }).reverse(); // Newest first
+
+  console.log('[GpsLogTab] logs count:', logs.length, 'selectedUser:', selectedUser, 'filteredLogs count:', filteredLogs.length);
 
   const handleNextPoint = () => {
     if (filteredLogs.length === 0) return;
@@ -120,9 +135,20 @@ export default function GpsLogTab() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <h2>User GPS Tracking Logs</h2>
         {currentUser?.role !== 'Admin Viewer' && (
-          <button onClick={handleClear} className="btn" style={{ background: '#ffebee', color: '#c62828', display: 'flex', alignItems: 'center', gap: '6px' }}>
-            <Trash2 size={16} /> Purge Logs
-          </button>
+          <div style={{ display: 'flex', gap: '10px' }}>
+            {selectedIds.length > 0 && (
+              <button 
+                onClick={handleDeleteSelected} 
+                className="btn" 
+                style={{ background: '#ffebee', color: '#c62828', display: 'flex', alignItems: 'center', gap: '6px' }}
+              >
+                <Trash2 size={16} /> Delete Selected ({selectedIds.length})
+              </button>
+            )}
+            <button onClick={handleClear} className="btn" style={{ background: '#ffebee', color: '#c62828', display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Trash2 size={16} /> Purge Logs
+            </button>
+          </div>
         )}
       </div>
 
@@ -203,6 +229,8 @@ export default function GpsLogTab() {
             }
           }}
           activeRowId={activeIndex !== -1 ? filteredLogs[activeIndex]?.id : null}
+          selectedIds={selectedIds}
+          onSelectionChange={setSelectedIds}
         />
       )}
 

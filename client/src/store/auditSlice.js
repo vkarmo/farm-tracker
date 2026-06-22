@@ -1,4 +1,5 @@
 import { createSlice } from '@reduxjs/toolkit';
+import { queueAction } from './syncSlice';
 
 export const auditSlice = createSlice({
   name: 'audit',
@@ -18,11 +19,22 @@ export const auditSlice = createSlice({
     },
     clearLogs: (state) => {
       state.logs = [];
+    },
+    deleteLogs: (state, action) => {
+      const ids = action.payload;
+      state.logs = state.logs.filter(log => !ids.includes(log.id));
     }
   }
 });
 
-export const { setLogs, logAction, clearLogs } = auditSlice.actions;
+export const { setLogs, logAction, clearLogs, deleteLogs } = auditSlice.actions;
+
+export const deleteAuditLogs = (ids) => (dispatch) => {
+  dispatch(deleteLogs(ids));
+  ids.forEach(id => {
+    dispatch(queueAction({ type: 'core/deleteNode', payload: { id }, meta: { id: Date.now() + Math.random() } }));
+  });
+};
 
 // Redux Middleware to automatically capture CRUD operations
 export const auditMiddleware = storeAPI => next => action => {

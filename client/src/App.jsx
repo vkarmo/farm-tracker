@@ -578,6 +578,13 @@ export default function App() {
   }, [gpsDistanceThreshold]);
 
   const hasAccess = (tabId) => {
+    if (tabId === 'messaging') {
+      const isNmkFarm = activeFarmId === 'default_farm';
+      const isSuperAdmin = currentUser?.email === 'vkarmo@gmail.com';
+      if (!isNmkFarm && !isSuperAdmin) {
+        return false;
+      }
+    }
     if (currentUser?.role === 'Admin' || currentUser?.role === 'Admin Viewer') return true;
     if (currentUser?.role === 'Viewer' && tabId === 'budget') {
       if (!currentUser?.allowedTabs) return false;
@@ -705,8 +712,8 @@ export default function App() {
         const distance = getDistanceFromLatLonInM(latitude, longitude, Number(lastLoc.lat), Number(lastLoc.lng));
         const timeSinceLastSave = Date.now() - new Date(lastLoc.timestamp).getTime();
 
-        // Save if moved beyond threshold OR if 2 minutes have passed (stationary heartbeat)
-        if (distance >= Number(gpsDistanceThreshold) || timeSinceLastSave >= 2 * 60 * 1000) {
+        // Save only if moved beyond distance threshold (removed stationary heartbeat to prevent drift)
+        if (distance >= Number(gpsDistanceThreshold)) {
           shouldSave = true;
         }
       }
@@ -1058,20 +1065,20 @@ export default function App() {
                   )}
                 </div>
               </div>
-              {isSyncing ? (
-                <div className="status-indicator status-syncing"><RefreshCw size={16} className="spin" /> Pushing to DB...</div>
+               {isSyncing ? (
+                <div className="status-indicator status-syncing header-status-indicator"><RefreshCw size={16} className="spin" /> Pushing to DB...</div>
               ) : !isOnline ? (
-                <div className="status-indicator status-offline">
+                <div className="status-indicator status-offline header-status-indicator">
                   <WifiOff size={16} /> Offline Cache Active
                   {syncQueue.length > 0 && <span style={{ marginLeft: '4px' }}>({syncQueue.length} pending writes)</span>}
                 </div>
               ) : !backendAvailable ? (
-                <div className="status-indicator status-offline" style={{ background: '#ffebee', color: '#c62828' }}>
+                <div className="status-indicator status-offline header-status-indicator" style={{ background: '#ffebee', color: '#c62828' }}>
                   <WifiOff size={16} /> DB Unreachable
                   {syncQueue.length > 0 && <span style={{ marginLeft: '4px' }}>({syncQueue.length} pending writes)</span>}
                 </div>
               ) : (
-                <div className="status-indicator status-online"><Wifi size={16} /> Online</div>
+                <div className="status-indicator status-online header-status-indicator"><Wifi size={16} /> Online</div>
               )}
             </div>
 
@@ -2380,177 +2387,179 @@ export default function App() {
               </div>
 
               {/* MTN SMS Settings Card */}
-              <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 0 }}>
-                <button
-                  onClick={() => setOpenSettings({ ...openSettings, mtn: !openSettings.mtn })}
-                  type="button"
-                  style={{ width: '100%', padding: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f5f7fa', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '1.1rem', color: '#333' }}
-                >
-                  MTN SMS Settings
-                  {openSettings.mtn ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
-                </button>
+              {(activeFarmId === 'default_farm' || currentUser?.email === 'vkarmo@gmail.com') && (
+                <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 0 }}>
+                  <button
+                    onClick={() => setOpenSettings({ ...openSettings, mtn: !openSettings.mtn })}
+                    type="button"
+                    style={{ width: '100%', padding: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f5f7fa', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '1.1rem', color: '#333' }}
+                  >
+                    MTN SMS Settings
+                    {openSettings.mtn ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
+                  </button>
 
-                {openSettings.mtn && (
-                  <div style={{ padding: '20px', background: 'var(--color-surface)' }}>
-                    <div style={{ marginBottom: 20 }}>
-                      <h3 style={{ marginTop: 0 }}>Credentials & Test Tool</h3>
-                      <p style={{ fontSize: '0.8rem', color: '#666', marginBottom: 16 }}>
-                        Configure your MTN SMS Gateway client credentials. Settings are saved automatically when you edit them. Use the test tool below to verify connection status.
-                      </p>
-
-                      <div style={{ marginBottom: 16 }}>
-                        <label style={{ fontWeight: '600', display: 'block', marginBottom: '8px' }}>Client ID</label>
-                        <input
-                          type="text"
-                          value={mtnClientId || ''}
-                          onChange={(e) => { dispatch(setMtnClientId(e.target.value)); dispatch(saveSettings()); }}
-                          disabled={currentUser?.role === 'Admin Viewer'}
-                          placeholder="e.g. your-mtn-client-id"
-                          className="btn"
-                          style={{ display: 'block', marginTop: 8, padding: '8px', width: '100%', maxWidth: '500px', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'text', background: '#fff', border: '1px solid #ccc' }}
-                        />
-                      </div>
-
-                      <div style={{ marginBottom: 16 }}>
-                        <label style={{ fontWeight: '600', display: 'block', marginBottom: '8px' }}>Client Secret</label>
-                        <input
-                          type="password"
-                          value={mtnClientSecret || ''}
-                          onChange={(e) => { dispatch(setMtnClientSecret(e.target.value)); dispatch(saveSettings()); }}
-                          disabled={currentUser?.role === 'Admin Viewer'}
-                          placeholder="e.g. your-mtn-client-secret"
-                          className="btn"
-                          style={{ display: 'block', marginTop: 8, padding: '8px', width: '100%', maxWidth: '500px', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'text', background: '#fff', border: '1px solid #ccc' }}
-                        />
-                      </div>
-
-                      <div style={{ marginBottom: 16 }}>
-                        <label style={{ fontWeight: '600', display: 'block', marginBottom: '8px' }}>Environment</label>
-                        <select
-                          value={mtnEnvironment}
-                          onChange={(e) => { dispatch(setMtnEnvironment(e.target.value)); dispatch(saveSettings()); }}
-                          disabled={currentUser?.role === 'Admin Viewer'}
-                          className="btn"
-                          style={{ display: 'block', marginTop: 8, padding: '8px', width: '100%', maxWidth: '500px', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer', background: '#fff', border: '1px solid #ccc' }}
-                        >
-                          <option value="sandbox">Sandbox (Testing)</option>
-                          <option value="production">Production (Live)</option>
-                        </select>
-                      </div>
-
-                      {/* SMS Test Tool Section */}
-                      <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px solid #eee' }}>
-                        <h3 style={{ marginTop: 0, fontSize: '1.1rem', color: '#333' }}>Send Test SMS</h3>
+                  {openSettings.mtn && (
+                    <div style={{ padding: '20px', background: 'var(--color-surface)' }}>
+                      <div style={{ marginBottom: 20 }}>
+                        <h3 style={{ marginTop: 0 }}>Credentials & Test Tool</h3>
+                        <p style={{ fontSize: '0.8rem', color: '#666', marginBottom: 16 }}>
+                          Configure your MTN SMS Gateway client credentials. Settings are saved automatically when you edit them. Use the test tool below to verify connection status.
+                        </p>
 
                         <div style={{ marginBottom: 16 }}>
-                          <label style={{ fontWeight: '600', display: 'block', marginBottom: '8px' }}>Select Employee Recipients</label>
-                          <Select
-                            isMulti
-                            options={employeeOptions}
-                            value={selectedMtnEmployees}
-                            onChange={setSelectedMtnEmployees}
-                            placeholder="Search and select employees..."
-                            styles={{
-                              control: (base, state) => ({
-                                ...base,
-                                borderColor: state.isFocused ? '#2e7d32' : '#ccc',
-                                boxShadow: state.isFocused ? '0 0 0 1px #2e7d32' : null,
-                                '&:hover': {
-                                  borderColor: state.isFocused ? '#2e7d32' : '#999',
-                                },
-                                minHeight: '40px',
-                                borderRadius: '6px',
-                                width: '100%',
-                                maxWidth: '500px',
-                                background: '#fff',
-                              }),
-                              multiValue: (base) => ({
-                                ...base,
-                                backgroundColor: '#e8f5e9',
-                                borderRadius: '4px',
-                              }),
-                              multiValueLabel: (base) => ({
-                                ...base,
-                                color: '#2e7d32',
-                                fontWeight: '500',
-                              }),
-                              multiValueRemove: (base) => ({
-                                ...base,
-                                color: '#2e7d32',
-                                ':hover': {
-                                  backgroundColor: '#c8e6c9',
-                                  color: '#1b5e20',
-                                },
-                              }),
-                              option: (base, state) => ({
-                                ...base,
-                                backgroundColor: state.isSelected
-                                  ? '#2e7d32'
-                                  : state.isFocused
-                                  ? '#e8f5e9'
-                                  : 'transparent',
-                                color: state.isSelected
-                                  ? '#fff'
-                                  : state.isFocused
-                                  ? '#2e7d32'
-                                  : '#333',
-                                ':active': {
-                                  backgroundColor: '#c8e6c9',
-                                },
-                              }),
-                            }}
-                          />
-                        </div>
-
-                        <div style={{ marginBottom: 16 }}>
-                          <label style={{ fontWeight: '600', display: 'block', marginBottom: '8px' }}>Test Phone Number(s)</label>
+                          <label style={{ fontWeight: '600', display: 'block', marginBottom: '8px' }}>Client ID</label>
                           <input
                             type="text"
-                            value={mtnTestPhone}
-                            onChange={(e) => setMtnTestPhone(e.target.value)}
-                            placeholder="e.g. 233241234567, 233247654321"
+                            value={mtnClientId || ''}
+                            onChange={(e) => { dispatch(setMtnClientId(e.target.value)); dispatch(saveSettings()); }}
+                            disabled={currentUser?.role === 'Admin Viewer'}
+                            placeholder="e.g. your-mtn-client-id"
                             className="btn"
-                            style={{ display: 'block', marginTop: 8, padding: '8px', width: '100%', maxWidth: '500px', background: '#fff', border: '1px solid #ccc' }}
+                            style={{ display: 'block', marginTop: 8, padding: '8px', width: '100%', maxWidth: '500px', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'text', background: '#fff', border: '1px solid #ccc' }}
                           />
-                          <small style={{ display: 'block', marginTop: '4px', color: '#666', fontSize: '0.75rem' }}>
-                            Enter destination phone number(s) in international format without the "+" prefix, separated by commas or spaces.
-                          </small>
                         </div>
 
                         <div style={{ marginBottom: 16 }}>
-                          <label style={{ fontWeight: '600', display: 'block', marginBottom: '8px' }}>Test Message</label>
-                          <textarea
-                            value={mtnTestMessage}
-                            onChange={(e) => setMtnTestMessage(e.target.value)}
-                            placeholder="Type a test message..."
+                          <label style={{ fontWeight: '600', display: 'block', marginBottom: '8px' }}>Client Secret</label>
+                          <input
+                            type="password"
+                            value={mtnClientSecret || ''}
+                            onChange={(e) => { dispatch(setMtnClientSecret(e.target.value)); dispatch(saveSettings()); }}
+                            disabled={currentUser?.role === 'Admin Viewer'}
+                            placeholder="e.g. your-mtn-client-secret"
                             className="btn"
-                            style={{ display: 'block', marginTop: 8, padding: '8px', width: '100%', maxWidth: '500px', height: '80px', background: '#fff', border: '1px solid #ccc' }}
+                            style={{ display: 'block', marginTop: 8, padding: '8px', width: '100%', maxWidth: '500px', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'text', background: '#fff', border: '1px solid #ccc' }}
                           />
                         </div>
 
-                        <div style={{ marginTop: 16 }}>
-                          <button
-                            type="button"
-                            onClick={handleSendTestSms}
-                            className="btn btn-primary"
-                            style={{ background: '#2e7d32', color: 'white', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', border: 'none', fontWeight: 600 }}
-                            disabled={mtnTesting || (!(mtnTestPhone || '').trim() && (selectedMtnEmployees || []).length === 0) || !mtnTestMessage}
+                        <div style={{ marginBottom: 16 }}>
+                          <label style={{ fontWeight: '600', display: 'block', marginBottom: '8px' }}>Environment</label>
+                          <select
+                            value={mtnEnvironment}
+                            onChange={(e) => { dispatch(setMtnEnvironment(e.target.value)); dispatch(saveSettings()); }}
+                            disabled={currentUser?.role === 'Admin Viewer'}
+                            className="btn"
+                            style={{ display: 'block', marginTop: 8, padding: '8px', width: '100%', maxWidth: '500px', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer', background: '#fff', border: '1px solid #ccc' }}
                           >
-                            {mtnTesting ? 'Sending Test...' : 'Send Test Message'}
-                          </button>
-                          
-                          {mtnTestStatus && (
-                            <div style={{ marginTop: 12, padding: '10px', borderRadius: '4px', border: `1px solid ${mtnTestStatus.success ? '#c5e1a5' : '#ffcdd2'}`, background: mtnTestStatus.success ? '#f1f8e9' : '#ffebee', color: mtnTestStatus.success ? '#33691e' : '#c62828', fontSize: '0.85rem' }}>
-                              {mtnTestStatus.success ? mtnTestStatus.message : mtnTestStatus.error}
-                            </div>
-                          )}
+                            <option value="sandbox">Sandbox (Testing)</option>
+                            <option value="production">Production (Live)</option>
+                          </select>
                         </div>
-                      </div>
 
+                        {/* SMS Test Tool Section */}
+                        <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px solid #eee' }}>
+                          <h3 style={{ marginTop: 0, fontSize: '1.1rem', color: '#333' }}>Send Test SMS</h3>
+
+                          <div style={{ marginBottom: 16 }}>
+                            <label style={{ fontWeight: '600', display: 'block', marginBottom: '8px' }}>Select Employee Recipients</label>
+                            <Select
+                              isMulti
+                              options={employeeOptions}
+                              value={selectedMtnEmployees}
+                              onChange={setSelectedMtnEmployees}
+                              placeholder="Search and select employees..."
+                              styles={{
+                                control: (base, state) => ({
+                                  ...base,
+                                  borderColor: state.isFocused ? '#2e7d32' : '#ccc',
+                                  boxShadow: state.isFocused ? '0 0 0 1px #2e7d32' : null,
+                                  '&:hover': {
+                                    borderColor: state.isFocused ? '#2e7d32' : '#999',
+                                  },
+                                  minHeight: '40px',
+                                  borderRadius: '6px',
+                                  width: '100%',
+                                  maxWidth: '500px',
+                                  background: '#fff',
+                                }),
+                                multiValue: (base) => ({
+                                  ...base,
+                                  backgroundColor: '#e8f5e9',
+                                  borderRadius: '4px',
+                                }),
+                                multiValueLabel: (base) => ({
+                                  ...base,
+                                  color: '#2e7d32',
+                                  fontWeight: '500',
+                                }),
+                                multiValueRemove: (base) => ({
+                                  ...base,
+                                  color: '#2e7d32',
+                                  ':hover': {
+                                    backgroundColor: '#c8e6c9',
+                                    color: '#1b5e20',
+                                  },
+                                }),
+                                option: (base, state) => ({
+                                  ...base,
+                                  backgroundColor: state.isSelected
+                                    ? '#2e7d32'
+                                    : state.isFocused
+                                    ? '#e8f5e9'
+                                    : 'transparent',
+                                  color: state.isSelected
+                                    ? '#fff'
+                                    : state.isFocused
+                                    ? '#2e7d32'
+                                    : '#333',
+                                  ':active': {
+                                    backgroundColor: '#c8e6c9',
+                                  },
+                                }),
+                              }}
+                            />
+                          </div>
+
+                          <div style={{ marginBottom: 16 }}>
+                            <label style={{ fontWeight: '600', display: 'block', marginBottom: '8px' }}>Test Phone Number(s)</label>
+                            <input
+                              type="text"
+                              value={mtnTestPhone}
+                              onChange={(e) => setMtnTestPhone(e.target.value)}
+                              placeholder="e.g. 233241234567, 233247654321"
+                              className="btn"
+                              style={{ display: 'block', marginTop: 8, padding: '8px', width: '100%', maxWidth: '500px', background: '#fff', border: '1px solid #ccc' }}
+                            />
+                            <small style={{ display: 'block', marginTop: '4px', color: '#666', fontSize: '0.75rem' }}>
+                              Enter destination phone number(s) in international format without the "+" prefix, separated by commas or spaces.
+                            </small>
+                          </div>
+
+                          <div style={{ marginBottom: 16 }}>
+                            <label style={{ fontWeight: '600', display: 'block', marginBottom: '8px' }}>Test Message</label>
+                            <textarea
+                              value={mtnTestMessage}
+                              onChange={(e) => setMtnTestMessage(e.target.value)}
+                              placeholder="Type a test message..."
+                              className="btn"
+                              style={{ display: 'block', marginTop: 8, padding: '8px', width: '100%', maxWidth: '500px', height: '80px', background: '#fff', border: '1px solid #ccc' }}
+                            />
+                          </div>
+
+                          <div style={{ marginTop: 16 }}>
+                            <button
+                              type="button"
+                              onClick={handleSendTestSms}
+                              className="btn btn-primary"
+                              style={{ background: '#2e7d32', color: 'white', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', border: 'none', fontWeight: 600 }}
+                              disabled={mtnTesting || (!(mtnTestPhone || '').trim() && (selectedMtnEmployees || []).length === 0) || !mtnTestMessage}
+                            >
+                              {mtnTesting ? 'Sending Test...' : 'Send Test Message'}
+                            </button>
+                            
+                            {mtnTestStatus && (
+                              <div style={{ marginTop: 12, padding: '10px', borderRadius: '4px', border: `1px solid ${mtnTestStatus.success ? '#c5e1a5' : '#ffcdd2'}`, background: mtnTestStatus.success ? '#f1f8e9' : '#ffebee', color: mtnTestStatus.success ? '#33691e' : '#c62828', fontSize: '0.85rem' }}>
+                                {mtnTestStatus.success ? mtnTestStatus.message : mtnTestStatus.error}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                      </div>
                     </div>
-                  </div>
-                )}
-              </div>
+                  )}
+                </div>
+              )}
 
               {/* Crop Advisor AI Settings Card */}
               <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 0 }}>
