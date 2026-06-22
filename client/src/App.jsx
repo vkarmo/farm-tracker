@@ -97,7 +97,7 @@ export default function App() {
 
   const determineDefaultFarm = (farms) => {
     if (!farms || farms.length === 0) return 'default_farm';
-    
+
     // Helper to identify viewing rights (Viewer, Admin Viewer, or any role containing 'viewer' case-insensitively)
     const isViewerRole = (role) => {
       if (!role) return false;
@@ -108,16 +108,16 @@ export default function App() {
     // 1. the app should default to the farm the logged in user is admin for
     const adminFarm = farms.find(f => f && typeof f.role === 'string' && f.role.toLowerCase() === 'admin');
     if (adminFarm) return adminFarm.id;
-    
+
     // 2. if a user is simply whitelisted for a farm then default to that farm (non-viewer, non-admin)
     const simplyWhitelistedFarm = farms.find(f => f && !isViewerRole(f.role) && f.role && f.role.toLowerCase() !== 'admin');
     if (simplyWhitelistedFarm) return simplyWhitelistedFarm.id;
-    
+
     // 3. if the user has viewing rights in other farm data sets, those should not be the default farm for them
     // (Only default to a viewing-rights farm if there are no admin or simply whitelisted options available)
     const viewingRightsFarm = farms.find(f => f && isViewerRole(f.role));
     if (viewingRightsFarm) return viewingRightsFarm.id;
-    
+
     return farms[0].id;
   };
 
@@ -247,7 +247,7 @@ export default function App() {
     if (!selectedDeleteFarmId) return;
     const targetFarm = farmsList.find(f => f.id === selectedDeleteFarmId);
     if (!targetFarm) return;
-    
+
     if (deleteConfirmationText !== targetFarm.name) {
       alert('Confirmation name mismatch.');
       return;
@@ -265,13 +265,13 @@ export default function App() {
           setDeleteSummary(null);
           setDeleteConfirmationText('');
           setSelectedDeleteFarmId('');
-          
+
           // Refetch available farms list
           const freshResponse = await fetch(`/api/farms?email=${encodeURIComponent(currentUser.email)}`);
           if (freshResponse.ok) {
             const freshFarms = await freshResponse.json();
             setFarmsList(freshFarms);
-            
+
             // Check if our active farm was the one deleted
             if (activeFarmId === selectedDeleteFarmId) {
               const newDefaultFarmId = determineDefaultFarm(freshFarms);
@@ -1018,8 +1018,8 @@ export default function App() {
             <div style={{ display: 'flex', gap: '16px', width: '100%', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
               <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
                 <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  <select 
-                    value={activeFarmId} 
+                  <select
+                    value={activeFarmId}
                     onChange={(e) => handleFarmChange(e.target.value)}
                     style={{
                       padding: '4px 8px',
@@ -1047,7 +1047,7 @@ export default function App() {
                     )}
                   </select>
                   {currentUser?.email === 'vkarmo@gmail.com' && (
-                    <button 
+                    <button
                       onClick={handleCreateFarm}
                       style={{
                         padding: '4px 8px',
@@ -1065,7 +1065,7 @@ export default function App() {
                   )}
                 </div>
               </div>
-               {isSyncing ? (
+              {isSyncing ? (
                 <div className="status-indicator status-syncing header-status-indicator"><RefreshCw size={16} className="spin" /> Pushing to DB...</div>
               ) : !isOnline ? (
                 <div className="status-indicator status-offline header-status-indicator">
@@ -2265,12 +2265,12 @@ export default function App() {
                           </div>
 
                           <div style={{ flex: 1, minWidth: '200px' }}>
-                            <label className="imager-select-label" style={{ display: 'block', marginBottom: '8px' }}>{formatImagerLabel("Select Index (Unpersisted)")}</label>
+                            <label className="imager-select-label" style={{ display: 'block', marginBottom: '4px' }}>{formatImagerLabel("Select Index (Unpersisted)")}</label>
                             <select
                               className="imager-select"
                               value={testIndexType}
                               onChange={(e) => setTestIndexType(e.target.value)}
-                              style={{ padding: '8px', width: '100%', border: '1px solid #ccc', borderRadius: '4px', background: 'white' }}
+                              style={{ fontSize: '0.88rem', padding: '2px', width: '100%', border: '1px solid #ccc', borderRadius: '2px', background: 'white' }}
                               disabled={!testFieldId}
                             >
                               <option value="Elevation">{formatImagerLabel("Elevation (Topography)")}</option>
@@ -2323,7 +2323,7 @@ export default function App() {
                             <div style={{ marginTop: '15px' }}>
                               {/* GEE loading/success/error status indicator */}
                               <div style={{
-                                marginBottom: '10px', padding: '8px', borderRadius: '4px', fontSize: '0.85rem', fontWeight: 600,
+                                marginBottom: '10px', padding: '2px', borderRadius: '4px', fontSize: '0.85rem', fontWeight: 600,
                                 background: statusObj.status === 'success' ? '#e8f5e9' : statusObj.status === 'failed' ? '#ffebee' : '#e3f2fd',
                                 color: statusObj.status === 'success' ? '#2e7d32' : statusObj.status === 'failed' ? '#c62828' : '#1565c0',
                                 border: `1px solid ${statusObj.status === 'success' ? '#a5d6a7' : statusObj.status === 'failed' ? '#ef9a9a' : '#90caf9'}`
@@ -2495,13 +2495,13 @@ export default function App() {
                                   backgroundColor: state.isSelected
                                     ? '#2e7d32'
                                     : state.isFocused
-                                    ? '#e8f5e9'
-                                    : 'transparent',
+                                      ? '#e8f5e9'
+                                      : 'transparent',
                                   color: state.isSelected
                                     ? '#fff'
                                     : state.isFocused
-                                    ? '#2e7d32'
-                                    : '#333',
+                                      ? '#2e7d32'
+                                      : '#333',
                                   ':active': {
                                     backgroundColor: '#c8e6c9',
                                   },
@@ -2546,7 +2546,7 @@ export default function App() {
                             >
                               {mtnTesting ? 'Sending Test...' : 'Send Test Message'}
                             </button>
-                            
+
                             {mtnTestStatus && (
                               <div style={{ marginTop: 12, padding: '10px', borderRadius: '4px', border: `1px solid ${mtnTestStatus.success ? '#c5e1a5' : '#ffcdd2'}`, background: mtnTestStatus.success ? '#f1f8e9' : '#ffebee', color: mtnTestStatus.success ? '#33691e' : '#c62828', fontSize: '0.85rem' }}>
                                 {mtnTestStatus.success ? mtnTestStatus.message : mtnTestStatus.error}
@@ -2649,7 +2649,7 @@ export default function App() {
                             <span style={{ fontWeight: '600', display: 'block', fontSize: '0.9rem', color: '#1e293b' }}>Simulate Severe High Winds Warning</span>
                             <span style={{ fontSize: '0.75rem', color: '#64748b' }}>Overwrites forecast wind speeds to 18 m/s (64.8 km/h) to trigger severe wind advisories on the dashboard weather view.</span>
                           </div>
-                          
+
                           {/* Toggle Switch */}
                           <label className="toggle-switch-container" style={{ position: 'relative', display: 'inline-block', width: '48px', height: '24px', flexShrink: 0 }}>
                             <input
@@ -2740,7 +2740,7 @@ export default function App() {
                               ))}
                             </select>
                           </div>
-                          
+
                           <button
                             type="button"
                             onClick={handleScanFarmDataset}
@@ -2763,7 +2763,7 @@ export default function App() {
                                 <AlertTriangle size={18} color="#c62828" />
                                 Review Node Deletion Summary for "{farmName}"
                               </h4>
-                              
+
                               <p style={{ fontSize: '0.85rem', color: '#27272a', margin: '0 0 12px 0' }}>
                                 The selected farm dataset contains <strong>{totalNodes}</strong> total database nodes:
                               </p>
