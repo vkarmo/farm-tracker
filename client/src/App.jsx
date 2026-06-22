@@ -1074,7 +1074,7 @@ export default function App() {
                 </div>
               ) : !backendAvailable ? (
                 <div className="status-indicator status-offline header-status-indicator" style={{ background: '#ffebee', color: '#c62828' }}>
-                  <WifiOff size={16} /> DB Unreachable
+                  <WifiOff size={16} /> Offline
                   {syncQueue.length > 0 && <span style={{ marginLeft: '4px' }}>({syncQueue.length} pending writes)</span>}
                 </div>
               ) : (

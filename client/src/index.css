@@ -566,6 +566,27 @@ textarea[data-populated="true"]:not(:focus) {
     padding: 4px 8px !important;
     font-size: 0.72rem !important;
   }
+
+  /* Scale down field imagery dropdown (.imager-select) on mobile */
+  .imager-select {
+    font-size: 0.72rem !important;
+    padding: 2px 4px !important;
+    height: 24px !important;
+    border-radius: var(--radius-sm) !important;
+    border: 1px solid #ccc !important;
+    line-height: 1.2 !important;
+    margin-top: 3px !important;
+    background-color: #fff !important;
+  }
+  .imager-select option,
+  .imager-select optgroup {
+    font-size: 0.72rem !important;
+  }
+  .imager-select-label {
+    font-size: 0.7rem !important;
+    margin-bottom: 2px !important;
+    font-weight: 600 !important;
+  }
 }
 
 @keyframes spin {
