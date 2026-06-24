@@ -80,6 +80,7 @@ export default function App() {
 
   const [activeFarmId, setActiveFarmId] = useState(localStorage.getItem('activeFarmId') || 'default_farm');
   const [farmsList, setFarmsList] = useState([]);
+  const [isFarmLoading, setIsFarmLoading] = useState(false);
 
   // Clear active farm from localStorage if the logged-in user changes (including simulation mode)
   useEffect(() => {
@@ -149,10 +150,17 @@ export default function App() {
     }
   }, [currentUser]);
 
-  const handleFarmChange = (farmId) => {
+  const handleFarmChange = async (farmId) => {
+    setIsFarmLoading(true);
     localStorage.setItem('activeFarmId', farmId);
     setActiveFarmId(farmId);
-    dispatch(fetchInitialData());
+    try {
+      await dispatch(fetchInitialData());
+    } catch (err) {
+      console.error('Failed to load initial data for farm:', err);
+    } finally {
+      setIsFarmLoading(false);
+    }
   };
 
   const handleCreateFarm = async () => {
@@ -998,6 +1006,13 @@ export default function App() {
             <p style={{ color: '#ccc', maxWidth: '280px', textAlign: 'center', wordWrap: 'break-word', whiteSpace: 'normal', lineHeight: '1.4' }}>Downloading the latest version.<br />The app will reload automatically.</p>
           </div>
         )}
+        {isFarmLoading && (
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
+            <RefreshCw size={54} className="spin" style={{ marginBottom: '24px', color: 'var(--color-accent)' }} />
+            <h2 style={{ color: 'white', marginBottom: '8px' }}>Loading {displayAppName}...</h2>
+            <p style={{ color: '#ccc', maxWidth: '280px', textAlign: 'center', wordWrap: 'break-word', whiteSpace: 'normal', lineHeight: '1.4' }}>Updating view with the selected farm records.</p>
+          </div>
+        )}
         <header>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             {logo ? (
@@ -1197,7 +1212,7 @@ export default function App() {
           )}
         </nav>
 
-        <main className={`container ${['map', 'field', 'nursery', 'soilTests', 'equipment', 'gps', 'poi', 'settings'].includes(activeTab) ? 'container-wide' : ''} ${currentUser?.role === 'Viewer' || currentUser?.role === 'Admin Viewer' ? 'role-viewer' : ''}`} style={{ marginTop: '20px' }}>
+        <main className={`container ${['map', 'field', 'nursery', 'soilTests', 'equipment', 'gps', 'poi', 'settings', 'pest', 'livestock', 'livestockDiseases'].includes(activeTab) ? 'container-wide' : ''} ${currentUser?.role === 'Viewer' || currentUser?.role === 'Admin Viewer' ? 'role-viewer' : ''}`} style={{ marginTop: '20px' }}>
 
           {activeTab === 'dashboard' && <DashboardTab />}
           {activeTab === 'map' && (

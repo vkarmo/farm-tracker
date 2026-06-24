@@ -211,7 +211,7 @@ const splitMarkdownToTabs = (markdown) => {
   return sections;
 };
 
-export const parseStructuredData = (text, area, selectedCrops) => {
+export const parseStructuredData = (text, area, selectedCrops, elevation) => {
   let data = null;
   if (text) {
     const jsonMatch = text.match(/```json\s*(\{[\s\S]*?\})\s*```/);
@@ -225,6 +225,45 @@ export const parseStructuredData = (text, area, selectedCrops) => {
   }
   
   if (data && data.monthlyProjections && data.annualRevenue && data.fieldLayout) {
+    // Exclude Cassava from parsed JSON if elevation is too low (< 110m)
+    if (elevation !== undefined && elevation !== null && Number(elevation) < 110) {
+      if (Array.isArray(data.annualRevenue)) {
+        data.annualRevenue = data.annualRevenue.filter(r => r && typeof r.crop === 'string' && !r.crop.toLowerCase().includes('cassava'));
+      }
+      if (Array.isArray(data.monthlyProjections)) {
+        data.monthlyProjections = data.monthlyProjections.map(proj => {
+          if (!proj) return proj;
+          const newProj = { ...proj };
+          Object.keys(newProj).forEach(key => {
+            if (key.toLowerCase().includes('cassava')) {
+              delete newProj[key];
+            }
+          });
+          let newTotal = 0;
+          Object.keys(newProj).forEach(key => {
+            if (key !== 'month' && key !== 'total' && typeof newProj[key] === 'number') {
+              newTotal += newProj[key];
+            }
+          });
+          newProj.total = newTotal;
+          return newProj;
+        });
+      }
+    }
+
+    // Crucial rule: Only include recommended crops in the field layout assignments
+    const recommendedCropNames = new Set(
+      Array.isArray(data.annualRevenue)
+        ? data.annualRevenue.map(r => r && typeof r.crop === 'string' ? r.crop.toLowerCase().trim() : '')
+        : []
+    );
+    
+    if (data.fieldLayout && Array.isArray(data.fieldLayout.cropAssignments)) {
+      data.fieldLayout.cropAssignments = data.fieldLayout.cropAssignments.filter(
+        ass => ass && typeof ass.crop === 'string' && recommendedCropNames.has(ass.crop.toLowerCase().trim())
+      );
+    }
+    
     return data;
   }
   
@@ -238,6 +277,12 @@ export const parseStructuredData = (text, area, selectedCrops) => {
     cropsList = ['Fever Leaf', 'Cassava', 'Swamp Rice'];
   }
   if (cropsList.length === 0) cropsList.push('Fever Leaf', 'Cassava', 'Swamp Rice');
+
+  // Enforce Cassava exclusion in fallback generator if elevation is low (< 110m)
+  if (elevation !== undefined && elevation !== null && Number(elevation) < 110) {
+    cropsList = cropsList.filter(c => !c.toLowerCase().includes('cassava'));
+    if (cropsList.length === 0) cropsList.push('Fever Leaf', 'Swamp Rice');
+  }
   
   const totalAcres = Number(area) || 5;
   
@@ -331,24 +376,69 @@ const extractAndStripJson = (markdown) => {
   return { cleanMarkdown, data };
 };
 
-const getReportStructuredData = (report, area, selectedCrops) => {
+export const getReportStructuredData = (report, area, selectedCrops) => {
   if (!report) return null;
+  let data = null;
   if (report.structuredData) {
     if (typeof report.structuredData === 'string') {
       try {
-        return JSON.parse(report.structuredData);
+        data = JSON.parse(report.structuredData);
       } catch (e) {
         // ignore and fallback
       }
     } else {
-      return report.structuredData;
+      data = JSON.parse(JSON.stringify(report.structuredData)); // Deep copy to prevent mutating store values directly
     }
   }
-  let fullText = '';
-  if (report.responseTabs) {
-    fullText = report.responseTabs.map(t => `## ${t.title}\n${t.content}`).join('\n');
+  
+  const elevation = report.promptInputs?.elevation;
+  
+  if (!data) {
+    let fullText = '';
+    if (report.responseTabs) {
+      fullText = report.responseTabs.map(t => `## ${t.title}\n${t.content}`).join('\n');
+    }
+    data = parseStructuredData(fullText, area, selectedCrops, elevation);
+  } else {
+    // Sanitize loaded structure dynamically for exclusions
+    if (elevation !== undefined && elevation !== null && Number(elevation) < 110) {
+      if (Array.isArray(data.annualRevenue)) {
+        data.annualRevenue = data.annualRevenue.filter(r => r && typeof r.crop === 'string' && !r.crop.toLowerCase().includes('cassava'));
+      }
+      if (Array.isArray(data.monthlyProjections)) {
+        data.monthlyProjections = data.monthlyProjections.map(proj => {
+          if (!proj) return proj;
+          const newProj = { ...proj };
+          Object.keys(newProj).forEach(key => {
+            if (key.toLowerCase().includes('cassava')) {
+              delete newProj[key];
+            }
+          });
+          let newTotal = 0;
+          Object.keys(newProj).forEach(key => {
+            if (key !== 'month' && key !== 'total' && typeof newProj[key] === 'number') {
+              newTotal += newProj[key];
+            }
+          });
+          newProj.total = newTotal;
+          return newProj;
+        });
+      }
+    }
+
+    // Filter layout crop assignments to strictly match recommended crops
+    const recommendedCropNames = new Set(
+      Array.isArray(data.annualRevenue)
+        ? data.annualRevenue.map(r => r && typeof r.crop === 'string' ? r.crop.toLowerCase().trim() : '')
+        : []
+    );
+    if (data.fieldLayout && Array.isArray(data.fieldLayout.cropAssignments)) {
+      data.fieldLayout.cropAssignments = data.fieldLayout.cropAssignments.filter(
+        ass => ass && typeof ass.crop === 'string' && recommendedCropNames.has(ass.crop.toLowerCase().trim())
+      );
+    }
   }
-  return parseStructuredData(fullText, area, selectedCrops);
+  return data;
 };
 
 const RechartsVisualizer = ({ data }) => {

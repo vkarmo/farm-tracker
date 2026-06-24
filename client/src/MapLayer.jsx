@@ -2,7 +2,7 @@ import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react'
 import { useSelector, useDispatch } from 'react-redux';
 import { MapContainer, TileLayer, Polygon, Polyline, Popup, GeoJSON, Marker, useMap, SVGOverlay } from 'react-leaflet';
 import { fetchGeoLocationInfo } from './components/PoiTab';
-import { parseStructuredData } from './components/RecommendationViewer';
+import { parseStructuredData, getReportStructuredData } from './components/RecommendationViewer';
 import FieldImageryOverlay, { getDeterministicSceneDate, getDeterministicCloudCover, isPointInPolygon, getDistanceToCreek } from './components/FieldImageryOverlay';
 import CropRecommendationPanel, { extractSpatialStats } from './components/CropRecommendationPanel';
 import { MapResizer } from './components/ResizableMapWrapper';
@@ -291,17 +291,8 @@ const FieldLayoutMapOverlay = ({ field, recommendations, selectedRecId }) => {
       report = [...linkedAiRecs].sort((a, b) => b.createdAt - a.createdAt)[0];
     }
 
-    let structuredData = null;
     if (report) {
-      if (report.structuredData) {
-        structuredData = report.structuredData;
-      } else {
-        let fullText = '';
-        if (report.responseTabs) {
-          fullText = report.responseTabs.map(t => `## ${t.title}\n${t.content}`).join('\n');
-        }
-        structuredData = parseStructuredData(fullText, field.area || 5, report.promptInputs?.selectedCrops || '');
-      }
+      const structuredData = getReportStructuredData(report, field.area || 5, report.promptInputs?.selectedCrops || '');
       return structuredData?.fieldLayout;
     }
     
@@ -1957,11 +1948,8 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
                             report = [...linkedAiRecs].sort((a, b) => b.createdAt - a.createdAt)[0];
                           }
                           
-                          const layoutData = report?.structuredData?.fieldLayout || (report ? parseStructuredData(
-                            (report.responseTabs || []).map(t => `## ${t.title}\n${t.content}`).join('\n'),
-                            field.area || 5,
-                            report.promptInputs?.selectedCrops || ''
-                          ).fieldLayout : parseStructuredData('', field.area || 5).fieldLayout);
+                          const structuredData = getReportStructuredData(report, field.area || 5, report?.promptInputs?.selectedCrops || '');
+                          const layoutData = structuredData?.fieldLayout || parseStructuredData('', field.area || 5, '').fieldLayout;
                           
                            // Auto-calculate the angle of the longest axis
                            let autoAngle = 0;

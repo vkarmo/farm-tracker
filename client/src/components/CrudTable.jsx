@@ -154,7 +154,7 @@ export default function CrudTable({
                   }}
                 >
                   {onSelectionChange && (
-                    <td style={{ padding: '8px 10px', textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
+                    <td style={{ padding: '8px 10px', textAlign: 'center', verticalAlign: 'top' }} onClick={(e) => e.stopPropagation()}>
                       <input 
                         type="checkbox" 
                         checked={selectedIds.includes(row.id)}
@@ -171,14 +171,14 @@ export default function CrudTable({
                   {columns.map((col, colIndex) => {
                     const isDateColumn = col.header.toLowerCase().includes('date') || col.header.toLowerCase().includes('time') || col.header.toLowerCase().includes('deadline') || col.header.toLowerCase() === 'dob' || col.key.toLowerCase().includes('date');
                     return (
-                      <td key={colIndex} style={{ padding: '8px 10px', whiteSpace: isDateColumn ? 'nowrap' : 'normal', wordBreak: isDateColumn ? 'normal' : 'break-all', overflowWrap: isDateColumn ? 'normal' : 'anywhere', ...(col.style || {}) }}>
+                      <td key={colIndex} style={{ padding: '8px 10px', verticalAlign: 'top', whiteSpace: isDateColumn ? 'nowrap' : 'normal', wordBreak: isDateColumn ? 'normal' : 'normal', overflowWrap: isDateColumn ? 'normal' : 'break-word', ...(col.style || {}) }}>
                       {/* Render custom func if passed, otherwise raw key string */}
                       {col.render ? col.render(row) : row[col.key]}
                     </td>
                     );
                   })}
                   {(onEdit || onDelete) && (
-                    <td style={{ padding: '8px 10px', textAlign: 'right' }}>
+                    <td style={{ padding: '8px 10px', textAlign: 'right', verticalAlign: 'top' }}>
                       <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
                         {onEdit && (
                           <button 

@@ -8,6 +8,9 @@ const pestsSlice = createSlice({
   name: 'pests',
   initialState,
   reducers: {
+    setPests: (state, action) => {
+      state.list = action.payload || [];
+    },
     savePest: (state, action) => {
       const index = state.list.findIndex(p => p.id === action.payload.id);
       if (index !== -1) {
@@ -22,5 +25,5 @@ const pestsSlice = createSlice({
   }
 });
 
-export const { savePest, removePest } = pestsSlice.actions;
+export const { setPests, savePest, removePest } = pestsSlice.actions;
 export default pestsSlice.reducer;

@@ -2036,6 +2036,337 @@ Do not wrap the whole response in a JSON block or code blocks. Start directly wi
   }
 });
 
+// AI Pest and Disease List Generator
+app.post('/api/pests/retrieve-ai', async (req, res) => {
+  const { farmId, email, crop } = req.body;
+
+  const session = driver.session();
+  try {
+    if (email && !(await checkFarmAccess(session, email, farmId))) {
+      return res.status(403).json({ error: 'Forbidden. You do not have access to this farm.' });
+    }
+
+    // 1. Fetch credentials from settings
+    const settingsNode = await getSettingsNode(session, farmId);
+    const provider = settingsNode.aiProvider || 'gemini';
+    const geminiKey = settingsNode.geminiApiKey || '';
+    const claudeKey = settingsNode.claudeApiKey || '';
+
+    let promptText = `You are an expert tropical agriculturalist specializing in West African farming.
+Generate a list of pests and diseases that commonly affect crops in Bomi County, Liberia.
+${crop && crop !== 'All Crops' ? `Focus specifically on the crop: "${crop}".` : ''}
+
+You MUST return the list as a valid JSON array of objects. Do NOT include any markdown code block formatting (like \`\`\`json) or other text. Start directly with [ and end with ].
+
+Each object in the array must have the following fields:
+- "name": The common name of the pest or disease (e.g., "Cassava Mosaic Disease", "African Armyworm").
+- "type": Must be exactly either "Pest" or "Disease".
+- "description": A concise description of the symptoms, damage caused, and how to identify it in the field.
+- "treatment": A practical treatment protocol, organic/chemical controls, or prevention methods suitable for farmers in Bomi County, Liberia.
+
+Provide at least 5 entries. Ensure names are precise, distinct, and treatments are highly actionable.`;
+
+    let responseText = '';
+
+    if (provider === 'gemini') {
+      if (!geminiKey) {
+        return res.status(400).json({ error: 'Google Gemini API key is not configured in settings.' });
+      }
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: promptText }] }]
+        })
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`Gemini API Error: ${response.statusText} - ${errText}`);
+      }
+
+      const resData = await response.json();
+      responseText = resData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    } else {
+      // Claude
+      if (!claudeKey) {
+        return res.status(400).json({ error: 'Anthropic Claude API key is not configured in settings.' });
+      }
+      const url = 'https://api.anthropic.com/v1/messages';
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': claudeKey,
+          'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 4000,
+          messages: [{ role: 'user', content: promptText }]
+        })
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`Claude API Error: ${response.statusText} - ${errText}`);
+      }
+
+      const resData = await response.json();
+      responseText = resData?.content?.[0]?.text || '';
+    }
+
+    let jsonText = responseText.trim();
+    if (jsonText.startsWith('```')) {
+      const match = jsonText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+      if (match) {
+        jsonText = match[1].trim();
+      }
+    }
+
+    const aiPestsList = JSON.parse(jsonText);
+    if (!Array.isArray(aiPestsList)) {
+      throw new Error('AI response did not parse as a JSON array');
+    }
+
+    // 2. Fetch existing pests under this farm to avoid duplicates
+    const existingPestsRes = await session.run(
+      'MATCH (p:Pest)-[:BELONGS_TO]->(:Farm {id: $farmId}) RETURN p.name AS name',
+      { farmId }
+    );
+    const existingNames = new Set(
+      existingPestsRes.records.map(r => r.get('name').toLowerCase().trim())
+    );
+
+    // 3. Populate database with new retrieved pests (avoiding duplicates)
+    const newPestsAdded = [];
+    for (const pest of aiPestsList) {
+      if (!pest || !pest.name) continue;
+      const name = pest.name.trim();
+      const nameNorm = name.toLowerCase();
+
+      if (existingNames.has(nameNorm)) {
+        continue; // duplicate, skip
+      }
+
+      const id = `pest_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const type = pest.type === 'Disease' ? 'Disease' : 'Pest';
+      const description = pest.description || '';
+      const treatment = pest.treatment || '';
+
+      await session.run(`
+        MATCH (f:Farm {id: $farmId})
+        CREATE (p:Pest {
+          id: $id,
+          name: $name,
+          type: $type,
+          description: $description,
+          treatment: $treatment,
+          lastUpdatedBy: $userEmail
+        })
+        CREATE (p)-[:BELONGS_TO]->(f)
+        RETURN p
+      `, {
+        farmId,
+        id,
+        name,
+        type,
+        description,
+        treatment,
+        userEmail: email || 'system-ai'
+      });
+
+      newPestsAdded.push({
+        id,
+        name,
+        type,
+        description,
+        treatment
+      });
+      
+      // Update local set during loop execution to catch duplicate names from AI itself
+      existingNames.add(nameNorm);
+    }
+
+    res.json({ success: true, added: newPestsAdded });
+  } catch (err) {
+    console.error('Failed to retrieve AI pests list:', err);
+    res.status(500).json({ error: err.message || 'AI Retrieve failed.' });
+  } finally {
+    await session.close();
+  }
+});
+
+// AI Livestock Disease List Generator
+app.post('/api/livestock-diseases/retrieve-ai', async (req, res) => {
+  const { farmId, email } = req.body;
+
+  const session = driver.session();
+  try {
+    if (email && !(await checkFarmAccess(session, email, farmId))) {
+      return res.status(403).json({ error: 'Forbidden. You do not have access to this farm.' });
+    }
+
+    // 1. Fetch credentials from settings
+    const settingsNode = await getSettingsNode(session, farmId);
+    const provider = settingsNode.aiProvider || 'gemini';
+    const geminiKey = settingsNode.geminiApiKey || '';
+    const claudeKey = settingsNode.claudeApiKey || '';
+
+    let promptText = `You are an expert tropical veterinary and livestock specialist specializing in West African farming.
+Generate a list of livestock diseases and health issues that commonly affect animals (such as Goats, Sheep, Poultry, Pigs, Cattle, Rabbits) in Bomi County, Liberia.
+
+You MUST return the list as a valid JSON array of objects. Do NOT include any markdown code block formatting (like \`\`\`json) or other text. Start directly with [ and end with ].
+
+Each object in the array must have the following fields:
+- "name": The common name of the disease or health issue (e.g., "Peste des Petits Ruminants (PPR)", "Newcastle Disease", "African Swine Fever").
+- "description": A concise description of the symptoms, signs, and how to identify the infection or condition in the herd/flock.
+- "treatment": A practical treatment protocol, veterinary controls, vaccinations, quarantine procedures, or management strategies suitable for farmers in Bomi County, Liberia.
+- "animalTypes": A JSON array of strings specifying which types of animals are susceptible to this disease (choose from common types: "Goats", "Sheep", "Poultry", "Pigs", "Cattle", "Rabbits").
+
+Provide at least 5 entries. Ensure names are precise, distinct, and protocols are highly actionable.`;
+
+    let responseText = '';
+
+    if (provider === 'gemini') {
+      if (!geminiKey) {
+        return res.status(400).json({ error: 'Google Gemini API key is not configured in settings.' });
+      }
+      const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${geminiKey}`;
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          contents: [{ parts: [{ text: promptText }] }]
+        })
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`Gemini API Error: ${response.statusText} - ${errText}`);
+      }
+
+      const resData = await response.json();
+      responseText = resData?.candidates?.[0]?.content?.parts?.[0]?.text || '';
+    } else {
+      // Claude
+      if (!claudeKey) {
+        return res.status(400).json({ error: 'Anthropic Claude API key is not configured in settings.' });
+      }
+      const url = 'https://api.anthropic.com/v1/messages';
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': claudeKey,
+          'anthropic-version': '2023-06-01'
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 4000,
+          messages: [{ role: 'user', content: promptText }]
+        })
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        throw new Error(`Claude API Error: ${response.statusText} - ${errText}`);
+      }
+
+      const resData = await response.json();
+      responseText = resData?.content?.[0]?.text || '';
+    }
+
+    let jsonText = responseText.trim();
+    if (jsonText.startsWith('```')) {
+      const match = jsonText.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+      if (match) {
+        jsonText = match[1].trim();
+      }
+    }
+
+    let aiDiseasesList;
+    try {
+      aiDiseasesList = JSON.parse(jsonText);
+    } catch (parseErr) {
+      console.error('Failed to parse JSON from AI. Text length:', jsonText.length);
+      console.error('First 200 chars:', jsonText.substring(0, Math.min(200, jsonText.length)));
+      console.error('Last 200 chars:', jsonText.substring(Math.max(0, jsonText.length - 200)));
+      throw new Error(`AI response did not parse as a JSON array: ${parseErr.message}`);
+    }
+    if (!Array.isArray(aiDiseasesList)) {
+      throw new Error('AI response did not parse as a JSON array');
+    }
+
+    // 2. Fetch existing diseases under this farm to avoid duplicates
+    const existingDiseasesRes = await session.run(
+      'MATCH (d:LivestockDisease)-[:BELONGS_TO]->(:Farm {id: $farmId}) RETURN d.name AS name',
+      { farmId }
+    );
+    const existingNames = new Set(
+      existingDiseasesRes.records.map(r => r.get('name').toLowerCase().trim())
+    );
+
+    // 3. Populate database with new retrieved diseases (avoiding duplicates)
+    const newDiseasesAdded = [];
+    for (const disease of aiDiseasesList) {
+      if (!disease || !disease.name) continue;
+      const name = disease.name.trim();
+      const nameNorm = name.toLowerCase();
+
+      if (existingNames.has(nameNorm)) {
+        continue; // duplicate, skip
+      }
+
+      const id = `ldisease_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const description = disease.description || '';
+      const treatment = disease.treatment || '';
+      const animalTypes = Array.isArray(disease.animalTypes) ? disease.animalTypes : [];
+
+      await session.run(`
+        MATCH (f:Farm {id: $farmId})
+        CREATE (d:LivestockDisease {
+          id: $id,
+          name: $name,
+          description: $description,
+          treatment: $treatment,
+          animalTypes: $animalTypes,
+          lastUpdatedBy: $userEmail
+        })
+        CREATE (d)-[:BELONGS_TO]->(f)
+        RETURN d
+      `, {
+        farmId,
+        id,
+        name,
+        description,
+        treatment,
+        animalTypes: JSON.stringify(animalTypes),
+        userEmail: email || 'system-ai'
+      });
+
+      newDiseasesAdded.push({
+        id,
+        name,
+        description,
+        treatment,
+        animalTypes
+      });
+      
+      // Update local set during loop execution to catch duplicate names from AI itself
+      existingNames.add(nameNorm);
+    }
+
+    res.json({ success: true, added: newDiseasesAdded });
+  } catch (err) {
+    console.error('Failed to retrieve AI livestock diseases:', err);
+    res.status(500).json({ error: err.message || 'AI Retrieve failed.' });
+  } finally {
+    await session.close();
+  }
+});
+
 // Global Data Hydration
 app.get('/api/all-data', async (req, res) => {
   const session = driver.session();

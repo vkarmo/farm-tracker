@@ -15,6 +15,8 @@ import { setAllSettings } from './settingsSlice';
 import { setPoiData } from './poiSlice';
 import { setGoals, setObjectives } from './planningSlice';
 import { setRecommendations } from './recommendationsSlice';
+import { setPests } from './pestsSlice';
+import { setDiseases } from './livestockDiseasesSlice';
 
 export const syncSlice = createSlice({
   name: 'sync',
@@ -166,6 +168,8 @@ export const fetchInitialData = () => async (dispatch, getState) => {
     if (data.goals) dispatch(setGoals(data.goals));
     if (data.objectives) dispatch(setObjectives(data.objectives));
     if (data.recommendations) dispatch(setRecommendations(data.recommendations));
+    if (data.pests) dispatch(setPests(data.pests));
+    if (data.livestockDiseases) dispatch(setDiseases(data.livestockDiseases));
 
   } catch (err) {
     console.warn('Backend unreachable — falling back to offline cache.', err.message);

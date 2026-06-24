@@ -8,6 +8,9 @@ const livestockDiseasesSlice = createSlice({
   name: 'livestockDiseases',
   initialState,
   reducers: {
+    setDiseases: (state, action) => {
+      state.list = action.payload || [];
+    },
     saveDisease: (state, action) => {
       const index = state.list.findIndex(d => d.id === action.payload.id);
       if (index !== -1) {
@@ -22,5 +25,5 @@ const livestockDiseasesSlice = createSlice({
   }
 });
 
-export const { saveDisease, removeDisease } = livestockDiseasesSlice.actions;
+export const { setDiseases, saveDisease, removeDisease } = livestockDiseasesSlice.actions;
 export default livestockDiseasesSlice.reducer;
