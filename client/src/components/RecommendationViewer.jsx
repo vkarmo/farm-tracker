@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { ArrowLeft, ExternalLink, Link as LinkIcon, Plus, Unlink, Sparkles, AlertCircle, Calendar, ClipboardList, Info, HelpCircle, Layers, CheckCircle, ChevronDown, ChevronUp, Trash2 } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Link as LinkIcon, Plus, Unlink, Sparkles, AlertCircle, Calendar, ClipboardList, Info, HelpCircle, Layers, CheckCircle, ChevronDown, ChevronUp, Trash2, Droplet, Sprout, Mountain } from 'lucide-react';
 import { addRecommendation, deleteRecommendation } from '../store/recommendationsSlice';
 import { updateField } from '../store/fieldsSlice';
 import { queueAction } from '../store/syncSlice';
@@ -698,6 +698,7 @@ const GraphicalFieldLayout = ({ layout, area, field }) => {
   
   const fields = useSelector(state => state.fields?.data) || [];
   const [activeOverlay, setActiveOverlay] = useState('none');
+  const [zoomScale, setZoomScale] = useState(1.0);
   const [cropLegendsExpanded, setCropLegendsExpanded] = useState(true);
   const [moistureLegendExpanded, setMoistureLegendExpanded] = useState(true);
   const [soilLegendExpanded, setSoilLegendExpanded] = useState(true);
@@ -781,6 +782,63 @@ const GraphicalFieldLayout = ({ layout, area, field }) => {
     return sides;
   }, [field, fields]);
 
+  // Calculate scaled & oriented field polygon vertices for SVG overlay
+  const fieldPolygonPoints = useMemo(() => {
+    if (!field) return [];
+    const poly = sanitizePolygon(field.polygon);
+    if (poly.length < 3) return [];
+    
+    // Centroid of physical polygon
+    const centroid = getCentroid(poly);
+    
+    // Project vertices to a flat local space preserving aspect ratio (isometric)
+    const projected = poly.map(pt => {
+      const dx = pt[1] - centroid.lng;
+      const dy = pt[0] - centroid.lat;
+      const x_geo = dx * Math.cos(centroid.lat * Math.PI / 180);
+      const y_geo = dy;
+      
+      // Rotate by -rotationAngle to align with layout vertical/horizontal axes
+      const rad = (-rotationAngle * Math.PI) / 180;
+      const rx = x_geo * Math.cos(rad) - y_geo * Math.sin(rad);
+      const ry = x_geo * Math.sin(rad) + y_geo * Math.cos(rad);
+      return { rx, ry };
+    });
+    
+    // Bounds of rotated projected points
+    let minRx = Infinity, maxRx = -Infinity, minRy = Infinity, maxRy = -Infinity;
+    projected.forEach(pt => {
+      if (pt.rx < minRx) minRx = pt.rx;
+      if (pt.rx > maxRx) maxRx = pt.rx;
+      if (pt.ry < minRy) minRy = pt.ry;
+      if (pt.ry > maxRy) maxRy = pt.ry;
+    });
+    
+    const w_poly = maxRx - minRx || 0.00001;
+    const h_poly = maxRy - minRy || 0.00001;
+    
+    // Grid bounds
+    const w_grid = bedsPerRow * (bedWidthPx + horizontalSpacing) - horizontalSpacing;
+    const h_grid = rows * (bedHeight + verticalSpacing) - verticalSpacing;
+    
+    // Scale uniformly to fit within layout grid with 95% of grid size for breathing room
+    const scale = Math.min(w_grid / w_poly, h_grid / h_poly) * 0.95;
+    
+    const rxCenter = (minRx + maxRx) / 2;
+    const ryCenter = (minRy + maxRy) / 2;
+    
+    // Translate relative to grid center
+    return projected.map(pt => {
+      const x_svg = gridCenterX + (pt.rx - rxCenter) * scale;
+      const y_svg = gridCenterY - (pt.ry - ryCenter) * scale;
+      return [x_svg, y_svg];
+    });
+  }, [field, rotationAngle, bedsPerRow, rows, gridCenterX, gridCenterY]);
+
+  const polyPointsStr = useMemo(() => {
+    return fieldPolygonPoints.map(pt => `${pt[0]},${pt[1]}`).join(' ');
+  }, [fieldPolygonPoints]);
+
   const getCropColor = (rowIdx) => {
     const match = cropAssignments.find(a => rowIdx >= a.startRow && rowIdx <= a.endRow);
     return match ? match.color : '#e2e8f0';
@@ -797,42 +855,75 @@ const GraphicalFieldLayout = ({ layout, area, field }) => {
         <Layers size={18} color="#2e7d32" /> Graphical Field Layout ({area || 'Unknown'} Acres)
       </h4>
 
-      {/* Overlay Toggles */}
-      <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
-        <span style={{ fontSize: '0.85rem', fontWeight: '600', color: '#475569', alignSelf: 'center', marginRight: '8px' }}>Visual Overlays:</span>
-        {[
-          { id: 'none', label: 'Default Layout', color: '#1e293b' },
-          { id: 'moisture', label: 'Moisture Profile', color: '#3b82f6' },
-          { id: 'soil', label: 'Soil Type Map', color: '#14b8a6' },
-          { id: 'elevation', label: 'Elevation Contours', color: '#ef4444' }
-        ].map(btn => (
+      {/* Overlay & Zoom Controls */}
+      <div style={{ display: 'flex', gap: '16px', marginBottom: '16px', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+          <span style={{ fontSize: '0.85rem', fontWeight: '600', color: '#475569', marginRight: '4px' }}>Visual Overlays:</span>
+          {[
+            { id: 'none', label: 'Default Layout', color: '#1e293b', icon: <Layers size={16} /> },
+            { id: 'moisture', label: 'Moisture Profile', color: '#3b82f6', icon: <Droplet size={16} /> },
+            { id: 'soil', label: 'Soil Type Map', color: '#14b8a6', icon: <Sprout size={16} /> },
+            { id: 'elevation', label: 'Elevation Contours', color: '#ef4444', icon: <Mountain size={16} /> }
+          ].map(btn => (
+            <button
+              key={btn.id}
+              onClick={() => setActiveOverlay(btn.id)}
+              title={btn.label}
+              style={{
+                width: '32px',
+                height: '32px',
+                borderRadius: '50%',
+                border: activeOverlay === btn.id ? `2px solid ${btn.color}` : '1px solid #cbd5e1',
+                background: activeOverlay === btn.id ? btn.color : 'white',
+                color: activeOverlay === btn.id ? 'white' : '#64748b',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+                outline: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 1px 2px rgba(0,0,0,0.05)'
+              }}
+            >
+              {btn.icon}
+            </button>
+          ))}
+        </div>
+        
+        {/* Zoom Controls */}
+        <div style={{ display: 'flex', gap: '4px', alignItems: 'center', background: '#f1f5f9', padding: '3px 6px', borderRadius: '20px', border: '1px solid #cbd5e1' }}>
+          <span style={{ fontSize: '0.78rem', fontWeight: '600', color: '#475569', marginRight: '6px', marginLeft: '4px' }}>Zoom:</span>
           <button
-            key={btn.id}
-            onClick={() => setActiveOverlay(btn.id)}
-            style={{
-              padding: '6px 12px',
-              fontSize: '0.78rem',
-              fontWeight: '600',
-              borderRadius: '20px',
-              border: activeOverlay === btn.id ? `2px solid ${btn.color}` : '1px solid #cbd5e1',
-              background: activeOverlay === btn.id ? `${btn.color}15` : 'white',
-              color: activeOverlay === btn.id ? btn.color : '#64748b',
-              cursor: 'pointer',
-              transition: 'all 0.15s ease',
-              outline: 'none',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '4px'
-            }}
+            onClick={() => setZoomScale(prev => Math.max(0.6, prev - 0.15))}
+            style={{ width: '26px', height: '26px', borderRadius: '50%', border: 'none', background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', color: '#475569', fontSize: '0.9rem', outline: 'none', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}
+            title="Zoom Out"
           >
-            {btn.label}
+            -
           </button>
-        ))}
+          <span style={{ fontSize: '0.75rem', fontWeight: '700', color: '#475569', padding: '0 6px', minWidth: '38px', textAlign: 'center' }}>
+            {Math.round(zoomScale * 100)}%
+          </span>
+          <button
+            onClick={() => setZoomScale(prev => Math.min(2.5, prev + 0.15))}
+            style={{ width: '26px', height: '26px', borderRadius: '50%', border: 'none', background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 'bold', color: '#475569', fontSize: '0.9rem', outline: 'none', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}
+            title="Zoom In"
+          >
+            +
+          </button>
+          {zoomScale !== 1.0 && (
+            <button
+              onClick={() => setZoomScale(1.0)}
+              style={{ padding: '0 10px', height: '26px', borderRadius: '13px', border: 'none', background: 'white', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.68rem', fontWeight: '600', color: '#64748b', outline: 'none', boxShadow: '0 1px 2px rgba(0,0,0,0.05)', marginLeft: '4px' }}
+            >
+              Reset
+            </button>
+          )}
+        </div>
       </div>
       
       <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
-        <div style={{ flex: '1 1 300px', width: '100%', maxWidth: `${width}px`, background: 'white', padding: '15px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}>
-          <svg viewBox={`0 0 ${width} ${height}`} style={{ display: 'block', width: '100%', height: 'auto' }}>
+        <div style={{ flex: '1 1 300px', width: '100%', maxWidth: `${width}px`, overflowX: 'auto', background: 'white', padding: '15px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}>
+          <svg viewBox={`0 0 ${width} ${height}`} style={{ display: 'block', width: `${zoomScale * 100}%`, height: 'auto', transition: 'width 0.15s ease-in-out' }}>
             <rect width={width} height={height} rx={6} fill="#f1f8f5" />
             
             {/* Border Direction Indicators & Adjacent Field Names */}
@@ -978,6 +1069,30 @@ const GraphicalFieldLayout = ({ layout, area, field }) => {
                 </g>
               );
             })}
+
+            {/* Field Boundary Overlay */}
+            {polyPointsStr && (
+              <g style={{ pointerEvents: 'none' }}>
+                {/* Outer thick white path for contrast against overlays */}
+                <polygon 
+                  points={polyPointsStr} 
+                  fill="none" 
+                  stroke="#ffffff" 
+                  strokeWidth={5} 
+                  strokeLinejoin="round" 
+                  opacity={0.8} 
+                />
+                {/* Inner Emerald Green outline showing exact boundary */}
+                <polygon 
+                  points={polyPointsStr} 
+                  fill="none" 
+                  stroke="#059669" 
+                  strokeWidth={2} 
+                  strokeDasharray="6,4" 
+                  strokeLinejoin="round" 
+                />
+              </g>
+            )}
           </svg>
         </div>
         
@@ -999,6 +1114,14 @@ const GraphicalFieldLayout = ({ layout, area, field }) => {
                     <span>{a.crop} (Rows {a.startRow + 1}-{a.endRow + 1})</span>
                   </div>
                 ))}
+                {polyPointsStr && (
+                  <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '8px', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem' }}>
+                    <div style={{ width: '16px', height: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <div style={{ width: '100%', height: '2px', borderBottom: '2px dashed #059669' }} />
+                    </div>
+                    <span>Field Boundary (Overlay)</span>
+                  </div>
+                )}
               </div>
             )}
           </div>
