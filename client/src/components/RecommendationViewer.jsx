@@ -749,7 +749,6 @@ const GraphicalFieldLayout = ({ layout, area, field }) => {
     if (polyA.length < 3) return sides;
     
     const cA = getCentroid(polyA);
-    const rot = getFieldRotationAngle(field);
     
     fields.forEach(otherField => {
       if (otherField.id === field.id) return;
@@ -761,10 +760,10 @@ const GraphicalFieldLayout = ({ layout, area, field }) => {
         const cB = getCentroid(polyB);
         const bearing = getPlanarBearing(cA.lat, cA.lng, cB.lat, cB.lng);
         
-        const diffTop = getAngleDifference(bearing, 360 - rot);
-        const diffRight = getAngleDifference(bearing, 450 - rot);
-        const diffBottom = getAngleDifference(bearing, 540 - rot);
-        const diffLeft = getAngleDifference(bearing, 630 - rot);
+        const diffTop = getAngleDifference(bearing, 360 - rotationAngle);
+        const diffRight = getAngleDifference(bearing, 450 - rotationAngle);
+        const diffBottom = getAngleDifference(bearing, 540 - rotationAngle);
+        const diffLeft = getAngleDifference(bearing, 630 - rotationAngle);
         
         const minDiff = Math.min(diffTop, diffRight, diffBottom, diffLeft);
         if (minDiff === diffTop) {
@@ -780,7 +779,7 @@ const GraphicalFieldLayout = ({ layout, area, field }) => {
     });
     
     return sides;
-  }, [field, fields]);
+  }, [field, fields, rotationAngle]);
 
   // Calculate scaled & oriented field polygon vertices for SVG overlay
   const fieldPolygonPoints = useMemo(() => {
@@ -821,8 +820,8 @@ const GraphicalFieldLayout = ({ layout, area, field }) => {
     const w_grid = bedsPerRow * (bedWidthPx + horizontalSpacing) - horizontalSpacing;
     const h_grid = rows * (bedHeight + verticalSpacing) - verticalSpacing;
     
-    // Scale uniformly to fit within layout grid with 95% of grid size for breathing room
-    const scale = Math.min(w_grid / w_poly, h_grid / h_poly) * 0.95;
+    // Scale uniformly to fit within layout grid
+    const scale = Math.min(w_grid / w_poly, h_grid / h_poly) * 1.0;
     
     const rxCenter = (minRx + maxRx) / 2;
     const ryCenter = (minRy + maxRy) / 2;
@@ -971,128 +970,131 @@ const GraphicalFieldLayout = ({ layout, area, field }) => {
               <text x={tx} y={ty} fontSize="8" fontWeight="800" fill="#ef4444" textAnchor="middle">N</text>
             </g>
 
-            {Array.from({ length: rows }).map((_, rIdx) => {
-              const y = topPadding + rIdx * (bedHeight + verticalSpacing);
-              const cropColor = getCropColor(rIdx);
-              const cropName = getCropName(rIdx);
-              
-              // Base physical variables per row (scaled linearly top to bottom)
-              const t = rIdx / 9; // 0 to 1
-              
-              return (
-                <g key={`row_${rIdx}`}>
-                  <text x={leftPadding - 50} y={y + 18} fontSize="10" fill="#64748b">Row {rIdx + 1}</text>
-                  
-                  {Array.from({ length: bedsPerRow }).map((_, bIdx) => {
-                    const x = leftPadding + bIdx * (bedWidthPx + horizontalSpacing);
+            {/* Unrotated Layout Grid Group */}
+            <g>
+              {Array.from({ length: rows }).map((_, rIdx) => {
+                const y = topPadding + rIdx * (bedHeight + verticalSpacing);
+                const cropColor = getCropColor(rIdx);
+                const cropName = getCropName(rIdx);
+                
+                // Base physical variables per row (scaled linearly top to bottom)
+                const t = rIdx / 9; // 0 to 1
+                
+                return (
+                  <g key={`row_${rIdx}`}>
+                    <text x={leftPadding - 50} y={y + 18} fontSize="10" fill="#64748b">Row {rIdx + 1}</text>
                     
-                    // Add minor horizontal bed variation using deterministic sin seed
-                    const bedSeed = Math.sin(rIdx * 7 + bIdx * 3);
-                    const elevNoise = Math.round(bedSeed * 5);
-                    const moistureNoise = parseFloat((bedSeed * 0.02).toFixed(2));
-                    
-                    // Compute physical parameters for this specific bed
-                    const elevVal = Math.max(50, Math.min(250, Math.round(230 - t * 160 + elevNoise)));
-                    const moistureVal = Math.max(0.10, Math.min(0.50, parseFloat((0.16 + t * 0.32 + moistureNoise).toFixed(2))));
-                    const soilVal = getSoilType(rIdx);
-                    
-                    // Get color for active overlay layer
-                    let overlayColor = 'transparent';
-                    if (activeOverlay === 'moisture') {
-                      overlayColor = getMoistureColor(moistureVal);
-                    } else if (activeOverlay === 'soil') {
-                      overlayColor = getSoilColor(rIdx);
-                    } else if (activeOverlay === 'elevation') {
-                      overlayColor = getElevationColor(elevVal);
-                    }
-                    
-                    const tooltipText = `Row ${rIdx + 1}, Bed ${bIdx + 1}: ${cropName}\nElevation: ${elevVal}m\nSoil Moisture: ${(moistureVal * 100).toFixed(0)}% VWC\nSoil Type: ${soilVal}`;
-                    
-                    return (
-                      <g key={`bed_${bIdx}`}>
-                        {/* Base Crop Colored Bed Rect */}
-                        <rect 
-                          x={x} 
-                          y={y} 
-                          width={bedWidthPx} 
-                          height={bedHeight} 
-                          rx={3} 
-                          fill={cropColor} 
-                          stroke="#1b5e20" 
-                          strokeWidth={1}
-                          style={{ cursor: 'pointer', transition: 'opacity 0.2s' }}
-                        />
-                        
-                        {/* Semi-transparent Overlay Layer (when active) */}
-                        {activeOverlay !== 'none' && (
+                    {Array.from({ length: bedsPerRow }).map((_, bIdx) => {
+                      const x = leftPadding + bIdx * (bedWidthPx + horizontalSpacing);
+                      
+                      // Add minor horizontal bed variation using deterministic sin seed
+                      const bedSeed = Math.sin(rIdx * 7 + bIdx * 3);
+                      const elevNoise = Math.round(bedSeed * 5);
+                      const moistureNoise = parseFloat((bedSeed * 0.02).toFixed(2));
+                      
+                      // Compute physical parameters for this specific bed
+                      const elevVal = Math.max(50, Math.min(250, Math.round(230 - t * 160 + elevNoise)));
+                      const moistureVal = Math.max(0.10, Math.min(0.50, parseFloat((0.16 + t * 0.32 + moistureNoise).toFixed(2))));
+                      const soilVal = getSoilType(rIdx);
+                      
+                      // Get color for active overlay layer
+                      let overlayColor = 'transparent';
+                      if (activeOverlay === 'moisture') {
+                        overlayColor = getMoistureColor(moistureVal);
+                      } else if (activeOverlay === 'soil') {
+                        overlayColor = getSoilColor(rIdx);
+                      } else if (activeOverlay === 'elevation') {
+                        overlayColor = getElevationColor(elevVal);
+                      }
+                      
+                      const tooltipText = `Row ${rIdx + 1}, Bed ${bIdx + 1}: ${cropName}\nElevation: ${elevVal}m\nSoil Moisture: ${(moistureVal * 100).toFixed(0)}% VWC\nSoil Type: ${soilVal}`;
+                      
+                      return (
+                        <g key={`bed_${bIdx}`}>
+                          {/* Base Crop Colored Bed Rect */}
                           <rect 
                             x={x} 
                             y={y} 
                             width={bedWidthPx} 
                             height={bedHeight} 
                             rx={3} 
-                            fill={overlayColor} 
-                            opacity={0.65}
-                            style={{ cursor: 'pointer', pointerEvents: 'none' }}
+                            fill={cropColor} 
+                            stroke="#1b5e20" 
+                            strokeWidth={1}
+                            style={{ cursor: 'pointer', transition: 'opacity 0.2s' }}
                           />
-                        )}
-                        
-                        {/* Text Label on top of all colors */}
-                        <text 
-                          x={x + bedWidthPx / 2} 
-                          y={y + 18} 
-                          fontSize="9" 
-                          fill="#ffffff" 
-                          textAnchor="middle" 
-                          fontWeight="600"
-                          style={{ pointerEvents: 'none' }}
-                        >
-                          Bed {bIdx + 1}
-                        </text>
-                        
-                        {/* HTML standard title tooltip */}
-                        <title>{tooltipText}</title>
-                      </g>
-                    );
-                  })}
-                  
-                  {rIdx < rows - 1 && (
-                    <line 
-                      x1={leftPadding} 
-                      y1={y + bedHeight + 5} 
-                      x2={leftPadding + bedsPerRow * (bedWidthPx + horizontalSpacing) - horizontalSpacing} 
-                      y2={y + bedHeight + 5} 
-                      stroke="#94a3b8" 
-                      strokeDasharray="2,2" 
-                    />
-                  )}
-                </g>
-              );
-            })}
+                          
+                          {/* Semi-transparent Overlay Layer (when active) */}
+                          {activeOverlay !== 'none' && (
+                            <rect 
+                              x={x} 
+                              y={y} 
+                              width={bedWidthPx} 
+                              height={bedHeight} 
+                              rx={3} 
+                              fill={overlayColor} 
+                              opacity={0.65}
+                              style={{ cursor: 'pointer', pointerEvents: 'none' }}
+                            />
+                          )}
+                          
+                          {/* Text Label on top of all colors */}
+                          <text 
+                            x={x + bedWidthPx / 2} 
+                            y={y + 18} 
+                            fontSize="9" 
+                            fill="#ffffff" 
+                            textAnchor="middle" 
+                            fontWeight="600"
+                            style={{ pointerEvents: 'none' }}
+                          >
+                            Bed {bIdx + 1}
+                          </text>
+                          
+                          {/* HTML standard title tooltip */}
+                          <title>{tooltipText}</title>
+                        </g>
+                      );
+                    })}
+                    
+                    {rIdx < rows - 1 && (
+                      <line 
+                        x1={leftPadding} 
+                        y1={y + bedHeight + 5} 
+                        x2={leftPadding + bedsPerRow * (bedWidthPx + horizontalSpacing) - horizontalSpacing} 
+                        y2={y + bedHeight + 5} 
+                        stroke="#94a3b8" 
+                        strokeDasharray="2,2" 
+                      />
+                    )}
+                  </g>
+                );
+              })}
 
-            {/* Field Boundary Overlay */}
-            {polyPointsStr && (
-              <g style={{ pointerEvents: 'none' }}>
-                {/* Outer thick white path for contrast against overlays */}
-                <polygon 
-                  points={polyPointsStr} 
-                  fill="none" 
-                  stroke="#ffffff" 
-                  strokeWidth={5} 
-                  strokeLinejoin="round" 
-                  opacity={0.8} 
-                />
-                {/* Inner Emerald Green outline showing exact boundary */}
-                <polygon 
-                  points={polyPointsStr} 
-                  fill="none" 
-                  stroke="#059669" 
-                  strokeWidth={2} 
-                  strokeDasharray="6,4" 
-                  strokeLinejoin="round" 
-                />
-              </g>
-            )}
+              {/* Field Boundary Overlay */}
+              {polyPointsStr && (
+                <g style={{ pointerEvents: 'none' }}>
+                  {/* Outer thick white path for contrast against overlays */}
+                  <polygon 
+                    points={polyPointsStr} 
+                    fill="none" 
+                    stroke="#ffffff" 
+                    strokeWidth={5} 
+                    strokeLinejoin="round" 
+                    opacity={0.8} 
+                  />
+                  {/* Inner Emerald Green outline showing exact boundary */}
+                  <polygon 
+                    points={polyPointsStr} 
+                    fill="none" 
+                    stroke="#059669" 
+                    strokeWidth={2} 
+                    strokeDasharray="6,4" 
+                    strokeLinejoin="round" 
+                  />
+                </g>
+              )}
+            </g>
           </svg>
         </div>
         
