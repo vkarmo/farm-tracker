@@ -698,6 +698,11 @@ const GraphicalFieldLayout = ({ layout, area, field }) => {
   
   const fields = useSelector(state => state.fields?.data) || [];
   const [activeOverlay, setActiveOverlay] = useState('none');
+  const [cropLegendsExpanded, setCropLegendsExpanded] = useState(true);
+  const [moistureLegendExpanded, setMoistureLegendExpanded] = useState(true);
+  const [soilLegendExpanded, setSoilLegendExpanded] = useState(true);
+  const [elevationLegendExpanded, setElevationLegendExpanded] = useState(true);
+  const [spacingSpecsExpanded, setSpacingSpecsExpanded] = useState(true);
   
   const bedHeight = 30;
   const bedWidthPx = 80;
@@ -826,8 +831,8 @@ const GraphicalFieldLayout = ({ layout, area, field }) => {
       </div>
       
       <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
-        <div style={{ overflowX: 'auto', background: 'white', padding: '15px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
-          <svg width={width} height={height} style={{ display: 'block' }}>
+        <div style={{ flex: '1 1 300px', width: '100%', maxWidth: `${width}px`, background: 'white', padding: '15px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}>
+          <svg viewBox={`0 0 ${width} ${height}`} style={{ display: 'block', width: '100%', height: 'auto' }}>
             <rect width={width} height={height} rx={6} fill="#f1f8f5" />
             
             {/* Border Direction Indicators & Adjacent Field Names */}
@@ -979,84 +984,124 @@ const GraphicalFieldLayout = ({ layout, area, field }) => {
         <div style={{ flex: '1 1 200px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
           {/* Crop Assignments Legend */}
           <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
-            <h5 style={{ margin: '0 0 8px 0', fontSize: '0.85rem', color: '#334155', fontWeight: 700 }}>Crop Legends</h5>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {cropAssignments.map((a, idx) => (
-                <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem' }}>
-                  <div style={{ width: '16px', height: '16px', borderRadius: '4px', background: a.color, border: '1px solid #1b5e20' }} />
-                  <span>{a.crop} (Rows {a.startRow + 1}-{a.endRow + 1})</span>
-                </div>
-              ))}
-            </div>
+            <h5 
+              onClick={() => setCropLegendsExpanded(!cropLegendsExpanded)}
+              style={{ margin: 0, fontSize: '0.85rem', color: '#334155', fontWeight: 700, display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
+            >
+              <span>Crop Legends</span>
+              {cropLegendsExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            </h5>
+            {cropLegendsExpanded && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
+                {cropAssignments.map((a, idx) => (
+                  <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem' }}>
+                    <div style={{ width: '16px', height: '16px', borderRadius: '4px', background: a.color, border: '1px solid #1b5e20' }} />
+                    <span>{a.crop} (Rows {a.startRow + 1}-{a.endRow + 1})</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Active Overlay Legends */}
           {activeOverlay === 'moisture' && (
             <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
-              <h5 style={{ margin: '0 0 8px 0', fontSize: '0.85rem', color: '#334155', fontWeight: 700 }}>Soil Moisture Legend</h5>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {[
-                  { range: '< 20% VWC (Dry Sand)', color: '#bcaaa4' },
-                  { range: '20% - 30% VWC (Moist Loam)', color: '#90caf9' },
-                  { range: '30% - 40% VWC (Wet Loam)', color: '#42a5f5' },
-                  { range: '> 40% VWC (Saturated Clay)', color: '#1565c0' }
-                ].map((item, idx) => (
-                  <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem' }}>
-                    <div style={{ width: '16px', height: '16px', borderRadius: '4px', background: item.color, border: '1px solid #cbd5e1' }} />
-                    <span>{item.range}</span>
-                  </div>
-                ))}
-              </div>
+              <h5 
+                onClick={() => setMoistureLegendExpanded(!moistureLegendExpanded)}
+                style={{ margin: 0, fontSize: '0.85rem', color: '#334155', fontWeight: 700, display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
+              >
+                <span>Soil Moisture Legend</span>
+                {moistureLegendExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+              </h5>
+              {moistureLegendExpanded && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
+                  {[
+                    { range: '< 20% VWC (Dry Sand)', color: '#bcaaa4' },
+                    { range: '20% - 30% VWC (Moist Loam)', color: '#90caf9' },
+                    { range: '30% - 40% VWC (Wet Loam)', color: '#42a5f5' },
+                    { range: '> 40% VWC (Saturated Clay)', color: '#1565c0' }
+                  ].map((item, idx) => (
+                    <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem' }}>
+                      <div style={{ width: '16px', height: '16px', borderRadius: '4px', background: item.color, border: '1px solid #cbd5e1' }} />
+                      <span>{item.range}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
           {activeOverlay === 'soil' && (
             <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
-              <h5 style={{ margin: '0 0 8px 0', fontSize: '0.85rem', color: '#334155', fontWeight: 700 }}>Soil Type Legend</h5>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {[
-                  { name: 'Gravelly Loam (Upland)', color: '#bcaaa4' },
-                  { name: 'Sandy Clay Loam (Upper slope)', color: '#a1887f' },
-                  { name: 'Clay Loam (Lower slope)', color: '#ffe0b2' },
-                  { name: 'Silty Clay (Lowland)', color: '#80cbc4' },
-                  { name: 'Hydric Clay (Swamps)', color: '#00796b' }
-                ].map((item, idx) => (
-                  <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem' }}>
-                    <div style={{ width: '16px', height: '16px', borderRadius: '4px', background: item.color, border: '1px solid #cbd5e1' }} />
-                    <span>{item.name}</span>
-                  </div>
-                ))}
-              </div>
+              <h5 
+                onClick={() => setSoilLegendExpanded(!soilLegendExpanded)}
+                style={{ margin: 0, fontSize: '0.85rem', color: '#334155', fontWeight: 700, display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
+              >
+                <span>Soil Type Legend</span>
+                {soilLegendExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+              </h5>
+              {soilLegendExpanded && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
+                  {[
+                    { name: 'Gravelly Loam (Upland)', color: '#bcaaa4' },
+                    { name: 'Sandy Clay Loam (Upper slope)', color: '#a1887f' },
+                    { name: 'Clay Loam (Lower slope)', color: '#ffe0b2' },
+                    { name: 'Silty Clay (Lowland)', color: '#80cbc4' },
+                    { name: 'Hydric Clay (Swamps)', color: '#00796b' }
+                  ].map((item, idx) => (
+                    <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem' }}>
+                      <div style={{ width: '16px', height: '16px', borderRadius: '4px', background: item.color, border: '1px solid #cbd5e1' }} />
+                      <span>{item.name}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 
           {activeOverlay === 'elevation' && (
             <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
-              <h5 style={{ margin: '0 0 8px 0', fontSize: '0.85rem', color: '#334155', fontWeight: 700 }}>Elevation Legend</h5>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {[
-                  { range: '< 110m (Lowland Valleys)', color: '#006837' },
-                  { range: '110m - 150m (Flat Valley)', color: '#78c679' },
-                  { range: '150m - 190m (Rolling Slopes)', color: '#fee08b' },
-                  { range: '190m - 220m (Upper Hills)', color: '#fdae61' },
-                  { range: '> 220m (Upland Ridges)', color: '#d73027' }
-                ].map((item, idx) => (
-                  <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem' }}>
-                    <div style={{ width: '16px', height: '16px', borderRadius: '4px', background: item.color, border: '1px solid #cbd5e1' }} />
-                    <span>{item.range}</span>
-                  </div>
-                ))}
-              </div>
+              <h5 
+                onClick={() => setElevationLegendExpanded(!elevationLegendExpanded)}
+                style={{ margin: 0, fontSize: '0.85rem', color: '#334155', fontWeight: 700, display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
+              >
+                <span>Elevation Legend</span>
+                {elevationLegendExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+              </h5>
+              {elevationLegendExpanded && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
+                  {[
+                    { range: '< 110m (Lowland Valleys)', color: '#006837' },
+                    { range: '110m - 150m (Flat Valley)', color: '#78c679' },
+                    { range: '150m - 190m (Rolling Slopes)', color: '#fee08b' },
+                    { range: '190m - 220m (Upper Hills)', color: '#fdae61' },
+                    { range: '> 220m (Upland Ridges)', color: '#d73027' }
+                  ].map((item, idx) => (
+                    <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem' }}>
+                      <div style={{ width: '16px', height: '16px', borderRadius: '4px', background: item.color, border: '1px solid #cbd5e1' }} />
+                      <span>{item.range}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
           
           <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.8rem', color: '#64748b' }}>
-            <h5 style={{ margin: '0 0 6px 0', fontSize: '0.85rem', color: '#334155', fontWeight: 700 }}>Spacing Specifications</h5>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <div><strong>Bed Width:</strong> {bedWidth} meters (approx. 4 feet)</div>
-              <div><strong>Row Spacing:</strong> {rowSpacing} meters (approx. 2 feet)</div>
-              <div><strong>Walkway:</strong> Spaced for easy manual transport</div>
-            </div>
+            <h5 
+              onClick={() => setSpacingSpecsExpanded(!spacingSpecsExpanded)}
+              style={{ margin: 0, fontSize: '0.85rem', color: '#334155', fontWeight: 700, display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
+            >
+              <span>Spacing Specifications</span>
+              {spacingSpecsExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+            </h5>
+            {spacingSpecsExpanded && (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '8px' }}>
+                <div><strong>Bed Width:</strong> {bedWidth} meters (approx. 4 feet)</div>
+                <div><strong>Row Spacing:</strong> {rowSpacing} meters (approx. 2 feet)</div>
+                <div><strong>Walkway:</strong> Spaced for easy manual transport</div>
+              </div>
+            )}
           </div>
         </div>
       </div>
