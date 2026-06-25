@@ -1037,12 +1037,12 @@ export default function App() {
                     value={activeFarmId}
                     onChange={(e) => handleFarmChange(e.target.value)}
                     style={{
-                      padding: '4px 8px',
-                      borderRadius: '4px',
+                      padding: '2px 3px',
+                      borderRadius: '2px',
                       border: '1px solid #cbd5e1',
                       background: 'white',
                       color: '#334155',
-                      fontSize: '0.8rem',
+                      fontSize: '0.65rem',
                       fontWeight: '600',
                       cursor: 'pointer',
                       outline: 'none',
@@ -2285,7 +2285,7 @@ export default function App() {
                               className="imager-select"
                               value={testIndexType}
                               onChange={(e) => setTestIndexType(e.target.value)}
-                              style={{ fontSize: '0.88rem', padding: '2px', width: '100%', border: '1px solid #ccc', borderRadius: '2px', background: 'white' }}
+                              style={{ fontSize: '0.65rem', padding: '2px 3px', borderRadius: '2px', width: '100%', border: '1px solid #ccc', background: 'white' }}
                               disabled={!testFieldId}
                             >
                               <option value="Elevation">{formatImagerLabel("Elevation (Topography)")}</option>

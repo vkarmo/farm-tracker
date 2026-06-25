@@ -211,6 +211,153 @@ const splitMarkdownToTabs = (markdown) => {
   return sections;
 };
 
+export const sanitizePolygon = (polygon) => {
+  if (typeof polygon === 'string') {
+    try { polygon = JSON.parse(polygon); } catch (e) {}
+  }
+  let sanitizedPolygon = [];
+  if (Array.isArray(polygon)) {
+    if (Array.isArray(polygon[0]) && Array.isArray(polygon[0][0])) {
+      sanitizedPolygon = polygon[0];
+    } else {
+      sanitizedPolygon = polygon;
+    }
+  }
+  return sanitizedPolygon;
+};
+
+export const getCentroid = (poly) => {
+  let latSum = 0;
+  let lngSum = 0;
+  let count = 0;
+  poly.forEach(pt => {
+    if (pt && pt.length >= 2) {
+      latSum += pt[0];
+      lngSum += pt[1];
+      count++;
+    }
+  });
+  if (count === 0) return { lat: 0, lng: 0 };
+  return { lat: latSum / count, lng: lngSum / count };
+};
+
+export const getPolygonMinDistance = (polyA, polyB) => {
+  let minDist = Infinity;
+  for (const ptA of polyA) {
+    for (const ptB of polyB) {
+      const d = Math.hypot(ptA[0] - ptB[0], ptA[1] - ptB[1]);
+      if (d < minDist) {
+        minDist = d;
+      }
+    }
+  }
+  return minDist;
+};
+
+export const getPlanarBearing = (lat1, lng1, lat2, lng2) => {
+  const dy = lat2 - lat1;
+  const dx = lng2 - lng1;
+  let angle = (Math.atan2(dx, dy) * 180) / Math.PI;
+  return (angle + 360) % 360;
+};
+
+export const getAngleDifference = (a, b) => {
+  let diff = Math.abs(a - b) % 360;
+  return diff > 180 ? 360 - diff : diff;
+};
+
+export const getMoistureColor = (val) => {
+  const pct = (val - 0.10) / 0.40; // 0.10 to 0.50 VWC range mapped to 0 to 1
+  if (pct < 0.25) return '#bcaaa4'; // Dry: Earthy light brown/sand
+  if (pct < 0.50) return '#90caf9'; // Moist: Soft light blue
+  if (pct < 0.75) return '#42a5f5'; // Very moist: Bright blue
+  return '#1565c0'; // Saturation: Wet deep blue
+};
+
+export const getSoilType = (rIdx) => {
+  if (rIdx < 3) return 'Gravelly Loam';
+  if (rIdx < 5) return 'Sandy Clay Loam';
+  if (rIdx < 7) return 'Clay Loam';
+  if (rIdx < 9) return 'Silty Clay';
+  return 'Hydric Clay';
+};
+
+export const getSoilColor = (rIdx) => {
+  if (rIdx < 3) return '#bcaaa4'; // Gravelly Loam
+  if (rIdx < 5) return '#a1887f'; // Sandy Clay Loam
+  if (rIdx < 7) return '#ffe0b2'; // Clay Loam
+  if (rIdx < 9) return '#80cbc4'; // Silty Clay
+  return '#00796b'; // Hydric Clay
+};
+
+export const getElevationColor = (val) => {
+  if (val < 110) return '#006837'; // Dark green valley
+  if (val < 150) return '#78c679'; // Green mid-slope
+  if (val < 190) return '#fee08b'; // Soft yellow hill
+  if (val < 220) return '#fdae61'; // Light orange ridge
+  return '#d73027'; // Red peak
+};
+
+export const getFieldRotationAngle = (field) => {
+  if (!field) return 0;
+  if (field.layoutRotation !== undefined && field.layoutRotation !== null && field.layoutRotation !== '') {
+    return parseInt(field.layoutRotation);
+  }
+  
+  const sanitizedPolygon = sanitizePolygon(field.polygon);
+  if (sanitizedPolygon.length < 3) return 0;
+  
+  // Calculate bounds
+  let minLat = Infinity, maxLat = -Infinity, minLng = Infinity, maxLng = -Infinity;
+  sanitizedPolygon.forEach(pt => {
+    if (pt && pt.length >= 2) {
+      const lat = pt[0];
+      const lng = pt[1];
+      if (lat < minLat) minLat = lat;
+      if (lat > maxLat) maxLat = lat;
+      if (lng < minLng) minLng = lng;
+      if (lng > maxLng) maxLng = lng;
+    }
+  });
+  
+  if (minLat === Infinity) return 0;
+  
+  // Convert to SVG coordinates
+  const svgVertices = sanitizedPolygon.map(pt => {
+    const x = ((pt[1] - minLng) / (maxLng - minLng)) * 100;
+    const y = (1.0 - (pt[0] - minLat) / (maxLat - minLat)) * 100;
+    return { x, y };
+  });
+
+  let maxDist = -1;
+  let bestPair = null;
+  for (let i = 0; i < svgVertices.length; i++) {
+    for (let j = i + 1; j < svgVertices.length; j++) {
+      const dist = Math.hypot(svgVertices[i].x - svgVertices[j].x, svgVertices[i].y - svgVertices[j].y);
+      if (dist > maxDist) {
+        maxDist = dist;
+        bestPair = [svgVertices[i], svgVertices[j]];
+      }
+    }
+  }
+
+  if (bestPair) {
+    const dx = bestPair[1].x - bestPair[0].x;
+    const dy = bestPair[1].y - bestPair[0].y;
+    let angle = (Math.atan2(dy, dx) * 180) / Math.PI;
+    if (angle < 0) angle += 180;
+    return Math.round(angle);
+  }
+  return 0;
+};
+
+export const getDirectionLabel = (angle) => {
+  const normalized = ((angle % 360) + 360) % 360;
+  const directions = ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'];
+  const index = Math.round(normalized / 45) % 8;
+  return directions[index];
+};
+
 export const parseStructuredData = (text, area, selectedCrops, elevation) => {
   let data = null;
   if (text) {
@@ -249,6 +396,11 @@ export const parseStructuredData = (text, area, selectedCrops, elevation) => {
           return newProj;
         });
       }
+    }
+
+    // Sort recommended crops from best to worst (descending order of revenue)
+    if (Array.isArray(data.annualRevenue)) {
+      data.annualRevenue.sort((a, b) => (b.revenue || 0) - (a.revenue || 0));
     }
 
     // Crucial rule: Only include recommended crops in the field layout assignments
@@ -305,6 +457,28 @@ export const parseStructuredData = (text, area, selectedCrops, elevation) => {
     const revenue = Math.round(cropAcres * rate);
     return { crop, revenue };
   });
+
+  // Sort from best to worst (descending order of revenue)
+  annualRevenue.sort((a, b) => b.revenue - a.revenue);
+
+  // Generate sorted crop list matching order from best to worst
+  const sortedCropsList = annualRevenue.map(r => r.crop);
+
+  // Group and sort companion crops in adjacent zones matching field conditions:
+  // Root crops (Cassava, Yam) / Trees (Oil Palm, Cocoa, Rubber) -> Upland (top rows 0-3)
+  // Vegetables / Leafy Greens (Fever Leaf) / Pest-repellers (Peppers, Basil) -> Mid-elevation (middle rows 4-7)
+  // Water-tolerant crops (Swamp Rice, Eddoe) -> Lowland/Wet (bottom rows 8-9)
+  const getCropPlacementScore = (cropName) => {
+    const name = cropName.toLowerCase();
+    if (name.includes('rice') || name.includes('eddoe')) return 3; // Lowland/Wet (Bottom)
+    if (name.includes('fever') || name.includes('pepper') || name.includes('vegetable') || name.includes('sweet potato') || name.includes('basil')) {
+      if (name.includes('pepper') || name.includes('basil')) return 1.5; // Companion directly next to leafy greens
+      return 2; // Mid-elevation (Middle)
+    }
+    return 1; // Upland/Dry (Top)
+  };
+
+  const layoutCrops = [...sortedCropsList].sort((a, b) => getCropPlacementScore(a) - getCropPlacementScore(b));
   
   // Generate monthly projections (12 months)
   const monthlyProjections = [];
@@ -314,8 +488,8 @@ export const parseStructuredData = (text, area, selectedCrops, elevation) => {
     const proj = { month: `Month ${m}` };
     let monthlyTotal = 0;
     
-    cropsList.forEach((crop, cIdx) => {
-      const annual = annualRevenue[cIdx].revenue;
+    sortedCropsList.forEach((crop) => {
+      const cropRev = annualRevenue.find(r => r.crop === crop)?.revenue || 1000;
       let seasonalFactor = 1.0;
       if (m >= 5 && m <= 10) {
         seasonalFactor = crop.toLowerCase().includes('rice') ? 1.3 : 0.8;
@@ -323,7 +497,7 @@ export const parseStructuredData = (text, area, selectedCrops, elevation) => {
         seasonalFactor = crop.toLowerCase().includes('rice') ? 0.7 : 1.2;
       }
       
-      const baseMonthly = annual / 12;
+      const baseMonthly = cropRev / 12;
       const amount = Math.round(baseMonthly * seasonalFactor * (0.9 + Math.random() * 0.2));
       proj[crop] = amount;
       monthlyTotal += amount;
@@ -339,10 +513,10 @@ export const parseStructuredData = (text, area, selectedCrops, elevation) => {
     bedsPerRow: 4,
     bedWidth: 1.2,
     rowSpacing: 0.6,
-    cropAssignments: cropsList.map((crop, idx) => {
+    cropAssignments: layoutCrops.map((crop, idx) => {
       const color = cropColors[idx % cropColors.length];
-      const startRow = Math.floor((idx / cropsList.length) * 10);
-      const endRow = Math.floor(((idx + 1) / cropsList.length) * 10) - 1;
+      const startRow = Math.floor((idx / layoutCrops.length) * 10);
+      const endRow = Math.floor(((idx + 1) / layoutCrops.length) * 10) - 1;
       return {
         crop,
         color,
@@ -424,6 +598,11 @@ export const getReportStructuredData = (report, area, selectedCrops) => {
           return newProj;
         });
       }
+    }
+
+    // Sort recommended crops from best to worst (descending order of revenue)
+    if (Array.isArray(data.annualRevenue)) {
+      data.annualRevenue.sort((a, b) => (b.revenue || 0) - (a.revenue || 0));
     }
 
     // Filter layout crop assignments to strictly match recommended crops
@@ -514,17 +693,89 @@ const RechartsVisualizer = ({ data }) => {
   );
 };
 
-const GraphicalFieldLayout = ({ layout, area }) => {
+const GraphicalFieldLayout = ({ layout, area, field }) => {
   const { rows = 10, bedsPerRow = 4, bedWidth = 1.2, rowSpacing = 0.6, cropAssignments = [] } = layout || {};
+  
+  const fields = useSelector(state => state.fields?.data) || [];
+  const [activeOverlay, setActiveOverlay] = useState('none');
   
   const bedHeight = 30;
   const bedWidthPx = 80;
   const horizontalSpacing = 15;
   const verticalSpacing = 10;
   
-  const width = bedsPerRow * (bedWidthPx + horizontalSpacing) + 120;
-  const height = rows * (bedHeight + verticalSpacing) + 60;
+  const topPadding = 50;
+  const bottomPadding = 50;
+  const leftPadding = 125;
+  const rightPadding = 125;
   
+  const width = bedsPerRow * (bedWidthPx + horizontalSpacing) - horizontalSpacing + leftPadding + rightPadding;
+  const height = rows * (bedHeight + verticalSpacing) - verticalSpacing + topPadding + bottomPadding;
+  
+  const rotationAngle = getFieldRotationAngle(field);
+  const topDir = getDirectionLabel(360 - rotationAngle);
+  const bottomDir = getDirectionLabel(540 - rotationAngle);
+  const leftDir = getDirectionLabel(630 - rotationAngle);
+  const rightDir = getDirectionLabel(450 - rotationAngle);
+
+  const gridCenterX = leftPadding + (bedsPerRow * (bedWidthPx + horizontalSpacing) - horizontalSpacing) / 2;
+  const gridRightX = leftPadding + bedsPerRow * (bedWidthPx + horizontalSpacing) - horizontalSpacing;
+  const gridBottomY = topPadding + rows * (bedHeight + verticalSpacing) - verticalSpacing;
+  const gridCenterY = topPadding + (rows * (bedHeight + verticalSpacing) - verticalSpacing) / 2;
+
+  // Compass Rose center in the empty bottom-right corner space
+  const cx = width - 45;
+  const cy = height - 45;
+  const northAngleRad = (-rotationAngle * Math.PI) / 180;
+  const nx = cx + 11 * Math.sin(northAngleRad);
+  const ny = cy - 11 * Math.cos(northAngleRad);
+  const sx = cx - 11 * Math.sin(northAngleRad);
+  const sy = cy + 11 * Math.cos(northAngleRad);
+  const tx = cx + 22 * Math.sin(northAngleRad);
+  const ty = cy - 22 * Math.cos(northAngleRad) + 3;
+
+  // Calculate adjacent fields by side
+  const adjacentFieldsBySide = useMemo(() => {
+    const sides = { top: [], right: [], bottom: [], left: [] };
+    if (!field) return sides;
+    
+    const polyA = sanitizePolygon(field.polygon);
+    if (polyA.length < 3) return sides;
+    
+    const cA = getCentroid(polyA);
+    const rot = getFieldRotationAngle(field);
+    
+    fields.forEach(otherField => {
+      if (otherField.id === field.id) return;
+      const polyB = sanitizePolygon(otherField.polygon);
+      if (polyB.length < 3) return;
+      
+      const dist = getPolygonMinDistance(polyA, polyB);
+      if (dist <= 0.0008) {
+        const cB = getCentroid(polyB);
+        const bearing = getPlanarBearing(cA.lat, cA.lng, cB.lat, cB.lng);
+        
+        const diffTop = getAngleDifference(bearing, 360 - rot);
+        const diffRight = getAngleDifference(bearing, 450 - rot);
+        const diffBottom = getAngleDifference(bearing, 540 - rot);
+        const diffLeft = getAngleDifference(bearing, 630 - rot);
+        
+        const minDiff = Math.min(diffTop, diffRight, diffBottom, diffLeft);
+        if (minDiff === diffTop) {
+          sides.top.push(otherField.name);
+        } else if (minDiff === diffRight) {
+          sides.right.push(otherField.name);
+        } else if (minDiff === diffBottom) {
+          sides.bottom.push(otherField.name);
+        } else {
+          sides.left.push(otherField.name);
+        }
+      }
+    });
+    
+    return sides;
+  }, [field, fields]);
+
   const getCropColor = (rowIdx) => {
     const match = cropAssignments.find(a => rowIdx >= a.startRow && rowIdx <= a.endRow);
     return match ? match.color : '#e2e8f0';
@@ -540,25 +791,130 @@ const GraphicalFieldLayout = ({ layout, area }) => {
       <h4 style={{ margin: '0 0 16px 0', fontSize: '1.05rem', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '8px' }}>
         <Layers size={18} color="#2e7d32" /> Graphical Field Layout ({area || 'Unknown'} Acres)
       </h4>
+
+      {/* Overlay Toggles */}
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
+        <span style={{ fontSize: '0.85rem', fontWeight: '600', color: '#475569', alignSelf: 'center', marginRight: '8px' }}>Visual Overlays:</span>
+        {[
+          { id: 'none', label: 'Default Layout', color: '#1e293b' },
+          { id: 'moisture', label: 'Moisture Profile', color: '#3b82f6' },
+          { id: 'soil', label: 'Soil Type Map', color: '#14b8a6' },
+          { id: 'elevation', label: 'Elevation Contours', color: '#ef4444' }
+        ].map(btn => (
+          <button
+            key={btn.id}
+            onClick={() => setActiveOverlay(btn.id)}
+            style={{
+              padding: '6px 12px',
+              fontSize: '0.78rem',
+              fontWeight: '600',
+              borderRadius: '20px',
+              border: activeOverlay === btn.id ? `2px solid ${btn.color}` : '1px solid #cbd5e1',
+              background: activeOverlay === btn.id ? `${btn.color}15` : 'white',
+              color: activeOverlay === btn.id ? btn.color : '#64748b',
+              cursor: 'pointer',
+              transition: 'all 0.15s ease',
+              outline: 'none',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '4px'
+            }}
+          >
+            {btn.label}
+          </button>
+        ))}
+      </div>
       
       <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
         <div style={{ overflowX: 'auto', background: 'white', padding: '15px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
           <svg width={width} height={height} style={{ display: 'block' }}>
             <rect width={width} height={height} rx={6} fill="#f1f8f5" />
             
+            {/* Border Direction Indicators & Adjacent Field Names */}
+            {/* Top Side */}
+            <text x={gridCenterX} y={18} fontSize="10" fontWeight="800" fill="#64748b" textAnchor="middle">{topDir}</text>
+            {adjacentFieldsBySide.top.length > 0 && (
+              <text x={gridCenterX} y={32} fontSize="9" fontWeight="600" fill="#047857" textAnchor="middle">
+                Adjacent: {adjacentFieldsBySide.top.join(', ')}
+              </text>
+            )}
+
+            {/* Bottom Side */}
+            <text x={gridCenterX} y={height - 24} fontSize="10" fontWeight="800" fill="#64748b" textAnchor="middle">{bottomDir}</text>
+            {adjacentFieldsBySide.bottom.length > 0 && (
+              <text x={gridCenterX} y={height - 10} fontSize="9" fontWeight="600" fill="#047857" textAnchor="middle">
+                Adjacent: {adjacentFieldsBySide.bottom.join(', ')}
+              </text>
+            )}
+
+            {/* Left Side */}
+            <text x={leftPadding - 18} y={gridCenterY + 4} fontSize="10" fontWeight="800" fill="#64748b" textAnchor="end">{leftDir}</text>
+            {adjacentFieldsBySide.left.length > 0 && (
+              <text x={leftPadding - 18} y={gridCenterY + 18} fontSize="9" fontWeight="600" fill="#047857" textAnchor="end">
+                Adjacent: {adjacentFieldsBySide.left.join(', ')}
+              </text>
+            )}
+
+            {/* Right Side */}
+            <text x={gridRightX + 18} y={gridCenterY + 4} fontSize="10" fontWeight="800" fill="#64748b" textAnchor="start">{rightDir}</text>
+            {adjacentFieldsBySide.right.length > 0 && (
+              <text x={gridRightX + 18} y={gridCenterY + 18} fontSize="9" fontWeight="600" fill="#047857" textAnchor="start">
+                Adjacent: {adjacentFieldsBySide.right.join(', ')}
+              </text>
+            )}
+
+            {/* Compass Rose */}
+            <g>
+              <circle cx={cx} cy={cy} r={16} fill="#ffffff" stroke="#94a3b8" strokeWidth={1} />
+              <circle cx={cx} cy={cy} r={2} fill="#475569" />
+              {/* North Arrow (Red) */}
+              <line x1={cx} y1={cy} x2={nx} y2={ny} stroke="#ef4444" strokeWidth={2} strokeLinecap="round" />
+              {/* South Arrow (Blue) */}
+              <line x1={cx} y1={cy} x2={sx} y2={sy} stroke="#3b82f6" strokeWidth={2} strokeLinecap="round" />
+              {/* N Text */}
+              <text x={tx} y={ty} fontSize="8" fontWeight="800" fill="#ef4444" textAnchor="middle">N</text>
+            </g>
+
             {Array.from({ length: rows }).map((_, rIdx) => {
-              const y = 30 + rIdx * (bedHeight + verticalSpacing);
+              const y = topPadding + rIdx * (bedHeight + verticalSpacing);
               const cropColor = getCropColor(rIdx);
               const cropName = getCropName(rIdx);
               
+              // Base physical variables per row (scaled linearly top to bottom)
+              const t = rIdx / 9; // 0 to 1
+              
               return (
                 <g key={`row_${rIdx}`}>
-                  <text x={10} y={y + 18} fontSize="10" fill="#64748b">Row {rIdx + 1}</text>
+                  <text x={leftPadding - 50} y={y + 18} fontSize="10" fill="#64748b">Row {rIdx + 1}</text>
                   
                   {Array.from({ length: bedsPerRow }).map((_, bIdx) => {
-                    const x = 70 + bIdx * (bedWidthPx + horizontalSpacing);
+                    const x = leftPadding + bIdx * (bedWidthPx + horizontalSpacing);
+                    
+                    // Add minor horizontal bed variation using deterministic sin seed
+                    const bedSeed = Math.sin(rIdx * 7 + bIdx * 3);
+                    const elevNoise = Math.round(bedSeed * 5);
+                    const moistureNoise = parseFloat((bedSeed * 0.02).toFixed(2));
+                    
+                    // Compute physical parameters for this specific bed
+                    const elevVal = Math.max(50, Math.min(250, Math.round(230 - t * 160 + elevNoise)));
+                    const moistureVal = Math.max(0.10, Math.min(0.50, parseFloat((0.16 + t * 0.32 + moistureNoise).toFixed(2))));
+                    const soilVal = getSoilType(rIdx);
+                    
+                    // Get color for active overlay layer
+                    let overlayColor = 'transparent';
+                    if (activeOverlay === 'moisture') {
+                      overlayColor = getMoistureColor(moistureVal);
+                    } else if (activeOverlay === 'soil') {
+                      overlayColor = getSoilColor(rIdx);
+                    } else if (activeOverlay === 'elevation') {
+                      overlayColor = getElevationColor(elevVal);
+                    }
+                    
+                    const tooltipText = `Row ${rIdx + 1}, Bed ${bIdx + 1}: ${cropName}\nElevation: ${elevVal}m\nSoil Moisture: ${(moistureVal * 100).toFixed(0)}% VWC\nSoil Type: ${soilVal}`;
+                    
                     return (
                       <g key={`bed_${bIdx}`}>
+                        {/* Base Crop Colored Bed Rect */}
                         <rect 
                           x={x} 
                           y={y} 
@@ -569,28 +925,46 @@ const GraphicalFieldLayout = ({ layout, area }) => {
                           stroke="#1b5e20" 
                           strokeWidth={1}
                           style={{ cursor: 'pointer', transition: 'opacity 0.2s' }}
-                          title={`Row ${rIdx + 1}, Bed ${bIdx + 1}: ${cropName}`}
                         />
+                        
+                        {/* Semi-transparent Overlay Layer (when active) */}
+                        {activeOverlay !== 'none' && (
+                          <rect 
+                            x={x} 
+                            y={y} 
+                            width={bedWidthPx} 
+                            height={bedHeight} 
+                            rx={3} 
+                            fill={overlayColor} 
+                            opacity={0.65}
+                            style={{ cursor: 'pointer', pointerEvents: 'none' }}
+                          />
+                        )}
+                        
+                        {/* Text Label on top of all colors */}
                         <text 
                           x={x + bedWidthPx / 2} 
                           y={y + 18} 
                           fontSize="9" 
-                          fill="#fff" 
+                          fill="#ffffff" 
                           textAnchor="middle" 
                           fontWeight="600"
                           style={{ pointerEvents: 'none' }}
                         >
                           Bed {bIdx + 1}
                         </text>
+                        
+                        {/* HTML standard title tooltip */}
+                        <title>{tooltipText}</title>
                       </g>
                     );
                   })}
                   
                   {rIdx < rows - 1 && (
                     <line 
-                      x1={70} 
+                      x1={leftPadding} 
                       y1={y + bedHeight + 5} 
-                      x2={70 + bedsPerRow * (bedWidthPx + horizontalSpacing) - horizontalSpacing} 
+                      x2={leftPadding + bedsPerRow * (bedWidthPx + horizontalSpacing) - horizontalSpacing} 
                       y2={y + bedHeight + 5} 
                       stroke="#94a3b8" 
                       strokeDasharray="2,2" 
@@ -603,6 +977,7 @@ const GraphicalFieldLayout = ({ layout, area }) => {
         </div>
         
         <div style={{ flex: '1 1 200px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          {/* Crop Assignments Legend */}
           <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
             <h5 style={{ margin: '0 0 8px 0', fontSize: '0.85rem', color: '#334155', fontWeight: 700 }}>Crop Legends</h5>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -614,6 +989,66 @@ const GraphicalFieldLayout = ({ layout, area }) => {
               ))}
             </div>
           </div>
+
+          {/* Active Overlay Legends */}
+          {activeOverlay === 'moisture' && (
+            <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
+              <h5 style={{ margin: '0 0 8px 0', fontSize: '0.85rem', color: '#334155', fontWeight: 700 }}>Soil Moisture Legend</h5>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {[
+                  { range: '< 20% VWC (Dry Sand)', color: '#bcaaa4' },
+                  { range: '20% - 30% VWC (Moist Loam)', color: '#90caf9' },
+                  { range: '30% - 40% VWC (Wet Loam)', color: '#42a5f5' },
+                  { range: '> 40% VWC (Saturated Clay)', color: '#1565c0' }
+                ].map((item, idx) => (
+                  <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem' }}>
+                    <div style={{ width: '16px', height: '16px', borderRadius: '4px', background: item.color, border: '1px solid #cbd5e1' }} />
+                    <span>{item.range}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {activeOverlay === 'soil' && (
+            <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
+              <h5 style={{ margin: '0 0 8px 0', fontSize: '0.85rem', color: '#334155', fontWeight: 700 }}>Soil Type Legend</h5>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {[
+                  { name: 'Gravelly Loam (Upland)', color: '#bcaaa4' },
+                  { name: 'Sandy Clay Loam (Upper slope)', color: '#a1887f' },
+                  { name: 'Clay Loam (Lower slope)', color: '#ffe0b2' },
+                  { name: 'Silty Clay (Lowland)', color: '#80cbc4' },
+                  { name: 'Hydric Clay (Swamps)', color: '#00796b' }
+                ].map((item, idx) => (
+                  <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem' }}>
+                    <div style={{ width: '16px', height: '16px', borderRadius: '4px', background: item.color, border: '1px solid #cbd5e1' }} />
+                    <span>{item.name}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {activeOverlay === 'elevation' && (
+            <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
+              <h5 style={{ margin: '0 0 8px 0', fontSize: '0.85rem', color: '#334155', fontWeight: 700 }}>Elevation Legend</h5>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                {[
+                  { range: '< 110m (Lowland Valleys)', color: '#006837' },
+                  { range: '110m - 150m (Flat Valley)', color: '#78c679' },
+                  { range: '150m - 190m (Rolling Slopes)', color: '#fee08b' },
+                  { range: '190m - 220m (Upper Hills)', color: '#fdae61' },
+                  { range: '> 220m (Upland Ridges)', color: '#d73027' }
+                ].map((item, idx) => (
+                  <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem' }}>
+                    <div style={{ width: '16px', height: '16px', borderRadius: '4px', background: item.color, border: '1px solid #cbd5e1' }} />
+                    <span>{item.range}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           
           <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.8rem', color: '#64748b' }}>
             <h5 style={{ margin: '0 0 6px 0', fontSize: '0.85rem', color: '#334155', fontWeight: 700 }}>Spacing Specifications</h5>
@@ -1614,6 +2049,7 @@ export default function RecommendationViewer({ fieldId, onToggleBack }) {
                             <GraphicalFieldLayout 
                               layout={structuredData.fieldLayout} 
                               area={currentField.area} 
+                              field={currentField}
                             />
                           )}
                           {markdownContent}

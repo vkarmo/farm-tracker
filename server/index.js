@@ -1843,7 +1843,7 @@ The output structure must be EXACTLY:
 [Provide rich, detailed Markdown content for this section, structured with bullet points. Keep it localized for Bomi County, Liberia (agro-ecological thresholds, acidic soil correction, rainy/dry seasons, water logging or slopes). You MUST explicitly incorporate the field's specific elevation of ${elevation}m and average soil moisture of ${soilMoisture} m³/m³, along with the GEE satellite metrics, detailing their implications for local crop viability, microclimate, and slope runoff/drainage.]
 
 ## Recommended Crops
-[Provide recommended crops details here. Detail which crops are chosen from the crops of interest: "${selectedCrops || 'specified crops'}" and other local agronomic fits. You MUST explicitly evaluate and justify crop selections by matching them against the field's specific physical characteristics: soil moisture, elevation, soil type, irrigation, and season. Use the following agro-ecological matching guidelines:
+[Provide recommended crops details here. Detail which crops are chosen from the crops of interest: "${selectedCrops || 'specified crops'}" and other local agronomic fits. You MUST list the recommended crops in order from best to worst suitability/profitability. You MUST explicitly evaluate and justify crop selections by matching them against the field's specific physical characteristics: soil moisture, elevation, soil type, irrigation, and season. Use the following agro-ecological matching guidelines:
 - Swamp Rice: Suited for lowland valley depressions/floodplains (low elevation, e.g., <110m) with high soil moisture saturation (>0.40 m³/m³) or high rainfall.
 - Cassava / Yam: Suited ONLY for well-drained upland sloped hills (higher elevation, e.g., >160m) with moderate/low soil moisture (0.15 - 0.30 m³/m³).
 - Oil Palm: Suited for flat/rolling plains (elevation 110m - 160m) with consistently high soil moisture (>0.35 m³/m³) but well-drained soil.
@@ -1851,7 +1851,7 @@ The output structure must be EXACTLY:
 
 CRITICAL AGRONOMIC RULE FOR CASSAVA: You MUST NOT suggest Cassava if the field is in a low-elevation area (average elevation < 110 meters, or height above nearest drainage HND < 10 meters) where water can gather or accumulate in the rainy season. Cassava roots are extremely susceptible to rot and will die in waterlogged soils. In such low-lying fields, exclude Cassava and suggest swamp rice or other water-tolerant alternatives instead.
 
-Detail how the field's specific elevation of ${elevation}m and soil moisture of ${soilMoisture} m³/m³, combined with soil type (${soilType}) and irrigation (${irrigation}) and GEE satellite telemetry, dictate the viability of the recommended crops.]
+Detail how the field's specific elevation of ${elevation}m and soil moisture of ${soilMoisture} m³/m³, combined with soil type (${soilType}) and irrigation (${irrigation}) and GEE satellite telemetry, dictate the viability and ranked ordering of the recommended crops.]
 
 ## Cultivation Guide
 [Provide the cultivation guides here for the selected crops. Customize the guidance according to the field's soil type (${soilType}), season (${season}), and irrigation type (${irrigation}).]
@@ -1884,9 +1884,12 @@ Apply fluctuating market prices for each crop across different months to reflect
 
 ## Field Layout
 [Generate a textual or ASCII representation and details of the agricultural field layout. In your layout design, you MUST:
-1. Account for median elevation (${elevation || 'Unknown'}m), average soil moisture (${soilMoisture || 'Unknown'} m³/m³), and other relevant topography or satellite data (e.g. place water-loving crops like Swamp Rice in lower, high-moisture zones, and root or cash crops in higher, well-drained zones).
-2. Explicitly include intercropping details, showing how specific companion plants (like nitrogen-fixing legumes for soil building, or trap crops/pest-repelling flowers for natural pest control) are integrated.
-3. Detail spacing guidelines (rows, beds, walkways in meters or feet) to ensure the main crop is not choked by the intercrops (e.g. tall main crops spaced so intercrops can grow beneath or beside them without choking them).]
+1. Position crops strictly according to the physical conditions of the field: place water-tolerant/water-loving crops (such as Swamp Rice, Eddoe) in the lowest-elevation, highest soil-moisture zones (typically represented by the bottom/lowermost rows/beds); place leafy greens and vegetables (such as Fever Leaf, Sweet Potato, Peppers) in the mid-elevation, moderate-moisture zones; and place root crops or trees (such as Cassava, Yam, Cocoa, Oil Palm) in the highest-elevation, well-drained sloped zones (typically represented by the top/uppermost rows/beds).
+2. Consider beneficial and positive positioning of crops that work well together by placing them in adjacent zones (adjacent rows or adjacent beds). For example, place nitrogen-fixing cover crops/legumes (e.g. Cowpeas, Groundnuts) directly adjacent to heavy nitrogen-consuming crops (e.g. leafy greens, Fever Leaf, Rice) to enrich the soil, and place aromatic pest-deterring crops (e.g. Peppers, Basil) directly adjacent to pest-vulnerable crops (e.g. Fever Leaf) to establish a natural protective barrier.
+3. ONLY include crops that are recommended and considered good choices for the area in the Recommended Crops section above. You MUST NOT include crops in the layout that are not recommended or are excluded (e.g., do not place Cassava if the elevation is < 110m).
+4. Generate this field layout details only AFTER the recommended crops list and their rankings have been generated.
+5. Explicitly include intercropping details, showing how specific companion plants (like nitrogen-fixing legumes for soil building, or trap crops/pest-repelling flowers for natural pest control) are integrated.
+6. Detail spacing guidelines (rows, beds, walkways in meters or feet) to ensure the main crop is not choked by the intercrops (e.g. tall main crops spaced so intercrops can grow beneath or beside them without choking them).]
 
 Crucial: At the very end of your response, after the Field Layout section, output exactly one JSON code block enclosed in \`\`\`json and \`\`\`. This JSON block will fuel dynamic charts and interactive UI maps on the client side. The math in the JSON block must align perfectly with your tables above.
 The JSON structure must match this template exactly:
@@ -1923,9 +1926,9 @@ The JSON structure must match this template exactly:
 }
 \`\`\`
 Ensure that:
-1. "annualRevenue" contains all recommended crops with their projected annual USD revenue.
-2. "monthlyProjections" contains exactly 12 items (Month 1 to Month 12), with each crop's monthly revenue (using the exact crop names as keys) and the monthly total.
-3. "fieldLayout" specifies "rows" (between 6 and 15), "bedsPerRow" (between 2 and 6), "bedWidth" and "rowSpacing" in meters, and "cropAssignments" containing a color (hex code) and startRow/endRow (0-indexed ranges spanning from 0 to rows-1) mapping all crops. Ensure your row assignments place crops strategically based on elevation, moisture, and intercropping spacing patterns described above.
+1. "annualRevenue" contains all recommended crops (listed in order from best to worst matching/suitability) with their projected annual USD revenue.
+2. "monthlyProjections" contains exactly 12 items (Month 1 to Month 12), with each crop's monthly revenue (using the exact crop names as keys) and the monthly total. Only include recommended crops.
+3. "fieldLayout" specifies "rows" (between 6 and 15), "bedsPerRow" (between 2 and 6), "bedWidth" and "rowSpacing" in meters, and "cropAssignments" containing a color (hex code) and startRow/endRow (0-indexed ranges spanning from 0 to rows-1) mapping all crops. You MUST ensure that "cropAssignments" ONLY contains crops that are recommended. Do NOT place or assign any rows to crops that are not recommended for this field. Generate this layout mapping only after the recommended crops list and their ordering have been established.
 
 Do not wrap the whole response in a JSON block or code blocks. Start directly with the first heading.`;
 
