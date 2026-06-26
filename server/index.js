@@ -1779,6 +1779,36 @@ app.post('/api/recommendations/generate', async (req, res) => {
       }
     }
 
+    // Query POIs under this farm to identify wetlands/water sources
+    const poisRes = await session.run(
+      "MATCH (p:POI)-[:BELONGS_TO]->(:Farm {id: $farmId}) RETURN p.name AS name, p.type AS type, p.description AS description",
+      { farmId }
+    );
+    const farmPois = poisRes.records.map(r => ({
+      name: r.get('name') || '',
+      type: r.get('type') || '',
+      description: r.get('description') || ''
+    }));
+
+    const waterPois = farmPois.filter(p => 
+      p.type === 'Water Source' || 
+      p.type === 'Wetland' || 
+      p.name.toLowerCase().includes('swamp') ||
+      p.description.toLowerCase().includes('swamp')
+    );
+
+    let waterSourcesSection = '';
+    if (waterPois.length > 0) {
+      waterSourcesSection = `
+- Documented Water Sources & Wetlands on this farm:
+${waterPois.map(p => `  - "${p.name}" (${p.type}: ${p.description})`).join('\n')}
+`;
+    } else {
+      waterSourcesSection = `
+- Documented Water Sources & Wetlands: No active swamps, streams, creeks, or wetlands are documented on the farm records.
+`;
+    }
+
     let coords = [];
     if (Array.isArray(fieldPolygon)) {
       if (Array.isArray(fieldPolygon[0]) && Array.isArray(fieldPolygon[0][0])) {
@@ -1834,6 +1864,7 @@ Please generate crop recommendations for the following field profile:
 - Model Start Date: ${startDate || 'Immediate'}
 - Crops to Focus On: ${selectedCrops || 'High margin crops suited for local context (e.g. Fever Leaf, Cassava, swamp rice, vegetables, etc.)'}
 - USD/LRD Exchange Rate: 1 USD = ${exchangeRate || '150'} LRD (You must use this exact exchange rate for all conversions in your tables, text, and JSON calculations, e.g. price per kg or Fever Leaf price.)
+${waterSourcesSection}
 ${geeStatsSection}
 
 You must respond in Markdown format. The sections should be separated by H2 headings (##) which will be parsed into tabs.
@@ -1850,6 +1881,8 @@ The output structure must be EXACTLY:
 - Vegetables (such as Eddoe, Sweet Potato, Peppers, Fever Leaf): Suited for areas with moderate, consistent soil moisture (0.20 - 0.35 m³/m³) and manageable irrigation/drainage control.
 
 CRITICAL AGRONOMIC RULE FOR CASSAVA: You MUST NOT suggest Cassava if the field is in a low-elevation area (average elevation < 110 meters, or height above nearest drainage HND < 10 meters) where water can gather or accumulate in the rainy season. Cassava roots are extremely susceptible to rot and will die in waterlogged soils. In such low-lying fields, exclude Cassava and suggest swamp rice or other water-tolerant alternatives instead.
+
+CRITICAL AGRONOMIC RULE FOR SWAMP RICE: You MUST NOT suggest swamp rice if the field has no swamp, no wetland, and no water source nearby. If the water sources section indicates no documented water sources or swamps, or if the field name/notes do not specify a swamp, exclude swamp rice and recommend dry-land/upland crops or upland rice instead.
 
 Detail how the field's specific elevation of ${elevation}m and soil moisture of ${soilMoisture} m³/m³, combined with soil type (${soilType}) and irrigation (${irrigation}) and GEE satellite telemetry, dictate the viability and ranked ordering of the recommended crops.]
 

@@ -67,6 +67,7 @@ const FieldLayoutMapOverlay = ({ field, recommendations, selectedRecId }) => {
   const dispatch = useDispatch();
   const map = useMap();
   const [zoom, setZoom] = useState(map.getZoom());
+  const pois = useSelector(state => state.poi?.list) || [];
 
   useEffect(() => {
     const handleZoomEnd = () => {
@@ -292,13 +293,13 @@ const FieldLayoutMapOverlay = ({ field, recommendations, selectedRecId }) => {
     }
 
     if (report) {
-      const structuredData = getReportStructuredData(report, field.area || 5, report.promptInputs?.selectedCrops || '');
+      const structuredData = getReportStructuredData(report, field.area || 5, report.promptInputs?.selectedCrops || '', pois, field);
       return structuredData?.fieldLayout;
     }
     
     // Do not generate fallback crop layout if no recommendation was generated
     return null;
-  }, [field, recommendations, selectedRecId]);
+  }, [field, recommendations, selectedRecId, pois]);
 
   // Helper to check if a percentage SVG coordinate is inside the field polygon
   const isSvgPointInPolygon = useCallback((px, py) => {
@@ -382,93 +383,7 @@ const FieldLayoutMapOverlay = ({ field, recommendations, selectedRecId }) => {
   // Vertical walkway line down the center
   const verticalWalkwayX = gridMinX + gridWidth / 2;
 
-  // Generate curved beds following the contour curves, excluding the kitchen, pits, and walkway zones
-  const beds = [];
-
-  for (let r = 0; r < rows; r++) {
-    // Skip the horizontal walkway row to leave an open walking passage
-    if (r === horizontalWalkwayRow) continue;
-
-    const assignment = cropAssignments.find(ass => r >= ass.startRow && r <= ass.endRow);
-    const color = assignment?.color || '#8d6e63';
-    const cropName = assignment?.crop || 'Unassigned';
-
-    for (let b = 0; b < bedsPerRow; b++) {
-      const bedStartPct = b / bedsPerRow;
-      const bedEndPct = (b + 1) / bedsPerRow;
-      
-      const gapPct = 0.025;
-      let sPct = bedStartPct + gapPct;
-      let ePct = bedEndPct - gapPct;
-
-      // Introduce a distinct vertical walkway gap in the center of the columns
-      const halfBeds = bedsPerRow / 2;
-      const verticalWalkwayGap = 0.06; // 6% of the grid width
-      if (b < halfBeds) {
-        sPct = sPct * (1.0 - verticalWalkwayGap);
-        ePct = ePct * (1.0 - verticalWalkwayGap);
-      } else {
-        sPct = sPct * (1.0 - verticalWalkwayGap) + verticalWalkwayGap;
-        ePct = ePct * (1.0 - verticalWalkwayGap) + verticalWalkwayGap;
-      }
-
-      const points = [];
-      const subdivisions = 6;
-      const yBase = gridMinY + r * rowHeight + rowHeight / 2;
-
-      for (let i = 0; i <= subdivisions; i++) {
-        const pct = sPct + (i / subdivisions) * (ePct - sPct);
-        const px = gridMinX + pct * gridWidth;
-        const py = yBase + curveDepth * Math.sin(pct * Math.PI);
-        points.push(`${px},${py}`);
-      }
-
-      const midPct = (sPct + ePct) / 2;
-      const midX = gridMinX + midPct * gridWidth;
-      const midY = yBase + curveDepth * Math.sin(midPct * Math.PI);
-
-      // Rotate points to check if the actual rotated bed is inside the field polygon boundaries
-      const rotatedPointsForCheck = points.map(ptStr => {
-        const [px, py] = ptStr.split(',').map(Number);
-        return rotatePoint(px, py, rotationAngle);
-      });
-
-      // Skip strict boundary check to let SVG clip-path crop irregular shapes automatically
-
-      // 2. Collision check with kitchen, compost, and ash pits (relative coordinates in grid frame remain invariant)
-      const distToKitchen = Math.hypot(midX - kitchenPos.x, midY - kitchenPos.y);
-      if (distToKitchen < kitchenPos.radius + 2.0) {
-        continue; // Skip this bed
-      }
-
-      if (midX >= compostX - 2.0 && midX <= compostX + compostWidth + 2.0 &&
-          midY >= compostY - 2.0 && midY <= compostY + compostHeight + 2.0) {
-        continue; // Skip this bed
-      }
-
-      const distToAsh = Math.hypot(midX - ashX, midY - ashY);
-      if (distToAsh < ashRadius + 2.0) {
-        continue; // Skip this bed
-      }
-
-      let label = cropName.substring(0, 5);
-      if (cropName.toLowerCase().includes('rice')) label = 'Rice';
-      else if (cropName.toLowerCase().includes('fever')) label = 'Fever';
-      else if (cropName.toLowerCase().includes('cassava')) label = 'Cass';
-
-      beds.push({
-        id: `bed_${r}_${b}`,
-        d: `M ${points.join(' L ')}`,
-        midX,
-        midY,
-        color,
-        crop: cropName,
-        label,
-        row: r + 1,
-        bed: b + 1
-      });
-    }
-  }
+  // Contiguous crop zones will be rendered directly from cropAssignments
 
   // Generate parallel contour terrace walkway paths, cutting holes through kitchen and pit zones
   const terraceWalkways = [];
@@ -590,36 +505,66 @@ const FieldLayoutMapOverlay = ({ field, recommendations, selectedRecId }) => {
             strokeDasharray="1 1" 
           />
           
-          {/* Draw Curved Crop Beds with distinct row spacing */}
-          {beds.map(bed => (
-            <g key={bed.id}>
-              <path
-                d={bed.d}
-                fill="none"
-                stroke={bed.color}
-                // strokeWidth is slightly narrower (0.62) to leave clear space between rows
-                strokeWidth={rowHeight * 0.62}
-                strokeLinecap="round"
-                opacity={0.9}
-                style={{ pointerEvents: 'auto', cursor: 'pointer' }}
-              >
-                <title>{`${bed.crop} (Row ${bed.row}, Bed ${bed.bed})`}</title>
-              </path>
-              {/* Crop Label Inside Bed - dynamically flipped if layout is upside down */}
-              <text
-                x={bed.midX}
-                y={bed.midY + 0.8}
-                fill="#ffffff"
-                fontSize="2.0"
-                fontWeight="bold"
-                textAnchor="middle"
-                transform={needsFlip ? `rotate(180, ${bed.midX}, ${bed.midY + 0.8})` : undefined}
-                style={{ pointerEvents: 'none', userSelect: 'none', textShadow: '0.5px 0.5px 1px rgba(0,0,0,0.8)' }}
-              >
-                {bed.label}
-              </text>
-            </g>
-          ))}
+          {/* Draw Contiguous Crop Zones within field boundary */}
+          {cropAssignments.map((a, idx) => {
+            const zoneY = gridMinY + a.startRow * rowHeight;
+            const zoneHeight = (a.endRow - a.startRow + 1) * rowHeight;
+            const zoneX = gridMinX - 10;
+            const zoneWidth = gridWidth + 20;
+            const centerY = zoneY + zoneHeight / 2;
+            const centerX = gridMinX + gridWidth / 2;
+
+            return (
+              <g key={`crop_zone_${idx}`}>
+                <rect
+                  x={zoneX}
+                  y={zoneY}
+                  width={zoneWidth}
+                  height={zoneHeight}
+                  fill={a.color}
+                  opacity={0.85}
+                  stroke="#1b5e20"
+                  strokeWidth={0.2}
+                  style={{ cursor: 'pointer' }}
+                >
+                  <title>{`${a.crop} Zone\nRows ${a.startRow + 1} to ${a.endRow + 1}`}</title>
+                </rect>
+                <text
+                  x={centerX}
+                  y={centerY + 0.8}
+                  fill="#ffffff"
+                  fontSize="2.5"
+                  fontWeight="bold"
+                  textAnchor="middle"
+                  transform={needsFlip ? `rotate(180, ${centerX}, ${centerY + 0.8})` : undefined}
+                  style={{ pointerEvents: 'none', userSelect: 'none', textShadow: '0.8px 0.8px 1.5px rgba(0,0,0,0.9)' }}
+                >
+                  {a.crop}
+                </text>
+              </g>
+            );
+          })}
+
+          {/* Dividing lines between zones */}
+          {cropAssignments.map((a, idx) => {
+            if (idx === cropAssignments.length - 1) return null;
+            const y_line = gridMinY + (a.endRow + 1) * rowHeight;
+            const zoneX = gridMinX - 10;
+            const zoneWidth = gridWidth + 20;
+            return (
+              <line
+                key={`div_line_${idx}`}
+                x1={zoneX}
+                y1={y_line}
+                x2={zoneX + zoneWidth}
+                y2={y_line}
+                stroke="#1b5e20"
+                strokeWidth={0.4}
+                strokeDasharray="1.5 1.5"
+                opacity={0.8}
+              />
+            );
+          })}
 
           {/* THATCH KITCHEN: Sized dynamically to 1/4 of a lot and placed at highest elevation */}
           <g>
@@ -1948,8 +1893,8 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
                             report = [...linkedAiRecs].sort((a, b) => b.createdAt - a.createdAt)[0];
                           }
                           
-                          const structuredData = getReportStructuredData(report, field.area || 5, report?.promptInputs?.selectedCrops || '');
-                          const layoutData = structuredData?.fieldLayout || parseStructuredData('', field.area || 5, '').fieldLayout;
+                          const structuredData = getReportStructuredData(report, field.area || 5, report?.promptInputs?.selectedCrops || '', pois, field);
+                          const layoutData = structuredData?.fieldLayout || parseStructuredData('', field.area || 5, '', undefined, pois, field).fieldLayout;
                           
                            // Auto-calculate the angle of the longest axis
                            let autoAngle = 0;

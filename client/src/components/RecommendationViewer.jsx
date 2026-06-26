@@ -345,7 +345,7 @@ export const getDirectionLabel = (angle) => {
   return directions[index];
 };
 
-export const parseStructuredData = (text, area, selectedCrops, elevation) => {
+export const parseStructuredData = (text, area, selectedCrops, elevation, pois = [], field = null) => {
   let data = null;
   if (text) {
     const jsonMatch = text.match(/```json\s*(\{[\s\S]*?\})\s*```/);
@@ -357,7 +357,26 @@ export const parseStructuredData = (text, area, selectedCrops, elevation) => {
       }
     }
   }
+
+  // Determine if swamp rice is allowed:
+  // Allowed if:
+  // 1. There is a wetland or water source POI on the farm, OR
+  // 2. The field name, description, or notes contains "swamp" (case-insensitive)
+  const fieldNameHasSwamp = field && (
+    (field.name && field.name.toLowerCase().includes('swamp')) ||
+    (field.description && field.description.toLowerCase().includes('swamp')) ||
+    (field.notes && field.notes.toLowerCase().includes('swamp'))
+  );
   
+  const hasWaterSource = Array.isArray(pois) && pois.some(p => 
+    p.type === 'Water Source' || 
+    p.type === 'Wetland' || 
+    (p.name && p.name.toLowerCase().includes('swamp')) ||
+    (p.description && p.description.toLowerCase().includes('swamp'))
+  );
+
+  const isSwampRiceAllowed = hasWaterSource || fieldNameHasSwamp;
+
   if (data && data.monthlyProjections && data.annualRevenue && data.fieldLayout) {
     // Exclude Cassava from parsed JSON if elevation is too low (< 110m)
     if (elevation !== undefined && elevation !== null && Number(elevation) < 110) {
@@ -381,6 +400,39 @@ export const parseStructuredData = (text, area, selectedCrops, elevation) => {
           });
           newProj.total = newTotal;
           return newProj;
+        });
+      }
+    }
+
+    // Exclude/Replace Swamp Rice if not allowed
+    if (!isSwampRiceAllowed) {
+      if (Array.isArray(data.annualRevenue)) {
+        data.annualRevenue = data.annualRevenue.map(r => {
+          if (r && typeof r.crop === 'string' && r.crop.toLowerCase().trim() === 'swamp rice') {
+            return { ...r, crop: 'Upland Rice' };
+          }
+          return r;
+        });
+      }
+      if (Array.isArray(data.monthlyProjections)) {
+        data.monthlyProjections = data.monthlyProjections.map(proj => {
+          if (!proj) return proj;
+          const newProj = { ...proj };
+          Object.keys(newProj).forEach(key => {
+            if (key.toLowerCase().trim() === 'swamp rice') {
+              newProj['Upland Rice'] = (newProj['Upland Rice'] || 0) + (newProj[key] || 0);
+              delete newProj[key];
+            }
+          });
+          return newProj;
+        });
+      }
+      if (data.fieldLayout && Array.isArray(data.fieldLayout.cropAssignments)) {
+        data.fieldLayout.cropAssignments = data.fieldLayout.cropAssignments.map(ass => {
+          if (ass && typeof ass.crop === 'string' && ass.crop.toLowerCase().trim() === 'swamp rice') {
+            return { ...ass, crop: 'Upland Rice' };
+          }
+          return ass;
         });
       }
     }
@@ -415,12 +467,20 @@ export const parseStructuredData = (text, area, selectedCrops, elevation) => {
   } else {
     cropsList = ['Fever Leaf', 'Cassava', 'Swamp Rice'];
   }
-  if (cropsList.length === 0) cropsList.push('Fever Leaf', 'Cassava', 'Swamp Rice');
+
+  // Replace Swamp Rice with Upland Rice if not allowed in cropsList
+  if (!isSwampRiceAllowed) {
+    cropsList = cropsList.map(c => c.toLowerCase().trim() === 'swamp rice' ? 'Upland Rice' : c);
+  }
+
+  if (cropsList.length === 0) {
+    cropsList.push('Fever Leaf', 'Cassava', isSwampRiceAllowed ? 'Swamp Rice' : 'Upland Rice');
+  }
 
   // Enforce Cassava exclusion in fallback generator if elevation is low (< 110m)
   if (elevation !== undefined && elevation !== null && Number(elevation) < 110) {
     cropsList = cropsList.filter(c => !c.toLowerCase().includes('cassava'));
-    if (cropsList.length === 0) cropsList.push('Fever Leaf', 'Swamp Rice');
+    if (cropsList.length === 0) cropsList.push('Fever Leaf', isSwampRiceAllowed ? 'Swamp Rice' : 'Upland Rice');
   }
   
   const totalAcres = Number(area) || 5;
@@ -431,6 +491,7 @@ export const parseStructuredData = (text, area, selectedCrops, elevation) => {
     'cassava': 900,
     'rice': 1100,
     'swamp rice': 1200,
+    'upland rice': 1100,
     'cocoa': 2200,
     'oil palm': 2500,
     'rubber': 2000,
@@ -537,7 +598,7 @@ const extractAndStripJson = (markdown) => {
   return { cleanMarkdown, data };
 };
 
-export const getReportStructuredData = (report, area, selectedCrops) => {
+export const getReportStructuredData = (report, area, selectedCrops, pois = [], field = null) => {
   if (!report) return null;
   let data = null;
   if (report.structuredData) {
@@ -554,12 +615,25 @@ export const getReportStructuredData = (report, area, selectedCrops) => {
   
   const elevation = report.promptInputs?.elevation;
   
+  const fieldNameHasSwamp = field && (
+    (field.name && field.name.toLowerCase().includes('swamp')) ||
+    (field.description && field.description.toLowerCase().includes('swamp')) ||
+    (field.notes && field.notes.toLowerCase().includes('swamp'))
+  );
+  const hasWaterSource = Array.isArray(pois) && pois.some(p => 
+    p.type === 'Water Source' || 
+    p.type === 'Wetland' || 
+    (p.name && p.name.toLowerCase().includes('swamp')) ||
+    (p.description && p.description.toLowerCase().includes('swamp'))
+  );
+  const isSwampRiceAllowed = hasWaterSource || fieldNameHasSwamp;
+
   if (!data) {
     let fullText = '';
     if (report.responseTabs) {
       fullText = report.responseTabs.map(t => `## ${t.title}\n${t.content}`).join('\n');
     }
-    data = parseStructuredData(fullText, area, selectedCrops, elevation);
+    data = parseStructuredData(fullText, area, selectedCrops, elevation, pois, field);
   } else {
     // Sanitize loaded structure dynamically for exclusions
     if (elevation !== undefined && elevation !== null && Number(elevation) < 110) {
@@ -583,6 +657,38 @@ export const getReportStructuredData = (report, area, selectedCrops) => {
           });
           newProj.total = newTotal;
           return newProj;
+        });
+      }
+    }
+
+    if (!isSwampRiceAllowed) {
+      if (Array.isArray(data.annualRevenue)) {
+        data.annualRevenue = data.annualRevenue.map(r => {
+          if (r && typeof r.crop === 'string' && r.crop.toLowerCase().trim() === 'swamp rice') {
+            return { ...r, crop: 'Upland Rice' };
+          }
+          return r;
+        });
+      }
+      if (Array.isArray(data.monthlyProjections)) {
+        data.monthlyProjections = data.monthlyProjections.map(proj => {
+          if (!proj) return proj;
+          const newProj = { ...proj };
+          Object.keys(newProj).forEach(key => {
+            if (key.toLowerCase().trim() === 'swamp rice') {
+              newProj['Upland Rice'] = (newProj['Upland Rice'] || 0) + (newProj[key] || 0);
+              delete newProj[key];
+            }
+          });
+          return newProj;
+        });
+      }
+      if (data.fieldLayout && Array.isArray(data.fieldLayout.cropAssignments)) {
+        data.fieldLayout.cropAssignments = data.fieldLayout.cropAssignments.map(ass => {
+          if (ass && typeof ass.crop === 'string' && ass.crop.toLowerCase().trim() === 'swamp rice') {
+            return { ...ass, crop: 'Upland Rice' };
+          }
+          return ass;
         });
       }
     }
@@ -694,6 +800,18 @@ const isPointInPolygon = (x, y, polygon) => {
   return inside;
 };
 
+const rotatePoint = (x, y, angle, cx, cy) => {
+  const rad = (angle * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+  const dx = x - cx;
+  const dy = y - cy;
+  return [
+    cx + dx * cos - dy * sin,
+    cy + dx * sin + dy * cos
+  ];
+};
+
 const GraphicalFieldLayout = ({ layout, area, field }) => {
   const { rows = 10, bedsPerRow = 4, bedWidth = 1.2, rowSpacing = 0.6, cropAssignments = [] } = layout || {};
   
@@ -724,7 +842,8 @@ const GraphicalFieldLayout = ({ layout, area, field }) => {
   const isGridVertical = h_grid > w_grid;
 
   const rotationAngle = getFieldRotationAngle(field);
-  const targetAngle = isGridVertical ? (90 - rotationAngle) : -rotationAngle;
+  const targetAngle = 0; // Reset targetAngle to 0 so the polygon is oriented true North is Up
+  const gridRotationAngle = isGridVertical ? (rotationAngle - 90) : rotationAngle;
 
   const topDir = getDirectionLabel(targetAngle);
   const bottomDir = getDirectionLabel(180 + targetAngle);
@@ -924,6 +1043,12 @@ const GraphicalFieldLayout = ({ layout, area, field }) => {
       <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
         <div style={{ flex: '1 1 300px', width: '100%', maxWidth: `${width}px`, overflowX: 'auto', background: 'white', padding: '15px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}>
           <svg viewBox={`0 0 ${width} ${height}`} style={{ display: 'block', width: `${zoomScale * 100}%`, height: 'auto', transition: 'width 0.15s ease-in-out' }}>
+            <defs>
+              <clipPath id="field-polygon-clip">
+                <polygon points={polyPointsStr} />
+              </clipPath>
+            </defs>
+
             <rect width={width} height={height} rx={6} fill="#f1f8f5" />
             
             {/* Border Direction Indicators & Adjacent Field Names */}
@@ -971,199 +1096,187 @@ const GraphicalFieldLayout = ({ layout, area, field }) => {
               <text x={tx} y={ty} fontSize="8" fontWeight="800" fill="#ef4444" textAnchor="middle">N</text>
             </g>
 
-            {/* Unrotated Layout Grid Group */}
-            <g>
+            {/* Rotated Group */}
+            <g transform={`rotate(${gridRotationAngle}, ${gridCenterX}, ${gridCenterY})`}>
+              
+              {/* Row labels on the left (unclipped, fully visible) */}
               {Array.from({ length: rows }).map((_, rIdx) => {
                 const y = topPadding + rIdx * (bedHeight + verticalSpacing);
-                const cropColor = getCropColor(rIdx);
-                const cropName = getCropName(rIdx);
-                
-                // Base physical variables per row (scaled linearly top to bottom)
-                const t = rIdx / 9; // 0 to 1
-                
                 return (
-                  <g key={`row_${rIdx}`}>
-                    <text x={leftPadding - 50} y={y + 18} fontSize="10" fill="#64748b">Row {rIdx + 1}</text>
-                    
-                    {Array.from({ length: bedsPerRow }).map((_, bIdx) => {
-                      const x_slot_start = leftPadding + bIdx * (bedWidthPx + horizontalSpacing);
-                      const x_slot_end = x_slot_start + bedWidthPx;
-                      const y_start = y;
-                      const y_end = y_start + bedHeight;
-                      const y_mid = y_start + bedHeight / 2;
-
-                      // Scan for valid subsegment of [x_slot_start, x_slot_end] conformed to polygon
-                      let bestStart = -1;
-                      let bestEnd = -1;
-                      let currentStart = -1;
-                      let maxLength = 0;
-
-                      for (let sx = x_slot_start; sx <= x_slot_end; sx++) {
-                        const isTopIn = isPointInPolygon(sx, y_start, fieldPolygonPoints);
-                        const isMidIn = isPointInPolygon(sx, y_mid, fieldPolygonPoints);
-                        const isBotIn = isPointInPolygon(sx, y_end, fieldPolygonPoints);
-
-                        if (isTopIn && isMidIn && isBotIn) {
-                          if (currentStart === -1) {
-                            currentStart = sx;
-                          }
-                          const len = sx - currentStart + 1;
-                          if (len > maxLength) {
-                            maxLength = len;
-                            bestStart = currentStart;
-                            bestEnd = sx;
-                          }
-                        } else {
-                          currentStart = -1;
-                        }
-                      }
-
-                      const minAllowedWidth = bedWidthPx * 0.25; // 20 (1/4 of standard bed size)
-                      if (maxLength < minAllowedWidth) {
-                        return null; // Omit this bed since it is reduced to less than 1/4 standard size
-                      }
-
-                      const x_trimmed = bestStart;
-                      const w_trimmed = bestEnd - bestStart;
-                      
-                      // Add minor horizontal bed variation using deterministic sin seed
-                      const bedSeed = Math.sin(rIdx * 7 + bIdx * 3);
-                      const elevNoise = Math.round(bedSeed * 5);
-                      const moistureNoise = parseFloat((bedSeed * 0.02).toFixed(2));
-                      
-                      // Compute physical parameters for this specific bed
-                      const elevVal = Math.max(50, Math.min(250, Math.round(230 - t * 160 + elevNoise)));
-                      const moistureVal = Math.max(0.10, Math.min(0.50, parseFloat((0.16 + t * 0.32 + moistureNoise).toFixed(2))));
-                      const soilVal = getSoilType(rIdx);
-                      
-                      // Get color for active overlay layer
-                      let overlayColor = 'transparent';
-                      if (activeOverlay === 'moisture') {
-                        overlayColor = getMoistureColor(moistureVal);
-                      } else if (activeOverlay === 'soil') {
-                        overlayColor = getSoilColor(rIdx);
-                      } else if (activeOverlay === 'elevation') {
-                        overlayColor = getElevationColor(elevVal);
-                      }
-                      
-                      const tooltipText = `Row ${rIdx + 1}, Bed ${bIdx + 1}: ${cropName}\nElevation: ${elevVal}m\nSoil Moisture: ${(moistureVal * 100).toFixed(0)}% VWC\nSoil Type: ${soilVal}`;
-                      
-                      return (
-                        <g key={`bed_${bIdx}`}>
-                          {/* Base Crop Colored Bed Rect */}
-                          <rect 
-                            x={x_trimmed} 
-                            y={y} 
-                            width={w_trimmed} 
-                            height={bedHeight} 
-                            rx={3} 
-                            fill={cropColor} 
-                            stroke="#1b5e20" 
-                            strokeWidth={1}
-                            style={{ cursor: 'pointer', transition: 'opacity 0.2s' }}
-                          />
-                          
-                          {/* Semi-transparent Overlay Layer (when active) */}
-                          {activeOverlay !== 'none' && (
-                            <rect 
-                              x={x_trimmed} 
-                              y={y} 
-                              width={w_trimmed} 
-                              height={bedHeight} 
-                              rx={3} 
-                              fill={overlayColor} 
-                              opacity={0.65}
-                              style={{ cursor: 'pointer', pointerEvents: 'none' }}
-                            />
-                          )}
-                          
-                          {/* Text Label on top of all colors */}
-                          <text 
-                            x={x_trimmed + w_trimmed / 2} 
-                            y={y + 18} 
-                            fontSize="9" 
-                            fill="#ffffff" 
-                            textAnchor="middle" 
-                            fontWeight="600"
-                            style={{ pointerEvents: 'none' }}
-                          >
-                            Bed {bIdx + 1}
-                          </text>
-                          
-                          {/* HTML standard title tooltip */}
-                          <title>{tooltipText}</title>
-                        </g>
-                      );
-                    })}
-                    
-                    {rIdx < rows - 1 && (() => {
-                      const y_line = y + bedHeight + 5;
-                      const x_min = leftPadding;
-                      const x_max = leftPadding + bedsPerRow * (bedWidthPx + horizontalSpacing) - horizontalSpacing;
-                      
-                      let lineStart = -1;
-                      let lineEnd = -1;
-                      let currentLineStart = -1;
-                      let maxLineLength = 0;
-
-                      for (let lx = x_min; lx <= x_max; lx++) {
-                        if (isPointInPolygon(lx, y_line, fieldPolygonPoints)) {
-                          if (currentLineStart === -1) {
-                            currentLineStart = lx;
-                          }
-                          const len = lx - currentLineStart + 1;
-                          if (len > maxLineLength) {
-                            maxLineLength = len;
-                            lineStart = currentLineStart;
-                            lineEnd = lx;
-                          }
-                        } else {
-                          currentLineStart = -1;
-                        }
-                      }
-
-                      if (maxLineLength > 0) {
-                        return (
-                          <line 
-                            x1={lineStart} 
-                            y1={y_line} 
-                            x2={lineEnd} 
-                            y2={y_line} 
-                            stroke="#94a3b8" 
-                            strokeDasharray="2,2" 
-                          />
-                        );
-                      }
-                      return null;
-                    })()}
-                  </g>
+                  <text key={`row_lbl_${rIdx}`} x={leftPadding - 50} y={y + 18} fontSize="10" fill="#64748b">
+                    Row {rIdx + 1}
+                  </text>
                 );
               })}
 
-              {/* Field Boundary Overlay */}
-              {polyPointsStr && (
-                <g style={{ pointerEvents: 'none' }}>
-                  {/* Outer thick yellow path (8px) */}
-                  <polygon 
-                    points={polyPointsStr} 
-                    fill="none" 
-                    stroke="#facc15" 
-                    strokeWidth={8} 
-                    strokeLinejoin="round" 
-                    opacity={0.9} 
-                  />
-                  {/* Inner dark dashed contrast line */}
-                  <polygon 
-                    points={polyPointsStr} 
-                    fill="none" 
-                    stroke="#1e293b" 
-                    strokeWidth={1.5} 
-                    strokeDasharray="4,4" 
-                    strokeLinejoin="round" 
-                  />
-                </g>
-              )}
+              {/* Clipped Zones & Cells */}
+              <g clipPath="url(#field-polygon-clip)">
+                {activeOverlay === 'none' ? (
+                  /* Render contiguous crop zones */
+                  <>
+                    {cropAssignments.map((a, idx) => {
+                      const y_start = topPadding + a.startRow * (bedHeight + verticalSpacing) - verticalSpacing / 2;
+                      const y_end = topPadding + (a.endRow + 1) * (bedHeight + verticalSpacing) - verticalSpacing / 2;
+                      const zoneHeight = y_end - y_start;
+                      const zoneY = y_start;
+                      const zoneX = leftPadding - 300;
+                      const zoneWidth = w_grid + 600;
+                      
+                      return (
+                        <g key={`crop_zone_${idx}`}>
+                          <rect
+                            x={zoneX}
+                            y={zoneY}
+                            width={zoneWidth}
+                            height={zoneHeight}
+                            fill={a.color}
+                            stroke="#1b5e20"
+                            strokeWidth={1}
+                            opacity={0.85}
+                            style={{ cursor: 'pointer' }}
+                          >
+                            <title>{`${a.crop} Zone\nRows ${a.startRow + 1} to ${a.endRow + 1}\nArea: ${((a.endRow - a.startRow + 1) / rows * (area || 5)).toFixed(2)} Acres`}</title>
+                          </rect>
+                          <text
+                            x={gridCenterX}
+                            y={zoneY + zoneHeight / 2 + 4}
+                            fontSize="11"
+                            fill="#ffffff"
+                            textAnchor="middle"
+                            fontWeight="bold"
+                            style={{ pointerEvents: 'none', filter: 'drop-shadow(0px 1px 2px rgba(0,0,0,0.8))' }}
+                          >
+                            {a.crop} Zone ({((a.endRow - a.startRow + 1) / rows * (area || 5)).toFixed(1)} Ac)
+                          </text>
+                        </g>
+                      );
+                    })}
+
+                    {/* Dividing lines between zones */}
+                    {cropAssignments.map((a, idx) => {
+                      if (idx === cropAssignments.length - 1) return null;
+                      const y_line = topPadding + (a.endRow + 1) * (bedHeight + verticalSpacing) - verticalSpacing / 2;
+                      const zoneX = leftPadding - 300;
+                      const zoneWidth = w_grid + 600;
+                      return (
+                        <line
+                          key={`div_line_${idx}`}
+                          x1={zoneX}
+                          y1={y_line}
+                          x2={zoneX + zoneWidth}
+                          y2={y_line}
+                          stroke="#1b5e20"
+                          strokeWidth={1.5}
+                          strokeDasharray="4,4"
+                        />
+                      );
+                    })}
+                  </>
+                ) : (
+                  /* Render heatmaps / cells for active overlays */
+                  <>
+                    {Array.from({ length: rows }).map((_, rIdx) => {
+                      const y = topPadding + rIdx * (bedHeight + verticalSpacing);
+                      const t = rIdx / 9;
+                      
+                      return (
+                        <g key={`overlay_row_${rIdx}`}>
+                          {Array.from({ length: bedsPerRow }).map((_, bIdx) => {
+                            const x_slot_start = leftPadding + bIdx * (bedWidthPx + horizontalSpacing);
+                            const cellX = x_slot_start - horizontalSpacing / 2;
+                            const cellWidth = bedWidthPx + horizontalSpacing;
+                            const cellY = y - verticalSpacing / 2;
+                            const cellHeight = bedHeight + verticalSpacing;
+
+                            const bedSeed = Math.sin(rIdx * 7 + bIdx * 3);
+                            const elevNoise = Math.round(bedSeed * 5);
+                            const moistureNoise = parseFloat((bedSeed * 0.02).toFixed(2));
+                            
+                            const elevVal = Math.max(50, Math.min(250, Math.round(230 - t * 160 + elevNoise)));
+                            const moistureVal = Math.max(0.10, Math.min(0.50, parseFloat((0.16 + t * 0.32 + moistureNoise).toFixed(2))));
+                            const soilVal = getSoilType(rIdx);
+                            
+                            let overlayColor = 'transparent';
+                            if (activeOverlay === 'moisture') {
+                              overlayColor = getMoistureColor(moistureVal);
+                            } else if (activeOverlay === 'soil') {
+                              overlayColor = getSoilColor(rIdx);
+                            } else if (activeOverlay === 'elevation') {
+                              overlayColor = getElevationColor(elevVal);
+                            }
+                            
+                            const tooltipText = `Row ${rIdx + 1}, Zone Cell ${bIdx + 1}\nElevation: ${elevVal}m\nSoil Moisture: ${(moistureVal * 100).toFixed(0)}% VWC\nSoil Type: ${soilVal}`;
+                            
+                            return (
+                              <rect 
+                                key={`overlay_cell_${bIdx}`}
+                                x={cellX} 
+                                y={cellY} 
+                                width={cellWidth} 
+                                height={cellHeight} 
+                                fill={overlayColor} 
+                                stroke={overlayColor}
+                                strokeWidth={0.5}
+                                style={{ cursor: 'pointer' }}
+                              >
+                                <title>{tooltipText}</title>
+                              </rect>
+                            );
+                          })}
+                        </g>
+                      );
+                    })}
+
+                    {/* Zone labels on top of overlay */}
+                    {cropAssignments.map((a, idx) => {
+                      const y_start = topPadding + a.startRow * (bedHeight + verticalSpacing) - verticalSpacing / 2;
+                      const y_end = topPadding + (a.endRow + 1) * (bedHeight + verticalSpacing) - verticalSpacing / 2;
+                      const zoneHeight = y_end - y_start;
+                      const zoneY = y_start;
+                      
+                      return (
+                        <text
+                          key={`overlay_lbl_${idx}`}
+                          x={gridCenterX}
+                          y={zoneY + zoneHeight / 2 + 4}
+                          fontSize="11"
+                          fill="#ffffff"
+                          textAnchor="middle"
+                          fontWeight="bold"
+                          style={{ pointerEvents: 'none', filter: 'drop-shadow(0px 1px 2px rgba(0,0,0,0.8))' }}
+                        >
+                          {a.crop}
+                        </text>
+                      );
+                    })}
+                  </>
+                )}
+              </g>
             </g>
+
+            {/* Field Boundary Overlay */}
+            {polyPointsStr && (
+              <g style={{ pointerEvents: 'none' }}>
+                {/* Outer thick yellow path (8px) */}
+                <polygon 
+                  points={polyPointsStr} 
+                  fill="none" 
+                  stroke="#facc15" 
+                  strokeWidth={8} 
+                  strokeLinejoin="round" 
+                  opacity={0.9} 
+                />
+                {/* Inner dark dashed contrast line */}
+                <polygon 
+                  points={polyPointsStr} 
+                  fill="none" 
+                  stroke="#1e293b" 
+                  strokeWidth={1.5} 
+                  strokeDasharray="4,4" 
+                  strokeLinejoin="round" 
+                />
+              </g>
+            )}
           </svg>
         </div>
         
@@ -1313,6 +1426,7 @@ export default function RecommendationViewer({ fieldId, onToggleBack }) {
   const aiProvider = useSelector(state => state.settings?.aiProvider) || 'gemini';
   const currentUser = useSelector(state => state.auth?.currentUser);
   const budgets = useSelector(state => state.budgets?.list) || [];
+  const pois = useSelector(state => state.poi?.list) || [];
 
   const currentField = fields.find(f => f.id === fieldId) || { recommendationIds: [] };
   const linkedIds = currentField.recommendationIds || [];
@@ -1547,8 +1661,8 @@ export default function RecommendationViewer({ fieldId, onToggleBack }) {
   }, [rawActiveReport]);
 
   const structuredData = useMemo(() => {
-    return getReportStructuredData(activeReport, currentField.area || 5, selectedCrops || (activeReport?.promptInputs?.selectedCrops) || '');
-  }, [activeReport, currentField.area, selectedCrops]);
+    return getReportStructuredData(activeReport, currentField.area || 5, selectedCrops || (activeReport?.promptInputs?.selectedCrops) || '', pois, currentField);
+  }, [activeReport, currentField.area, selectedCrops, pois, currentField]);
 
   useEffect(() => {
     if (activeReport && !selectedReportId && !streamingText) {
@@ -1797,7 +1911,7 @@ export default function RecommendationViewer({ fieldId, onToggleBack }) {
         isAI: true,
         promptInputs,
         responseTabs: finalTabs,
-        structuredData: data || parseStructuredData(accumulatedText, currentField.area || 5, selectedCrops),
+        structuredData: data || parseStructuredData(accumulatedText, currentField.area || 5, selectedCrops, stats.elevation, pois, currentField),
         createdAt: Date.now(),
         createdBy: userEmail
       };
