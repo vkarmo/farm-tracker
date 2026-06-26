@@ -307,43 +307,30 @@ export const getFieldRotationAngle = (field) => {
   const sanitizedPolygon = sanitizePolygon(field.polygon);
   if (sanitizedPolygon.length < 3) return 0;
   
-  // Calculate bounds
-  let minLat = Infinity, maxLat = -Infinity, minLng = Infinity, maxLng = -Infinity;
-  sanitizedPolygon.forEach(pt => {
-    if (pt && pt.length >= 2) {
-      const lat = pt[0];
-      const lng = pt[1];
-      if (lat < minLat) minLat = lat;
-      if (lat > maxLat) maxLat = lat;
-      if (lng < minLng) minLng = lng;
-      if (lng > maxLng) maxLng = lng;
-    }
-  });
-  
-  if (minLat === Infinity) return 0;
-  
-  // Convert to SVG coordinates
-  const svgVertices = sanitizedPolygon.map(pt => {
-    const x = ((pt[1] - minLng) / (maxLng - minLng)) * 100;
-    const y = (1.0 - (pt[0] - minLat) / (maxLat - minLat)) * 100;
-    return { x, y };
+  const centroid = getCentroid(sanitizedPolygon);
+  const projected = sanitizedPolygon.map(pt => {
+    const dx = pt[1] - centroid.lng;
+    const dy = pt[0] - centroid.lat;
+    const x_geo = dx * Math.cos(centroid.lat * Math.PI / 180);
+    const y_geo = dy;
+    return { x_geo, y_geo };
   });
 
   let maxDist = -1;
   let bestPair = null;
-  for (let i = 0; i < svgVertices.length; i++) {
-    for (let j = i + 1; j < svgVertices.length; j++) {
-      const dist = Math.hypot(svgVertices[i].x - svgVertices[j].x, svgVertices[i].y - svgVertices[j].y);
+  for (let i = 0; i < projected.length; i++) {
+    for (let j = i + 1; j < projected.length; j++) {
+      const dist = Math.hypot(projected[i].x_geo - projected[j].x_geo, projected[i].y_geo - projected[j].y_geo);
       if (dist > maxDist) {
         maxDist = dist;
-        bestPair = [svgVertices[i], svgVertices[j]];
+        bestPair = [projected[i], projected[j]];
       }
     }
   }
 
   if (bestPair) {
-    const dx = bestPair[1].x - bestPair[0].x;
-    const dy = bestPair[1].y - bestPair[0].y;
+    const dx = bestPair[1].x_geo - bestPair[0].x_geo;
+    const dy = bestPair[1].y_geo - bestPair[0].y_geo;
     let angle = (Math.atan2(dy, dx) * 180) / Math.PI;
     if (angle < 0) angle += 180;
     return Math.round(angle);
@@ -693,6 +680,20 @@ const RechartsVisualizer = ({ data }) => {
   );
 };
 
+const isPointInPolygon = (x, y, polygon) => {
+  if (!polygon || polygon.length < 3) return false;
+  let inside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const xi = polygon[i][0], yi = polygon[i][1];
+    const xj = polygon[j][0], yj = polygon[j][1];
+    
+    const intersect = ((yi > y) !== (yj > y))
+        && (x < (xj - xi) * (y - yi) / (yj - yi || 0.00001) + xi);
+    if (intersect) inside = !inside;
+  }
+  return inside;
+};
+
 const GraphicalFieldLayout = ({ layout, area, field }) => {
   const { rows = 10, bedsPerRow = 4, bedWidth = 1.2, rowSpacing = 0.6, cropAssignments = [] } = layout || {};
   
@@ -718,21 +719,27 @@ const GraphicalFieldLayout = ({ layout, area, field }) => {
   const width = bedsPerRow * (bedWidthPx + horizontalSpacing) - horizontalSpacing + leftPadding + rightPadding;
   const height = rows * (bedHeight + verticalSpacing) - verticalSpacing + topPadding + bottomPadding;
   
-  const rotationAngle = getFieldRotationAngle(field);
-  const topDir = getDirectionLabel(360 - rotationAngle);
-  const bottomDir = getDirectionLabel(540 - rotationAngle);
-  const leftDir = getDirectionLabel(630 - rotationAngle);
-  const rightDir = getDirectionLabel(450 - rotationAngle);
+  const w_grid = bedsPerRow * (bedWidthPx + horizontalSpacing) - horizontalSpacing;
+  const h_grid = rows * (bedHeight + verticalSpacing) - verticalSpacing;
+  const isGridVertical = h_grid > w_grid;
 
-  const gridCenterX = leftPadding + (bedsPerRow * (bedWidthPx + horizontalSpacing) - horizontalSpacing) / 2;
-  const gridRightX = leftPadding + bedsPerRow * (bedWidthPx + horizontalSpacing) - horizontalSpacing;
-  const gridBottomY = topPadding + rows * (bedHeight + verticalSpacing) - verticalSpacing;
-  const gridCenterY = topPadding + (rows * (bedHeight + verticalSpacing) - verticalSpacing) / 2;
+  const rotationAngle = getFieldRotationAngle(field);
+  const targetAngle = isGridVertical ? (90 - rotationAngle) : -rotationAngle;
+
+  const topDir = getDirectionLabel(targetAngle);
+  const bottomDir = getDirectionLabel(180 + targetAngle);
+  const leftDir = getDirectionLabel(270 + targetAngle);
+  const rightDir = getDirectionLabel(90 + targetAngle);
+
+  const gridCenterX = leftPadding + w_grid / 2;
+  const gridRightX = leftPadding + w_grid;
+  const gridBottomY = topPadding + h_grid;
+  const gridCenterY = topPadding + h_grid / 2;
 
   // Compass Rose center in the empty bottom-right corner space
   const cx = width - 45;
   const cy = height - 45;
-  const northAngleRad = (-rotationAngle * Math.PI) / 180;
+  const northAngleRad = (targetAngle * Math.PI) / 180;
   const nx = cx + 11 * Math.sin(northAngleRad);
   const ny = cy - 11 * Math.cos(northAngleRad);
   const sx = cx - 11 * Math.sin(northAngleRad);
@@ -760,10 +767,10 @@ const GraphicalFieldLayout = ({ layout, area, field }) => {
         const cB = getCentroid(polyB);
         const bearing = getPlanarBearing(cA.lat, cA.lng, cB.lat, cB.lng);
         
-        const diffTop = getAngleDifference(bearing, 360 - rotationAngle);
-        const diffRight = getAngleDifference(bearing, 450 - rotationAngle);
-        const diffBottom = getAngleDifference(bearing, 540 - rotationAngle);
-        const diffLeft = getAngleDifference(bearing, 630 - rotationAngle);
+        const diffTop = getAngleDifference(bearing, targetAngle);
+        const diffRight = getAngleDifference(bearing, 90 + targetAngle);
+        const diffBottom = getAngleDifference(bearing, 180 + targetAngle);
+        const diffLeft = getAngleDifference(bearing, 270 + targetAngle);
         
         const minDiff = Math.min(diffTop, diffRight, diffBottom, diffLeft);
         if (minDiff === diffTop) {
@@ -779,7 +786,7 @@ const GraphicalFieldLayout = ({ layout, area, field }) => {
     });
     
     return sides;
-  }, [field, fields, rotationAngle]);
+  }, [field, fields, targetAngle]);
 
   // Calculate scaled & oriented field polygon vertices for SVG overlay
   const fieldPolygonPoints = useMemo(() => {
@@ -797,8 +804,7 @@ const GraphicalFieldLayout = ({ layout, area, field }) => {
       const x_geo = dx * Math.cos(centroid.lat * Math.PI / 180);
       const y_geo = dy;
       
-      // Rotate by -rotationAngle to align with layout vertical/horizontal axes
-      const rad = (-rotationAngle * Math.PI) / 180;
+      const rad = (targetAngle * Math.PI) / 180;
       const rx = x_geo * Math.cos(rad) - y_geo * Math.sin(rad);
       const ry = x_geo * Math.sin(rad) + y_geo * Math.cos(rad);
       return { rx, ry };
@@ -816,15 +822,10 @@ const GraphicalFieldLayout = ({ layout, area, field }) => {
     const w_poly = maxRx - minRx || 0.00001;
     const h_poly = maxRy - minRy || 0.00001;
     
-    // Grid bounds
-    const w_grid = bedsPerRow * (bedWidthPx + horizontalSpacing) - horizontalSpacing;
-    const h_grid = rows * (bedHeight + verticalSpacing) - verticalSpacing;
-    
-    // Scale uniformly to fit within layout grid
-    const scale = Math.min(w_grid / w_poly, h_grid / h_poly) * 1.0;
-    
     const rxCenter = (minRx + maxRx) / 2;
     const ryCenter = (minRy + maxRy) / 2;
+
+    const scale = Math.min(w_grid / w_poly, h_grid / h_poly);
     
     // Translate relative to grid center
     return projected.map(pt => {
@@ -832,7 +833,7 @@ const GraphicalFieldLayout = ({ layout, area, field }) => {
       const y_svg = gridCenterY - (pt.ry - ryCenter) * scale;
       return [x_svg, y_svg];
     });
-  }, [field, rotationAngle, bedsPerRow, rows, gridCenterX, gridCenterY]);
+  }, [field, targetAngle, w_grid, h_grid, gridCenterX, gridCenterY]);
 
   const polyPointsStr = useMemo(() => {
     return fieldPolygonPoints.map(pt => `${pt[0]},${pt[1]}`).join(' ');
@@ -985,7 +986,45 @@ const GraphicalFieldLayout = ({ layout, area, field }) => {
                     <text x={leftPadding - 50} y={y + 18} fontSize="10" fill="#64748b">Row {rIdx + 1}</text>
                     
                     {Array.from({ length: bedsPerRow }).map((_, bIdx) => {
-                      const x = leftPadding + bIdx * (bedWidthPx + horizontalSpacing);
+                      const x_slot_start = leftPadding + bIdx * (bedWidthPx + horizontalSpacing);
+                      const x_slot_end = x_slot_start + bedWidthPx;
+                      const y_start = y;
+                      const y_end = y_start + bedHeight;
+                      const y_mid = y_start + bedHeight / 2;
+
+                      // Scan for valid subsegment of [x_slot_start, x_slot_end] conformed to polygon
+                      let bestStart = -1;
+                      let bestEnd = -1;
+                      let currentStart = -1;
+                      let maxLength = 0;
+
+                      for (let sx = x_slot_start; sx <= x_slot_end; sx++) {
+                        const isTopIn = isPointInPolygon(sx, y_start, fieldPolygonPoints);
+                        const isMidIn = isPointInPolygon(sx, y_mid, fieldPolygonPoints);
+                        const isBotIn = isPointInPolygon(sx, y_end, fieldPolygonPoints);
+
+                        if (isTopIn && isMidIn && isBotIn) {
+                          if (currentStart === -1) {
+                            currentStart = sx;
+                          }
+                          const len = sx - currentStart + 1;
+                          if (len > maxLength) {
+                            maxLength = len;
+                            bestStart = currentStart;
+                            bestEnd = sx;
+                          }
+                        } else {
+                          currentStart = -1;
+                        }
+                      }
+
+                      const minAllowedWidth = bedWidthPx * 0.25; // 20 (1/4 of standard bed size)
+                      if (maxLength < minAllowedWidth) {
+                        return null; // Omit this bed since it is reduced to less than 1/4 standard size
+                      }
+
+                      const x_trimmed = bestStart;
+                      const w_trimmed = bestEnd - bestStart;
                       
                       // Add minor horizontal bed variation using deterministic sin seed
                       const bedSeed = Math.sin(rIdx * 7 + bIdx * 3);
@@ -1013,9 +1052,9 @@ const GraphicalFieldLayout = ({ layout, area, field }) => {
                         <g key={`bed_${bIdx}`}>
                           {/* Base Crop Colored Bed Rect */}
                           <rect 
-                            x={x} 
+                            x={x_trimmed} 
                             y={y} 
-                            width={bedWidthPx} 
+                            width={w_trimmed} 
                             height={bedHeight} 
                             rx={3} 
                             fill={cropColor} 
@@ -1027,9 +1066,9 @@ const GraphicalFieldLayout = ({ layout, area, field }) => {
                           {/* Semi-transparent Overlay Layer (when active) */}
                           {activeOverlay !== 'none' && (
                             <rect 
-                              x={x} 
+                              x={x_trimmed} 
                               y={y} 
-                              width={bedWidthPx} 
+                              width={w_trimmed} 
                               height={bedHeight} 
                               rx={3} 
                               fill={overlayColor} 
@@ -1040,7 +1079,7 @@ const GraphicalFieldLayout = ({ layout, area, field }) => {
                           
                           {/* Text Label on top of all colors */}
                           <text 
-                            x={x + bedWidthPx / 2} 
+                            x={x_trimmed + w_trimmed / 2} 
                             y={y + 18} 
                             fontSize="9" 
                             fill="#ffffff" 
@@ -1057,16 +1096,46 @@ const GraphicalFieldLayout = ({ layout, area, field }) => {
                       );
                     })}
                     
-                    {rIdx < rows - 1 && (
-                      <line 
-                        x1={leftPadding} 
-                        y1={y + bedHeight + 5} 
-                        x2={leftPadding + bedsPerRow * (bedWidthPx + horizontalSpacing) - horizontalSpacing} 
-                        y2={y + bedHeight + 5} 
-                        stroke="#94a3b8" 
-                        strokeDasharray="2,2" 
-                      />
-                    )}
+                    {rIdx < rows - 1 && (() => {
+                      const y_line = y + bedHeight + 5;
+                      const x_min = leftPadding;
+                      const x_max = leftPadding + bedsPerRow * (bedWidthPx + horizontalSpacing) - horizontalSpacing;
+                      
+                      let lineStart = -1;
+                      let lineEnd = -1;
+                      let currentLineStart = -1;
+                      let maxLineLength = 0;
+
+                      for (let lx = x_min; lx <= x_max; lx++) {
+                        if (isPointInPolygon(lx, y_line, fieldPolygonPoints)) {
+                          if (currentLineStart === -1) {
+                            currentLineStart = lx;
+                          }
+                          const len = lx - currentLineStart + 1;
+                          if (len > maxLineLength) {
+                            maxLineLength = len;
+                            lineStart = currentLineStart;
+                            lineEnd = lx;
+                          }
+                        } else {
+                          currentLineStart = -1;
+                        }
+                      }
+
+                      if (maxLineLength > 0) {
+                        return (
+                          <line 
+                            x1={lineStart} 
+                            y1={y_line} 
+                            x2={lineEnd} 
+                            y2={y_line} 
+                            stroke="#94a3b8" 
+                            strokeDasharray="2,2" 
+                          />
+                        );
+                      }
+                      return null;
+                    })()}
                   </g>
                 );
               })}
@@ -1074,22 +1143,22 @@ const GraphicalFieldLayout = ({ layout, area, field }) => {
               {/* Field Boundary Overlay */}
               {polyPointsStr && (
                 <g style={{ pointerEvents: 'none' }}>
-                  {/* Outer thick white path for contrast against overlays */}
+                  {/* Outer thick yellow path (8px) */}
                   <polygon 
                     points={polyPointsStr} 
                     fill="none" 
-                    stroke="#ffffff" 
-                    strokeWidth={5} 
+                    stroke="#facc15" 
+                    strokeWidth={8} 
                     strokeLinejoin="round" 
-                    opacity={0.8} 
+                    opacity={0.9} 
                   />
-                  {/* Inner Emerald Green outline showing exact boundary */}
+                  {/* Inner dark dashed contrast line */}
                   <polygon 
                     points={polyPointsStr} 
                     fill="none" 
-                    stroke="#059669" 
-                    strokeWidth={2} 
-                    strokeDasharray="6,4" 
+                    stroke="#1e293b" 
+                    strokeWidth={1.5} 
+                    strokeDasharray="4,4" 
                     strokeLinejoin="round" 
                   />
                 </g>
@@ -1119,7 +1188,7 @@ const GraphicalFieldLayout = ({ layout, area, field }) => {
                 {polyPointsStr && (
                   <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '8px', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem' }}>
                     <div style={{ width: '16px', height: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <div style={{ width: '100%', height: '2px', borderBottom: '2px dashed #059669' }} />
+                      <div style={{ width: '100%', height: '4px', background: '#facc15', border: '1px solid #1e293b' }} />
                     </div>
                     <span>Field Boundary (Overlay)</span>
                   </div>

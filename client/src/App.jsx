@@ -81,6 +81,7 @@ export default function App() {
   const [activeFarmId, setActiveFarmId] = useState(localStorage.getItem('activeFarmId') || 'default_farm');
   const [farmsList, setFarmsList] = useState([]);
   const [isFarmLoading, setIsFarmLoading] = useState(false);
+  const [switchingToFarmId, setSwitchingToFarmId] = useState(null);
 
   // Clear active farm from localStorage if the logged-in user changes (including simulation mode)
   useEffect(() => {
@@ -151,6 +152,7 @@ export default function App() {
   }, [currentUser]);
 
   const handleFarmChange = async (farmId) => {
+    setSwitchingToFarmId(farmId);
     setIsFarmLoading(true);
     localStorage.setItem('activeFarmId', farmId);
     setActiveFarmId(farmId);
@@ -160,6 +162,7 @@ export default function App() {
       console.error('Failed to load initial data for farm:', err);
     } finally {
       setIsFarmLoading(false);
+      setSwitchingToFarmId(null);
     }
   };
 
@@ -311,6 +314,16 @@ export default function App() {
   const kmlUrls = useSelector(state => state.settings?.kmlUrls) || [];
   const appName = useSelector(state => state.settings?.appName);
   const displayAppName = appName || packageJson.name;
+  
+  const loadingFarmName = useMemo(() => {
+    if (isFarmLoading && switchingToFarmId) {
+      const farm = farmsList.find(f => f.id === switchingToFarmId);
+      if (farm) return farm.name;
+      if (switchingToFarmId === 'default_farm') return 'NMK Farm';
+    }
+    return displayAppName;
+  }, [isFarmLoading, switchingToFarmId, farmsList, displayAppName]);
+
   const logo = useSelector(state => state.settings?.logo);
   const polygonColor = useSelector(state => state.settings?.polygonColor) || '#ffffff';
   const mapCenter = useSelector(state => state.settings?.mapCenter) || [51.505, -0.09];
@@ -1009,7 +1022,7 @@ export default function App() {
         {isFarmLoading && (
           <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
             <RefreshCw size={54} className="spin" style={{ marginBottom: '24px', color: 'var(--color-accent)' }} />
-            <h2 style={{ color: 'white', marginBottom: '8px' }}>Loading {displayAppName}...</h2>
+            <h2 style={{ color: 'white', marginBottom: '8px' }}>Loading {loadingFarmName}...</h2>
             <p style={{ color: '#ccc', maxWidth: '280px', textAlign: 'center', wordWrap: 'break-word', whiteSpace: 'normal', lineHeight: '1.4' }}>Updating view with the selected farm records.</p>
           </div>
         )}
