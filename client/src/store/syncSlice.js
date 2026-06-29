@@ -30,18 +30,27 @@ export const syncSlice = createSlice({
   },
   reducers: {
     queueAction: (state, action) => {
-      state.offlineActionQueue.push(action.payload);
+      const activeFarmId = localStorage.getItem('activeFarmId') || 'default_farm';
+      const actionPayload = action.payload || {};
+      const actionWithFarm = {
+        ...actionPayload,
+        farmId: activeFarmId
+      };
+      state.offlineActionQueue.push(actionWithFarm);
       
       // Do not trigger the "Saved Successfully" UI toast for automated background actions
-      const type = action.payload?.type || '';
+      const type = actionPayload.type || '';
       const isAutomated = type.startsWith('gps/') || type.startsWith('audit/') || type === 'core/logAction';
       
       if (!isAutomated) {
         state.totalActionsQueued = (state.totalActionsQueued || 0) + 1;
       }
     },
-    clearQueue: (state) => {
-      state.offlineActionQueue = [];
+    clearQueue: (state, action) => {
+      const idsToRemove = action.payload || [];
+      state.offlineActionQueue = state.offlineActionQueue.filter(
+        a => !a.meta?.id || !idsToRemove.includes(a.meta.id)
+      );
     },
     setSyncing: (state, action) => {
       state.isSyncing = action.payload;
@@ -73,6 +82,11 @@ export const flushQueue = (forceSync = false) => async (dispatch, getState) => {
   if (!navigator.onLine) return;
   if (isSyncing) return;
 
+  const activeFarmId = localStorage.getItem('activeFarmId') || 'default_farm';
+  const farmActions = offlineActionQueue.filter(a => !a.farmId || a.farmId === activeFarmId);
+
+  if (farmActions.length === 0) return;
+
   // If backend has consistently failed, only retry every ~60 attempts (3 min at 3s interval) unless explicitly overridden
   if (!forceSync && !backendAvailable) {
     if (backendFailures % 60 !== 0) {
@@ -84,13 +98,12 @@ export const flushQueue = (forceSync = false) => async (dispatch, getState) => {
   dispatch(setSyncing(true));
 
   try {
-    const activeFarmId = localStorage.getItem('activeFarmId') || 'default_farm';
     const currentUser = getState().auth?.currentUser;
     const email = currentUser ? currentUser.email : '';
     const response = await fetch('/api/sync', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ queue: offlineActionQueue, farmId: activeFarmId, email })
+      body: JSON.stringify({ queue: farmActions, farmId: activeFarmId, email })
     });
 
     if (response.ok) {
@@ -101,7 +114,8 @@ export const flushQueue = (forceSync = false) => async (dispatch, getState) => {
         return;
       }
 
-      dispatch(clearQueue());
+      const syncedIds = farmActions.map(a => a.meta?.id).filter(Boolean);
+      dispatch(clearQueue(syncedIds));
       dispatch(resetBackend());
       dispatch(setLastSynced(new Date().toISOString()));
     } else {

@@ -199,6 +199,14 @@ textarea[data-populated="true"]:not(:focus) {
   justify-content: center !important;
 }
 
+.system-sync-btn {
+  transition: none !important;
+}
+
+.system-sync-btn:active {
+  transform: none !important;
+}
+
 .map-toolbar-btn {
   background-color: darkkhaki !important;
   color: #333 !important;

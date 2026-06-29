@@ -3,6 +3,61 @@ import { useSelector, useDispatch } from 'react-redux';
 import { flushQueue } from '../store/syncSlice';
 import { RefreshCw, Database } from 'lucide-react';
 
+const getRecordCount = (key, value) => {
+  if (!value) return 0;
+  switch (key) {
+    case 'settings':
+      return 1;
+    case 'assets':
+      return (
+        (value.crops?.length || 0) +
+        (value.livestock?.length || 0) +
+        (value.harvests?.length || 0) +
+        (value.equipment?.length || 0) +
+        (value.kits?.length || 0)
+      );
+    case 'breeding':
+      return (value.pairings?.length || 0) + (value.kits?.length || 0);
+    case 'planning':
+      return (value.goals?.length || 0) + (value.objectives?.length || 0);
+    case 'fields':
+      return value.data?.length || 0;
+    case 'recommendations':
+      return value.data?.length || 0;
+    case 'financials':
+      return value.transactions?.length || 0;
+    case 'nurseries':
+      return value.beds?.length || 0;
+    case 'activities':
+      return value.log?.length || 0;
+    case 'audit':
+      return value.logs?.length || 0;
+    case 'gps':
+      return value.locations?.length || 0;
+    case 'soilTests':
+      return value.tests?.length || 0;
+    case 'sync':
+      return value.offlineActionQueue?.length || 0;
+    case 'auth':
+      return value.usersList?.length || 0;
+    default:
+      if (Array.isArray(value)) return value.length;
+      if (typeof value === 'object') {
+        if (Array.isArray(value.list)) return value.list.length;
+        
+        let sum = 0;
+        let hasArray = false;
+        for (const k of Object.keys(value)) {
+          if (Array.isArray(value[k])) {
+            sum += value[k].length;
+            hasArray = true;
+          }
+        }
+        if (hasArray) return sum;
+      }
+      return 0;
+  }
+};
 
 export default function SyncTab() {
   const dispatch = useDispatch();
@@ -107,9 +162,7 @@ export default function SyncTab() {
       }}>
         {Object.entries(fullState).map(([key, value]) => {
           if (key === '_persist') return null;
-          const isArray = Array.isArray(value);
-          const isObject = value !== null && typeof value === 'object' && !isArray;
-          const itemCount = isArray ? value.length : (isObject ? Object.keys(value).length : 0);
+          const itemCount = getRecordCount(key, value);
 
           return (
             <div key={key} style={{

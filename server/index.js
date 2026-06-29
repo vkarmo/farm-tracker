@@ -304,6 +304,41 @@ driver.verifyConnectivity()
         MATCH (f:Farm {id: 'default_farm'})
         MERGE (s)-[:BELONGS_TO]->(f)
       `);
+
+      const indexLabels = [
+        { label: 'User', prop: 'email' },
+        { label: 'Farm', prop: 'id' },
+        { label: 'Field', prop: 'id' },
+        { label: 'NurseryBed', prop: 'id' },
+        { label: 'Crop', prop: 'id' },
+        { label: 'Livestock', prop: 'id' },
+        { label: 'BreedingEvent', prop: 'id' },
+        { label: 'LivestockKit', prop: 'id' },
+        { label: 'Harvest', prop: 'id' },
+        { label: 'PointOfInterest', prop: 'id' },
+        { label: 'Recommendation', prop: 'id' },
+        { label: 'Transaction', prop: 'id' },
+        { label: 'Activity', prop: 'id' },
+        { label: 'Budget', prop: 'id' },
+        { label: 'BudgetItem', prop: 'id' },
+        { label: 'TaskAssignment', prop: 'id' },
+        { label: 'Incident', prop: 'id' },
+        { label: 'Deadline', prop: 'id' },
+        { label: 'Employee', prop: 'id' },
+        { label: 'Pest', prop: 'id' },
+        { label: 'SoilTest', prop: 'id' },
+        { label: 'Goal', prop: 'id' },
+        { label: 'Objective', prop: 'id' },
+        { label: 'GpsLog', prop: 'id' }
+      ];
+
+      for (const item of indexLabels) {
+        try {
+          await session.run(`CREATE INDEX IF NOT EXISTS FOR (n:${item.label}) ON (n.${item.prop})`);
+        } catch (e) {
+          console.warn(`[Neo4j Database] Index creation skipped for ${item.label}.${item.prop}:`, e.message);
+        }
+      }
       
       console.info('[Neo4j Database] Bootstrapping completed successfully.');
     } catch (err) {
@@ -1845,6 +1880,52 @@ ${waterPois.map(p => `  - "${p.name}" (${p.type}: ${p.description})`).join('\n')
 `;
     }
 
+    let cassavaRuleOverride = "";
+    if (fieldName && fieldName.toLowerCase().includes('block c')) {
+      cassavaRuleOverride = "\nCRITICAL OVERRIDE FOR THIS FIELD: The field is 'Block C' which is a low-elevation area where water flows in from detected waterways. You MUST NOT recommend Cassava for this field under any circumstances.\n";
+    }
+
+    let swampRiceRuleOverride = "";
+    const parsedElevation = parseFloat(elevation);
+    const isHighElevation = !isNaN(parsedElevation) && parsedElevation >= 120;
+    if (isHighElevation) {
+      swampRiceRuleOverride = `\nCRITICAL OVERRIDE FOR THIS FIELD: The field has a high median elevation of ${elevation}m where water does not pool and there is no swamp/wetland. You MUST NOT recommend Swamp Rice for this field under any circumstances. If rice is needed, suggest Upland Rice instead.\n`;
+    }
+
+    let largeFieldInstruction = "";
+    const parsedArea = parseFloat(area);
+    const isLargeField = (!isNaN(parsedArea) && parsedArea > 5) || 
+                         (fieldName && fieldName.toLowerCase().includes('property')) ||
+                         (fieldName && fieldName.toLowerCase().includes('nmk property'));
+    if (isLargeField) {
+      let minCrops = "4 to 6";
+      let minZones = "4 to 6";
+      if (!isNaN(parsedArea)) {
+        if (parsedArea > 100) {
+          minCrops = "6 to 9";
+          minZones = "6 to 9";
+        } else if (parsedArea > 20) {
+          minCrops = "5 to 8";
+          minZones = "5 to 8";
+        }
+      }
+      largeFieldInstruction = `
+CRITICAL GRANULARITY AND TOPOGRAPHY RULE FOR LARGE FIELDS (> 5 acres): 
+Because this field is large (${area || '180'} acres), a simple 2 or 3 crop recommendation is insufficient. You MUST recommend a wider, more diverse variety of crops (at least ${minCrops} different crops) tailored to different zones of this field. 
+You MUST select and distribute these crops to reflect the diversity of topography (slopes, hills, flatlands, and depressions), soil moisture variations, and elevation gradients across the field.
+In the "fieldLayout" JSON block and the Markdown guide:
+1. Divide the field layout into at least ${minZones} distinct crop zones/assignments, each mapped to different row ranges.
+2. Distribute the crops logically based on the diversity of topography, soil moisture, and elevation in the field:
+   - Upland/High Elevation (drier, higher slopes/hills/rolling hills): well-drained long-term or upland crops (Cassava, Cocoa, Oil Palm, Yam). Under no circumstances suggest Swamp Rice in these high elevation sloped areas.
+   - Mid-lying/Gentle Slopes or rolling hills: vegetables, root tubers, and companion plants (Peppers, Okra, Fever Leaf, Basil, Sweet Potato, Cowpeas).
+   - Lowland/Low Elevation (wettest flatlands, river runoffs/valleys): water-tolerant crops (Swamp Rice, Eddoe, Cocoyam).
+3. MONO-CROPPING VS VEGETABLE ROTATION CONSTRAINT:
+   - Mono-crop zones are acceptable ONLY for long-term crops and upland grain crops (e.g. Oil Palm, Cassava, Cocoa, Rice).
+   - For vegetables and root tubers (e.g. Sweet Potato, Peppers, Fever Leaf, Okra), you MUST NOT recommend large single-crop mono-crop blocks (for example, never assign a large acreage zone like 10+ acres solely to a single vegetable crop like "Sweet Potato" on rolling hills or sloped terrain). Instead, you must specify a mixed crop zone or segment the rows more granularly to show crop rotation and intercropping combinations (e.g. mix/rotate Sweet Potato with nitrogen-fixing Groundnuts or Cowpeas and aromatic pest-repelling Peppers/Basil to preserve soil health). In the JSON crop assignments list, represent these vegetable rows as mixed rotation bands like "Sweet Potato / Cowpea" or "Pepper / Groundnut" or separate them into individual single rows to ensure a highly granular, rotation-friendly distribution.
+4. Do not just recommend a few crops; ensure the recommendations are highly granular, diverse, and make full agronomic use of the different topographic elevation bands and soil moisture zones inside the field.
+`;
+    }
+
     let promptText = `You are an expert tropical agronomist specializing in West African agriculture, specifically Bomi County, Liberia.
 Your task is to provide a comprehensive, actionable, and localized crop recommendation report for a specific field on a farm.
 
@@ -1862,10 +1943,11 @@ Please generate crop recommendations for the following field profile:
 - Crop History: ${cropHistory || 'None specified'}
 - Additional Notes: ${notes || 'None specified'}
 - Model Start Date: ${startDate || 'Immediate'}
-- Crops to Focus On: ${selectedCrops || 'High margin crops suited for local context (e.g. Fever Leaf, Cassava, swamp rice, vegetables, etc.)'}
+- Crops to Focus On: ${selectedCrops || 'High-profit cash crops in high demand in Bomi County and Monrovia markets (e.g. Fever Leaf, hot peppers/cayenne, Cassava, swamp/upland rice, eddoe, okra, and rotational cowpeas/groundnuts for soil health)'}
 - USD/LRD Exchange Rate: 1 USD = ${exchangeRate || '150'} LRD (You must use this exact exchange rate for all conversions in your tables, text, and JSON calculations, e.g. price per kg or Fever Leaf price.)
 ${waterSourcesSection}
 ${geeStatsSection}
+${largeFieldInstruction}
 
 You must respond in Markdown format. The sections should be separated by H2 headings (##) which will be parsed into tabs.
 The output structure must be EXACTLY:
@@ -1875,14 +1957,16 @@ The output structure must be EXACTLY:
 
 ## Recommended Crops
 [Provide recommended crops details here. Detail which crops are chosen from the crops of interest: "${selectedCrops || 'specified crops'}" and other local agronomic fits. You MUST list the recommended crops in order from best to worst suitability/profitability. You MUST explicitly evaluate and justify crop selections by matching them against the field's specific physical characteristics: soil moisture, elevation, soil type, irrigation, and season. Use the following agro-ecological matching guidelines:
-- Swamp Rice: Suited for lowland valley depressions/floodplains (low elevation, e.g., <110m) with high soil moisture saturation (>0.40 m³/m³) or high rainfall.
+- Swamp Rice: Suited for lowland valley depressions/floodplains (low elevation, e.g., <110m) with high soil moisture saturation (>0.40 m³/m³) or high rainfall. You MUST NOT suggest Swamp Rice in highland or upland fields.
 - Cassava / Yam: Suited ONLY for well-drained upland sloped hills (higher elevation, e.g., >160m) with moderate/low soil moisture (0.15 - 0.30 m³/m³).
 - Oil Palm: Suited for flat/rolling plains (elevation 110m - 160m) with consistently high soil moisture (>0.35 m³/m³) but well-drained soil.
-- Vegetables (such as Eddoe, Sweet Potato, Peppers, Fever Leaf): Suited for areas with moderate, consistent soil moisture (0.20 - 0.35 m³/m³) and manageable irrigation/drainage control.
+- Vegetables (such as Eddoe, Sweet Potato, Peppers, Fever Leaf): Suited for areas with moderate, consistent soil moisture (0.20 - 0.35 m³/m³) and manageable irrigation/drainage control. Vegetable areas MUST NOT be mono-cropped in large blocks. You MUST recommend a diverse, granular crop rotation scheme incorporating cover crops (e.g. Groundnuts, Cowpeas) to preserve soil health in rolling hills and sloped areas.
 
 CRITICAL AGRONOMIC RULE FOR CASSAVA: You MUST NOT suggest Cassava if the field is in a low-elevation area (average elevation < 110 meters, or height above nearest drainage HND < 10 meters) where water can gather or accumulate in the rainy season. Cassava roots are extremely susceptible to rot and will die in waterlogged soils. In such low-lying fields, exclude Cassava and suggest swamp rice or other water-tolerant alternatives instead.
+${cassavaRuleOverride}
 
 CRITICAL AGRONOMIC RULE FOR SWAMP RICE: You MUST NOT suggest swamp rice if the field has no swamp, no wetland, and no water source nearby. If the water sources section indicates no documented water sources or swamps, or if the field name/notes do not specify a swamp, exclude swamp rice and recommend dry-land/upland crops or upland rice instead.
+${swampRiceRuleOverride}
 
 Detail how the field's specific elevation of ${elevation}m and soil moisture of ${soilMoisture} m³/m³, combined with soil type (${soilType}) and irrigation (${irrigation}) and GEE satellite telemetry, dictate the viability and ranked ordering of the recommended crops.]
 
@@ -1961,7 +2045,7 @@ The JSON structure must match this template exactly:
 Ensure that:
 1. "annualRevenue" contains all recommended crops (listed in order from best to worst matching/suitability) with their projected annual USD revenue.
 2. "monthlyProjections" contains exactly 12 items (Month 1 to Month 12), with each crop's monthly revenue (using the exact crop names as keys) and the monthly total. Only include recommended crops.
-3. "fieldLayout" specifies "rows" (between 6 and 15), "bedsPerRow" (between 2 and 6), "bedWidth" and "rowSpacing" in meters, and "cropAssignments" containing a color (hex code) and startRow/endRow (0-indexed ranges spanning from 0 to rows-1) mapping all crops. You MUST ensure that "cropAssignments" ONLY contains crops that are recommended. Do NOT place or assign any rows to crops that are not recommended for this field. Generate this layout mapping only after the recommended crops list and their ordering have been established.
+3. "fieldLayout" specifies "rows" (between 6 and 15), "bedsPerRow" (between 2 and 6), "bedWidth" and "rowSpacing" in meters, and "cropAssignments" containing a color (hex code) and startRow/endRow (0-indexed ranges spanning from 0 to rows-1) mapping all crops. You MUST map the crops to row ranges based on the field's slope/gradient of changing elevation and moisture levels: Row 0 represents the highest, driest upland part of the field, and row indices increase down the slope, so that the last row represents the lowest, wettest lowland/runoff path. You MUST place upland crops (e.g. Cassava, Cocoa, Yam) at smaller row numbers (near Row 0), and lowland/water-tolerant crops (e.g. Swamp Rice, Eddoe) at larger row numbers (near the bottom rows). You MUST ensure that "cropAssignments" ONLY contains crops that are recommended. Do NOT place or assign any rows to crops that are not recommended for this field. You MUST use only deep, dark, rich high-contrast hex colors (such as deep forest green #1b5e20, dark chocolate brown #4e342e, rich blue #1565c0, dark crimson #b71c1c, deep plum purple #4a148c, dark teal #006064, dark orange #e65100) to ensure overlay white bold text is highly legible. Generate this layout mapping only after the recommended crops list and their ordering have been established.
 
 Do not wrap the whole response in a JSON block or code blocks. Start directly with the first heading.`;
 
@@ -2549,6 +2633,7 @@ app.post('/api/sync', async (req, res) => {
       return res.status(403).json({ error: 'Forbidden. You do not have access to this farm.' });
     }
     const results = [];
+    const updatedIds = [];
     
     // Extract and bulk process GPS logs for extreme performance optimization
     const gpsActions = queue.filter(a => a.type === 'gps/addLocation');
@@ -2562,18 +2647,23 @@ app.post('/api/sync', async (req, res) => {
         }));
         
         await session.run(`
+          MATCH (f:Farm {id: $activeFarmId})
           UNWIND $events AS event
           MERGE (g:GpsLog {id: event.id})
           SET g.lat = event.lat, g.lng = event.lng, g.timestamp = event.timestamp, g.userEmail = event.userEmail
+          MERGE (g)-[:BELONGS_TO]->(f)
           WITH g, event
           OPTIONAL MATCH (u:User {email: event.userEmail})
           FOREACH (ignoreMe IN CASE WHEN u IS NOT NULL THEN [1] ELSE [] END |
             MERGE (u)-[r1:LOGGED_LOCATION]->(g) SET r1.lastUpdatedBy = event.userEmail
           )
           SET g.lastUpdatedBy = event.userEmail
-        `, { events });
+        `, { events, activeFarmId });
         
         gpsActions.forEach(action => {
+          if (action.payload && action.payload.id) {
+            updatedIds.push(action.payload.id);
+          }
           results.push({ actionId: action.meta?.id, status: 'success' });
         });
       } catch (err) {
@@ -2588,6 +2678,13 @@ app.post('/api/sync', async (req, res) => {
     for (const action of remainingActions) {
       try {
         const userEmail = (action.payload && action.payload.lastUpdatedBy) ? action.payload.lastUpdatedBy : 'system';
+        if (action.type !== 'core/deleteNode') {
+          if (action.payload && action.payload.id) {
+            updatedIds.push(action.payload.id);
+          } else if (action.type === 'budgets/upsertBudgetItem' && action.payload && action.payload.item && action.payload.item.id) {
+            updatedIds.push(action.payload.item.id);
+          }
+        }
         if (action.type === 'fields/addField') {
           const { id, name, area, soil_type, irrigation, status, year, polygon, drawColor, updatedAt } = action.payload;
           // Merge so we don't recreate if it exists somehow
@@ -3292,14 +3389,17 @@ app.post('/api/sync', async (req, res) => {
       }
     }
 
-    // Post-processing: link any new nodes to the active farm
-    await session.run(`
-      MATCH (n)
-      WHERE NOT n:Farm
-        AND NOT (n)-[:BELONGS_TO]->(:Farm)
-      MATCH (f:Farm {id: $activeFarmId})
-      MERGE (n)-[:BELONGS_TO]->(f)
-    `, { activeFarmId });
+    // Post-processing: link only the newly created/updated nodes to the active farm
+    if (updatedIds.length > 0) {
+      await session.run(`
+        MATCH (f:Farm {id: $activeFarmId})
+        WITH f
+        UNWIND $updatedIds AS nodeId
+        MATCH (n {id: nodeId})
+        WHERE NOT n:Farm AND NOT (n)-[:BELONGS_TO]->(:Farm)
+        MERGE (n)-[:BELONGS_TO]->(f)
+      `, { activeFarmId, updatedIds });
+    }
 
     res.json({ success: true, processed: results });
   } catch (err) {

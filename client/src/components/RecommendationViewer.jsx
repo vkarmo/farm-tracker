@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { ArrowLeft, ExternalLink, Link as LinkIcon, Plus, Unlink, Sparkles, AlertCircle, Calendar, ClipboardList, Info, HelpCircle, Layers, CheckCircle, ChevronDown, ChevronUp, Trash2, Droplet, Sprout, Mountain } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Link as LinkIcon, Plus, Unlink, Sparkles, AlertCircle, Calendar, ClipboardList, Info, HelpCircle, Layers, CheckCircle, ChevronDown, ChevronUp, Trash2, Droplet, Sprout, Mountain, RefreshCw } from 'lucide-react';
 import { addRecommendation, deleteRecommendation } from '../store/recommendationsSlice';
 import { updateField } from '../store/fieldsSlice';
 import { queueAction } from '../store/syncSlice';
@@ -345,6 +345,8 @@ export const getDirectionLabel = (angle) => {
   return directions[index];
 };
 
+const PREMIUM_DARK_COLORS = ['#1b5e20', '#4e342e', '#1565c0', '#b71c1c', '#4a148c', '#006064', '#e65100'];
+
 export const parseStructuredData = (text, area, selectedCrops, elevation, pois = [], field = null) => {
   let data = null;
   if (text) {
@@ -375,11 +377,14 @@ export const parseStructuredData = (text, area, selectedCrops, elevation, pois =
     (p.description && p.description.toLowerCase().includes('swamp'))
   );
 
-  const isSwampRiceAllowed = hasWaterSource || fieldNameHasSwamp;
+  const isHighElevation = elevation !== undefined && elevation !== null && Number(elevation) >= 120;
+  const isSwampRiceAllowed = (hasWaterSource || fieldNameHasSwamp) && !isHighElevation;
 
   if (data && data.monthlyProjections && data.annualRevenue && data.fieldLayout) {
-    // Exclude Cassava from parsed JSON if elevation is too low (< 110m)
-    if (elevation !== undefined && elevation !== null && Number(elevation) < 110) {
+    // Exclude Cassava from parsed JSON if elevation is too low (< 110m) or if field is Block C
+    const isBlockC = field && field.name && field.name.toLowerCase().includes('block c');
+    const tooLowElevation = elevation !== undefined && elevation !== null && Number(elevation) < 110;
+    if (tooLowElevation || isBlockC) {
       if (Array.isArray(data.annualRevenue)) {
         data.annualRevenue = data.annualRevenue.filter(r => r && typeof r.crop === 'string' && !r.crop.toLowerCase().includes('cassava'));
       }
@@ -428,11 +433,16 @@ export const parseStructuredData = (text, area, selectedCrops, elevation, pois =
         });
       }
       if (data.fieldLayout && Array.isArray(data.fieldLayout.cropAssignments)) {
-        data.fieldLayout.cropAssignments = data.fieldLayout.cropAssignments.map(ass => {
+        data.fieldLayout.cropAssignments = data.fieldLayout.cropAssignments.map((ass, idx) => {
+          let updatedCrop = ass.crop;
           if (ass && typeof ass.crop === 'string' && ass.crop.toLowerCase().trim() === 'swamp rice') {
-            return { ...ass, crop: 'Upland Rice' };
+            updatedCrop = 'Upland Rice';
           }
-          return ass;
+          return {
+            ...ass,
+            crop: updatedCrop,
+            color: PREMIUM_DARK_COLORS[idx % PREMIUM_DARK_COLORS.length]
+          };
         });
       }
     }
@@ -473,17 +483,23 @@ export const parseStructuredData = (text, area, selectedCrops, elevation, pois =
     cropsList = cropsList.map(c => c.toLowerCase().trim() === 'swamp rice' ? 'Upland Rice' : c);
   }
 
+  const totalAcres = Number(area) || 5;
+  if (cropsList.length <= 3 && totalAcres > 5) {
+    const defaultLargeCrops = ['Fever Leaf', 'Cassava', isSwampRiceAllowed ? 'Swamp Rice' : 'Upland Rice', 'Peppers', 'Sweet Potato', 'Oil Palm'];
+    cropsList = Array.from(new Set([...cropsList, ...defaultLargeCrops]));
+  }
+
   if (cropsList.length === 0) {
     cropsList.push('Fever Leaf', 'Cassava', isSwampRiceAllowed ? 'Swamp Rice' : 'Upland Rice');
   }
 
-  // Enforce Cassava exclusion in fallback generator if elevation is low (< 110m)
-  if (elevation !== undefined && elevation !== null && Number(elevation) < 110) {
+  // Enforce Cassava exclusion in fallback generator if elevation is low (< 110m) or if field is Block C
+  const isBlockC = field && field.name && field.name.toLowerCase().includes('block c');
+  const tooLowElevation = elevation !== undefined && elevation !== null && Number(elevation) < 110;
+  if (tooLowElevation || isBlockC) {
     cropsList = cropsList.filter(c => !c.toLowerCase().includes('cassava'));
     if (cropsList.length === 0) cropsList.push('Fever Leaf', isSwampRiceAllowed ? 'Swamp Rice' : 'Upland Rice');
   }
-  
-  const totalAcres = Number(area) || 5;
   
   // Generate realistic annual revenues
   const revenueRates = {
@@ -530,7 +546,7 @@ export const parseStructuredData = (text, area, selectedCrops, elevation, pois =
   
   // Generate monthly projections (12 months)
   const monthlyProjections = [];
-  const cropColors = ['#2e7d32', '#8d6e63', '#ffb74d', '#4fc3f7', '#ec407a'];
+  const cropColors = PREMIUM_DARK_COLORS;
   
   for (let m = 1; m <= 12; m++) {
     const proj = { month: `Month ${m}` };
@@ -626,7 +642,8 @@ export const getReportStructuredData = (report, area, selectedCrops, pois = [], 
     (p.name && p.name.toLowerCase().includes('swamp')) ||
     (p.description && p.description.toLowerCase().includes('swamp'))
   );
-  const isSwampRiceAllowed = hasWaterSource || fieldNameHasSwamp;
+  const isHighElevation = elevation !== undefined && elevation !== null && Number(elevation) >= 120;
+  const isSwampRiceAllowed = (hasWaterSource || fieldNameHasSwamp) && !isHighElevation;
 
   if (!data) {
     let fullText = '';
@@ -636,7 +653,9 @@ export const getReportStructuredData = (report, area, selectedCrops, pois = [], 
     data = parseStructuredData(fullText, area, selectedCrops, elevation, pois, field);
   } else {
     // Sanitize loaded structure dynamically for exclusions
-    if (elevation !== undefined && elevation !== null && Number(elevation) < 110) {
+    const isBlockC = field && field.name && field.name.toLowerCase().includes('block c');
+    const tooLowElevation = elevation !== undefined && elevation !== null && Number(elevation) < 110;
+    if (tooLowElevation || isBlockC) {
       if (Array.isArray(data.annualRevenue)) {
         data.annualRevenue = data.annualRevenue.filter(r => r && typeof r.crop === 'string' && !r.crop.toLowerCase().includes('cassava'));
       }
@@ -684,11 +703,16 @@ export const getReportStructuredData = (report, area, selectedCrops, pois = [], 
         });
       }
       if (data.fieldLayout && Array.isArray(data.fieldLayout.cropAssignments)) {
-        data.fieldLayout.cropAssignments = data.fieldLayout.cropAssignments.map(ass => {
+        data.fieldLayout.cropAssignments = data.fieldLayout.cropAssignments.map((ass, idx) => {
+          let updatedCrop = ass.crop;
           if (ass && typeof ass.crop === 'string' && ass.crop.toLowerCase().trim() === 'swamp rice') {
-            return { ...ass, crop: 'Upland Rice' };
+            updatedCrop = 'Upland Rice';
           }
-          return ass;
+          return {
+            ...ass,
+            crop: updatedCrop,
+            color: PREMIUM_DARK_COLORS[idx % PREMIUM_DARK_COLORS.length]
+          };
         });
       }
     }
@@ -716,7 +740,7 @@ export const getReportStructuredData = (report, area, selectedCrops, pois = [], 
 const RechartsVisualizer = ({ data }) => {
   const { monthlyProjections = [], annualRevenue = [] } = data || {};
   
-  const COLORS = ['#2e7d32', '#8d6e63', '#ffb74d', '#4fc3f7', '#ec407a'];
+  const COLORS = PREMIUM_DARK_COLORS;
   
   const cropKeys = useMemo(() => {
     if (monthlyProjections.length === 0) return [];
@@ -812,17 +836,273 @@ const rotatePoint = (x, y, angle, cx, cy) => {
   ];
 };
 
+const getRenderedLabels = (
+  cropAssignments,
+  rotatedPolygonPoints,
+  gridRotationAngle,
+  gridCenterX,
+  gridCenterY,
+  topPadding,
+  bedHeight,
+  verticalSpacing,
+  w_grid,
+  getZoneLabelCoords,
+  activeOverlay,
+  selectedMonth
+) => {
+  const rad = (-gridRotationAngle * Math.PI) / 180;
+  const cos = Math.cos(rad);
+  const sin = Math.sin(rad);
+
+  const labels = cropAssignments.map((a, idx) => {
+    let trimmedCrop = (a.crop || '').trim();
+    if (activeOverlay === 'rotation') {
+      trimmedCrop = getRotationState(a.crop, selectedMonth).label;
+    }
+    const labelWidth = Math.max(50, Math.ceil(trimmedCrop.length * 7.5 + 16));
+    const halfW = labelWidth / 2;
+
+    const y_start = topPadding + a.startRow * (bedHeight + verticalSpacing) - verticalSpacing / 2;
+    const y_end = topPadding + (a.endRow + 1) * (bedHeight + verticalSpacing) - verticalSpacing / 2;
+    const coords = getZoneLabelCoords(a.startRow, a.endRow);
+    const labelX = coords.x;
+    const labelY = coords.y;
+    const availableWidth = coords.width;
+    const visibleHeight = coords.height;
+
+    const localCorners = [
+      [-halfW, -15],
+      [halfW, -15],
+      [-halfW, 15],
+      [halfW, 15]
+    ];
+
+    let fits = true;
+    if (rotatedPolygonPoints.length === 0) {
+      fits = false;
+    } else {
+      for (const [dx, dy] of localCorners) {
+        const cx = labelX + dx * cos - dy * sin;
+        const cy = labelY + dx * sin + dy * cos;
+
+        if (cy < y_start || cy > y_end) {
+          fits = false;
+          break;
+        }
+
+        if (!isPointInPolygon(cx, cy, rotatedPolygonPoints)) {
+          fits = false;
+          break;
+        }
+      }
+    }
+
+    let drawX = labelX;
+    let drawY = labelY;
+    const side = fits ? 'inside' : (labelX < gridCenterX ? 'left' : 'right');
+
+    return {
+      idx,
+      crop: trimmedCrop,
+      color: a.color,
+      startRow: a.startRow,
+      endRow: a.endRow,
+      labelX,
+      labelY,
+      drawX,
+      drawY,
+      labelWidth,
+      halfW,
+      fits,
+      side,
+      cos,
+      sin
+    };
+  });
+
+  // Group outside labels by side
+  const leftLabels = labels.filter(l => l.side === 'left').sort((a, b) => a.labelY - b.labelY);
+  const rightLabels = labels.filter(l => l.side === 'right').sort((a, b) => a.labelY - b.labelY);
+
+  const resolveOverlaps = (list) => {
+    if (list.length <= 1) return;
+    const minSpacing = 70; // 30px label height + 40px gap
+
+    // Forward sweep
+    for (let i = 1; i < list.length; i++) {
+      if (list[i].drawY < list[i - 1].drawY + minSpacing) {
+        list[i].drawY = list[i - 1].drawY + minSpacing;
+      }
+    }
+
+    // Backward sweep
+    for (let i = list.length - 2; i >= 0; i--) {
+      if (list[i].drawY > list[i + 1].drawY - minSpacing) {
+        list[i].drawY = list[i + 1].drawY - minSpacing;
+      }
+    }
+  };
+
+  resolveOverlaps(leftLabels);
+  resolveOverlaps(rightLabels);
+
+  // Reconstruct label positions and calculate callout lines
+  return labels.map(l => {
+    if (l.fits) {
+      return { ...l, calloutLine: null };
+    }
+
+    // Find boundaries at labelY, labelY - 15, and labelY + 15
+    let minX = w_grid;
+    let maxX = 0;
+    const testYs = [l.labelY - 15, l.labelY, l.labelY + 15];
+
+    testYs.forEach(Y => {
+      const intersections = [];
+      for (let j = 0; j < rotatedPolygonPoints.length; j++) {
+        const pt1 = rotatedPolygonPoints[j];
+        const pt2 = rotatedPolygonPoints[(j + 1) % rotatedPolygonPoints.length];
+        const y1 = pt1[1];
+        const y2 = pt2[1];
+        if ((y1 >= Y && y2 <= Y) || (y2 >= Y && y1 <= Y)) {
+          if (Math.abs(y2 - y1) > 0.0001) {
+            const X = pt1[0] + ((Y - y1) * (pt2[0] - pt1[0])) / (y2 - y1);
+            intersections.push(X);
+          }
+        }
+      }
+      if (intersections.length >= 2) {
+        minX = Math.min(minX, ...intersections);
+        maxX = Math.max(maxX, ...intersections);
+      }
+    });
+
+    let drawX = l.labelX;
+    let calloutLine = null;
+
+    if (minX <= maxX) {
+      if (l.side === 'left') {
+        drawX = minX - (l.halfW + 20);
+      } else {
+        drawX = maxX + (l.halfW + 20);
+      }
+      calloutLine = { x1: drawX, x2: l.labelX, y1: l.drawY, y2: l.labelY };
+    }
+
+    return {
+      ...l,
+      drawX,
+      calloutLine
+    };
+  });
+};
+
+const getRotationState = (cropName, month) => {
+  const nameUpper = (cropName || '').toUpperCase();
+  
+  if (nameUpper.includes('SWEET POTATO')) {
+    if (month >= 1 && month <= 4) {
+      return { label: 'SWEET POTATO (MATURING)', color: '#4e342e' };
+    } else if (month >= 5 && month <= 6) {
+      return { label: 'COWPEA (SOIL HEALTH ROTATION)', color: '#2e7d32' };
+    } else if (month >= 7 && month <= 10) {
+      return { label: 'SWEET POTATO (CYCLE 2)', color: '#5d4037' };
+    } else {
+      return { label: 'GROUNDNUT (ROTATION / COVER)', color: '#558b2f' };
+    }
+  }
+  
+  if (nameUpper.includes('FEVER LEAF')) {
+    if (month === 1) {
+      return { label: 'FEVER LEAF (ESTABLISHING)', color: '#1b5e20' };
+    } else {
+      return { label: 'FEVER LEAF (RECURRING HARVEST)', color: '#2e7d32' };
+    }
+  }
+  
+  if (nameUpper.includes('CASSAVA')) {
+    if (month >= 1 && month <= 9) {
+      return { label: 'CASSAVA (MATURING)', color: '#8d6e63' };
+    } else if (month === 10) {
+      return { label: 'CASSAVA (HARVESTED / BARE)', color: '#3e2723' };
+    } else {
+      return { label: 'COWPEA (COVER CROP ROTATION)', color: '#2e7d32' };
+    }
+  }
+  
+  if (nameUpper.includes('RICE')) {
+    if (month >= 1 && month <= 4) {
+      return { label: `${cropName} (MATURING)`, color: '#fbc02d' };
+    } else if (month === 5) {
+      return { label: `${cropName} (HARVESTING)`, color: '#f57f17' };
+    } else if (month >= 6 && month <= 7) {
+      return { label: 'COWPEA (NITROGEN-FIXING ROTATION)', color: '#2e7d32' };
+    } else if (month >= 8 && month <= 11) {
+      return { label: `${cropName} (CYCLE 2)`, color: '#fbc02d' };
+    } else {
+      return { label: 'FALLOW / COVER CROP', color: '#78909c' };
+    }
+  }
+  
+  if (nameUpper.includes('PEPPER')) {
+    if (month >= 1 && month <= 2) {
+      return { label: 'PEPPER (ESTABLISHING)', color: '#ff8f00' };
+    } else if (month >= 3 && month <= 6) {
+      return { label: 'PEPPER (HARVESTING)', color: '#c62828' };
+    } else if (month >= 7 && month <= 8) {
+      return { label: 'COWPEA (SOIL HEALTH ROTATION)', color: '#2e7d32' };
+    } else {
+      return { label: 'PEPPER (CYCLE 2)', color: '#c62828' };
+    }
+  }
+  
+  if (nameUpper.includes('PALM') || nameUpper.includes('COCOA') || nameUpper.includes('COFFEE')) {
+    return { label: `${cropName} (PERENNIAL)`, color: '#1b5e20' };
+  }
+  
+  if (month >= 5 && month <= 6) {
+    return { label: 'COWPEA (ROTATION / SOIL HEALTH)', color: '#2e7d32' };
+  } else if (month >= 11 && month <= 12) {
+    return { label: 'FALLOW / COVER CROP', color: '#78909c' };
+  } else {
+    return { label: `${cropName} (ACTIVE)`, color: '#e65100' };
+  }
+};
+
 const GraphicalFieldLayout = ({ layout, area, field }) => {
   const { rows = 10, bedsPerRow = 4, bedWidth = 1.2, rowSpacing = 0.6, cropAssignments = [] } = layout || {};
   
   const fields = useSelector(state => state.fields?.data) || [];
+  
+  const stats = useMemo(() => {
+    if (!field || !field.polygon) return { elevation: 120 };
+    try {
+      return extractSpatialStats(field.polygon);
+    } catch (e) {
+      return { elevation: 120 };
+    }
+  }, [field]);
+
+  const elevationVal = stats?.elevation || 120;
+
   const [activeOverlay, setActiveOverlay] = useState('none');
   const [zoomScale, setZoomScale] = useState(1.0);
   const [cropLegendsExpanded, setCropLegendsExpanded] = useState(true);
-  const [moistureLegendExpanded, setMoistureLegendExpanded] = useState(true);
-  const [soilLegendExpanded, setSoilLegendExpanded] = useState(true);
-  const [elevationLegendExpanded, setElevationLegendExpanded] = useState(true);
+  const [moistureLegendExpanded, setMoistureLegendExpanded] = useState(false);
+  const [soilLegendExpanded, setSoilLegendExpanded] = useState(false);
+  const [elevationLegendExpanded, setElevationLegendExpanded] = useState(false);
+  const [rotationLegendExpanded, setRotationLegendExpanded] = useState(false);
   const [spacingSpecsExpanded, setSpacingSpecsExpanded] = useState(true);
+  const [selectedMonth, setSelectedMonth] = useState(1);
+
+  const handleOverlayChange = (overlayId) => {
+    setActiveOverlay(overlayId);
+    setCropLegendsExpanded(overlayId === 'none');
+    setMoistureLegendExpanded(overlayId === 'moisture');
+    setSoilLegendExpanded(overlayId === 'soil');
+    setElevationLegendExpanded(overlayId === 'elevation');
+    setRotationLegendExpanded(overlayId === 'rotation');
+  };
   
   const bedHeight = 30;
   const bedWidthPx = 80;
@@ -845,10 +1125,13 @@ const GraphicalFieldLayout = ({ layout, area, field }) => {
   const targetAngle = 0; // Reset targetAngle to 0 so the polygon is oriented true North is Up
   const gridRotationAngle = isGridVertical ? (rotationAngle - 90) : rotationAngle;
 
-  const topDir = getDirectionLabel(targetAngle);
-  const bottomDir = getDirectionLabel(180 + targetAngle);
-  const leftDir = getDirectionLabel(270 + targetAngle);
-  const rightDir = getDirectionLabel(90 + targetAngle);
+  const compassAngle = 0;
+  const labelAngle = 0;
+
+  const topDir = getDirectionLabel(labelAngle);
+  const bottomDir = getDirectionLabel(180 + labelAngle);
+  const leftDir = getDirectionLabel(270 + labelAngle);
+  const rightDir = getDirectionLabel(90 + labelAngle);
 
   const gridCenterX = leftPadding + w_grid / 2;
   const gridRightX = leftPadding + w_grid;
@@ -858,7 +1141,7 @@ const GraphicalFieldLayout = ({ layout, area, field }) => {
   // Compass Rose center in the empty bottom-right corner space
   const cx = width - 45;
   const cy = height - 45;
-  const northAngleRad = (targetAngle * Math.PI) / 180;
+  const northAngleRad = (compassAngle * Math.PI) / 180;
   const nx = cx + 11 * Math.sin(northAngleRad);
   const ny = cy - 11 * Math.cos(northAngleRad);
   const sx = cx - 11 * Math.sin(northAngleRad);
@@ -884,6 +1167,11 @@ const GraphicalFieldLayout = ({ layout, area, field }) => {
       const dist = getPolygonMinDistance(polyA, polyB);
       if (dist <= 0.0008) {
         const cB = getCentroid(polyB);
+
+        // Exclude fields within fields (nested fields)
+        const isNested = isPointInPolygon(cA.lat, cA.lng, polyB) || isPointInPolygon(cB.lat, cB.lng, polyA);
+        if (isNested) return;
+
         const bearing = getPlanarBearing(cA.lat, cA.lng, cB.lat, cB.lng);
         
         const diffTop = getAngleDifference(bearing, targetAngle);
@@ -958,6 +1246,129 @@ const GraphicalFieldLayout = ({ layout, area, field }) => {
     return fieldPolygonPoints.map(pt => `${pt[0]},${pt[1]}`).join(' ');
   }, [fieldPolygonPoints]);
 
+  const rotatedPolygonPoints = useMemo(() => {
+    if (fieldPolygonPoints.length === 0) return [];
+    const rad = (-gridRotationAngle * Math.PI) / 180;
+    const cos = Math.cos(rad);
+    const sin = Math.sin(rad);
+    return fieldPolygonPoints.map(pt => {
+      const dx = pt[0] - gridCenterX;
+      const dy = pt[1] - gridCenterY;
+      const rx = gridCenterX + dx * cos - dy * sin;
+      const ry = gridCenterY + dx * sin + dy * cos;
+      return [rx, ry];
+    });
+  }, [fieldPolygonPoints, gridRotationAngle, gridCenterX, gridCenterY]);
+
+  const getZoneLabelCoords = (startRow, endRow) => {
+    const y_start = topPadding + startRow * (bedHeight + verticalSpacing) - verticalSpacing / 2;
+    const y_end = topPadding + (endRow + 1) * (bedHeight + verticalSpacing) - verticalSpacing / 2;
+    const zoneHeight = y_end - y_start;
+    const midY = y_start + zoneHeight / 2;
+    
+    if (rotatedPolygonPoints.length === 0) {
+      return { x: gridCenterX, y: midY, width: w_grid, height: zoneHeight };
+    }
+
+    const polyMinY = Math.min(...rotatedPolygonPoints.map(pt => pt[1]));
+    const polyMaxY = Math.max(...rotatedPolygonPoints.map(pt => pt[1]));
+    const minVisibleY = Math.max(y_start, polyMinY);
+    const maxVisibleY = Math.min(y_end, polyMaxY);
+
+    if (minVisibleY >= maxVisibleY) {
+      return { x: gridCenterX, y: midY, width: w_grid, height: 0 };
+    }
+
+    const bestY = (minVisibleY + maxVisibleY) / 2;
+    const visibleHeight = maxVisibleY - minVisibleY;
+
+    // Calculate exact intersections at bestY to find centerX
+    const intersections = [];
+    const Y = bestY;
+    for (let j = 0; j < rotatedPolygonPoints.length; j++) {
+      const pt1 = rotatedPolygonPoints[j];
+      const pt2 = rotatedPolygonPoints[(j + 1) % rotatedPolygonPoints.length];
+      const y1 = pt1[1];
+      const y2 = pt2[1];
+      if ((y1 >= Y && y2 <= Y) || (y2 >= Y && y1 <= Y)) {
+        if (Math.abs(y2 - y1) > 0.0001) {
+          const X = pt1[0] + ((Y - y1) * (pt2[0] - pt1[0])) / (y2 - y1);
+          intersections.push(X);
+        }
+      }
+    }
+
+    let centerX = gridCenterX;
+    let widthAtBestY = w_grid;
+
+    if (intersections.length >= 2) {
+      const minX = Math.min(...intersections);
+      const maxX = Math.max(...intersections);
+      widthAtBestY = maxX - minX;
+      centerX = (minX + maxX) / 2;
+    }
+
+    // Check available width across the top, center, and bottom of the label box height (30px total height, so offsets -15, 0, 15)
+    let minWidthOverLabel = widthAtBestY;
+    const yOffsets = [-15, 0, 15];
+    for (const offset of yOffsets) {
+      const testY = bestY + offset;
+      const testIntersections = [];
+      for (let j = 0; j < rotatedPolygonPoints.length; j++) {
+        const pt1 = rotatedPolygonPoints[j];
+        const pt2 = rotatedPolygonPoints[(j + 1) % rotatedPolygonPoints.length];
+        const y1 = pt1[1];
+        const y2 = pt2[1];
+        if ((y1 >= testY && y2 <= testY) || (y2 >= testY && y1 <= testY)) {
+          if (Math.abs(y2 - y1) > 0.0001) {
+            const X = pt1[0] + ((testY - y1) * (pt2[0] - pt1[0])) / (y2 - y1);
+            testIntersections.push(X);
+          }
+        }
+      }
+      if (testIntersections.length >= 2) {
+        const w = Math.max(...testIntersections) - Math.min(...testIntersections);
+        if (w < minWidthOverLabel) {
+          minWidthOverLabel = w;
+        }
+      } else {
+        // If the label box overlaps outside the visible polygon range
+        minWidthOverLabel = 0;
+      }
+    }
+    
+    return { x: centerX, y: bestY, width: minWidthOverLabel, height: visibleHeight };
+  };
+
+  const renderedLabels = useMemo(() => {
+    return getRenderedLabels(
+      cropAssignments,
+      rotatedPolygonPoints,
+      gridRotationAngle,
+      gridCenterX,
+      gridCenterY,
+      topPadding,
+      bedHeight,
+      verticalSpacing,
+      w_grid,
+      getZoneLabelCoords,
+      activeOverlay,
+      selectedMonth
+    );
+  }, [
+    cropAssignments,
+    rotatedPolygonPoints,
+    gridRotationAngle,
+    gridCenterX,
+    gridCenterY,
+    topPadding,
+    bedHeight,
+    verticalSpacing,
+    w_grid,
+    activeOverlay,
+    selectedMonth
+  ]);
+
   const getCropColor = (rowIdx) => {
     const match = cropAssignments.find(a => rowIdx >= a.startRow && rowIdx <= a.endRow);
     return match ? match.color : '#e2e8f0';
@@ -982,11 +1393,12 @@ const GraphicalFieldLayout = ({ layout, area, field }) => {
             { id: 'none', label: 'Default Layout', color: '#1e293b', icon: <Layers size={16} /> },
             { id: 'moisture', label: 'Moisture Profile', color: '#3b82f6', icon: <Droplet size={16} /> },
             { id: 'soil', label: 'Soil Type Map', color: '#14b8a6', icon: <Sprout size={16} /> },
-            { id: 'elevation', label: 'Elevation Contours', color: '#ef4444', icon: <Mountain size={16} /> }
+            { id: 'elevation', label: 'Elevation Contours', color: '#ef4444', icon: <Mountain size={16} /> },
+            { id: 'rotation', label: 'Crop Rotation Timeline', color: '#8b5cf6', icon: <RefreshCw size={16} /> }
           ].map(btn => (
             <button
               key={btn.id}
-              onClick={() => setActiveOverlay(btn.id)}
+              onClick={() => handleOverlayChange(btn.id)}
               title={btn.label}
               style={{
                 width: '32px',
@@ -1039,47 +1451,195 @@ const GraphicalFieldLayout = ({ layout, area, field }) => {
           )}
         </div>
       </div>
+
+      {activeOverlay === 'rotation' && (
+        <div style={{
+          background: '#0f172a',
+          border: '1px solid #334155',
+          padding: '16px',
+          borderRadius: '8px',
+          marginBottom: '16px',
+          boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1), 0 2px 4px -1px rgba(0,0,0,0.06)'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+            <span style={{ fontSize: '0.85rem', fontWeight: '800', color: '#f8fafc', display: 'flex', alignItems: 'center', gap: '6px', fontFamily: '"Inter", sans-serif' }}>
+              <Calendar size={16} color="#8b5cf6" /> CROP ROTATION TIMELINE
+            </span>
+            <span style={{ fontSize: '0.9rem', fontWeight: '800', color: '#ffe000', backgroundColor: '#7f1d1d', padding: '2px 8px', borderRadius: '4px', fontFamily: '"Inter", sans-serif' }}>
+              MONTH {selectedMonth} (Weeks {((selectedMonth - 1) * 4) + 1} - {selectedMonth * 4})
+            </span>
+          </div>
+          <input
+            type="range"
+            min="1"
+            max="12"
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(Number(e.target.value))}
+            style={{
+              width: '100%',
+              accentColor: '#8b5cf6',
+              cursor: 'pointer',
+              height: '6px',
+              borderRadius: '3px',
+              background: '#334155',
+              outline: 'none',
+              margin: '8px 0'
+            }}
+          />
+          <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.72rem', color: '#94a3b8', fontWeight: '600', fontFamily: '"Inter", sans-serif' }}>
+            <span>Month 1 (Planting)</span>
+            <span>Month 3</span>
+            <span>Month 6 (Mid-Season)</span>
+            <span>Month 9</span>
+            <span>Month 12 (Harvest/Fallow)</span>
+          </div>
+        </div>
+      )}
       
-      <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
+      <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', alignItems: 'flex-start', justifyContent: 'center' }}>
         <div style={{ flex: '1 1 300px', width: '100%', maxWidth: `${width}px`, overflowX: 'auto', background: 'white', padding: '15px', borderRadius: '8px', border: '1px solid #cbd5e1', boxSizing: 'border-box' }}>
-          <svg viewBox={`0 0 ${width} ${height}`} style={{ display: 'block', width: `${zoomScale * 100}%`, height: 'auto', transition: 'width 0.15s ease-in-out' }}>
+          <svg viewBox={`0 0 ${width} ${height}`} style={{ display: 'block', margin: '0 auto', width: `${zoomScale * 100}%`, height: 'auto', transition: 'width 0.15s ease-in-out' }}>
             <defs>
               <clipPath id="field-polygon-clip">
                 <polygon points={polyPointsStr} />
               </clipPath>
             </defs>
 
-            <rect width={width} height={height} rx={6} fill="#f1f8f5" />
+            <rect width={width} height={height} rx={6} fill="#000000" />
             
             {/* Border Direction Indicators & Adjacent Field Names */}
             {/* Top Side */}
-            <text x={gridCenterX} y={18} fontSize="10" fontWeight="800" fill="#64748b" textAnchor="middle">{topDir}</text>
+            <foreignObject
+              x={gridCenterX - 40}
+              y={6}
+              width={80}
+              height={22}
+              style={{ pointerEvents: 'none' }}
+            >
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '100%',
+                height: '100%',
+                backgroundColor: '#7f1d1d',
+                color: '#ffe000',
+                borderRadius: '4px',
+                fontSize: '12px',
+                fontWeight: '900',
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em',
+                border: '1px solid #991b1b',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.5)',
+                fontFamily: '"Inter", "system-ui", -apple-system, sans-serif'
+              }}>
+                {topDir}
+              </div>
+            </foreignObject>
             {adjacentFieldsBySide.top.length > 0 && (
-              <text x={gridCenterX} y={32} fontSize="9" fontWeight="600" fill="#047857" textAnchor="middle">
+              <text x={gridCenterX} y={42} fontSize="9" fontWeight="600" fill="#4ade80" textAnchor="middle">
                 Adjacent: {adjacentFieldsBySide.top.join(', ')}
               </text>
             )}
 
             {/* Bottom Side */}
-            <text x={gridCenterX} y={height - 24} fontSize="10" fontWeight="800" fill="#64748b" textAnchor="middle">{bottomDir}</text>
+            <foreignObject
+              x={gridCenterX - 40}
+              y={height - 34}
+              width={80}
+              height={22}
+              style={{ pointerEvents: 'none' }}
+            >
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '100%',
+                height: '100%',
+                backgroundColor: '#7f1d1d',
+                color: '#ffe000',
+                borderRadius: '4px',
+                fontSize: '12px',
+                fontWeight: '900',
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em',
+                border: '1px solid #991b1b',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.5)',
+                fontFamily: '"Inter", "system-ui", -apple-system, sans-serif'
+              }}>
+                {bottomDir}
+              </div>
+            </foreignObject>
             {adjacentFieldsBySide.bottom.length > 0 && (
-              <text x={gridCenterX} y={height - 10} fontSize="9" fontWeight="600" fill="#047857" textAnchor="middle">
+              <text x={gridCenterX} y={height - 6} fontSize="9" fontWeight="600" fill="#4ade80" textAnchor="middle">
                 Adjacent: {adjacentFieldsBySide.bottom.join(', ')}
               </text>
             )}
 
             {/* Left Side */}
-            <text x={leftPadding - 18} y={gridCenterY + 4} fontSize="10" fontWeight="800" fill="#64748b" textAnchor="end">{leftDir}</text>
+            <foreignObject
+              x={6}
+              y={gridCenterY - 11}
+              width={70}
+              height={22}
+              style={{ pointerEvents: 'none' }}
+            >
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '100%',
+                height: '100%',
+                backgroundColor: '#7f1d1d',
+                color: '#ffe000',
+                borderRadius: '4px',
+                fontSize: '12px',
+                fontWeight: '900',
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em',
+                border: '1px solid #991b1b',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.5)',
+                fontFamily: '"Inter", "system-ui", -apple-system, sans-serif'
+              }}>
+                {leftDir}
+              </div>
+            </foreignObject>
             {adjacentFieldsBySide.left.length > 0 && (
-              <text x={leftPadding - 18} y={gridCenterY + 18} fontSize="9" fontWeight="600" fill="#047857" textAnchor="end">
+              <text x={6} y={gridCenterY + 23} fontSize="9" fontWeight="600" fill="#4ade80" textAnchor="start">
                 Adjacent: {adjacentFieldsBySide.left.join(', ')}
               </text>
             )}
 
             {/* Right Side */}
-            <text x={gridRightX + 18} y={gridCenterY + 4} fontSize="10" fontWeight="800" fill="#64748b" textAnchor="start">{rightDir}</text>
+            <foreignObject
+              x={width - 76}
+              y={gridCenterY - 11}
+              width={70}
+              height={22}
+              style={{ pointerEvents: 'none' }}
+            >
+              <div style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: '100%',
+                height: '100%',
+                backgroundColor: '#7f1d1d',
+                color: '#ffe000',
+                borderRadius: '4px',
+                fontSize: '12px',
+                fontWeight: '900',
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em',
+                border: '1px solid #991b1b',
+                boxShadow: '0 2px 4px rgba(0,0,0,0.5)',
+                fontFamily: '"Inter", "system-ui", -apple-system, sans-serif'
+              }}>
+                {rightDir}
+              </div>
+            </foreignObject>
             {adjacentFieldsBySide.right.length > 0 && (
-              <text x={gridRightX + 18} y={gridCenterY + 18} fontSize="9" fontWeight="600" fill="#047857" textAnchor="start">
+              <text x={width - 6} y={gridCenterY + 23} fontSize="9" fontWeight="600" fill="#4ade80" textAnchor="end">
                 Adjacent: {adjacentFieldsBySide.right.join(', ')}
               </text>
             )}
@@ -1096,22 +1656,11 @@ const GraphicalFieldLayout = ({ layout, area, field }) => {
               <text x={tx} y={ty} fontSize="8" fontWeight="800" fill="#ef4444" textAnchor="middle">N</text>
             </g>
 
-            {/* Rotated Group */}
-            <g transform={`rotate(${gridRotationAngle}, ${gridCenterX}, ${gridCenterY})`}>
-              
-              {/* Row labels on the left (unclipped, fully visible) */}
-              {Array.from({ length: rows }).map((_, rIdx) => {
-                const y = topPadding + rIdx * (bedHeight + verticalSpacing);
-                return (
-                  <text key={`row_lbl_${rIdx}`} x={leftPadding - 50} y={y + 18} fontSize="10" fill="#64748b">
-                    Row {rIdx + 1}
-                  </text>
-                );
-              })}
-
-              {/* Clipped Zones & Cells */}
-              <g clipPath="url(#field-polygon-clip)">
-                {activeOverlay === 'none' ? (
+            {/* Clipped Group (unrotated, so clipPath is unrotated) */}
+            <g clipPath="url(#field-polygon-clip)">
+              {/* Rotated Group for layout rectangles */}
+              <g transform={`rotate(${gridRotationAngle}, ${gridCenterX}, ${gridCenterY})`}>
+                {activeOverlay === 'none' || activeOverlay === 'rotation' ? (
                   /* Render contiguous crop zones */
                   <>
                     {cropAssignments.map((a, idx) => {
@@ -1122,33 +1671,27 @@ const GraphicalFieldLayout = ({ layout, area, field }) => {
                       const zoneX = leftPadding - 300;
                       const zoneWidth = w_grid + 600;
                       
+                      const rotState = getRotationState(a.crop, selectedMonth);
+                      const fillColor = activeOverlay === 'rotation' ? rotState.color : a.color;
+                      const tooltipText = activeOverlay === 'rotation'
+                        ? `${rotState.label} (Month ${selectedMonth})\nArea: ${((a.endRow - a.startRow + 1) / rows * (area || 5)).toFixed(2)} Acres`
+                        : `${a.crop} Zone\nArea: ${((a.endRow - a.startRow + 1) / rows * (area || 5)).toFixed(2)} Acres`;
+                      
                       return (
-                        <g key={`crop_zone_${idx}`}>
-                          <rect
-                            x={zoneX}
-                            y={zoneY}
-                            width={zoneWidth}
-                            height={zoneHeight}
-                            fill={a.color}
-                            stroke="#1b5e20"
-                            strokeWidth={1}
-                            opacity={0.85}
-                            style={{ cursor: 'pointer' }}
-                          >
-                            <title>{`${a.crop} Zone\nRows ${a.startRow + 1} to ${a.endRow + 1}\nArea: ${((a.endRow - a.startRow + 1) / rows * (area || 5)).toFixed(2)} Acres`}</title>
-                          </rect>
-                          <text
-                            x={gridCenterX}
-                            y={zoneY + zoneHeight / 2 + 4}
-                            fontSize="11"
-                            fill="#ffffff"
-                            textAnchor="middle"
-                            fontWeight="bold"
-                            style={{ pointerEvents: 'none', filter: 'drop-shadow(0px 1px 2px rgba(0,0,0,0.8))' }}
-                          >
-                            {a.crop} Zone ({((a.endRow - a.startRow + 1) / rows * (area || 5)).toFixed(1)} Ac)
-                          </text>
-                        </g>
+                        <rect
+                          key={`crop_zone_${idx}`}
+                          x={zoneX}
+                          y={zoneY}
+                          width={zoneWidth}
+                          height={zoneHeight}
+                          fill={fillColor}
+                          stroke="#1b5e20"
+                          strokeWidth={1}
+                          opacity={0.85}
+                          style={{ cursor: 'pointer' }}
+                        >
+                          <title>{tooltipText}</title>
+                        </rect>
                       );
                     })}
 
@@ -1205,7 +1748,7 @@ const GraphicalFieldLayout = ({ layout, area, field }) => {
                               overlayColor = getElevationColor(elevVal);
                             }
                             
-                            const tooltipText = `Row ${rIdx + 1}, Zone Cell ${bIdx + 1}\nElevation: ${elevVal}m\nSoil Moisture: ${(moistureVal * 100).toFixed(0)}% VWC\nSoil Type: ${soilVal}`;
+                            const tooltipText = `Zone Cell ${bIdx + 1}\nElevation: ${elevVal}m\nSoil Moisture: ${(moistureVal * 100).toFixed(0)}% VWC\nSoil Type: ${soilVal}`;
                             
                             return (
                               <rect 
@@ -1226,35 +1769,124 @@ const GraphicalFieldLayout = ({ layout, area, field }) => {
                         </g>
                       );
                     })}
-
-                    {/* Zone labels on top of overlay */}
-                    {cropAssignments.map((a, idx) => {
-                      const y_start = topPadding + a.startRow * (bedHeight + verticalSpacing) - verticalSpacing / 2;
-                      const y_end = topPadding + (a.endRow + 1) * (bedHeight + verticalSpacing) - verticalSpacing / 2;
-                      const zoneHeight = y_end - y_start;
-                      const zoneY = y_start;
-                      
-                      return (
-                        <text
-                          key={`overlay_lbl_${idx}`}
-                          x={gridCenterX}
-                          y={zoneY + zoneHeight / 2 + 4}
-                          fontSize="11"
-                          fill="#ffffff"
-                          textAnchor="middle"
-                          fontWeight="bold"
-                          style={{ pointerEvents: 'none', filter: 'drop-shadow(0px 1px 2px rgba(0,0,0,0.8))' }}
-                        >
-                          {a.crop}
-                        </text>
-                      );
-                    })}
                   </>
                 )}
               </g>
             </g>
 
-            {/* Field Boundary Overlay */}
+            {/* Rotated Labels Group (unclipped but rotated to align with the beds) */}
+            <g transform={`rotate(${gridRotationAngle}, ${gridCenterX}, ${gridCenterY})`}>
+              {activeOverlay === 'none' ? (
+                <>
+                  {renderedLabels.map((lbl, idx) => (
+                    <g key={`crop_zone_label_${idx}`}>
+                      {lbl.calloutLine && (
+                        <>
+                          <line 
+                            x1={lbl.calloutLine.x1} 
+                            y1={lbl.calloutLine.y1} 
+                            x2={lbl.calloutLine.x2} 
+                            y2={lbl.calloutLine.y2} 
+                            stroke="#ff6d00" 
+                            strokeWidth={1.5} 
+                            strokeDasharray="3,3"
+                            opacity={0.9}
+                          />
+                          <circle 
+                            cx={lbl.calloutLine.x2} 
+                            cy={lbl.calloutLine.y2} 
+                            r={3} 
+                            fill="#ff6d00" 
+                            opacity={0.95}
+                          />
+                        </>
+                      )}
+                      <foreignObject
+                        x={lbl.drawX - lbl.halfW}
+                        y={lbl.drawY - 15}
+                        width={lbl.labelWidth}
+                        height={30}
+                        transform={`rotate(${-gridRotationAngle}, ${lbl.drawX}, ${lbl.drawY})`}
+                        style={{ pointerEvents: 'none' }}
+                      >
+                        <div style={{
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          width: '100%',
+                          height: '100%',
+                          textAlign: 'center',
+                          color: '#ffffff',
+                          fontFamily: '"Inter", "system-ui", -apple-system, sans-serif',
+                          lineHeight: '1.25',
+                          textShadow: '0px 1.5px 3px rgba(0,0,0,0.9), 0px 0px 2px rgba(0,0,0,0.9)'
+                        }}>
+                          <div style={{ textTransform: 'uppercase', fontSize: '10px', fontWeight: '800', letterSpacing: '0.04em' }}>{lbl.crop}</div>
+                        </div>
+                      </foreignObject>
+                    </g>
+                  ))}
+                </>
+              ) : (
+                <>
+                  {renderedLabels.map((lbl, idx) => (
+                    <g key={`overlay_lbl_${idx}`}>
+                      {lbl.calloutLine && (
+                        <>
+                          <line 
+                            x1={lbl.calloutLine.x1} 
+                            y1={lbl.calloutLine.y1} 
+                            x2={lbl.calloutLine.x2} 
+                            y2={lbl.calloutLine.y2} 
+                            stroke="#ff6d00" 
+                            strokeWidth={1.5} 
+                            strokeDasharray="3,3"
+                            opacity={0.9}
+                          />
+                          <circle 
+                            cx={lbl.calloutLine.x2} 
+                            cy={lbl.calloutLine.y2} 
+                            r={3} 
+                            fill="#ff6d00" 
+                            opacity={0.95}
+                          />
+                        </>
+                      )}
+                      <foreignObject
+                        x={lbl.drawX - lbl.halfW}
+                        y={lbl.drawY - 15}
+                        width={lbl.labelWidth}
+                        height={30}
+                        transform={`rotate(${-gridRotationAngle}, ${lbl.drawX}, ${lbl.drawY})`}
+                        style={{ pointerEvents: 'none' }}
+                      >
+                        <div style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          width: '100%',
+                          height: '100%',
+                          textAlign: 'center',
+                          color: '#ffffff',
+                          fontFamily: '"Inter", "system-ui", -apple-system, sans-serif',
+                          fontSize: '10px',
+                          fontWeight: '800',
+                          letterSpacing: '0.04em',
+                          lineHeight: '1.25',
+                          textShadow: '0px 1.5px 3px rgba(0,0,0,0.9), 0px 0px 2px rgba(0,0,0,0.9)',
+                          textTransform: 'uppercase'
+                        }}>
+                          {lbl.crop}
+                        </div>
+                      </foreignObject>
+                    </g>
+                  ))}
+                </>
+              )}
+            </g>
+
+            {/* Field Boundary Overlay (unrotated, matching the map) */}
             {polyPointsStr && (
               <g style={{ pointerEvents: 'none' }}>
                 {/* Outer thick yellow path (8px) */}
@@ -1292,12 +1924,21 @@ const GraphicalFieldLayout = ({ layout, area, field }) => {
             </h5>
             {cropLegendsExpanded && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
-                {cropAssignments.map((a, idx) => (
-                  <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem' }}>
-                    <div style={{ width: '16px', height: '16px', borderRadius: '4px', background: a.color, border: '1px solid #1b5e20' }} />
-                    <span>{a.crop} (Rows {a.startRow + 1}-{a.endRow + 1})</span>
-                  </div>
-                ))}
+                {cropAssignments.map((a, idx) => {
+                  const zoneAcres = ((a.endRow - a.startRow + 1) / rows * (area || 5)).toFixed(1);
+                  const midRow = (a.startRow + a.endRow) / 2;
+                  const t = midRow / (rows - 1 || 9);
+                  const zoneElevation = Math.round(Number(elevationVal) + 15 - t * 30);
+                  
+                  return (
+                    <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem' }}>
+                      <div style={{ width: '16px', height: '16px', borderRadius: '4px', background: a.color, border: '1px solid #1b5e20' }} />
+                      <span style={{ color: '#334155' }}>
+                        <span style={{ fontWeight: 600 }}>{a.crop}</span> ({zoneAcres} AC, {zoneElevation}M)
+                      </span>
+                    </div>
+                  );
+                })}
                 {polyPointsStr && (
                   <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '8px', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem' }}>
                     <div style={{ width: '16px', height: '16px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -1387,6 +2028,37 @@ const GraphicalFieldLayout = ({ layout, area, field }) => {
                     <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.8rem' }}>
                       <div style={{ width: '16px', height: '16px', borderRadius: '4px', background: item.color, border: '1px solid #cbd5e1' }} />
                       <span>{item.range}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+          
+          {activeOverlay === 'rotation' && (
+            <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
+              <h5 
+                onClick={() => setRotationLegendExpanded(!rotationLegendExpanded)}
+                style={{ margin: 0, fontSize: '0.85rem', color: '#334155', fontWeight: 700, display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
+              >
+                <span>Rotation State Legend</span>
+                {rotationLegendExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+              </h5>
+              {rotationLegendExpanded && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
+                  {[
+                    { label: 'Maturing / Growing Main Crop', color: '#ffe000', text: 'Vegetables, rice, or tubers currently maturing.' },
+                    { label: 'Nitrogen-Fixing Legumes (Cowpea/Groundnut)', color: '#2e7d32', text: 'Planted as rotational crop to enrich nitrogen levels.' },
+                    { label: 'Harvesting Phase', color: '#c62828', text: 'Crops ready for harvest or in recurring harvesting phase.' },
+                    { label: 'Perennial Crops (Oil Palm / Cocoa)', color: '#1b5e20', text: 'Long-term crops that occupy fields continuously.' },
+                    { label: 'Harvested / Fallow', color: '#78909c', text: 'Post-harvest fallow period or organic soil building.' }
+                  ].map((item, idx) => (
+                    <div key={idx} style={{ display: 'flex', alignItems: 'start', gap: '8px', fontSize: '0.8rem' }}>
+                      <div style={{ width: '16px', height: '16px', borderRadius: '4px', background: item.color, border: '1px solid #cbd5e1', flexShrink: 0, marginTop: '1px' }} />
+                      <div>
+                        <strong style={{ color: '#334155' }}>{item.label}</strong>
+                        <div style={{ color: '#64748b', fontSize: '0.75rem', marginTop: '1px' }}>{item.text}</div>
+                      </div>
                     </div>
                   ))}
                 </div>

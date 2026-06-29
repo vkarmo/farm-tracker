@@ -1,7 +1,7 @@
 import { configureStore, combineReducers } from '@reduxjs/toolkit';
 import { persistStore, persistReducer } from 'redux-persist';
 import localForage from 'localforage';
-import syncReducer from './syncSlice';
+import syncReducer, { flushQueue } from './syncSlice';
 import fieldsReducer from './fieldsSlice';
 import assetsReducer from './assetsSlice';
 import financialsReducer from './financialsSlice';
@@ -158,6 +158,20 @@ const injectUserMiddleware = store => next => action => {
   return next(action);
 };
 
+let syncTimeout = null;
+const syncTriggerMiddleware = store => next => action => {
+  const result = next(action);
+  if (action.type === 'sync/queueAction') {
+    if (syncTimeout) {
+      clearTimeout(syncTimeout);
+    }
+    syncTimeout = setTimeout(() => {
+      store.dispatch(flushQueue());
+    }, 200);
+  }
+  return result;
+};
+
 export const store = configureStore({
   reducer: persistedReducer,
   middleware: (getDefaultMiddleware) =>
@@ -166,7 +180,7 @@ export const store = configureStore({
         // Ignore redux-persist actions
         ignoredActions: ['persist/PERSIST', 'persist/REHYDRATE', 'persist/REGISTER'],
       },
-    }).concat(auditMiddleware, timestampMiddleware, injectUserMiddleware, reduxLoggingMiddleware),
+    }).concat(auditMiddleware, timestampMiddleware, injectUserMiddleware, syncTriggerMiddleware, reduxLoggingMiddleware),
 });
 
 export const persistor = persistStore(store);

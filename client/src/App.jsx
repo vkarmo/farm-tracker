@@ -151,19 +151,10 @@ export default function App() {
     }
   }, [currentUser]);
 
-  const handleFarmChange = async (farmId) => {
-    setSwitchingToFarmId(farmId);
-    setIsFarmLoading(true);
+  const handleFarmChange = (farmId) => {
     localStorage.setItem('activeFarmId', farmId);
     setActiveFarmId(farmId);
-    try {
-      await dispatch(fetchInitialData());
-    } catch (err) {
-      console.error('Failed to load initial data for farm:', err);
-    } finally {
-      setIsFarmLoading(false);
-      setSwitchingToFarmId(null);
-    }
+    dispatch(fetchInitialData());
   };
 
   const handleCreateFarm = async () => {
@@ -1145,8 +1136,8 @@ export default function App() {
                 </button>
               )}
 
-              <button onClick={() => setActiveTab('sync')} className={`btn toolbar-btn ${activeTab === 'sync' ? 'btn-primary' : ''}`} style={{ background: activeTab === 'sync' ? (!backendAvailable ? '#d32f2f' : '#1565c0') : 'transparent', color: activeTab === 'sync' ? 'white' : (!backendAvailable ? '#d32f2f' : '#1565c0'), borderColor: 'transparent' }} title="System Sync">
-                <RefreshCw size={18} className={isSyncing ? "spin" : ""} />
+              <button onClick={() => setActiveTab('sync')} className={`btn toolbar-btn system-sync-btn ${activeTab === 'sync' ? 'btn-primary' : ''}`} style={{ background: activeTab === 'sync' ? (!backendAvailable ? '#d32f2f' : '#1565c0') : 'transparent', color: activeTab === 'sync' ? 'white' : (!backendAvailable ? '#d32f2f' : '#1565c0'), borderColor: 'transparent' }} title="System Sync">
+                <RefreshCw size={18} />
               </button>
 
               {(currentUser?.role === 'Admin' || currentUser?.role === 'Admin Viewer') && (
