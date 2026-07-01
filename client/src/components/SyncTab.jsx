@@ -1,7 +1,8 @@
 import React, { useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { flushQueue } from '../store/syncSlice';
-import { RefreshCw, Database } from 'lucide-react';
+import { flushQueue, clearAllQueue } from '../store/syncSlice';
+import { RefreshCw, Database, Trash2 } from 'lucide-react';
+import localforage from 'localforage';
 
 const getRecordCount = (key, value) => {
   if (!value) return 0;
@@ -59,6 +60,279 @@ const getRecordCount = (key, value) => {
   }
 };
 
+const getAllRecords = (state) => {
+  const records = [];
+
+  const addItems = (arr, nodeType, nameField = 'name') => {
+    if (Array.isArray(arr)) {
+      arr.forEach(item => {
+        records.push({
+          id: item.id || item.timestamp || Math.random().toString(),
+          nodeType,
+          name: item[nameField] || item.title || item.crop || item.cropName || item.diseaseName || item.pestName || item.description || item.id || 'Unnamed Record',
+          data: item
+        });
+      });
+    }
+  };
+
+  // 1. fields
+  addItems(state.fields?.data, 'Field');
+  // 2. nurseries
+  addItems(state.nurseries?.beds, 'NurseryBed');
+  // 3. assets
+  addItems(state.assets?.crops, 'Crop');
+  addItems(state.assets?.livestock, 'Livestock');
+  addItems(state.assets?.harvests, 'Harvest', 'crop');
+  addItems(state.assets?.equipment, 'Equipment');
+  addItems(state.assets?.kits, 'LivestockKit');
+  // 4. breeding
+  addItems(state.breeding?.pairings, 'BreedingEvent', 'id');
+  addItems(state.breeding?.kits, 'LivestockKit', 'id');
+  // 5. planning
+  addItems(state.planning?.goals, 'Goal', 'title');
+  addItems(state.planning?.objectives, 'Objective', 'title');
+  // 6. recommendations
+  addItems(state.recommendations?.data, 'Recommendation', 'id');
+  // 7. financials
+  addItems(state.financials?.transactions, 'Transaction', 'description');
+  // 8. audit
+  addItems(state.audit?.logs, 'AuditLog', 'action');
+  // 9. gps
+  addItems(state.gps?.locations, 'GpsLog', 'id');
+  // 10. soilTests
+  addItems(state.soilTests?.list, 'SoilTest', 'id');
+  // 11. auth
+  addItems(state.auth?.usersList, 'User', 'email');
+  // 12. budgets
+  addItems(state.budgets?.list, 'Budget', 'name');
+  // 13. deadlines
+  addItems(state.deadlines?.list, 'Deadline', 'title');
+  // 14. incidents
+  addItems(state.incidents?.list, 'Incident', 'title');
+  // 15. assignments
+  addItems(state.assignments?.list, 'TaskAssignment', 'task');
+  // 16. employees
+  addItems(state.employees?.list, 'Employee', 'name');
+  // 17. pests
+  addItems(state.pests?.list, 'Pest', 'name');
+  // 18. livestockDiseases
+  addItems(state.livestockDiseases?.list, 'LivestockDisease', 'diseaseName');
+  // 19. poi
+  addItems(state.poi?.list, 'PointOfInterest', 'name');
+
+  // 20. settings
+  if (state.settings && Object.keys(state.settings).length > 0) {
+    records.push({
+      id: 'settings_node',
+      nodeType: 'GlobalSettings',
+      name: 'Global settings configuration',
+      data: state.settings
+    });
+  }
+
+  return records;
+};
+
+const renderRecordSummary = (record) => {
+  const { nodeType, data } = record;
+  if (!data) return null;
+
+  switch (nodeType) {
+    case 'Field':
+      return (
+        <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
+          <div><strong>Area:</strong> {data.area} acres</div>
+          <div><strong>Soil Type:</strong> {data.soil_type}</div>
+          <div><strong>Irrigation:</strong> {data.irrigation || 'None'}</div>
+        </div>
+      );
+    case 'NurseryBed':
+      return (
+        <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
+          <div><strong>Capacity:</strong> {data.capacity} plants</div>
+          <div><strong>Status:</strong> {data.status}</div>
+        </div>
+      );
+    case 'Crop':
+      return (
+        <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
+          <div><strong>Variety:</strong> {data.variety}</div>
+          <div><strong>Planting Date:</strong> {data.plantingDate}</div>
+          <div><strong>Expected Harvest:</strong> {data.expectedHarvest}</div>
+        </div>
+      );
+    case 'Livestock':
+      return (
+        <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
+          <div><strong>Type:</strong> {data.type}</div>
+          <div><strong>Breed:</strong> {data.breed}</div>
+          <div><strong>Status:</strong> {data.status}</div>
+        </div>
+      );
+    case 'Harvest':
+      return (
+        <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
+          <div><strong>Quantity:</strong> {data.quantity} {data.unit}</div>
+          <div><strong>Date:</strong> {data.harvestDate || data.date}</div>
+        </div>
+      );
+    case 'Equipment':
+      return (
+        <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
+          <div><strong>Status:</strong> {data.status}</div>
+          <div><strong>Last Maintained:</strong> {data.lastMaintenance}</div>
+        </div>
+      );
+    case 'Transaction':
+      return (
+        <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
+          <div><strong>Type:</strong> {data.type}</div>
+          <div><strong>Amount:</strong> ${data.amount}</div>
+          <div><strong>Category:</strong> {data.category}</div>
+        </div>
+      );
+    case 'Budget':
+      return (
+        <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
+          <div><strong>Limit:</strong> ${data.limit}</div>
+          <div><strong>Spent:</strong> ${data.spent}</div>
+        </div>
+      );
+    case 'TaskAssignment':
+      return (
+        <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
+          <div><strong>Status:</strong> {data.status}</div>
+          <div><strong>Assigned To:</strong> {data.workerId || data.assignedTo}</div>
+        </div>
+      );
+    case 'Employee':
+      return (
+        <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
+          <div><strong>Role:</strong> {data.role}</div>
+          <div><strong>Phone:</strong> {data.phone}</div>
+        </div>
+      );
+    case 'AuditLog':
+      return (
+        <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
+          <div><strong>Action:</strong> {data.action}</div>
+          <div><strong>User:</strong> {data.userEmail}</div>
+        </div>
+      );
+    case 'GpsLog':
+      return (
+        <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
+          <div><strong>Coordinates:</strong> {data.lat?.toFixed(5)}, {data.lng?.toFixed(5)}</div>
+          <div><strong>Time:</strong> {data.timestamp ? new Date(data.timestamp).toLocaleTimeString() : 'N/A'}</div>
+        </div>
+      );
+    case 'PointOfInterest':
+      return (
+        <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
+          <div><strong>Type:</strong> {data.type}</div>
+          <div><strong>Notes:</strong> {data.notes || 'None'}</div>
+        </div>
+      );
+    default:
+      // Fallback for others
+      const keys = Object.keys(data).filter(k => k !== 'id' && typeof data[k] !== 'object');
+      return (
+        <div style={{ fontSize: '0.8rem', color: '#64748b' }}>
+          {keys.slice(0, 3).map(k => (
+            <div key={k}><strong>{k}:</strong> {String(data[k])}</div>
+          ))}
+        </div>
+      );
+  }
+};
+
+const deleteRecordFromRedux = (dispatch, record) => {
+  const { nodeType, id, data } = record;
+  
+  switch (nodeType) {
+    case 'Field':
+      dispatch({ type: 'fields/deleteField', payload: id });
+      break;
+    case 'NurseryBed':
+      dispatch({ type: 'nurseries/deleteBed', payload: id });
+      break;
+    case 'Crop':
+      dispatch({ type: 'assets/deleteCrop', payload: id });
+      break;
+    case 'Livestock':
+      dispatch({ type: 'assets/deleteLivestock', payload: id });
+      break;
+    case 'Harvest':
+      dispatch({ type: 'assets/deleteHarvest', payload: id });
+      break;
+    case 'Equipment':
+      dispatch({ type: 'assets/deleteEquipment', payload: id });
+      break;
+    case 'LivestockKit':
+      dispatch({ type: 'breeding/deleteKit', payload: id });
+      dispatch({ type: 'assets/deleteKit', payload: id });
+      break;
+    case 'BreedingEvent':
+      dispatch({ type: 'breeding/deletePairing', payload: id });
+      break;
+    case 'Goal':
+      dispatch({ type: 'planning/removeGoal', payload: id });
+      break;
+    case 'Objective':
+      dispatch({ type: 'planning/removeObjective', payload: id });
+      break;
+    case 'Recommendation':
+      dispatch({ type: 'recommendations/deleteRecommendation', payload: id });
+      break;
+    case 'Transaction':
+      dispatch({ type: 'financials/deleteTransaction', payload: id });
+      break;
+    case 'AuditLog':
+      dispatch({ type: 'audit/deleteLogs', payload: [id] });
+      break;
+    case 'GpsLog':
+      dispatch({ type: 'gps/deleteLocations', payload: [id] });
+      break;
+    case 'SoilTest':
+      dispatch({ type: 'soilTests/removeSoilTest', payload: id });
+      break;
+    case 'User':
+      dispatch({ type: 'auth/removeUserOffline', payload: data.email || id });
+      break;
+    case 'Budget':
+      dispatch({ type: 'budgets/deleteBudget', payload: id });
+      break;
+    case 'Deadline':
+      dispatch({ type: 'deadlines/deleteDeadline', payload: id });
+      break;
+    case 'Incident':
+      dispatch({ type: 'incidents/deleteIncident', payload: id });
+      break;
+    case 'TaskAssignment':
+      dispatch({ type: 'assignments/deleteAssignment', payload: id });
+      break;
+    case 'Employee':
+      dispatch({ type: 'employees/deleteEmployee', payload: id });
+      break;
+    case 'Pest':
+      dispatch({ type: 'pests/removePest', payload: id });
+      break;
+    case 'LivestockDisease':
+      dispatch({ type: 'livestockDiseases/removeDisease', payload: id });
+      break;
+    case 'PointOfInterest':
+      dispatch({ type: 'poi/deletePoi', payload: id });
+      break;
+    case 'GlobalSettings':
+      dispatch({ type: 'settings/setAllSettings', payload: {} });
+      break;
+    default:
+      console.warn('No delete mapper defined for node type:', nodeType);
+      break;
+  }
+};
+
 export default function SyncTab() {
   const dispatch = useDispatch();
   const fullState = useSelector(state => state);
@@ -67,6 +341,10 @@ export default function SyncTab() {
   const { offlineActionQueue = [], isSyncing = false, lastSynced, backendAvailable = true, backendFailures = 0 } = syncModule;
 
   const [dbConfig, setDbConfig] = React.useState(null);
+  const [selectedTypeFilter, setSelectedTypeFilter] = React.useState('all');
+  const [searchQuery, setSearchQuery] = React.useState('');
+  const [expandedRecordIds, setExpandedRecordIds] = React.useState({});
+  const [isClearingQueue, setIsClearingQueue] = React.useState(false);
 
   useEffect(() => {
     if (currentUser?.role === 'admin') {
@@ -81,6 +359,37 @@ export default function SyncTab() {
     dispatch(flushQueue(true));
   };
 
+  const allRecords = React.useMemo(() => getAllRecords(fullState), [fullState]);
+
+  const nodeTypes = React.useMemo(() => {
+    const types = new Set();
+    allRecords.forEach(r => {
+      if (r.nodeType) types.add(r.nodeType);
+    });
+    return Array.from(types).sort();
+  }, [allRecords]);
+
+  const filteredRecords = React.useMemo(() => {
+    return allRecords.filter(r => {
+      const matchesFilter = selectedTypeFilter === 'all' || r.nodeType === selectedTypeFilter;
+      const matchesSearch = searchQuery === '' || 
+        r.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+        r.nodeType.toLowerCase().includes(searchQuery.toLowerCase());
+      return matchesFilter && matchesSearch;
+    });
+  }, [allRecords, selectedTypeFilter, searchQuery]);
+
+  const groupedRecords = React.useMemo(() => {
+    const groups = {};
+    filteredRecords.forEach(r => {
+      if (!groups[r.nodeType]) {
+        groups[r.nodeType] = [];
+      }
+      groups[r.nodeType].push(r);
+    });
+    return groups;
+  }, [filteredRecords]);
+
   return (
     <div className="card">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '15px' }}>
@@ -91,22 +400,62 @@ export default function SyncTab() {
           </p>
         </div>
 
-        <button
-          onClick={handleForceSync}
-          disabled={isSyncing || offlineActionQueue.length === 0}
-          className="btn btn-primary"
-          style={{
-            display: 'flex', alignItems: 'center', gap: '8px',
-            background: isSyncing ? '#aaa' : 'var(--color-primary)'
-          }}
-        >
-          {isSyncing ? (
-            <RefreshCw size={16} className="spin" />
-          ) : (
-            <Database size={16} />
-          )}
-          {isSyncing ? `Pushing Data (${offlineActionQueue.length} actions left)...` : `Force Sync Context Queue (${offlineActionQueue.length} actions)`}
-        </button>
+        <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+          <button
+            onClick={handleForceSync}
+            disabled={isSyncing || offlineActionQueue.length === 0}
+            className="btn btn-primary"
+            style={{
+              display: 'flex', alignItems: 'center', gap: '8px',
+              background: isSyncing ? '#aaa' : 'var(--color-primary)'
+            }}
+          >
+            {isSyncing ? (
+              <RefreshCw size={16} className="spin" />
+            ) : (
+              <Database size={16} />
+            )}
+            {isSyncing ? `Pushing Data (${offlineActionQueue.length} actions left)...` : `Force Sync Context Queue (${offlineActionQueue.length} actions)`}
+          </button>
+          
+          <button
+            onClick={() => {
+              if (confirm('Are you sure you want to clear all local storage and local Redux cache? This will wipe all local data and reload the application.')) {
+                setIsClearingQueue(true);
+                localStorage.clear();
+                localforage.clear()
+                  .then(() => {
+                    setTimeout(() => {
+                      window.location.reload();
+                    }, 1200);
+                  })
+                  .catch(err => {
+                    console.error('Failed to clear localForage database:', err);
+                    setTimeout(() => {
+                      window.location.reload();
+                    }, 1200);
+                  });
+              }
+            }}
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              background: '#fee2e2',
+              color: '#991b1b',
+              border: '1px solid #fca5a5',
+              borderRadius: '4px',
+              padding: '6px 12px',
+              fontSize: '0.85rem',
+              fontWeight: 600,
+              cursor: 'pointer',
+              outline: 'none'
+            }}
+          >
+            <Trash2 size={16} />
+            Clear Local Storage
+          </button>
+        </div>
       </div>
 
       {isSyncing && (
@@ -150,74 +499,271 @@ export default function SyncTab() {
 
       <hr style={{ border: 'none', borderTop: '1px solid var(--color-border)', margin: '20px 0' }} />
 
-      <h3>Raw Local Redux Memory Diagnostics</h3>
+      <h3>Local Redux Node Diagnostics Grid</h3>
       <p style={{ fontSize: '0.85rem', color: 'var(--color-text-light)', marginBottom: '20px' }}>
-        This dashboard displays a comprehensive breakdown of what is persisted mathematically inside the application cache across all modules.
+        Search, filter, and inspect all active records saved inside the local browser telemetry cache.
       </p>
 
+      {/* Filter and Search Bar */}
       <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-        gap: '20px'
+        display: 'flex',
+        gap: '15px',
+        marginBottom: '20px',
+        flexWrap: 'wrap',
+        alignItems: 'flex-end',
+        background: '#f8fafc',
+        padding: '12px 16px',
+        borderRadius: '8px',
+        border: '1px solid #cbd5e1'
       }}>
-        {Object.entries(fullState).map(([key, value]) => {
-          if (key === '_persist') return null;
-          const itemCount = getRecordCount(key, value);
-
-          return (
-            <div key={key} style={{
-              background: 'white',
-              border: '1px solid var(--color-border)',
-              borderRadius: '12px',
-              padding: '20px',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.03)',
-              display: 'flex',
-              flexDirection: 'column',
-              transition: 'transform 0.2s ease, box-shadow 0.2s ease'
+        <div style={{ flex: '1 1 200px' }}>
+          <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: '#475569', marginBottom: '4px' }}>
+            Filter by Node Type
+          </label>
+          <select
+            value={selectedTypeFilter}
+            onChange={(e) => setSelectedTypeFilter(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '8px 12px',
+              borderRadius: '6px',
+              border: '1px solid #cbd5e1',
+              backgroundColor: 'white',
+              fontSize: '0.85rem',
+              color: '#334155',
+              outline: 'none'
             }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.transform = 'translateY(-2px)';
-                e.currentTarget.style.boxShadow = '0 6px 16px rgba(0,0,0,0.08)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.transform = 'translateY(0)';
-                e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.03)';
-              }}
-            >
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px', borderBottom: '2px solid #f0f0f0', paddingBottom: '10px' }}>
-                <h4 style={{ margin: 0, color: 'var(--color-primary)', textTransform: 'capitalize', fontSize: '1.1rem', fontWeight: 600 }}>
-                  {key}
-                </h4>
-                <span style={{
-                  background: itemCount > 0 ? '#e3f2fd' : '#f5f5f5',
-                  color: itemCount > 0 ? '#1976d2' : '#9e9e9e',
-                  padding: '4px 10px',
-                  borderRadius: '20px',
-                  fontSize: '0.75rem',
-                  fontWeight: 'bold'
-                }}>
-                  {itemCount} {itemCount === 1 ? 'Entry' : 'Entries'}
-                </span>
-              </div>
+          >
+            <option value="all">All Types ({allRecords.length} records)</option>
+            {nodeTypes.map(t => {
+              const count = allRecords.filter(r => r.nodeType === t).length;
+              return (
+                <option key={t} value={t}>
+                  {t} ({count})
+                </option>
+              );
+            })}
+          </select>
+        </div>
 
-              <div style={{
-                background: '#1e1e1e',
-                color: '#a6e22e',
-                padding: '12px',
-                borderRadius: '8px',
-                overflowX: 'auto',
-                overflowY: 'auto',
-                height: '150px',
-                fontSize: '0.8rem',
-                fontFamily: 'monospace',
-                boxShadow: 'inset 0 2px 4px rgba(0,0,0,0.2)'
-              }}>
-                <pre style={{ margin: 0 }}>{JSON.stringify(value, null, 2)}</pre>
-              </div>
-            </div>
-          );
-        })}
+        <div style={{ flex: '2 1 250px' }}>
+          <label style={{ display: 'block', fontSize: '0.78rem', fontWeight: 600, color: '#475569', marginBottom: '4px' }}>
+            Search Records
+          </label>
+          <input
+            type="text"
+            placeholder="Search by name, ID, or type..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            style={{
+              width: '100%',
+              padding: '8px 12px',
+              borderRadius: '6px',
+              border: '1px solid #cbd5e1',
+              fontSize: '0.85rem',
+              outline: 'none',
+              boxSizing: 'border-box'
+            }}
+          />
+        </div>
+
+        <div style={{ flex: '0 0 auto' }}>
+          <button
+            onClick={() => {
+              const targetType = selectedTypeFilter;
+              const count = filteredRecords.length;
+              const confirmMsg = targetType === 'all'
+                ? `Are you sure you want to clear ALL ${count} local records in the current view?`
+                : `Are you sure you want to clear all ${count} records of type "${targetType}"?`;
+              if (confirm(confirmMsg)) {
+                filteredRecords.forEach(record => {
+                  deleteRecordFromRedux(dispatch, record);
+                });
+              }
+            }}
+            disabled={filteredRecords.length === 0}
+            style={{
+              padding: '9px 16px',
+              borderRadius: '6px',
+              border: 'none',
+              backgroundColor: filteredRecords.length === 0 ? '#cbd5e1' : '#dc2626',
+              color: 'white',
+              fontSize: '0.85rem',
+              fontWeight: 600,
+              cursor: filteredRecords.length === 0 ? 'not-allowed' : 'pointer',
+              outline: 'none',
+              boxShadow: filteredRecords.length === 0 ? 'none' : '0 1px 2px rgba(0,0,0,0.05)'
+            }}
+          >
+            Clear Filtered Group ({filteredRecords.length})
+          </button>
+        </div>
       </div>
+
+      {filteredRecords.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '30px', color: '#64748b', background: 'white', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
+          No records found matching your filters.
+        </div>
+      ) : (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '30px' }}>
+          {Object.entries(groupedRecords).map(([nodeType, recordsOfType]) => {
+            // Find columns dynamically
+            const allKeys = new Set();
+            recordsOfType.forEach(r => {
+              Object.keys(r.data || {}).forEach(k => {
+                const lowerK = k.toLowerCase();
+                if (lowerK !== 'polygon' && !lowerK.endsWith('id') && !lowerK.endsWith('ids')) {
+                  allKeys.add(k);
+                }
+              });
+            });
+            
+            // Ensure ID and Name are first
+            const columns = Array.from(allKeys).sort((a, b) => {
+              const priority = { name: 1, variety: 2, type: 3, status: 4 };
+              const pA = priority[a.toLowerCase()] || 99;
+              const pB = priority[b.toLowerCase()] || 99;
+              if (pA !== pB) return pA - pB;
+              return a.localeCompare(b);
+            });
+
+            const badgeColorMap = {
+              'Field': { bg: '#e8f5e9', text: '#2e7d32' },
+              'NurseryBed': { bg: '#efebe9', text: '#5d4037' },
+              'Crop': { bg: '#e8f5e9', text: '#1b5e20' },
+              'Livestock': { bg: '#f1f8e9', text: '#558b2f' },
+              'Harvest': { bg: '#fff3e0', text: '#e65100' },
+              'Equipment': { bg: '#eceff1', text: '#455a64' },
+              'Transaction': { bg: '#e3f2fd', text: '#1565c0' },
+              'Budget': { bg: '#ede7f6', text: '#5e35b1' },
+              'TaskAssignment': { bg: '#fffde7', text: '#f57f17' },
+              'Employee': { bg: '#f3e5f5', text: '#7b1fa2' },
+              'User': { bg: '#e0f2f1', text: '#00796b' },
+              'Goal': { bg: '#e8eaf6', text: '#1a237e' },
+              'Objective': { bg: '#e0f7fa', text: '#006064' },
+              'AuditLog': { bg: '#fafafa', text: '#616161' },
+              'GpsLog': { bg: '#ffebee', text: '#c62828' },
+              'Pest': { bg: '#fbe9e7', text: '#d84315' },
+              'SoilTest': { bg: '#e0f2f1', text: '#004d40' },
+              'LivestockDisease': { bg: '#ffebee', text: '#b71c1c' },
+              'PointOfInterest': { bg: '#fff8e1', text: '#ff8f00' },
+              'GlobalSettings': { bg: '#eceff1', text: '#37474f' },
+              'Recommendation': { bg: '#ede7f6', text: '#4a148c' }
+            };
+            
+            const badgeColors = badgeColorMap[nodeType] || { bg: '#f1f5f9', text: '#475569' };
+
+            return (
+              <div key={nodeType} style={{ background: '#f8fafc', padding: '15px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
+                  <h3 style={{ margin: 0, fontSize: '1.15rem', color: '#1e293b' }}>{nodeType} Records</h3>
+                  <span style={{
+                    background: badgeColors.bg,
+                    color: badgeColors.text,
+                    padding: '2px 8px',
+                    borderRadius: '12px',
+                    fontSize: '0.72rem',
+                    fontWeight: 'bold'
+                  }}>
+                    {recordsOfType.length}
+                  </span>
+                </div>
+                
+                <div style={{
+                  width: '100%',
+                  overflowX: 'auto',
+                  background: 'white',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: '6px',
+                  boxShadow: '0 2px 8px rgba(0,0,0,0.02)'
+                }}>
+                  <table style={{
+                    width: '100%',
+                    borderCollapse: 'collapse',
+                    fontSize: '0.82rem',
+                    textAlign: 'left'
+                  }}>
+                    <thead>
+                      <tr style={{ background: '#f1f5f9', borderBottom: '2px solid #cbd5e1' }}>
+                        <th style={{ padding: '10px 14px', fontWeight: 600, color: '#475569', width: '50px' }}></th>
+                        {columns.map(col => (
+                          <th key={col} style={{ padding: '10px 14px', fontWeight: 600, color: '#475569', textTransform: 'capitalize', whiteSpace: 'nowrap' }}>
+                            {col}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {recordsOfType.map(record => (
+                        <tr key={record.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                          <td style={{ padding: '10px 14px', verticalAlign: 'middle', width: '50px', textAlign: 'center' }}>
+                            <button
+                              onClick={() => {
+                                if (confirm(`Are you sure you want to clear this individual ${record.nodeType} record from local cache?`)) {
+                                  deleteRecordFromRedux(dispatch, record);
+                                }
+                              }}
+                              title={`Clear ${record.nodeType}`}
+                              style={{
+                                background: 'none',
+                                border: 'none',
+                                color: '#dc2626',
+                                cursor: 'pointer',
+                                padding: '4px',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                borderRadius: '4px',
+                                outline: 'none',
+                                transition: 'background-color 0.15s ease'
+                              }}
+                              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#fee2e2'; }}
+                              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                            >
+                              <Trash2 size={16} />
+                            </button>
+                          </td>
+                          {columns.map(col => {
+                            const val = (record.data || {})[col];
+                            let displayVal = '';
+                            if (val === null || val === undefined) {
+                              displayVal = '-';
+                            } else if (typeof val === 'object') {
+                              displayVal = JSON.stringify(val);
+                            } else {
+                              displayVal = String(val);
+                            }
+                            return (
+                              <td key={col} style={{
+                                padding: '10px 14px',
+                                color: '#334155',
+                                fontFamily: 'monospace',
+                                fontSize: '0.75rem',
+                                whiteSpace: 'normal',
+                                wordBreak: 'keep-all',
+                                overflowWrap: 'normal'
+                              }}>
+                                {displayVal}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+      {isClearingQueue && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
+          <RefreshCw size={54} className="spin" style={{ marginBottom: '24px', color: 'var(--color-accent)' }} />
+          <h2 style={{ color: 'white', marginBottom: '8px' }}>Clearing Local Storage...</h2>
+          <p style={{ color: '#ccc', maxWidth: '280px', textAlign: 'center', wordWrap: 'break-word', whiteSpace: 'normal', lineHeight: '1.4' }}>Please wait while we clear the local cache.</p>
+        </div>
+      )}
     </div>
   );
 }

@@ -52,6 +52,10 @@ export const syncSlice = createSlice({
         a => !a.meta?.id || !idsToRemove.includes(a.meta.id)
       );
     },
+    clearAllQueue: (state) => {
+      state.offlineActionQueue = [];
+      state.totalActionsQueued = 0;
+    },
     setSyncing: (state, action) => {
       state.isSyncing = action.payload;
     },
@@ -73,7 +77,7 @@ export const syncSlice = createSlice({
   }
 });
 
-export const { queueAction, clearQueue, setSyncing, setLastSynced, incrementFailures, resetBackend } = syncSlice.actions;
+export const { queueAction, clearQueue, clearAllQueue, setSyncing, setLastSynced, incrementFailures, resetBackend } = syncSlice.actions;
 
 export const flushQueue = (forceSync = false) => async (dispatch, getState) => {
   const { offlineActionQueue, isSyncing, backendAvailable, backendFailures } = getState().sync;
@@ -100,28 +104,42 @@ export const flushQueue = (forceSync = false) => async (dispatch, getState) => {
   try {
     const currentUser = getState().auth?.currentUser;
     const email = currentUser ? currentUser.email : '';
-    const response = await fetch('/api/sync', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ queue: farmActions, farmId: activeFarmId, email })
+    
+    // Process all pending farm actions concurrently/in parallel
+    const syncPromises = farmActions.map(async (action) => {
+      try {
+        const response = await fetch('/api/sync', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ queue: [action], farmId: activeFarmId, email })
+        });
+        
+        if (response.ok) {
+          const data = await response.json();
+          if (data.error === 'DATABASE_UNAVAILABLE' || data.ok === false) {
+            return false;
+          }
+          const id = action.meta?.id;
+          if (id) {
+            dispatch(clearQueue([id]));
+          }
+          return true;
+        } else {
+          return false;
+        }
+      } catch (err) {
+        console.error('Error syncing individual action:', err);
+        return false;
+      }
     });
 
-    if (response.ok) {
-      const data = await response.json();
-      if (data.error === 'DATABASE_UNAVAILABLE' || data.ok === false) {
-        console.warn('Sync endpoint database unavailable — will retry.', data.details || '');
-        dispatch(incrementFailures());
-        return;
-      }
+    const results = await Promise.all(syncPromises);
+    const successCount = results.filter(Boolean).length;
 
-      const syncedIds = farmActions.map(a => a.meta?.id).filter(Boolean);
-      dispatch(clearQueue(syncedIds));
+    if (successCount > 0) {
       dispatch(resetBackend());
       dispatch(setLastSynced(new Date().toISOString()));
-    } else {
-      const errText = await response.text();
-      console.error('Remote DB Sync Exception:', errText);
-      console.warn('Sync endpoint rejected payload — will retry.');
+    } else if (farmActions.length > 0) {
       dispatch(incrementFailures());
     }
   } catch (error) {
