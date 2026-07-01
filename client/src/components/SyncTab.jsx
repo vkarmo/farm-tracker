@@ -420,7 +420,7 @@ export default function SyncTab() {
           
           <button
             onClick={() => {
-              if (confirm('Are you sure you want to clear all local storage and local Redux cache? This will wipe all local data and reload the application.')) {
+              if (confirm('Are you sure you want to purge all local storage and local Redux cache? This will wipe all local data and reload the application.')) {
                 setIsClearingQueue(true);
                 localStorage.clear();
                 localforage.clear()
@@ -430,7 +430,7 @@ export default function SyncTab() {
                     }, 1200);
                   })
                   .catch(err => {
-                    console.error('Failed to clear localForage database:', err);
+                    console.error('Failed to purge localForage database:', err);
                     setTimeout(() => {
                       window.location.reload();
                     }, 1200);
@@ -453,7 +453,7 @@ export default function SyncTab() {
             }}
           >
             <Trash2 size={16} />
-            Clear Local Storage
+            Purge Local Storage
           </button>
         </div>
       </div>
@@ -573,8 +573,8 @@ export default function SyncTab() {
               const targetType = selectedTypeFilter;
               const count = filteredRecords.length;
               const confirmMsg = targetType === 'all'
-                ? `Are you sure you want to clear ALL ${count} local records in the current view?`
-                : `Are you sure you want to clear all ${count} records of type "${targetType}"?`;
+                ? `Are you sure you want to purge ALL ${count} local records in the current view?`
+                : `Are you sure you want to purge all ${count} records of type "${targetType}"?`;
               if (confirm(confirmMsg)) {
                 filteredRecords.forEach(record => {
                   deleteRecordFromRedux(dispatch, record);
@@ -595,7 +595,7 @@ export default function SyncTab() {
               boxShadow: filteredRecords.length === 0 ? 'none' : '0 1px 2px rgba(0,0,0,0.05)'
             }}
           >
-            Clear Filtered Group ({filteredRecords.length})
+            Purge Filtered Group ({filteredRecords.length})
           </button>
         </div>
       </div>
@@ -699,11 +699,11 @@ export default function SyncTab() {
                           <td style={{ padding: '10px 14px', verticalAlign: 'middle', width: '50px', textAlign: 'center' }}>
                             <button
                               onClick={() => {
-                                if (confirm(`Are you sure you want to clear this individual ${record.nodeType} record from local cache?`)) {
+                                if (confirm(`Are you sure you want to purge this individual ${record.nodeType} record from local cache?`)) {
                                   deleteRecordFromRedux(dispatch, record);
                                 }
                               }}
-                              title={`Clear ${record.nodeType}`}
+                              title={`Purge ${record.nodeType}`}
                               style={{
                                 background: 'none',
                                 border: 'none',
@@ -758,10 +758,10 @@ export default function SyncTab() {
         </div>
       )}
       {isClearingQueue && (
-        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
-          <RefreshCw size={54} className="spin" style={{ marginBottom: '24px', color: 'var(--color-accent)' }} />
-          <h2 style={{ color: 'white', marginBottom: '8px' }}>Clearing Local Storage...</h2>
-          <p style={{ color: '#ccc', maxWidth: '280px', textAlign: 'center', wordWrap: 'break-word', whiteSpace: 'normal', lineHeight: '1.4' }}>Please wait while we clear the local cache.</p>
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: '#111111', zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#ffffff' }}>
+          <RefreshCw size={54} className="spin" style={{ marginBottom: '24px', color: '#ffffff' }} />
+          <h2 style={{ color: '#ffffff', marginBottom: '8px', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', textTransform: 'none', fontWeight: 'bold' }}>Purging Local Storage...</h2>
+          <p style={{ color: '#9ca3af', maxWidth: '280px', textAlign: 'center', wordWrap: 'break-word', whiteSpace: 'normal', lineHeight: '1.4', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>Please wait while we purge the local cache.</p>
         </div>
       )}
     </div>

@@ -79,6 +79,20 @@ export const syncSlice = createSlice({
 
 export const { queueAction, clearQueue, clearAllQueue, setSyncing, setLastSynced, incrementFailures, resetBackend } = syncSlice.actions;
 
+let currentSyncAbortController = null;
+
+export const abortSync = () => (dispatch) => {
+  if (currentSyncAbortController) {
+    currentSyncAbortController.abort();
+    currentSyncAbortController = null;
+  }
+  dispatch(setSyncing(false));
+};
+
+export const clearAllData = () => ({
+  type: 'sync/clearAllData'
+});
+
 export const flushQueue = (forceSync = false) => async (dispatch, getState) => {
   const { offlineActionQueue, isSyncing, backendAvailable, backendFailures } = getState().sync;
 
@@ -99,6 +113,13 @@ export const flushQueue = (forceSync = false) => async (dispatch, getState) => {
     }
   }
 
+  // Abort any existing controller just in case, and create a new one
+  if (currentSyncAbortController) {
+    currentSyncAbortController.abort();
+  }
+  currentSyncAbortController = new AbortController();
+  const signal = currentSyncAbortController.signal;
+
   dispatch(setSyncing(true));
 
   try {
@@ -111,7 +132,8 @@ export const flushQueue = (forceSync = false) => async (dispatch, getState) => {
         const response = await fetch('/api/sync', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ queue: [action], farmId: activeFarmId, email })
+          body: JSON.stringify({ queue: [action], farmId: activeFarmId, email }),
+          signal
         });
         
         if (response.ok) {
@@ -128,7 +150,11 @@ export const flushQueue = (forceSync = false) => async (dispatch, getState) => {
           return false;
         }
       } catch (err) {
-        console.error('Error syncing individual action:', err);
+        if (err.name === 'AbortError') {
+          console.log('Sync fetch aborted for action:', action.type);
+        } else {
+          console.error('Error syncing individual action:', err);
+        }
         return false;
       }
     });
@@ -139,23 +165,30 @@ export const flushQueue = (forceSync = false) => async (dispatch, getState) => {
     if (successCount > 0) {
       dispatch(resetBackend());
       dispatch(setLastSynced(new Date().toISOString()));
-    } else if (farmActions.length > 0) {
+    } else if (farmActions.length > 0 && !signal.aborted) {
       dispatch(incrementFailures());
     }
   } catch (error) {
-    dispatch(incrementFailures());
-    if (backendFailures === 0) {
-      console.warn('Backend unreachable — data cached locally until reconnected.');
+    if (error.name !== 'AbortError') {
+      dispatch(incrementFailures());
+      if (backendFailures === 0) {
+        console.warn('Backend unreachable — data cached locally until reconnected.');
+      }
     }
   } finally {
-    dispatch(setSyncing(false));
+    if (!signal.aborted) {
+      dispatch(setSyncing(false));
+    }
   }
 };
 
 export const fetchInitialData = () => async (dispatch, getState) => {
   const { offlineActionQueue } = getState().sync;
-  // Conflict Resolution: Only pull if online and no pending offline actions
-  if (!navigator.onLine || offlineActionQueue.length > 0) return;
+  const activeFarmId = localStorage.getItem('activeFarmId') || 'default_farm';
+  const farmActions = offlineActionQueue.filter(a => a.farmId === activeFarmId);
+
+  // Conflict Resolution: Only pull if no pending offline actions for this farm
+  if (farmActions.length > 0) return;
 
   try {
     const activeFarmId = localStorage.getItem('activeFarmId') || 'default_farm';

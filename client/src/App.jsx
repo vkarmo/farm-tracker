@@ -4,7 +4,7 @@ import Select from 'react-select';
 import { fetchFields } from './store/fieldsSlice';
 import { addUnit, removeUnit, addJobTitle, removeJobTitle, addExpenseCategory, removeExpenseCategory, addIncomeCategory, removeIncomeCategory, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold, setAppName, addAnimalType, removeAnimalType, saveSettings, setGeeClientEmail, setGeePrivateKey, setGeeProjectId, setGeeScale, setOwmApiKey, setThemeAppBgColor, setThemeCardBgColor, setThemeCardBorderColor, setThemeCardBorderThickness, setThemeAppBorderColor, setThemeAppBorderThickness, setThemeFontName, setThemeFontSizeBase, setThemeFontSizeCardTitle, setThemeFontSizeTabs, setThemeColorPrimary, setThemeColorCardTitle, setThemeColorTabsActiveBg, setThemeColorTabsActiveText, setThemeColorTabsInactiveBg, setThemeColorTabsInactiveText, setThemeFontAppName, setThemeFontSizeAppName, setThemeFontAppNameBold, setThemeFontAppNameCapitalize, setThemeFontSizeBaseBold, setThemeFontSizeBaseCapitalize, setThemeFontSizeCardTitleBold, setThemeFontSizeCardTitleCapitalize, setThemeFontSizeTabsBold, setThemeFontSizeTabsCapitalize, setThemeFontImager, setThemeFontSizeImager, setThemeFontImagerBold, setThemeFontImagerCapitalize, setMtnClientId, setMtnClientSecret, setMtnEnvironment, setSimulateHighWinds, setGoogleMapsApiKey, setGeminiApiKey, setClaudeApiKey, setAiProvider } from './store/settingsSlice';
 import { addLocation } from './store/gpsSlice';
-import { queueAction, fetchInitialData } from './store/syncSlice';
+import { queueAction, fetchInitialData, abortSync, clearAllData } from './store/syncSlice';
 import { MapSearchBox, MapFlyTo, FarmLocationButton } from './components/MapSearchBox';
 import { MapContainer, TileLayer, Marker, useMapEvents, Polygon, useMap } from 'react-leaflet';
 import FieldImageryOverlay from './components/FieldImageryOverlay';
@@ -151,10 +151,29 @@ export default function App() {
     }
   }, [currentUser]);
 
-  const handleFarmChange = (farmId) => {
+  const handleFarmChange = async (farmId) => {
+    dispatch(abortSync());
+    setIsFarmLoading(true);
+    setSwitchingToFarmId(farmId);
+    
+    // Smooth transition overlay activation delay
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    dispatch(clearAllData());
     localStorage.setItem('activeFarmId', farmId);
     setActiveFarmId(farmId);
-    dispatch(fetchInitialData());
+    
+    try {
+      await dispatch(fetchInitialData());
+    } catch (err) {
+      console.error('Failed to load farm data:', err);
+    } finally {
+      // Small delay to ensure all custom styles, color primary, cards, etc. are painted by the browser
+      setTimeout(() => {
+        setIsFarmLoading(false);
+        setSwitchingToFarmId(null);
+      }, 600);
+    }
   };
 
   const handleCreateFarm = async () => {
@@ -1004,17 +1023,17 @@ export default function App() {
           </div>
         )}
         {isUpdating && (
-          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
-            <RefreshCw size={54} className="spin" style={{ marginBottom: '24px', color: 'var(--color-accent)' }} />
-            <h2 style={{ color: 'white', marginBottom: '8px' }}>Updating {displayAppName}...</h2>
-            <p style={{ color: '#ccc', maxWidth: '280px', textAlign: 'center', wordWrap: 'break-word', whiteSpace: 'normal', lineHeight: '1.4' }}>Downloading the latest version.<br />The app will reload automatically.</p>
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: '#111111', zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#ffffff' }}>
+            <RefreshCw size={54} className="spin" style={{ marginBottom: '24px', color: '#ffffff' }} />
+            <h2 style={{ color: '#ffffff', marginBottom: '8px', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', textTransform: 'none', fontWeight: 'bold' }}>Updating {displayAppName}...</h2>
+            <p style={{ color: '#9ca3af', maxWidth: '280px', textAlign: 'center', wordWrap: 'break-word', whiteSpace: 'normal', lineHeight: '1.4', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>Downloading the latest version.<br />The app will reload automatically.</p>
           </div>
         )}
         {isFarmLoading && (
-          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.85)', zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'white' }}>
-            <RefreshCw size={54} className="spin" style={{ marginBottom: '24px', color: 'var(--color-accent)' }} />
-            <h2 style={{ color: 'white', marginBottom: '8px' }}>Loading {loadingFarmName}...</h2>
-            <p style={{ color: '#ccc', maxWidth: '280px', textAlign: 'center', wordWrap: 'break-word', whiteSpace: 'normal', lineHeight: '1.4' }}>Updating view with the selected farm records.</p>
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: '#111111', zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#ffffff' }}>
+            <RefreshCw size={54} className="spin" style={{ marginBottom: '24px', color: '#ffffff' }} />
+            <h2 style={{ color: '#ffffff', marginBottom: '8px', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', textTransform: 'none', fontWeight: 'bold' }}>Switching to {loadingFarmName}...</h2>
+            <p style={{ color: '#9ca3af', maxWidth: '280px', textAlign: 'center', wordWrap: 'break-word', whiteSpace: 'normal', lineHeight: '1.4', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>Applying styles and updating view with the selected farm records.</p>
           </div>
         )}
         <header>

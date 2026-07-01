@@ -30,7 +30,7 @@ const persistConfig = {
   whitelist: ['sync', 'fields', 'assets', 'financials', 'settings', 'nurseries', 'activities', 'auth', 'budgets', 'deadlines', 'incidents', 'assignments', 'employees', 'audit', 'gps', 'breeding', 'pests', 'planning', 'soilTests', 'livestockDiseases', 'poi', 'recommendations'] // Store all entity & settings data
 };
 
-const rootReducer = combineReducers({
+const appReducer = combineReducers({
   sync: syncReducer,
   fields: fieldsReducer,
   assets: assetsReducer,
@@ -54,6 +54,19 @@ const rootReducer = combineReducers({
   planning: planningReducer,
   recommendations: recommendationsReducer
 });
+
+const rootReducer = (state, action) => {
+  if (action.type === 'sync/clearAllData') {
+    const { auth, sync } = state || {};
+    const cleanState = appReducer(undefined, { type: '@@INIT' });
+    state = {
+      ...cleanState,
+      auth,
+      sync: sync ? { ...cleanState.sync, offlineActionQueue: sync.offlineActionQueue, lastSynced: sync.lastSynced } : cleanState.sync
+    };
+  }
+  return appReducer(state, action);
+};
 
 const persistedReducer = persistReducer(persistConfig, rootReducer);
 
