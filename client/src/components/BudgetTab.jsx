@@ -4,7 +4,7 @@ import { queueAction } from '../store/syncSlice';
 import { addBudget, deleteBudget, addBudgetItem, deleteBudgetItem } from '../store/budgetSlice';
 import { addTransaction } from '../store/financialsSlice';
 import { addExpenseCategory, saveSettings } from '../store/settingsSlice';
-import { FileText, Plus, Trash2, Edit2, Calculator, Check, X, ArrowRightCircle } from 'lucide-react';
+import { FileText, Plus, Trash2, Edit2, Calculator, Check, X, ArrowRightCircle, Filter } from 'lucide-react';
 import CrudTable from './CrudTable';
 
 
@@ -33,7 +33,24 @@ export default function BudgetTab() {
   const [showExpenseReview, setShowExpenseReview] = useState(false);
   const [selectedExpensesToSubmit, setSelectedExpensesToSubmit] = useState({});
 
+  const [filterCategory, setFilterCategory] = useState('All');
+  const [filterStatus, setFilterStatus] = useState('All');
+
   const activeBudget = budgets.find(b => b.id === activeBudgetId);
+
+  useEffect(() => {
+    setFilterCategory('All');
+    setFilterStatus('All');
+  }, [activeBudgetId]);
+
+  const filteredBudgetItems = React.useMemo(() => {
+    if (!activeBudget?.items) return [];
+    return activeBudget.items.filter(item => {
+      const matchCat = filterCategory === 'All' || item.category === filterCategory;
+      const matchStatus = filterStatus === 'All' || item.status === filterStatus;
+      return matchCat && matchStatus;
+    });
+  }, [activeBudget?.items, filterCategory, filterStatus]);
 
   const historicalRate = React.useMemo(() => {
     if (!budgets.length) return 150;
@@ -612,8 +629,96 @@ export default function BudgetTab() {
             </div>
           </form>
 
+          {/* Filters Bar */}
+          <div style={{ 
+            display: 'flex', 
+            gap: '15px', 
+            alignItems: 'center', 
+            flexWrap: 'wrap', 
+            background: '#f8fafc', 
+            padding: '12px 20px', 
+            borderRadius: '8px', 
+            border: '1px solid #e2e8f0',
+            marginBottom: '15px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#64748b', fontWeight: 600, fontSize: '0.9rem' }}>
+              <Filter size={16} />
+              <span>Filter Items:</span>
+            </div>
+            
+            <div style={{ display: 'flex', gap: '15px', flex: 1, flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 500 }}>Category:</span>
+                <select 
+                  value={filterCategory} 
+                  onChange={e => setFilterCategory(e.target.value)}
+                  style={{
+                    padding: '6px 12px',
+                    fontSize: '0.85rem',
+                    borderRadius: '6px',
+                    border: '1px solid #cbd5e1',
+                    background: '#fff',
+                    color: '#334155',
+                    cursor: 'pointer',
+                    outline: 'none'
+                  }}
+                >
+                  <option value="All">All Categories</option>
+                  {expenseCategories.map(cat => (
+                    <option key={cat} value={cat}>{cat}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 500 }}>Status:</span>
+                <select 
+                  value={filterStatus} 
+                  onChange={e => setFilterStatus(e.target.value)}
+                  style={{
+                    padding: '6px 12px',
+                    fontSize: '0.85rem',
+                    borderRadius: '6px',
+                    border: '1px solid #cbd5e1',
+                    background: '#fff',
+                    color: '#334155',
+                    cursor: 'pointer',
+                    outline: 'none'
+                  }}
+                >
+                  <option value="All">All Statuses</option>
+                  <option value="Approved">Approved</option>
+                  <option value="Pending Review">Pending Review</option>
+                  <option value="Rejected">Rejected</option>
+                </select>
+              </div>
+            </div>
+
+            {(filterCategory !== 'All' || filterStatus !== 'All') && (
+              <button 
+                type="button" 
+                onClick={() => { setFilterCategory('All'); setFilterStatus('All'); }}
+                className="btn"
+                style={{
+                  padding: '6px 12px',
+                  fontSize: '0.85rem',
+                  color: '#64748b',
+                  background: '#f1f5f9',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '4px'
+                }}
+              >
+                Clear Filters
+              </button>
+            )}
+          </div>
+
           <CrudTable
-            data={activeBudget.items || []}
+            data={filteredBudgetItems}
             columns={itemCols}
             onEdit={(row) => { setItemForm(row); setEditingItemId(row.id); }}
             onDelete={(id) => {
