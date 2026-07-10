@@ -17,6 +17,8 @@ export default function BudgetTab() {
   const assignments = useSelector(state => state.assignments?.list) || [];
   const employeesList = useSelector(state => state.employees?.list) || [];
   const expenseCategories = useSelector(state => state.settings?.expenseCategories) || [];
+  const currentUser = useSelector(state => state.auth?.currentUser);
+  const hasApprovalPermission = currentUser?.role === 'Admin' || currentUser?.canApprove;
 
   const [activeBudgetId, setActiveBudgetId] = useState(null);
   const [budgetForm, setBudgetForm] = useState(INIT_BUDGET);
@@ -222,14 +224,14 @@ export default function BudgetTab() {
 
   const handleGenerateExpenses = () => {
     if (!activeBudget) return;
-    const unlinkedItems = activeBudget.items.filter(i => !i.linkedTxId);
+    const approvedUnlinkedItems = activeBudget.items.filter(i => i.status === 'Approved' && !i.linkedTxId);
     
-    if (unlinkedItems.length === 0) {
-      alert("No budget items are pending for Ledger generation.");
+    if (approvedUnlinkedItems.length === 0) {
+      alert("No approved budget items are pending for Ledger generation.");
       return;
     }
 
-    const proposedTxs = unlinkedItems.map(item => ({
+    const proposedTxs = approvedUnlinkedItems.map(item => ({
       ...item,
       proposedTxId: `t_${Date.now()}_${item.id}`
     }));
@@ -290,6 +292,7 @@ export default function BudgetTab() {
     let lrd = 0;
 
     activeBudget.items.forEach(i => {
+      if (i.status !== 'Approved') return;
       const amt = parseFloat(i.amount) || 0;
       if (i.currency === 'USD') {
         usd += amt;
@@ -319,7 +322,74 @@ export default function BudgetTab() {
         return `$${(amt / rate).toFixed(2)}`;
       }
     },
-    { key: 'status', header: 'Approval Status', render: r => r.status === 'Approved' ? <strong style={{ color: '#2e7d32' }}>Approved</strong> : r.status }
+    {
+      key: 'status',
+      header: 'Approval Status',
+      render: r => {
+        const getStatusColor = (status) => {
+          switch (status) {
+            case 'Approved':
+              return { bg: '#e8f5e9', fg: '#2e7d32', border: '#c8e6c9' };
+            case 'Rejected':
+              return { bg: '#ffebee', fg: '#c62828', border: '#ffcdd2' };
+            default: // Pending Review
+              return { bg: '#fff3e0', fg: '#ef6c00', border: '#ffe0b2' };
+          }
+        };
+
+        const colors = getStatusColor(r.status || 'Pending Review');
+
+        if (hasApprovalPermission) {
+          return (
+            <select
+              value={r.status || 'Pending Review'}
+              onClick={e => e.stopPropagation()}
+              onChange={e => {
+                e.stopPropagation();
+                const newStatus = e.target.value;
+                const updatedItem = { ...r, status: newStatus };
+                dispatch(addBudgetItem({ budgetId: activeBudget.id, item: updatedItem }));
+                dispatch(queueAction({
+                  type: 'budgets/upsertBudgetItem',
+                  payload: { budgetId: activeBudget.id, item: updatedItem },
+                  meta: { id: Date.now() }
+                }));
+              }}
+              style={{
+                padding: '4px 8px',
+                fontSize: '0.85rem',
+                borderRadius: '4px',
+                border: `1px solid ${colors.border}`,
+                background: colors.bg,
+                color: colors.fg,
+                fontWeight: 600,
+                cursor: 'pointer',
+                outline: 'none'
+              }}
+            >
+              <option value="Approved" style={{ background: '#fff', color: '#2e7d32' }}>Approved</option>
+              <option value="Pending Review" style={{ background: '#fff', color: '#ef6c00' }}>Pending Review</option>
+              <option value="Rejected" style={{ background: '#fff', color: '#c62828' }}>Rejected</option>
+            </select>
+          );
+        }
+
+        return (
+          <span style={{
+            display: 'inline-block',
+            padding: '4px 8px',
+            borderRadius: '4px',
+            fontSize: '0.85rem',
+            fontWeight: 600,
+            background: colors.bg,
+            color: colors.fg,
+            border: `1px solid ${colors.border}`
+          }}>
+            {r.status || 'Pending Review'}
+          </span>
+        );
+      }
+    }
   ];
 
   return (
@@ -526,7 +596,15 @@ export default function BudgetTab() {
             </div>
             <div className="form-group">
               <label>Approval Status</label>
-              <select value={itemForm.status} onChange={e => setItemForm({ ...itemForm, status: e.target.value })}>
+              <select 
+                value={itemForm.status} 
+                disabled={!hasApprovalPermission}
+                onChange={e => setItemForm({ ...itemForm, status: e.target.value })}
+                style={{
+                  background: !hasApprovalPermission ? '#f1f5f9' : '#fff',
+                  cursor: !hasApprovalPermission ? 'not-allowed' : 'pointer'
+                }}
+              >
                 <option value="Approved">Approved</option>
                 <option value="Pending Review">Pending Review</option>
                 <option value="Rejected">Rejected</option>
