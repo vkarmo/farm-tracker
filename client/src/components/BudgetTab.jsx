@@ -52,7 +52,13 @@ export default function BudgetTab() {
     if (!activeBudget?.items) return [];
     return activeBudget.items.filter(item => {
       const matchCat = filterCategory === 'All' || item.category === filterCategory;
-      const matchStatus = filterStatuses.length === 0 || filterStatuses.includes(item.status || 'Pending Review');
+      const matchStatus = filterStatuses.length === 0 || filterStatuses.some(s => {
+        const itemStatus = item.status || 'Pending Review';
+        if (s === 'Approved & Dispensed') {
+          return itemStatus === 'Approved & Dispensed' || itemStatus === 'Dispensed';
+        }
+        return itemStatus === s;
+      });
       return matchCat && matchStatus;
     });
   }, [activeBudget?.items, filterCategory, filterStatuses]);
@@ -69,38 +75,80 @@ export default function BudgetTab() {
 
   const getCategorySubtotal = (items) => {
     const rate = parseFloat(activeBudget?.exchangeRate) || 1;
-    let usd = 0;
-    let lrd = 0;
+    let approvedUsd = 0;
+    let approvedLrd = 0;
+    let dispensedUsd = 0;
+    let dispensedLrd = 0;
+    
     items.forEach(i => {
-      if (i.status !== 'Approved') return;
       const amt = parseFloat(i.amount) || 0;
+      let usdVal = 0;
+      let lrdVal = 0;
       if (i.currency === 'USD') {
-        usd += amt;
-        lrd += (amt * rate);
+        usdVal = amt;
+        lrdVal = amt * rate;
       } else {
-        lrd += amt;
-        usd += (amt / rate);
+        lrdVal = amt;
+        usdVal = amt / rate;
+      }
+      
+      if (i.status === 'Approved') {
+        approvedUsd += usdVal;
+        approvedLrd += lrdVal;
+      } else if (i.status === 'Dispensed' || i.status === 'Approved & Dispensed') {
+        dispensedUsd += usdVal;
+        dispensedLrd += lrdVal;
       }
     });
-    return { usd: usd.toFixed(2), lrd: lrd.toFixed(2) };
+    
+    const sumUsd = approvedUsd + dispensedUsd;
+    const sumLrd = approvedLrd + dispensedLrd;
+    return { 
+      usd: sumUsd.toFixed(2), 
+      lrd: sumLrd.toFixed(2),
+      approvedUsd: approvedUsd.toFixed(2),
+      approvedLrd: approvedLrd.toFixed(2),
+      dispensedUsd: dispensedUsd.toFixed(2),
+      dispensedLrd: dispensedLrd.toFixed(2)
+    };
   };
 
-  const getReportGrandTotal = () => {
+  const getReportTotals = () => {
     const rate = parseFloat(activeBudget?.exchangeRate) || 1;
-    let usd = 0;
-    let lrd = 0;
+    let approvedUsd = 0;
+    let approvedLrd = 0;
+    let dispensedUsd = 0;
+    let dispensedLrd = 0;
+    
     filteredBudgetItems.forEach(i => {
-      if (i.status !== 'Approved') return;
       const amt = parseFloat(i.amount) || 0;
+      let usdVal = 0;
+      let lrdVal = 0;
       if (i.currency === 'USD') {
-        usd += amt;
-        lrd += (amt * rate);
+        usdVal = amt;
+        lrdVal = amt * rate;
       } else {
-        lrd += amt;
-        usd += (amt / rate);
+        lrdVal = amt;
+        usdVal = amt / rate;
+      }
+      
+      if (i.status === 'Approved') {
+        approvedUsd += usdVal;
+        approvedLrd += lrdVal;
+      } else if (i.status === 'Dispensed' || i.status === 'Approved & Dispensed') {
+        dispensedUsd += usdVal;
+        dispensedLrd += lrdVal;
       }
     });
-    return { usd: usd.toFixed(2), lrd: lrd.toFixed(2) };
+    
+    const totalApprovedUsd = approvedUsd + dispensedUsd;
+    const totalApprovedLrd = approvedLrd + dispensedLrd;
+    
+    return {
+      approved: { usd: totalApprovedUsd, lrd: totalApprovedLrd },
+      dispensed: { usd: dispensedUsd, lrd: dispensedLrd },
+      net: { usd: totalApprovedUsd - dispensedUsd, lrd: totalApprovedLrd - dispensedLrd }
+    };
   };
 
   const handleExportPNG = () => {
@@ -133,7 +181,7 @@ export default function BudgetTab() {
     const rate = parseFloat(activeBudget?.exchangeRate) || 1;
     
     Object.keys(groupedItems).forEach(category => {
-      csvContent += `"[CATEGORY: ${category.replace(/"/g, '""')}]",,,,,\r\n`;
+      csvContent += `"[CATEGORY: ${category.toUpperCase().replace(/"/g, '""')}]",,,,,\r\n`;
       
       groupedItems[category].forEach(item => {
         const amt = parseFloat(item.amount) || 0;
@@ -148,11 +196,11 @@ export default function BudgetTab() {
         }
         
         const row = [
-          category,
+          category.toUpperCase(),
           item.description,
           item.amount,
           item.currency,
-          item.status || 'Pending Review',
+          item.status === 'Dispensed' ? 'Approved & Dispensed' : (item.status || 'Pending Review'),
           convertedUSD.toFixed(2),
           convertedLRD.toFixed(2)
         ].map(val => {
@@ -167,12 +215,14 @@ export default function BudgetTab() {
       });
       
       const subtotal = getCategorySubtotal(groupedItems[category]);
-      csvContent += `Subtotal (${category.replace(/"/g, '""')}),,,,$${subtotal.usd} USD,L$${subtotal.lrd}\r\n`;
+      csvContent += `Subtotal (${category.toUpperCase().replace(/"/g, '""')}),,,,$${subtotal.usd} USD,L$${subtotal.lrd}\r\n`;
       csvContent += ",,,,,\r\n";
     });
     
-    const grandTotal = getReportGrandTotal();
-    csvContent += `GRAND TOTAL,,,,,$${grandTotal.usd} USD,L$${grandTotal.lrd}\r\n`;
+    const totals = getReportTotals();
+    csvContent += `Total Approved Items,,,,,$${totals.approved.usd.toFixed(2)} USD,L$${totals.approved.lrd.toFixed(2)}\r\n`;
+    csvContent += `Total Approved & Dispensed,,,,,-$${totals.dispensed.usd.toFixed(2)} USD,-L$${totals.dispensed.lrd.toFixed(2)}\r\n`;
+    csvContent += `Actually Sent Amount,,,,,$${totals.net.usd.toFixed(2)} USD,L$${totals.net.lrd.toFixed(2)}\r\n`;
     
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
@@ -489,6 +539,7 @@ export default function BudgetTab() {
             case 'Rejected':
               return { bg: '#ffebee', fg: '#c62828', border: '#ffcdd2' };
             case 'Dispensed':
+            case 'Approved & Dispensed':
               return { bg: '#e8eaf6', fg: '#1a237e', border: '#c5cae9' };
             default: // Pending Review
               return { bg: '#fff3e0', fg: '#ef6c00', border: '#ffe0b2' };
@@ -500,7 +551,7 @@ export default function BudgetTab() {
         if (hasApprovalPermission) {
           return (
             <select
-              value={r.status || 'Pending Review'}
+              value={r.status === 'Dispensed' ? 'Approved & Dispensed' : (r.status || 'Pending Review')}
               onClick={e => e.stopPropagation()}
               onChange={e => {
                 e.stopPropagation();
@@ -528,7 +579,7 @@ export default function BudgetTab() {
               <option value="Approved" style={{ background: '#fff', color: '#2e7d32' }}>Approved</option>
               <option value="Pending Review" style={{ background: '#fff', color: '#ef6c00' }}>Pending Review</option>
               <option value="Rejected" style={{ background: '#fff', color: '#c62828' }}>Rejected</option>
-              <option value="Dispensed" style={{ background: '#fff', color: '#1a237e' }}>Dispensed</option>
+              <option value="Approved & Dispensed" style={{ background: '#fff', color: '#1a237e' }}>Approved & Dispensed</option>
             </select>
           );
         }
@@ -544,7 +595,7 @@ export default function BudgetTab() {
             color: colors.fg,
             border: `1px solid ${colors.border}`
           }}>
-            {r.status || 'Pending Review'}
+            {r.status === 'Dispensed' ? 'Approved & Dispensed' : (r.status || 'Pending Review')}
           </span>
         );
       }
@@ -820,7 +871,7 @@ export default function BudgetTab() {
             <div className="form-group">
               <label>Approval Status</label>
               <select 
-                value={itemForm.status} 
+                value={itemForm.status === 'Dispensed' ? 'Approved & Dispensed' : itemForm.status} 
                 disabled={!hasApprovalPermission}
                 onChange={e => setItemForm({ ...itemForm, status: e.target.value })}
                 style={{
@@ -831,7 +882,7 @@ export default function BudgetTab() {
                 <option value="Approved">Approved</option>
                 <option value="Pending Review">Pending Review</option>
                 <option value="Rejected">Rejected</option>
-                <option value="Dispensed">Dispensed</option>
+                <option value="Approved & Dispensed">Approved & Dispensed</option>
               </select>
             </div>
           </form>
@@ -886,13 +937,13 @@ export default function BudgetTab() {
                       { value: 'Approved', label: 'Approved' },
                       { value: 'Pending Review', label: 'Pending Review' },
                       { value: 'Rejected', label: 'Rejected' },
-                      { value: 'Dispensed', label: 'Dispensed' }
+                      { value: 'Approved & Dispensed', label: 'Approved & Dispensed' }
                     ]}
                     value={[
                       { value: 'Approved', label: 'Approved' },
                       { value: 'Pending Review', label: 'Pending Review' },
                       { value: 'Rejected', label: 'Rejected' },
-                      { value: 'Dispensed', label: 'Dispensed' }
+                      { value: 'Approved & Dispensed', label: 'Approved & Dispensed' }
                     ].filter(opt => filterStatuses.includes(opt.value))}
                     onChange={selectedOptions => {
                       const values = selectedOptions ? selectedOptions.map(opt => opt.value) : [];
@@ -1080,7 +1131,7 @@ export default function BudgetTab() {
                       const subtotal = getCategorySubtotal(items);
                       return (
                         <div key={category} style={{ borderBottom: '1px solid #f1f5f9', paddingBottom: '8px' }}>
-                          <h3 style={{ margin: '0 0 8px 0', color: 'var(--color-primary-dark, #1b5e20)', fontSize: '0.95rem', fontWeight: 700, borderBottom: '1px solid #e2e8f0', paddingBottom: '4px' }}>
+                          <h3 style={{ margin: '0 0 8px 0', color: 'var(--color-primary-dark, #1b5e20)', fontSize: '0.95rem', fontWeight: 700, borderBottom: '1px solid #e2e8f0', paddingBottom: '4px', textTransform: 'uppercase' }}>
                             {category}
                           </h3>
                           
@@ -1098,13 +1149,14 @@ export default function BudgetTab() {
                               const getBadgeStyles = (status) => {
                                 switch (status) {
                                   case 'Approved':
-                                    return { bg: '#e8f5e9', fg: '#2e7d32' };
+                                    return { bg: '#e8f5e9', fg: '#2e7d32', label: 'Approved' };
                                   case 'Rejected':
-                                    return { bg: '#ffebee', fg: '#c62828' };
+                                    return { bg: '#ffebee', fg: '#c62828', label: 'Rejected' };
                                   case 'Dispensed':
-                                    return { bg: '#e8eaf6', fg: '#1a237e' };
+                                  case 'Approved & Dispensed':
+                                    return { bg: '#e8eaf6', fg: '#1a237e', label: 'Approved & Dispensed' };
                                   default:
-                                    return { bg: '#fff3e0', fg: '#ef6c00' };
+                                    return { bg: '#fff3e0', fg: '#ef6c00', label: 'Pending Review' };
                                 }
                               };
                               const badge = getBadgeStyles(item.status || 'Pending Review');
@@ -1121,7 +1173,7 @@ export default function BudgetTab() {
                                       color: badge.fg,
                                       whiteSpace: 'nowrap'
                                     }}>
-                                      {item.status || 'Pending Review'}
+                                      {badge.label}
                                     </span>
                                     <span style={{ color: '#334155', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{item.description}</span>
                                   </div>
@@ -1140,13 +1192,15 @@ export default function BudgetTab() {
 
                           {/* Subtotal row */}
                           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px', fontSize: '0.8rem', fontWeight: 700, color: '#334155', borderTop: '1px dashed #e2e8f0', paddingTop: '4px' }}>
-                            <span style={{ color: '#64748b', fontStyle: 'italic', paddingLeft: '16px' }}>Subtotal</span>
+                            <span style={{ color: '#64748b', fontStyle: 'italic', paddingLeft: '16px' }}>
+                              SUBTOTAL
+                            </span>
                             <div style={{ display: 'flex', gap: '24px', alignItems: 'center' }}>
                               <div style={{ width: '110px', textAlign: 'right', color: 'var(--color-primary-dark, #1b5e20)' }}>
-                                ${subtotal.usd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                ${parseFloat(subtotal.usd).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                               </div>
                               <div style={{ width: '130px', textAlign: 'right', color: '#64748b' }}>
-                                L${Math.round(subtotal.lrd).toLocaleString()}
+                                L${Math.round(parseFloat(subtotal.lrd)).toLocaleString()}
                               </div>
                             </div>
                           </div>
@@ -1156,29 +1210,66 @@ export default function BudgetTab() {
                   )}
                 </div>
 
-                {/* Grand Total */}
-                {Object.keys(groupedItems).length > 0 && (
-                  <div style={{
-                    marginTop: '8px',
-                    background: '#f1f8e9',
-                    border: '1px solid #d0e7b5',
-                    borderRadius: '6px',
-                    padding: '8px 16px',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center'
-                  }}>
-                    <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#33691e', textTransform: 'uppercase' }}>Grand Total</span>
-                    <div style={{ display: 'flex', gap: '24px', alignItems: 'center' }}>
-                      <div style={{ width: '110px', textAlign: 'right', fontSize: '1rem', fontWeight: 800, color: '#1b5e20' }}>
-                        ${getReportGrandTotal().usd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                {/* Grand Total Breakdown */}
+                {Object.keys(groupedItems).length > 0 && (() => {
+                  const totals = getReportTotals();
+                  return (
+                    <div style={{
+                      marginTop: '8px',
+                      background: '#f1f8e9',
+                      border: '1px solid #d0e7b5',
+                      borderRadius: '6px',
+                      padding: '8px 16px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '4px'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', color: '#558b2f', fontWeight: 600 }}>
+                        <span>GRAND TOTAL SUMMARY</span>
+                        <div style={{ display: 'flex', gap: '24px' }}>
+                          <div style={{ width: '110px', textAlign: 'right' }}>USD</div>
+                          <div style={{ width: '130px', textAlign: 'right' }}>LRD</div>
+                        </div>
                       </div>
-                      <div style={{ width: '130px', textAlign: 'right', fontSize: '0.9rem', fontWeight: 800, color: '#33691e' }}>
-                        L${Math.round(getReportGrandTotal().lrd).toLocaleString()}
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', color: '#475569' }}>
+                        <span>Total Approved Items:</span>
+                        <div style={{ display: 'flex', gap: '24px', alignItems: 'center' }}>
+                          <div style={{ width: '110px', textAlign: 'right' }}>
+                            ${totals.approved.usd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </div>
+                          <div style={{ width: '130px', textAlign: 'right' }}>
+                            L${Math.round(totals.approved.lrd).toLocaleString()}
+                          </div>
+                        </div>
+                      </div>
+                      {totals.dispensed.usd > 0 && (
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.75rem', color: '#475569' }}>
+                          <span>Total Approved & Dispensed (Subtracted):</span>
+                          <div style={{ display: 'flex', gap: '24px', alignItems: 'center' }}>
+                            <div style={{ width: '110px', textAlign: 'right' }}>
+                              -${totals.dispensed.usd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                            </div>
+                            <div style={{ width: '130px', textAlign: 'right' }}>
+                              -L${Math.round(totals.dispensed.lrd).toLocaleString()}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                      <hr style={{ border: 'none', borderTop: '1px dashed #c0dfa1', margin: '4px 0' }} />
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        <span style={{ fontSize: '0.8rem', fontWeight: 800, color: '#33691e', textTransform: 'uppercase' }}>Actually Sent Amount</span>
+                        <div style={{ display: 'flex', gap: '24px', alignItems: 'center' }}>
+                          <div style={{ width: '110px', textAlign: 'right', fontSize: '0.9rem', fontWeight: 800, color: '#1b5e20' }}>
+                            ${totals.net.usd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                          </div>
+                          <div style={{ width: '130px', textAlign: 'right', fontSize: '0.85rem', fontWeight: 800, color: '#33691e' }}>
+                            L${Math.round(totals.net.lrd).toLocaleString()}
+                          </div>
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )}
+                  );
+                })()}
               </div>
             </div>
 
