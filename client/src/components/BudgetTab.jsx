@@ -72,6 +72,7 @@ export default function BudgetTab() {
     let usd = 0;
     let lrd = 0;
     items.forEach(i => {
+      if (i.status !== 'Approved') return;
       const amt = parseFloat(i.amount) || 0;
       if (i.currency === 'USD') {
         usd += amt;
@@ -89,6 +90,7 @@ export default function BudgetTab() {
     let usd = 0;
     let lrd = 0;
     filteredBudgetItems.forEach(i => {
+      if (i.status !== 'Approved') return;
       const amt = parseFloat(i.amount) || 0;
       if (i.currency === 'USD') {
         usd += amt;
