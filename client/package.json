@@ -17,6 +17,7 @@
     "@turf/helpers": "^7.3.5",
     "@turf/length": "^7.3.5",
     "@turf/turf": "^7.3.5",
+    "html2canvas": "^1.4.1",
     "jwt-decode": "^4.0.0",
     "leaflet": "^1.9.4",
     "localforage": "^1.10.0",

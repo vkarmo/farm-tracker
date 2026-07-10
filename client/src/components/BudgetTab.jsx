@@ -6,9 +6,12 @@ import { addTransaction } from '../store/financialsSlice';
 import { addExpenseCategory, saveSettings } from '../store/settingsSlice';
 import { FileText, Plus, Trash2, Edit2, Calculator, Check, X, ArrowRightCircle, Filter } from 'lucide-react';
 import CrudTable from './CrudTable';
+import NmkLogo from './NmkLogo';
+import html2canvas from 'html2canvas';
+import Select from 'react-select';
 
 
-const INIT_BUDGET = { name: '', description: '', exchangeRate: 150 };
+const INIT_BUDGET = { name: '', description: '', exchangeRate: 150, sendingService: '', referenceNumber: '', recipient: '' };
 const INIT_ITEM = { category: '', description: '', amount: '', currency: 'USD', status: 'Pending Review' };
 
 export default function BudgetTab() {
@@ -19,6 +22,7 @@ export default function BudgetTab() {
   const expenseCategories = useSelector(state => state.settings?.expenseCategories) || [];
   const currentUser = useSelector(state => state.auth?.currentUser);
   const hasApprovalPermission = currentUser?.role === 'Admin' || currentUser?.canApprove;
+  const logo = useSelector(state => state.settings?.logo);
 
   const [activeBudgetId, setActiveBudgetId] = useState(null);
   const [budgetForm, setBudgetForm] = useState(INIT_BUDGET);
@@ -34,23 +38,148 @@ export default function BudgetTab() {
   const [selectedExpensesToSubmit, setSelectedExpensesToSubmit] = useState({});
 
   const [filterCategory, setFilterCategory] = useState('All');
-  const [filterStatus, setFilterStatus] = useState('All');
+  const [filterStatuses, setFilterStatuses] = useState([]);
+  const [showReportModal, setShowReportModal] = useState(false);
 
   const activeBudget = budgets.find(b => b.id === activeBudgetId);
 
   useEffect(() => {
     setFilterCategory('All');
-    setFilterStatus('All');
+    setFilterStatuses([]);
   }, [activeBudgetId]);
 
   const filteredBudgetItems = React.useMemo(() => {
     if (!activeBudget?.items) return [];
     return activeBudget.items.filter(item => {
       const matchCat = filterCategory === 'All' || item.category === filterCategory;
-      const matchStatus = filterStatus === 'All' || item.status === filterStatus;
+      const matchStatus = filterStatuses.length === 0 || filterStatuses.includes(item.status || 'Pending Review');
       return matchCat && matchStatus;
     });
-  }, [activeBudget?.items, filterCategory, filterStatus]);
+  }, [activeBudget?.items, filterCategory, filterStatuses]);
+
+  const groupedItems = React.useMemo(() => {
+    const groups = {};
+    filteredBudgetItems.forEach(item => {
+      const cat = item.category || 'Uncategorized';
+      if (!groups[cat]) groups[cat] = [];
+      groups[cat].push(item);
+    });
+    return groups;
+  }, [filteredBudgetItems]);
+
+  const getCategorySubtotal = (items) => {
+    const rate = parseFloat(activeBudget?.exchangeRate) || 1;
+    let usd = 0;
+    let lrd = 0;
+    items.forEach(i => {
+      const amt = parseFloat(i.amount) || 0;
+      if (i.currency === 'USD') {
+        usd += amt;
+        lrd += (amt * rate);
+      } else {
+        lrd += amt;
+        usd += (amt / rate);
+      }
+    });
+    return { usd: usd.toFixed(2), lrd: lrd.toFixed(2) };
+  };
+
+  const getReportGrandTotal = () => {
+    const rate = parseFloat(activeBudget?.exchangeRate) || 1;
+    let usd = 0;
+    let lrd = 0;
+    filteredBudgetItems.forEach(i => {
+      const amt = parseFloat(i.amount) || 0;
+      if (i.currency === 'USD') {
+        usd += amt;
+        lrd += (amt * rate);
+      } else {
+        lrd += amt;
+        usd += (amt / rate);
+      }
+    });
+    return { usd: usd.toFixed(2), lrd: lrd.toFixed(2) };
+  };
+
+  const handleExportPNG = () => {
+    const element = document.getElementById('budget-report-container');
+    if (!element) return;
+    
+    html2canvas(element, {
+      backgroundColor: '#ffffff',
+      scale: 2,
+      useCORS: true,
+      logging: false
+    }).then(canvas => {
+      const dataUrl = canvas.toDataURL('image/png');
+      const link = document.createElement('a');
+      link.download = `${activeBudget.name.replace(/\s+/g, '_')}_Report.png`;
+      link.href = dataUrl;
+      link.click();
+    }).catch(err => {
+      console.error('Failed to export PNG', err);
+      alert('Error generating PNG. Please try again.');
+    });
+  };
+
+  const handleExportCSV = () => {
+    if (!filteredBudgetItems.length) return alert("No items to export.");
+    
+    let csvContent = "data:text/csv;charset=utf-8,";
+    csvContent += "Category,Description,Amount,Currency,Approval Status,Converted USD,Converted LRD\r\n";
+    
+    const rate = parseFloat(activeBudget?.exchangeRate) || 1;
+    
+    Object.keys(groupedItems).forEach(category => {
+      csvContent += `"[CATEGORY: ${category.replace(/"/g, '""')}]",,,,,\r\n`;
+      
+      groupedItems[category].forEach(item => {
+        const amt = parseFloat(item.amount) || 0;
+        let convertedUSD = 0;
+        let convertedLRD = 0;
+        if (item.currency === 'USD') {
+          convertedUSD = amt;
+          convertedLRD = amt * rate;
+        } else {
+          convertedLRD = amt;
+          convertedUSD = amt / rate;
+        }
+        
+        const row = [
+          category,
+          item.description,
+          item.amount,
+          item.currency,
+          item.status || 'Pending Review',
+          convertedUSD.toFixed(2),
+          convertedLRD.toFixed(2)
+        ].map(val => {
+          const stringVal = String(val);
+          if (stringVal.includes(',') || stringVal.includes('"') || stringVal.includes('\n')) {
+            return `"${stringVal.replace(/"/g, '""')}"`;
+          }
+          return stringVal;
+        }).join(",");
+        
+        csvContent += row + "\r\n";
+      });
+      
+      const subtotal = getCategorySubtotal(groupedItems[category]);
+      csvContent += `Subtotal (${category.replace(/"/g, '""')}),,,,$${subtotal.usd} USD,L$${subtotal.lrd}\r\n`;
+      csvContent += ",,,,,\r\n";
+    });
+    
+    const grandTotal = getReportGrandTotal();
+    csvContent += `GRAND TOTAL,,,,,$${grandTotal.usd} USD,L$${grandTotal.lrd}\r\n`;
+    
+    const encodedUri = encodeURI(csvContent);
+    const link = document.createElement("a");
+    link.setAttribute("href", encodedUri);
+    link.setAttribute("download", `${activeBudget.name.replace(/\s+/g, '_')}_Report.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   const historicalRate = React.useMemo(() => {
     if (!budgets.length) return 150;
@@ -112,6 +241,9 @@ export default function BudgetTab() {
       name: budgetForm.name,
       description: budgetForm.description,
       exchangeRate: newRate,
+      sendingService: budgetForm.sendingService || '',
+      referenceNumber: budgetForm.referenceNumber || '',
+      recipient: budgetForm.recipient || '',
       items: []
     };
 
@@ -122,12 +254,17 @@ export default function BudgetTab() {
     setActiveBudgetId(newBudget.id);
   };
 
+  const handleUpdateBudgetProperty = (key, value) => {
+    if (!activeBudget) return;
+    const updated = { ...activeBudget, [key]: value };
+    dispatch(addBudget(updated));
+    dispatch(queueAction({ type: 'core/updateNode', payload: { id: activeBudget.id, properties: { [key]: value } }, meta: { id: Date.now() } }));
+  };
+
   const handleUpdateExchangeRate = (e) => {
     const val = parseFloat(e.target.value);
     if (!activeBudget || isNaN(val)) return;
-    const updated = { ...activeBudget, exchangeRate: val };
-    dispatch(addBudget(updated));
-    dispatch(queueAction({ type: 'core/updateNode', payload: { id: activeBudget.id, properties: { exchangeRate: val } }, meta: { id: Date.now() } }));
+    handleUpdateBudgetProperty('exchangeRate', val);
   };
 
   const handleSaveItem = (e) => {
@@ -349,6 +486,8 @@ export default function BudgetTab() {
               return { bg: '#e8f5e9', fg: '#2e7d32', border: '#c8e6c9' };
             case 'Rejected':
               return { bg: '#ffebee', fg: '#c62828', border: '#ffcdd2' };
+            case 'Dispensed':
+              return { bg: '#e8eaf6', fg: '#1a237e', border: '#c5cae9' };
             default: // Pending Review
               return { bg: '#fff3e0', fg: '#ef6c00', border: '#ffe0b2' };
           }
@@ -387,6 +526,7 @@ export default function BudgetTab() {
               <option value="Approved" style={{ background: '#fff', color: '#2e7d32' }}>Approved</option>
               <option value="Pending Review" style={{ background: '#fff', color: '#ef6c00' }}>Pending Review</option>
               <option value="Rejected" style={{ background: '#fff', color: '#c62828' }}>Rejected</option>
+              <option value="Dispensed" style={{ background: '#fff', color: '#1a237e' }}>Dispensed</option>
             </select>
           );
         }
@@ -432,19 +572,26 @@ export default function BudgetTab() {
         <hr style={{ border: 'none', borderTop: '1px solid var(--color-border)', margin: '20px 0' }} />
 
         <h4>Create New Budget Pipeline</h4>
-        <form onSubmit={handleCreateBudget} style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', marginTop: 10 }}>
-          <input type="text" placeholder="e.g. Q3 Harvest Plan" value={budgetForm.name} onChange={e => setBudgetForm({ ...budgetForm, name: e.target.value })} style={{ flex: 2, minWidth: 200 }} />
-          <input type="text" placeholder="Short Description..." value={budgetForm.description} onChange={e => setBudgetForm({ ...budgetForm, description: e.target.value })} style={{ flex: 3, minWidth: 200 }} />
-          <input 
-            type="number" 
-            step="0.01"
-            placeholder="Ex. Rate (L$ to 1 USD)" 
-            value={budgetForm.exchangeRate} 
-            onChange={e => setBudgetForm({ ...budgetForm, exchangeRate: e.target.value })} 
-            style={{ width: 180 }} 
-            title="Exchange Rate: L$ to 1 USD"
-          />
-          <button type="submit" className="btn btn-primary" style={{ padding: '10px 20px' }}>Initiate</button>
+        <form onSubmit={handleCreateBudget} style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginTop: 10 }}>
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+            <input type="text" placeholder="e.g. Q3 Harvest Plan *" value={budgetForm.name} onChange={e => setBudgetForm({ ...budgetForm, name: e.target.value })} style={{ flex: 2, minWidth: 200 }} required />
+            <input type="text" placeholder="Short Description..." value={budgetForm.description} onChange={e => setBudgetForm({ ...budgetForm, description: e.target.value })} style={{ flex: 3, minWidth: 200 }} />
+            <input 
+              type="number" 
+              step="0.01"
+              placeholder="Ex. Rate (L$ to 1 USD)" 
+              value={budgetForm.exchangeRate} 
+              onChange={e => setBudgetForm({ ...budgetForm, exchangeRate: e.target.value })} 
+              style={{ width: 180 }} 
+              title="Exchange Rate: L$ to 1 USD"
+            />
+          </div>
+          <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+            <input type="text" placeholder="Money Sending Service (e.g. Western Union, Mobile Money)" value={budgetForm.sendingService || ''} onChange={e => setBudgetForm({ ...budgetForm, sendingService: e.target.value })} style={{ flex: 1, minWidth: 200 }} />
+            <input type="text" placeholder="Transaction Reference Number" value={budgetForm.referenceNumber || ''} onChange={e => setBudgetForm({ ...budgetForm, referenceNumber: e.target.value })} style={{ flex: 1, minWidth: 200 }} />
+            <input type="text" placeholder="Sent To / Recipient" value={budgetForm.recipient || ''} onChange={e => setBudgetForm({ ...budgetForm, recipient: e.target.value })} style={{ flex: 1, minWidth: 200 }} />
+            <button type="submit" className="btn btn-primary" style={{ padding: '10px 20px' }}>Initiate</button>
+          </div>
         </form>
       </div>
 
@@ -452,7 +599,7 @@ export default function BudgetTab() {
       {activeBudget && (
         <div className="card" style={{ marginBottom: 0, borderTop: '4px solid var(--color-primary)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 20 }}>
-            <div>
+            <div style={{ flex: 1, minWidth: '300px' }}>
               <h2 style={{ color: 'var(--color-primary-dark)', display: 'flex', alignItems: 'center' }}>
                 {activeBudget.name}
                 <button onClick={() => {
@@ -463,11 +610,45 @@ export default function BudgetTab() {
                   }
                 }} style={{ border: 'none', background: 'transparent', color: '#d32f2f', marginLeft: 16, cursor: 'pointer' }}><Trash2 size={18} /></button>
               </h2>
-              <p style={{ color: '#555', marginTop: 4 }}>{activeBudget.description}</p>
+              <p style={{ color: '#555', marginTop: 4, marginBottom: 12 }}>{activeBudget.description}</p>
+
+              {/* Transaction Sending Tracking Fields */}
+              <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', background: '#f8fafc', padding: '12px 16px', borderRadius: '8px', border: '1px solid #e2e8f0', marginTop: '10px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1, minWidth: '150px' }}>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b' }}>Money Sending Service</label>
+                  <input 
+                    type="text" 
+                    placeholder="MTN, Western Union, Sendwave..." 
+                    value={activeBudget.sendingService || ''} 
+                    onChange={e => handleUpdateBudgetProperty('sendingService', e.target.value)} 
+                    style={{ padding: '6px 10px', fontSize: '0.85rem', borderRadius: '4px', border: '1px solid #cbd5e1' }}
+                  />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1, minWidth: '150px' }}>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b' }}>Reference Number</label>
+                  <input 
+                    type="text" 
+                    placeholder="Transaction Reference ID" 
+                    value={activeBudget.referenceNumber || ''} 
+                    onChange={e => handleUpdateBudgetProperty('referenceNumber', e.target.value)} 
+                    style={{ padding: '6px 10px', fontSize: '0.85rem', borderRadius: '4px', border: '1px solid #cbd5e1' }}
+                  />
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', flex: 1, minWidth: '150px' }}>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#64748b' }}>Sent To (Recipient)</label>
+                  <input 
+                    type="text" 
+                    placeholder="Who it was sent to" 
+                    value={activeBudget.recipient || ''} 
+                    onChange={e => handleUpdateBudgetProperty('recipient', e.target.value)} 
+                    style={{ padding: '6px 10px', fontSize: '0.85rem', borderRadius: '4px', border: '1px solid #cbd5e1' }}
+                  />
+                </div>
+              </div>
             </div>
 
-            <div style={{ display: 'flex', gap: 10 }}>
-              <div style={{ background: '#e8f5e9', padding: '10px 16px', borderRadius: 8, border: '1px solid #c8e6c9', textAlign: 'right' }}>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'stretch' }}>
+              <div style={{ background: '#e8f5e9', padding: '10px 16px', borderRadius: 8, border: '1px solid #c8e6c9', textAlign: 'right', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
                 <div style={{ fontSize: '0.75rem', color: '#2e7d32', fontWeight: 600 }}>AGGREGATED LIABILITIES</div>
                 <div style={{ fontSize: '1.25rem', fontWeight: 'bold', color: '#1b5e20' }}>${totalUSD} USD</div>
                 <div style={{ fontSize: '0.9rem', color: '#388e3c' }}>≈ L${totalLRD}</div>
@@ -481,6 +662,29 @@ export default function BudgetTab() {
                   <span style={{ marginLeft: 6 }}>/ USD</span>
                 </div>
               </div>
+
+              <button 
+                onClick={() => setShowReportModal(true)} 
+                className="btn btn-primary"
+                style={{ 
+                  display: 'flex', 
+                  flexDirection: 'column', 
+                  justifyContent: 'center', 
+                  alignItems: 'center', 
+                  padding: '10px 16px', 
+                  borderRadius: 8, 
+                  background: 'var(--color-primary)', 
+                  border: 'none',
+                  color: 'white',
+                  cursor: 'pointer',
+                  gap: '4px',
+                  fontWeight: 600,
+                  fontSize: '0.95rem'
+                }}
+              >
+                <FileText size={20} />
+                <span>Budget Report</span>
+              </button>
             </div>
           </div>
 
@@ -625,6 +829,7 @@ export default function BudgetTab() {
                 <option value="Approved">Approved</option>
                 <option value="Pending Review">Pending Review</option>
                 <option value="Rejected">Rejected</option>
+                <option value="Dispensed">Dispensed</option>
               </select>
             </div>
           </form>
@@ -670,34 +875,56 @@ export default function BudgetTab() {
                 </select>
               </div>
 
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 500 }}>Status:</span>
-                <select 
-                  value={filterStatus} 
-                  onChange={e => setFilterStatus(e.target.value)}
-                  style={{
-                    padding: '6px 12px',
-                    fontSize: '0.85rem',
-                    borderRadius: '6px',
-                    border: '1px solid #cbd5e1',
-                    background: '#fff',
-                    color: '#334155',
-                    cursor: 'pointer',
-                    outline: 'none'
-                  }}
-                >
-                  <option value="All">All Statuses</option>
-                  <option value="Approved">Approved</option>
-                  <option value="Pending Review">Pending Review</option>
-                  <option value="Rejected">Rejected</option>
-                </select>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: '220px' }}>
+                <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 500 }}>Statuses:</span>
+                <div style={{ flex: 1, minWidth: '200px' }}>
+                  <Select
+                    isMulti
+                    options={[
+                      { value: 'Approved', label: 'Approved' },
+                      { value: 'Pending Review', label: 'Pending Review' },
+                      { value: 'Rejected', label: 'Rejected' },
+                      { value: 'Dispensed', label: 'Dispensed' }
+                    ]}
+                    value={[
+                      { value: 'Approved', label: 'Approved' },
+                      { value: 'Pending Review', label: 'Pending Review' },
+                      { value: 'Rejected', label: 'Rejected' },
+                      { value: 'Dispensed', label: 'Dispensed' }
+                    ].filter(opt => filterStatuses.includes(opt.value))}
+                    onChange={selectedOptions => {
+                      const values = selectedOptions ? selectedOptions.map(opt => opt.value) : [];
+                      setFilterStatuses(values);
+                    }}
+                    placeholder="All Statuses"
+                    menuPortalTarget={document.body}
+                    styles={{
+                      control: (base) => ({
+                        ...base,
+                        minHeight: '36px',
+                        borderRadius: '6px',
+                        borderColor: '#cbd5e1',
+                        fontSize: '0.85rem',
+                        boxShadow: 'none',
+                        '&:hover': {
+                          borderColor: '#a8b2c1'
+                        }
+                      }),
+                      option: (base) => ({ ...base, fontSize: '0.85rem' }),
+                      multiValue: (base) => ({ ...base, backgroundColor: '#f1f5f9', border: '1px solid #e2e8f0', borderRadius: '4px' }),
+                      multiValueLabel: (base) => ({ ...base, color: '#334155', fontWeight: 500, fontSize: '0.75rem' }),
+                      multiValueRemove: (base) => ({ ...base, ':hover': { backgroundColor: '#e2e8f0', color: '#0f172a' } }),
+                      menuPortal: (base) => ({ ...base, zIndex: 9999 })
+                    }}
+                  />
+                </div>
               </div>
             </div>
 
-            {(filterCategory !== 'All' || filterStatus !== 'All') && (
+            {(filterCategory !== 'All' || filterStatuses.length > 0) && (
               <button 
                 type="button" 
-                onClick={() => { setFilterCategory('All'); setFilterStatus('All'); }}
+                onClick={() => { setFilterCategory('All'); setFilterStatuses([]); }}
                 className="btn"
                 style={{
                   padding: '6px 12px',
@@ -728,6 +955,232 @@ export default function BudgetTab() {
             itemLabel="Budget Item"
             defaultSort={{ key: 'category', direction: 'asc' }}
           />
+        </div>
+      )}
+
+      {/* Report Modal */}
+      {showReportModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(15, 23, 42, 0.65)',
+          backdropFilter: 'blur(4px)',
+          zIndex: 1000,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '16px',
+        }} onClick={() => setShowReportModal(false)}>
+          
+          <div style={{
+            background: 'white',
+            borderRadius: '10px',
+            width: '90%',
+            maxWidth: '750px',
+            maxHeight: '90vh',
+            display: 'flex',
+            flexDirection: 'column',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+            overflow: 'hidden'
+          }} onClick={e => e.stopPropagation()}>
+            
+            {/* Modal Toolbar */}
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: '12px 20px',
+              borderBottom: '1px solid #e2e8f0',
+              background: '#f8fafc'
+            }}>
+              <h3 style={{ margin: 0, color: '#1e293b', fontSize: '1rem' }}>Generate Budget Report</h3>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button onClick={handleExportCSV} className="btn" style={{ background: '#e2e8f0', color: '#334155', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', padding: '6px 12px' }}>
+                  Export to CSV
+                </button>
+                <button onClick={handleExportPNG} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', padding: '6px 12px' }}>
+                  Export to PNG
+                </button>
+                <button onClick={() => setShowReportModal(false)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center' }}>
+                  <X size={18} color="#64748b" />
+                </button>
+              </div>
+            </div>
+
+            {/* Modal Body (Scrollable container for report) */}
+            <div style={{ overflowY: 'auto', flex: 1, padding: '20px' }}>
+              <div id="budget-report-container" style={{
+                background: 'white',
+                color: '#1e293b',
+                fontFamily: 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
+                padding: '16px',
+                borderRadius: '6px',
+                border: '1px solid #e2e8f0',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '16px'
+              }}>
+                {/* Letterhead Header */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '16px', borderBottom: '3px solid var(--color-primary-dark, #1b5e20)', paddingBottom: '12px' }}>
+                  {logo ? (
+                    <img src={logo} alt="Company Logo" style={{ maxHeight: '90px', maxWidth: '240px', objectFit: 'contain' }} />
+                  ) : (
+                    <NmkLogo size={90} />
+                  )}
+                  <div style={{ flex: 1 }}>
+                    <h1 style={{ margin: 0, color: 'var(--color-primary-dark, #1b5e20)', fontSize: '1rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+                      {activeBudget.name}
+                    </h1>
+                    <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px', fontWeight: 500 }}>
+                      NMK Group of Farms • Official Budget Report
+                    </div>
+                  </div>
+                  <div style={{ textAlign: 'right', fontSize: '0.75rem', color: '#64748b', fontWeight: 500 }}>
+                    <div><strong>Date:</strong> {new Date().toLocaleDateString()}</div>
+                    <div><strong>Ex. Rate:</strong> L$ {activeBudget.exchangeRate} / USD</div>
+                  </div>
+                </div>
+
+                {/* Transaction sending details if any */}
+                {(activeBudget.sendingService || activeBudget.referenceNumber || activeBudget.recipient) && (
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '8px', background: '#f8fafc', padding: '10px 14px', borderRadius: '6px', fontSize: '0.75rem', color: '#475569', border: '1px dashed #cbd5e1' }}>
+                    {activeBudget.sendingService && (
+                      <div><strong>Sending Service:</strong> {activeBudget.sendingService}</div>
+                    )}
+                    {activeBudget.referenceNumber && (
+                      <div><strong>Reference Number:</strong> {activeBudget.referenceNumber}</div>
+                    )}
+                    {activeBudget.recipient && (
+                      <div><strong>Sent To:</strong> {activeBudget.recipient}</div>
+                    )}
+                  </div>
+                )}
+
+                {/* Filters info if any */}
+                {(filterCategory !== 'All' || filterStatuses.length > 0) && (
+                  <div style={{ background: '#f8fafc', padding: '8px 12px', borderRadius: '6px', fontSize: '0.75rem', color: '#64748b', border: '1px dashed #cbd5e1' }}>
+                    <strong>Active Filters:</strong> {filterCategory !== 'All' && `Category: ${filterCategory}`} {filterStatuses.length > 0 && `${filterCategory !== 'All' ? ' • ' : ''}Status: ${filterStatuses.join(', ')}`}
+                  </div>
+                )}
+
+                {/* Grouped items by category */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                  {Object.keys(groupedItems).length === 0 ? (
+                    <div style={{ textAlign: 'center', color: '#64748b', fontStyle: 'italic', padding: '30px 0', fontSize: '0.85rem' }}>
+                      No budget items match the active filters.
+                    </div>
+                  ) : (
+                    Object.keys(groupedItems).map(category => {
+                      const items = groupedItems[category];
+                      const subtotal = getCategorySubtotal(items);
+                      return (
+                        <div key={category} style={{ borderBottom: '1px solid #f1f5f9', paddingBottom: '8px' }}>
+                          <h3 style={{ margin: '0 0 8px 0', color: 'var(--color-primary-dark, #1b5e20)', fontSize: '0.95rem', fontWeight: 700, borderBottom: '1px solid #e2e8f0', paddingBottom: '4px' }}>
+                            {category}
+                          </h3>
+                          
+                          {/* Indented line items */}
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', paddingLeft: '16px' }}>
+                            {items.map(item => {
+                              const amt = parseFloat(item.amount) || 0;
+                              const isUSD = item.currency === 'USD';
+                              const usdVal = isUSD ? amt : amt / activeBudget.exchangeRate;
+                              const lrdVal = isUSD ? amt * activeBudget.exchangeRate : amt;
+
+                              const usdDisplayStr = `$${usdVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+                              const lrdDisplayStr = `L$${Math.round(lrdVal).toLocaleString()}`;
+
+                              const getBadgeStyles = (status) => {
+                                switch (status) {
+                                  case 'Approved':
+                                    return { bg: '#e8f5e9', fg: '#2e7d32' };
+                                  case 'Rejected':
+                                    return { bg: '#ffebee', fg: '#c62828' };
+                                  case 'Dispensed':
+                                    return { bg: '#e8eaf6', fg: '#1a237e' };
+                                  default:
+                                    return { bg: '#fff3e0', fg: '#ef6c00' };
+                                }
+                              };
+                              const badge = getBadgeStyles(item.status || 'Pending Review');
+
+                              return (
+                                <div key={item.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', padding: '2px 0' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0 }}>
+                                    <span style={{
+                                      fontSize: '0.7rem',
+                                      fontWeight: 700,
+                                      padding: '1px 5px',
+                                      borderRadius: '4px',
+                                      background: badge.bg,
+                                      color: badge.fg,
+                                      whiteSpace: 'nowrap'
+                                    }}>
+                                      {item.status || 'Pending Review'}
+                                    </span>
+                                    <span style={{ color: '#334155', textOverflow: 'ellipsis', overflow: 'hidden', whiteSpace: 'nowrap' }}>{item.description}</span>
+                                  </div>
+                                  <div style={{ display: 'flex', gap: '24px', alignItems: 'center', flexShrink: 0 }}>
+                                    <div style={{ width: '110px', textAlign: 'right', fontWeight: 600, color: '#0f172a' }}>
+                                      {usdDisplayStr}
+                                    </div>
+                                    <div style={{ width: '130px', textAlign: 'right', fontWeight: 600, color: '#64748b' }}>
+                                      {lrdDisplayStr}
+                                    </div>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+
+                          {/* Subtotal row */}
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '6px', fontSize: '0.8rem', fontWeight: 700, color: '#334155', borderTop: '1px dashed #e2e8f0', paddingTop: '4px' }}>
+                            <span style={{ color: '#64748b', fontStyle: 'italic', paddingLeft: '16px' }}>Subtotal</span>
+                            <div style={{ display: 'flex', gap: '24px', alignItems: 'center' }}>
+                              <div style={{ width: '110px', textAlign: 'right', color: 'var(--color-primary-dark, #1b5e20)' }}>
+                                ${subtotal.usd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </div>
+                              <div style={{ width: '130px', textAlign: 'right', color: '#64748b' }}>
+                                L${Math.round(subtotal.lrd).toLocaleString()}
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                {/* Grand Total */}
+                {Object.keys(groupedItems).length > 0 && (
+                  <div style={{
+                    marginTop: '8px',
+                    background: '#f1f8e9',
+                    border: '1px solid #d0e7b5',
+                    borderRadius: '6px',
+                    padding: '8px 16px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center'
+                  }}>
+                    <span style={{ fontSize: '0.85rem', fontWeight: 800, color: '#33691e', textTransform: 'uppercase' }}>Grand Total</span>
+                    <div style={{ display: 'flex', gap: '24px', alignItems: 'center' }}>
+                      <div style={{ width: '110px', textAlign: 'right', fontSize: '1rem', fontWeight: 800, color: '#1b5e20' }}>
+                        ${getReportGrandTotal().usd.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </div>
+                      <div style={{ width: '130px', textAlign: 'right', fontSize: '0.9rem', fontWeight: 800, color: '#33691e' }}>
+                        L${Math.round(getReportGrandTotal().lrd).toLocaleString()}
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+          </div>
         </div>
       )}
 
