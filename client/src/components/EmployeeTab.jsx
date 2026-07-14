@@ -8,7 +8,7 @@ import { Trash2 } from 'lucide-react';
 export default function EmployeeTab() {
   const dispatch = useDispatch();
   const employees = useSelector(state => state.employees?.list) || [];
-  const jobTitles = [...(useSelector(state => state.settings?.jobTitles) || ['Foreman', 'Harvester', 'Tractor Operator', 'Security', 'Manager'])].sort((a, b) => (a || '').localeCompare(b || ''));
+  const jobTitles = [...(useSelector(state => state.settings?.jobTitles) || ['Foreman', 'Harvester', 'Tractor Operator', 'Security', 'General Manager'])].sort((a, b) => (a || '').localeCompare(b || ''));
 
   const [editingId, setEditingId] = useState(null);
   const [firstName, setFirstName] = useState('');

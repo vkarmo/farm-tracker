@@ -12,7 +12,7 @@ export const settingsSlice = createSlice({
     mapCenter: [51.505, -0.09],
     mapZoom: 13,
     gpsDistanceThreshold: 10,
-    jobTitles: ['Foreman', 'Harvester', 'Tractor Operator', 'Security', 'Manager'],
+    jobTitles: ['Foreman', 'Harvester', 'Tractor Operator', 'Security', 'General Manager'],
     expenseCategories: ['Equipment Maintenance', 'Fertilizer', 'Fuel', 'Labor', 'Seed'],
     incomeCategories: ['Crop Sale', 'Livestock Sale', 'Subsidy'],
     animalTypes: ['Cattle', 'Goat', 'Poultry', 'Sheep', 'Swine'],
