@@ -1302,7 +1302,17 @@ export default function PayrollTab() {
                 </div>
 
                 {/* General Manager and Assistant Manager Signatures */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '20px', marginBottom: '10px', padding: '0 40px', gap: '40px' }}>
+                <div style={{ 
+                  display: 'flex', 
+                  justifyContent: 'space-between', 
+                  marginTop: '20px', 
+                  marginBottom: '10px', 
+                  padding: '16px 40px', 
+                  gap: '40px',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: '6px',
+                  background: '#f8fafc'
+                }}>
                   {/* General Manager */}
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '220px' }}>
                     <div style={{ borderBottom: '1px solid #cbd5e1', width: '100%', height: '30px' }}></div>
