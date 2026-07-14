@@ -1172,7 +1172,7 @@ export default function PayrollTab() {
                               background: rIdx % 2 === 0 ? 'white' : '#f8fafc'
                             }}
                           >
-                            <td style={{ padding: '8px 10px', width: '240px' }}>
+                            <td style={{ padding: '8px 10px', width: '240px', verticalAlign: 'bottom' }}>
                               <div style={{ borderBottom: '1px dotted #94a3b8', width: '200px', height: '16px' }}></div>
                             </td>
                             <td style={{ padding: '8px 10px', fontWeight: '600', color: '#1e293b' }}>
