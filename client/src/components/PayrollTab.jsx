@@ -1311,9 +1311,9 @@ export default function PayrollTab() {
                     </span>
                     <span style={{ fontSize: '0.72rem', fontWeight: '600', color: '#475569' }}>General Manager</span>
                     <span style={{ fontSize: '0.65rem', color: '#94a3b8', marginBottom: '8px' }}>NMK Farm Approval</span>
-                    <div style={{ fontSize: '0.72rem', color: '#475569', display: 'flex', gap: '4px', width: '100%', justifyContent: 'center', alignItems: 'center' }}>
+                    <div style={{ fontSize: '0.72rem', color: '#475569', display: 'flex', gap: '8px', width: '100%', alignItems: 'center' }}>
                       <span>Date:</span>
-                      <div style={{ borderBottom: '1px solid #cbd5e1', width: '120px', height: '14px' }}></div>
+                      <div style={{ borderBottom: '1px solid #cbd5e1', flex: 1, height: '14px' }}></div>
                     </div>
                   </div>
 
@@ -1325,9 +1325,9 @@ export default function PayrollTab() {
                     </span>
                     <span style={{ fontSize: '0.72rem', fontWeight: '600', color: '#475569' }}>Assistant Farm Manager</span>
                     <span style={{ fontSize: '0.65rem', color: '#94a3b8', marginBottom: '8px' }}>NMK Farm Verification</span>
-                    <div style={{ fontSize: '0.72rem', color: '#475569', display: 'flex', gap: '4px', width: '100%', justifyContent: 'center', alignItems: 'center' }}>
+                    <div style={{ fontSize: '0.72rem', color: '#475569', display: 'flex', gap: '8px', width: '100%', alignItems: 'center' }}>
                       <span>Date:</span>
-                      <div style={{ borderBottom: '1px solid #cbd5e1', width: '120px', height: '14px' }}></div>
+                      <div style={{ borderBottom: '1px solid #cbd5e1', flex: 1, height: '14px' }}></div>
                     </div>
                   </div>
                 </div>
