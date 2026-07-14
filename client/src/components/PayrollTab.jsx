@@ -1282,6 +1282,21 @@ export default function PayrollTab() {
                   </div>
                 </div>
 
+                {/* Director and Assistant Director Signatures */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '20px', marginBottom: '10px', padding: '0 40px', gap: '40px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '220px' }}>
+                    <div style={{ borderBottom: '1px solid #cbd5e1', width: '100%', height: '30px' }}></div>
+                    <span style={{ fontSize: '0.75rem', fontWeight: '700', color: '#475569', marginTop: '6px' }}>Director</span>
+                    <span style={{ fontSize: '0.65rem', color: '#94a3b8' }}>NMK Farm Approval</span>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '220px' }}>
+                    <div style={{ borderBottom: '1px solid #cbd5e1', width: '100%', height: '30px' }}></div>
+                    <span style={{ fontSize: '0.75rem', fontWeight: '700', color: '#475569', marginTop: '6px' }}>Assistant Director</span>
+                    <span style={{ fontSize: '0.65rem', color: '#94a3b8' }}>NMK Farm Verification</span>
+                  </div>
+                </div>
+
                 {/* Footer terms */}
                 <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '12px', fontSize: '0.65rem', color: '#94a3b8', textAlign: 'center' }}>
                   This report is an official computer-generated document of NMK Farm, Kamigbo, Senjeh District, Bomi County, Liberia. All entries sync back to database log registries.
