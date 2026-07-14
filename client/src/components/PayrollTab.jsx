@@ -55,12 +55,12 @@ export default function PayrollTab() {
   const [toDate, setToDate] = useState(getPastDateStr(0));
   const [pulledEmployees, setPulledEmployees] = useState([]);
 
-  // Exchange rate fallback mechanism identical to BudgetTab
+  // Exchange rate fallback mechanism identical to BudgetTab, rounded to integer
   const historicalRate = useMemo(() => {
     if (!budgets.length) return 150;
     const sorted = [...budgets].sort((a, b) => (b.id || '').localeCompare(a.id || ''));
     const recentWithRate = sorted.find(b => b.exchangeRate && String(b.exchangeRate).trim() !== '');
-    return recentWithRate ? parseFloat(recentWithRate.exchangeRate) : 150;
+    return recentWithRate ? Math.round(parseFloat(recentWithRate.exchangeRate)) : 150;
   }, [budgets]);
 
   const [liveRate, setLiveRate] = useState(null);
@@ -78,8 +78,8 @@ export default function PayrollTab() {
     return () => { mounted = false; };
   }, []);
 
-  const activeRate = liveRate || historicalRate;
-  const defaultExchangeRate = parseFloat(activeBudget.exchangeRate) || activeRate;
+  const activeRate = Math.round(liveRate ? parseFloat(liveRate) : historicalRate);
+  const defaultExchangeRate = Math.round(parseFloat(activeBudget.exchangeRate) || activeRate);
   
   const [customExchangeRate, setCustomExchangeRate] = useState(defaultExchangeRate);
   
@@ -262,7 +262,7 @@ export default function PayrollTab() {
     let usdTotal = 0;
     let lrdTotal = 0;
     let totalEmployees = payrollRows.length;
-    const rate = parseFloat(customExchangeRate) || activeRate;
+    const rate = Math.round(parseFloat(customExchangeRate) || activeRate);
 
     payrollRows.forEach(row => {
       if (row.currency === 'USD') {
@@ -291,7 +291,7 @@ export default function PayrollTab() {
     setToDate(sheet.toDate);
     setPulledEmployees(sheet.pulledEmployees || []);
     setAttendance(sheet.attendance || {});
-    setCustomExchangeRate(sheet.exchangeRate !== undefined ? sheet.exchangeRate : defaultExchangeRate);
+    setCustomExchangeRate(sheet.exchangeRate !== undefined ? Math.round(sheet.exchangeRate) : defaultExchangeRate);
     setViewMode('form');
   };
 
@@ -314,7 +314,7 @@ export default function PayrollTab() {
     }
 
     const id = editingId || 'payroll_' + Date.now();
-    const rate = parseFloat(customExchangeRate) || defaultExchangeRate;
+    const rate = Math.round(parseFloat(customExchangeRate) || defaultExchangeRate);
     const payload = {
       id,
       fromDate,
@@ -355,7 +355,7 @@ export default function PayrollTab() {
   const handleExportCSV = () => {
     if (payrollRows.length === 0) return alert('No payroll rows to export.');
 
-    const rate = parseFloat(customExchangeRate) || activeRate;
+    const rate = Math.round(parseFloat(customExchangeRate) || activeRate);
     let csvContent = "data:text/csv;charset=utf-8,";
     csvContent += `Payroll Report: ${fromDate} to ${toDate}\n`;
     csvContent += `Exchange Rate: 1 USD = ${rate} LRD\n\n`;
@@ -674,8 +674,12 @@ export default function PayrollTab() {
               <label style={{ fontSize: '0.78rem', fontWeight: '600', color: '#64748b' }}>Ex. Rate (LRD/USD)</label>
               <input 
                 type="number" 
+                step="1"
                 value={customExchangeRate} 
-                onChange={e => setCustomExchangeRate(e.target.value)} 
+                onChange={e => {
+                  const val = parseFloat(e.target.value);
+                  setCustomExchangeRate(isNaN(val) ? '' : Math.round(val));
+                }} 
                 style={{ padding: '8px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem', color: '#334155', width: '100%', boxSizing: 'border-box' }}
               />
             </div>
