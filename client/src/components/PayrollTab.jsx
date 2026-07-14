@@ -32,13 +32,18 @@ export default function PayrollTab() {
   const logo = useSelector(state => state.settings?.logo);
 
   const generalManager = useMemo(() => {
-    return employees.find(emp => (emp.jobTitle || '').toLowerCase().trim() === 'general manager');
+    return employees.find(emp => {
+      const title = (emp.jobTitle || '').toLowerCase().trim();
+      const isActive = emp.isActive !== false && emp.isTerminated !== true;
+      return isActive && title === 'general manager';
+    });
   }, [employees]);
 
   const assistantManager = useMemo(() => {
     return employees.find(emp => {
       const title = (emp.jobTitle || '').toLowerCase().trim();
-      return title === 'assistant manager' || title === 'assistant farm manager';
+      const isActive = emp.isActive !== false && emp.isTerminated !== true;
+      return isActive && (title === 'assistant manager' || title === 'assistant farm manager');
     });
   }, [employees]);
 
