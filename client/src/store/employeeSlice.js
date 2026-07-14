@@ -33,7 +33,7 @@ export const saveEmployee = (employeeData) => (dispatch) => {
 
 export const removeEmployee = (id) => (dispatch) => {
   dispatch(deleteEmployee(id));
-  dispatch(queueAction({ type: 'employees/deleteEmployee', payload: id, meta: { id: Date.now() } }));
+  dispatch(queueAction({ type: 'core/deleteNode', payload: { id }, meta: { id: Date.now() } }));
 };
 
 export default employeeSlice.reducer;

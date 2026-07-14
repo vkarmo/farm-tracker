@@ -45,7 +45,7 @@ export const savePairing = (data) => (dispatch) => {
 
 export const removePairing = (id) => (dispatch) => {
   dispatch(deletePairing(id));
-  dispatch(queueAction({ type: 'breeding/deletePairing', payload: id, meta: { id: Date.now() } }));
+  dispatch(queueAction({ type: 'core/deleteNode', payload: { id }, meta: { id: Date.now() } }));
 };
 
 export const saveKit = (data) => (dispatch) => {
@@ -55,7 +55,7 @@ export const saveKit = (data) => (dispatch) => {
 
 export const removeKit = (id) => (dispatch) => {
   dispatch(deleteKit(id));
-  dispatch(queueAction({ type: 'breeding/deleteKit', payload: id, meta: { id: Date.now() } }));
+  dispatch(queueAction({ type: 'core/deleteNode', payload: { id }, meta: { id: Date.now() } }));
 };
 
 export default breedingSlice.reducer;

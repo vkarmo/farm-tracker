@@ -38,7 +38,7 @@ export const saveAssignment = (assignmentData) => (dispatch) => {
 
 export const removeAssignment = (id) => (dispatch) => {
   dispatch(deleteAssignment(id));
-  dispatch(queueAction({ type: 'assignments/deleteAssignment', payload: id, meta: { id: Date.now() } }));
+  dispatch(queueAction({ type: 'core/deleteNode', payload: { id }, meta: { id: Date.now() } }));
 };
 
 export default assignmentSlice.reducer;
