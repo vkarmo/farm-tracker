@@ -1136,7 +1136,7 @@ export default function PayrollTab() {
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.75rem', minWidth: '950px' }}>
                     <thead>
                       <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
-                        <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: '700', color: '#475569', width: '120px' }}>Signature</th>
+                        <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: '700', color: '#475569', width: '240px' }}>Signature</th>
                         <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: '700', color: '#475569', background: '#f8fafc' }}>Employee Name</th>
                         <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: '700', color: '#475569' }}>Job Title</th>
                         <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: '700', color: '#475569' }}>Pay Rate</th>
@@ -1172,8 +1172,8 @@ export default function PayrollTab() {
                               background: rIdx % 2 === 0 ? 'white' : '#f8fafc'
                             }}
                           >
-                            <td style={{ padding: '8px 10px', width: '120px' }}>
-                              <div style={{ borderBottom: '1px dotted #94a3b8', width: '100px', height: '16px' }}></div>
+                            <td style={{ padding: '8px 10px', width: '240px' }}>
+                              <div style={{ borderBottom: '1px dotted #94a3b8', width: '200px', height: '16px' }}></div>
                             </td>
                             <td style={{ padding: '8px 10px', fontWeight: '600', color: '#1e293b' }}>
                               {emp.lastName}, {emp.firstName}
