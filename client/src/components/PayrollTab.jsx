@@ -36,7 +36,10 @@ export default function PayrollTab() {
   }, [employees]);
 
   const assistantManager = useMemo(() => {
-    return employees.find(emp => (emp.jobTitle || '').toLowerCase().trim() === 'assistant manager');
+    return employees.find(emp => {
+      const title = (emp.jobTitle || '').toLowerCase().trim();
+      return title === 'assistant manager' || title === 'assistant farm manager';
+    });
   }, [employees]);
 
   const gmName = generalManager ? `${generalManager.firstName} ${generalManager.lastName}` : '';
@@ -1299,7 +1302,7 @@ export default function PayrollTab() {
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '220px' }}>
                     <div style={{ borderBottom: '1px solid #cbd5e1', width: '100%', height: '30px' }}></div>
                     <span style={{ fontSize: '0.75rem', fontWeight: '700', color: '#1e293b', marginTop: '6px', textAlign: 'center' }}>
-                      {gmName || '________________________'}
+                      {gmName}
                     </span>
                     <span style={{ fontSize: '0.72rem', fontWeight: '600', color: '#475569' }}>General Manager</span>
                     <span style={{ fontSize: '0.65rem', color: '#94a3b8', marginBottom: '8px' }}>NMK Farm Approval</span>
@@ -1309,13 +1312,13 @@ export default function PayrollTab() {
                     </div>
                   </div>
 
-                  {/* Assistant Manager */}
+                  {/* Assistant Farm Manager */}
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '220px' }}>
                     <div style={{ borderBottom: '1px solid #cbd5e1', width: '100%', height: '30px' }}></div>
                     <span style={{ fontSize: '0.75rem', fontWeight: '700', color: '#1e293b', marginTop: '6px', textAlign: 'center' }}>
-                      {amName || '________________________'}
+                      {amName}
                     </span>
-                    <span style={{ fontSize: '0.72rem', fontWeight: '600', color: '#475569' }}>Assistant Manager</span>
+                    <span style={{ fontSize: '0.72rem', fontWeight: '600', color: '#475569' }}>Assistant Farm Manager</span>
                     <span style={{ fontSize: '0.65rem', color: '#94a3b8', marginBottom: '8px' }}>NMK Farm Verification</span>
                     <div style={{ fontSize: '0.72rem', color: '#475569', display: 'flex', gap: '4px', width: '100%', justifyContent: 'center', alignItems: 'center' }}>
                       <span>Date:</span>
