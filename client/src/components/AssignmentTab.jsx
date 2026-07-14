@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import Select from 'react-select';
-import { saveAssignment, removeAssignment } from '../store/assignmentSlice';
+import { saveAssignment, removeAssignment, setEditingAssignmentId } from '../store/assignmentSlice';
 import CrudTable from './CrudTable';
 
 import ErrorBoundary from './ErrorBoundary';
@@ -66,6 +66,18 @@ function AssignmentTabComponent() {
     setActiveTab('entry');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
+
+  const reduxEditingId = useSelector(state => state.assignments.editingId);
+
+  useEffect(() => {
+    if (reduxEditingId) {
+      const assignment = assignments.find(a => a.id === reduxEditingId);
+      if (assignment) {
+        handleEdit(assignment);
+        dispatch(setEditingAssignmentId(null));
+      }
+    }
+  }, [reduxEditingId, assignments, dispatch]);
 
   const handleSelectChange = (selectedOptions) => {
     const newIds = selectedOptions ? selectedOptions.map(opt => opt.value) : [];

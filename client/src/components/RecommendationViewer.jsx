@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { ArrowLeft, ExternalLink, Link as LinkIcon, Plus, Unlink, Sparkles, AlertCircle, Calendar, ClipboardList, Info, HelpCircle, Layers, CheckCircle, ChevronDown, ChevronUp, Trash2, Droplet, Sprout, Mountain, RefreshCw } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Link as LinkIcon, Plus, Unlink, Sparkles, AlertCircle, Calendar, ClipboardList, Info, HelpCircle, Layers, CheckCircle, ChevronDown, ChevronUp, Trash2, Droplet, Sprout, Mountain, RefreshCw, DollarSign } from 'lucide-react';
 import { addRecommendation, deleteRecommendation } from '../store/recommendationsSlice';
 import { updateField } from '../store/fieldsSlice';
 import { queueAction } from '../store/syncSlice';
@@ -1069,6 +1069,37 @@ const getRotationState = (cropName, month) => {
   }
 };
 
+const CROP_METRICS = {
+  CORN: { pricePerUnit: 6.00, unit: 'bushel', maturityDays: 90, spacingMeters: 0.3, yieldPerPlant: 0.015 },
+  PEPPER: { pricePerUnit: 1.20, unit: 'kg', maturityDays: 80, spacingMeters: 0.45, yieldPerPlant: 0.4 },
+  OKRA: { pricePerUnit: 0.80, unit: 'kg', maturityDays: 60, spacingMeters: 0.4, yieldPerPlant: 0.3 },
+  CASSAVA: { pricePerUnit: 0.15, unit: 'kg', maturityDays: 270, spacingMeters: 0.9, yieldPerPlant: 2.5 },
+  BEANS: { pricePerUnit: 1.10, unit: 'kg', maturityDays: 60, spacingMeters: 0.15, yieldPerPlant: 0.05 },
+  CABBAGE: { pricePerUnit: 0.60, unit: 'head', maturityDays: 85, spacingMeters: 0.4, yieldPerPlant: 0.8 },
+  TOMATO: { pricePerUnit: 0.90, unit: 'kg', maturityDays: 75, spacingMeters: 0.5, yieldPerPlant: 2.0 },
+  COCOA: { pricePerUnit: 2.20, unit: 'kg', maturityDays: 1000, spacingMeters: 3.0, yieldPerPlant: 0.8 },
+  COFFEE: { pricePerUnit: 1.80, unit: 'kg', maturityDays: 1000, spacingMeters: 2.5, yieldPerPlant: 0.6 },
+  PALM: { pricePerUnit: 12.00, unit: 'bunch', maturityDays: 1200, spacingMeters: 9.0, yieldPerPlant: 6.0 },
+  FEVER_LEAF: { pricePerUnit: 0.60, unit: 'kg', maturityDays: 90, spacingMeters: 0.5, yieldPerPlant: 0.3 },
+  DEFAULT: { pricePerUnit: 0.80, unit: 'kg', maturityDays: 90, spacingMeters: 0.4, yieldPerPlant: 0.2 }
+};
+
+const getCropRevenueMetrics = (cropName) => {
+  const nameUpper = (cropName || '').toUpperCase();
+  if (nameUpper.includes('CORN') || nameUpper.includes('MAIZE')) return CROP_METRICS.CORN;
+  if (nameUpper.includes('PEPPER')) return CROP_METRICS.PEPPER;
+  if (nameUpper.includes('OKRA')) return CROP_METRICS.OKRA;
+  if (nameUpper.includes('CASSAVA')) return CROP_METRICS.CASSAVA;
+  if (nameUpper.includes('BEAN')) return CROP_METRICS.BEANS;
+  if (nameUpper.includes('CABBAGE')) return CROP_METRICS.CABBAGE;
+  if (nameUpper.includes('TOMATO')) return CROP_METRICS.TOMATO;
+  if (nameUpper.includes('COCOA')) return CROP_METRICS.COCOA;
+  if (nameUpper.includes('COFFEE')) return CROP_METRICS.COFFEE;
+  if (nameUpper.includes('PALM')) return CROP_METRICS.PALM;
+  if (nameUpper.includes('FEVER') || nameUpper.includes('LEAF')) return CROP_METRICS.FEVER_LEAF;
+  return CROP_METRICS.DEFAULT;
+};
+
 const GraphicalFieldLayout = ({ layout, area, field }) => {
   const { rows = 10, bedsPerRow = 4, bedWidth = 1.2, rowSpacing = 0.6, cropAssignments = [] } = layout || {};
   
@@ -1092,6 +1123,7 @@ const GraphicalFieldLayout = ({ layout, area, field }) => {
   const [soilLegendExpanded, setSoilLegendExpanded] = useState(false);
   const [elevationLegendExpanded, setElevationLegendExpanded] = useState(false);
   const [rotationLegendExpanded, setRotationLegendExpanded] = useState(false);
+  const [revenueLegendExpanded, setRevenueLegendExpanded] = useState(true);
   const [spacingSpecsExpanded, setSpacingSpecsExpanded] = useState(true);
   const [selectedMonth, setSelectedMonth] = useState(1);
 
@@ -1102,6 +1134,7 @@ const GraphicalFieldLayout = ({ layout, area, field }) => {
     setSoilLegendExpanded(overlayId === 'soil');
     setElevationLegendExpanded(overlayId === 'elevation');
     setRotationLegendExpanded(overlayId === 'rotation');
+    setRevenueLegendExpanded(overlayId === 'revenue');
   };
   
   const bedHeight = 30;
@@ -1260,6 +1293,68 @@ const GraphicalFieldLayout = ({ layout, area, field }) => {
     });
   }, [fieldPolygonPoints, gridRotationAngle, gridCenterX, gridCenterY]);
 
+  const zoneAreaRatios = useMemo(() => {
+    if (rotatedPolygonPoints.length === 0) {
+      return cropAssignments.map(a => (a.endRow - a.startRow + 1) / rows);
+    }
+
+    const polyMinY = Math.min(...rotatedPolygonPoints.map(pt => pt[1]));
+    const polyMaxY = Math.max(...rotatedPolygonPoints.map(pt => pt[1]));
+
+    const getWidthAtY = (Y) => {
+      const intersections = [];
+      for (let j = 0; j < rotatedPolygonPoints.length; j++) {
+        const pt1 = rotatedPolygonPoints[j];
+        const pt2 = rotatedPolygonPoints[(j + 1) % rotatedPolygonPoints.length];
+        const y1 = pt1[1];
+        const y2 = pt2[1];
+        if ((y1 >= Y && y2 <= Y) || (y2 >= Y && y1 <= Y)) {
+          if (Math.abs(y2 - y1) > 0.0001) {
+            const X = pt1[0] + ((Y - y1) * (pt2[0] - pt1[0])) / (y2 - y1);
+            intersections.push(X);
+          }
+        }
+      }
+      if (intersections.length < 2) return 0;
+      return Math.max(...intersections) - Math.min(...intersections);
+    };
+
+    // Calculate total polygon area representation
+    let totalSampleWidth = 0;
+    const samplesTotal = 100;
+    const stepTotal = (polyMaxY - polyMinY) / samplesTotal;
+    for (let i = 0; i <= samplesTotal; i++) {
+      totalSampleWidth += getWidthAtY(polyMinY + i * stepTotal);
+    }
+
+    const rawFractions = cropAssignments.map(a => {
+      const y_start = topPadding + a.startRow * (bedHeight + verticalSpacing) - verticalSpacing / 2;
+      const y_end = topPadding + (a.endRow + 1) * (bedHeight + verticalSpacing) - verticalSpacing / 2;
+
+      // Integrate strip width
+      const minVisibleY = Math.max(y_start, polyMinY);
+      const maxVisibleY = Math.min(y_end, polyMaxY);
+      if (minVisibleY >= maxVisibleY) return 0;
+
+      let stripSampleWidth = 0;
+      const samplesStrip = 20;
+      const stepStrip = (maxVisibleY - minVisibleY) / samplesStrip;
+      for (let i = 0; i <= samplesStrip; i++) {
+        stripSampleWidth += getWidthAtY(minVisibleY + i * stepStrip);
+      }
+
+      // Proportional strip area relative to total samples
+      return (stripSampleWidth * stepStrip) / (totalSampleWidth * stepTotal || 1);
+    });
+
+    const sumFractions = rawFractions.reduce((sum, f) => sum + f, 0);
+    if (sumFractions <= 0) {
+      return cropAssignments.map(a => (a.endRow - a.startRow + 1) / rows);
+    }
+
+    return rawFractions.map(f => f / sumFractions);
+  }, [cropAssignments, rotatedPolygonPoints, rows, bedHeight, verticalSpacing, topPadding]);
+
   const getZoneLabelCoords = (startRow, endRow) => {
     const y_start = topPadding + startRow * (bedHeight + verticalSpacing) - verticalSpacing / 2;
     const y_end = topPadding + (endRow + 1) * (bedHeight + verticalSpacing) - verticalSpacing / 2;
@@ -1394,7 +1489,8 @@ const GraphicalFieldLayout = ({ layout, area, field }) => {
             { id: 'moisture', label: 'Moisture Profile', color: '#3b82f6', icon: <Droplet size={16} /> },
             { id: 'soil', label: 'Soil Type Map', color: '#14b8a6', icon: <Sprout size={16} /> },
             { id: 'elevation', label: 'Elevation Contours', color: '#ef4444', icon: <Mountain size={16} /> },
-            { id: 'rotation', label: 'Crop Rotation Timeline', color: '#8b5cf6', icon: <RefreshCw size={16} /> }
+            { id: 'rotation', label: 'Crop Rotation Timeline', color: '#8b5cf6', icon: <RefreshCw size={16} /> },
+            { id: 'revenue', label: 'Potential Revenue Estimator', color: '#16a34a', icon: <DollarSign size={16} /> }
           ].map(btn => (
             <button
               key={btn.id}
@@ -1660,7 +1756,7 @@ const GraphicalFieldLayout = ({ layout, area, field }) => {
             <g clipPath="url(#field-polygon-clip)">
               {/* Rotated Group for layout rectangles */}
               <g transform={`rotate(${gridRotationAngle}, ${gridCenterX}, ${gridCenterY})`}>
-                {activeOverlay === 'none' || activeOverlay === 'rotation' ? (
+                {activeOverlay === 'none' || activeOverlay === 'rotation' || activeOverlay === 'revenue' ? (
                   /* Render contiguous crop zones */
                   <>
                     {cropAssignments.map((a, idx) => {
@@ -1672,10 +1768,31 @@ const GraphicalFieldLayout = ({ layout, area, field }) => {
                       const zoneWidth = w_grid + 600;
                       
                       const rotState = getRotationState(a.crop, selectedMonth);
-                      const fillColor = activeOverlay === 'rotation' ? rotState.color : a.color;
+                      
+                      // Calculate potential revenue metrics for this zone
+                      const metrics = getCropRevenueMetrics(a.crop);
+                      const zoneAcres = zoneAreaRatios[idx] * (area || 5);
+                      const zoneSqMeters = zoneAcres * 4046.86;
+                      const plantCount = Math.floor((zoneSqMeters * 0.70) / (metrics.spacingMeters * metrics.spacingMeters));
+                      const totalYield = plantCount * metrics.yieldPerPlant;
+                      const potentialRevenue = totalYield * metrics.pricePerUnit;
+
+                      let fillColor = a.color;
+                      if (activeOverlay === 'rotation') {
+                        fillColor = rotState.color;
+                      } else if (activeOverlay === 'revenue') {
+                        const revPerAcre = potentialRevenue / (zoneAcres || 1);
+                        if (revPerAcre > 15000) fillColor = '#047857';      // High density (deep emerald)
+                        else if (revPerAcre > 8000) fillColor = '#059669';   // Medium density (medium emerald)
+                        else if (revPerAcre > 4000) fillColor = '#10b981';   // Low-medium (emerald)
+                        else fillColor = '#34d399';                          // Low density (mint green)
+                      }
+
                       const tooltipText = activeOverlay === 'rotation'
-                        ? `${rotState.label} (Month ${selectedMonth})\nArea: ${((a.endRow - a.startRow + 1) / rows * (area || 5)).toFixed(2)} Acres`
-                        : `${a.crop} Zone\nArea: ${((a.endRow - a.startRow + 1) / rows * (area || 5)).toFixed(2)} Acres`;
+                        ? `${rotState.label} (Month ${selectedMonth})\nArea: ${zoneAcres.toFixed(2)} Acres`
+                        : activeOverlay === 'revenue'
+                        ? `${a.crop} Zone\nEst. Revenue: $${potentialRevenue.toLocaleString(undefined, {maximumFractionDigits: 0})} USD\nPlant Count: ${plantCount.toLocaleString()}\nArea: ${zoneAcres.toFixed(2)} Acres`
+                        : `${a.crop} Zone\nArea: ${zoneAcres.toFixed(2)} Acres`;
                       
                       return (
                         <rect
@@ -1712,6 +1829,61 @@ const GraphicalFieldLayout = ({ layout, area, field }) => {
                           strokeWidth={1.5}
                           strokeDasharray="4,4"
                         />
+                      );
+                    })}
+
+                    {/* Render text labels on top of the zones when activeOverlay === 'revenue' */}
+                    {activeOverlay === 'revenue' && cropAssignments.map((a, idx) => {
+                      const y_start = topPadding + a.startRow * (bedHeight + verticalSpacing) - verticalSpacing / 2;
+                      const y_end = topPadding + (a.endRow + 1) * (bedHeight + verticalSpacing) - verticalSpacing / 2;
+                      const midY = y_start + (y_end - y_start) / 2;
+                      
+                      const metrics = getCropRevenueMetrics(a.crop);
+                      const zoneAcres = zoneAreaRatios[idx] * (area || 5);
+                      const zoneSqMeters = zoneAcres * 4046.86;
+                      const plantCount = Math.floor((zoneSqMeters * 0.70) / (metrics.spacingMeters * metrics.spacingMeters));
+                      const totalYield = plantCount * metrics.yieldPerPlant;
+                      const potentialRevenue = totalYield * metrics.pricePerUnit;
+
+                      return (
+                        <g key={`revenue_lbl_${idx}`} style={{ pointerEvents: 'none' }}>
+                          <text 
+                            x={gridCenterX} 
+                            y={midY - 5} 
+                            fontSize="11" 
+                            fontWeight="800" 
+                            fill="#ffffff" 
+                            textAnchor="middle" 
+                            style={{ 
+                              paintOrder: 'stroke', 
+                              stroke: '#0f172a', 
+                              strokeWidth: '3px', 
+                              strokeLinecap: 'round', 
+                              strokeLinejoin: 'round',
+                              fontFamily: '"Inter", "system-ui", sans-serif'
+                            }}
+                          >
+                            {a.crop.toUpperCase()}
+                          </text>
+                          <text 
+                            x={gridCenterX} 
+                            y={midY + 9} 
+                            fontSize="10" 
+                            fontWeight="700" 
+                            fill="#ffe000" 
+                            textAnchor="middle" 
+                            style={{ 
+                              paintOrder: 'stroke', 
+                              stroke: '#0f172a', 
+                              strokeWidth: '3px', 
+                              strokeLinecap: 'round', 
+                              strokeLinejoin: 'round',
+                              fontFamily: '"Inter", "system-ui", sans-serif'
+                            }}
+                          >
+                            Est. Rev: ${potentialRevenue.toLocaleString(undefined, {maximumFractionDigits: 0})} ({plantCount.toLocaleString()} plants)
+                          </text>
+                        </g>
                       );
                     })}
                   </>
@@ -1776,7 +1948,7 @@ const GraphicalFieldLayout = ({ layout, area, field }) => {
 
             {/* Rotated Labels Group (unclipped but rotated to align with the beds) */}
             <g transform={`rotate(${gridRotationAngle}, ${gridCenterX}, ${gridCenterY})`}>
-              {activeOverlay === 'none' ? (
+              {activeOverlay === 'revenue' ? null : activeOverlay === 'none' ? (
                 <>
                   {renderedLabels.map((lbl, idx) => (
                     <g key={`crop_zone_label_${idx}`}>
@@ -1925,7 +2097,7 @@ const GraphicalFieldLayout = ({ layout, area, field }) => {
             {cropLegendsExpanded && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px' }}>
                 {cropAssignments.map((a, idx) => {
-                  const zoneAcres = ((a.endRow - a.startRow + 1) / rows * (area || 5)).toFixed(1);
+                  const zoneAcres = (zoneAreaRatios[idx] * (area || 5)).toFixed(1);
                   const midRow = (a.startRow + a.endRow) / 2;
                   const t = midRow / (rows - 1 || 9);
                   const zoneElevation = Math.round(Number(elevationVal) + 15 - t * 30);
@@ -2061,6 +2233,50 @@ const GraphicalFieldLayout = ({ layout, area, field }) => {
                       </div>
                     </div>
                   ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeOverlay === 'revenue' && (
+            <div style={{ background: '#f8fafc', padding: '12px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
+              <h5 
+                onClick={() => setRevenueLegendExpanded(!revenueLegendExpanded)}
+                style={{ margin: 0, fontSize: '0.85rem', color: '#334155', fontWeight: 700, display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer' }}
+              >
+                <span>Potential Revenue Estimator</span>
+                {revenueLegendExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+              </h5>
+              {revenueLegendExpanded && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '8px', fontSize: '0.78rem', color: '#475569' }}>
+                  <div style={{ paddingBottom: '6px', borderBottom: '1px solid #e2e8f0', color: '#334155', fontWeight: 600 }}>
+                    Projected Revenue for {area || 5} Acres:
+                  </div>
+                  {cropAssignments.map((a, idx) => {
+                    const metrics = getCropRevenueMetrics(a.crop);
+                    const zoneAcres = zoneAreaRatios[idx] * (area || 5);
+                    const zoneSqMeters = zoneAcres * 4046.86;
+                    const plantCount = Math.floor((zoneSqMeters * 0.70) / (metrics.spacingMeters * metrics.spacingMeters));
+                    const totalYield = plantCount * metrics.yieldPerPlant;
+                    const potentialRevenue = totalYield * metrics.pricePerUnit;
+
+                    return (
+                      <div key={idx} style={{ padding: '6px', background: '#fff', border: '1px solid #cbd5e1', borderRadius: '6px' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', fontWeight: 700, color: '#166534', marginBottom: '4px' }}>
+                          <span>{a.crop.toUpperCase()} ZONE ({(zoneAreaRatios[idx] * 100).toFixed(0)}% area)</span>
+                          <span>${potentialRevenue.toLocaleString(undefined, {maximumFractionDigits: 0})} USD</span>
+                        </div>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px 8px', fontSize: '0.72rem', color: '#64748b' }}>
+                          <div><strong>Area:</strong> {zoneAcres.toFixed(2)} Acres</div>
+                          <div><strong>Plant Spacing:</strong> {metrics.spacingMeters}m</div>
+                          <div><strong>Est. Plants:</strong> {plantCount.toLocaleString()}</div>
+                          <div><strong>Price:</strong> ${metrics.pricePerUnit.toFixed(2)} / {metrics.unit}</div>
+                          <div><strong>Yield/Plant:</strong> {metrics.yieldPerPlant} {metrics.unit}s</div>
+                          <div><strong>Maturity:</strong> {metrics.maturityDays} days</div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
             </div>

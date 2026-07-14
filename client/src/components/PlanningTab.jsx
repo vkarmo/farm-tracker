@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { saveGoal, removeGoal, saveObjective, removeObjective } from '../store/planningSlice';
+import { saveGoal, removeGoal, saveObjective, removeObjective, setEditingGoalIdRedux, setEditingObjectiveIdRedux } from '../store/planningSlice';
+import { saveAssignment, removeAssignment, setEditingAssignmentId } from '../store/assignmentSlice';
 import { queueAction } from '../store/syncSlice';
 import CrudTable from './CrudTable';
 import Select from 'react-select';
-import { Target, X, PlusCircle, ChevronRight, ChevronDown, List, ClipboardList, Edit } from 'lucide-react';
+import { Target, X, PlusCircle, ChevronRight, ChevronDown, List, ClipboardList, Edit, Trash2, Calendar, Clock, User, Users } from 'lucide-react';
 
 
 const INIT_GOAL = { title: '', fromDate: '', toDate: '', workerIds: [], parentGoalId: '', estimatedHours: '', actualHours: '', startDate: '', completionDate: '' };
@@ -64,6 +65,7 @@ export default function PlanningTab() {
   const objectives = useSelector(state => state.planning?.objectives) || [];
   const employeesList = useSelector(state => state.employees?.list) || [];
   const assignments = useSelector(state => state.assignments?.list) || [];
+  const fields = useSelector(state => state.fields?.data) || [];
 
   const [activeView, setActiveView] = useState('goals'); // goals or objectives
 
@@ -83,6 +85,37 @@ export default function PlanningTab() {
     setEditingObjId(null);
     setActiveTab('roster');
   };
+
+  const reduxEditingGoalId = useSelector(state => state.planning.editingGoalId);
+  const reduxEditingObjId = useSelector(state => state.planning.editingObjId);
+
+  useEffect(() => {
+    if (reduxEditingGoalId) {
+      const goal = goals.find(g => g.id === reduxEditingGoalId);
+      if (goal) {
+        setActiveView('goals');
+        setGoalData(goal);
+        setEditingGoalId(goal.id);
+        setSelectedNodeId(goal.id);
+        setActiveTab('entry');
+        dispatch(setEditingGoalIdRedux(null));
+      }
+    }
+  }, [reduxEditingGoalId, goals, dispatch]);
+
+  useEffect(() => {
+    if (reduxEditingObjId) {
+      const obj = objectives.find(o => o.id === reduxEditingObjId);
+      if (obj) {
+        setActiveView('objectives');
+        setObjectiveData(obj);
+        setEditingObjId(obj.id);
+        setSelectedNodeId(obj.id);
+        setActiveTab('entry');
+        dispatch(setEditingObjectiveIdRedux(null));
+      }
+    }
+  }, [reduxEditingObjId, objectives, dispatch]);
 
   const employeeOptions = [...employeesList]
     .sort((a, b) => (a.lastName || '').localeCompare(b.lastName || ''))
@@ -234,6 +267,522 @@ export default function PlanningTab() {
 
 
 
+  const renderProjectBoard = () => {
+    const COLUMNS = [
+      { status: 'Pending Review', label: 'PENDING REVIEW', color: '#ef6c00', bg: '#ffe0b2', border: '#ffe0b2' },
+      { status: 'Not Complete', label: 'NOT COMPLETE', color: '#c62828', bg: '#ffebee', border: '#ffcdd2' },
+      { status: 'Complete', label: 'COMPLETE', color: '#2e7d32', bg: '#e8f5e9', border: '#c8e6c9' },
+      { status: 'Satisfactory', label: 'SATISFACTORY', color: '#1a237e', bg: '#e8eaf6', border: '#c5cae9' }
+    ];
+
+    const handleDeleteAssignment = (id) => {
+      if (window.confirm("Delete this Work Assignment?")) {
+        dispatch(removeAssignment(id));
+        dispatch(queueAction({ type: 'core/deleteNode', payload: { id }, meta: { id: Date.now() } }));
+      }
+    };
+
+    return (
+      <div style={{ 
+        display: 'flex', 
+        flexDirection: 'row', 
+        overflowX: 'auto', 
+        gap: '20px', 
+        paddingBottom: '20px',
+        alignItems: 'stretch',
+        minHeight: '500px'
+      }}>
+        {COLUMNS.map(col => {
+          const colAssignments = assignments.filter(a => (a.reviewStatus || 'Pending Review') === col.status);
+
+          return (
+            <div 
+              key={col.status} 
+              style={{
+                width: '300px',
+                flexShrink: 0,
+                background: '#f8fafc',
+                borderRadius: '8px',
+                border: '1px solid #cbd5e1',
+                display: 'flex',
+                flexDirection: 'column',
+                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)'
+              }}
+            >
+              {/* Column Header */}
+              <div style={{
+                padding: '12px 16px',
+                background: col.bg,
+                borderTopLeftRadius: '7px',
+                borderTopRightRadius: '7px',
+                borderBottom: `2px solid ${col.color}`,
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+              }}>
+                <span style={{ fontSize: '0.8rem', fontWeight: 800, color: col.color }}>
+                  {col.label}
+                </span>
+                <span style={{
+                  fontSize: '0.75rem',
+                  fontWeight: 700,
+                  background: 'white',
+                  color: col.color,
+                  padding: '2px 8px',
+                  borderRadius: '12px',
+                  border: `1px solid ${col.color}`
+                }}>
+                  {colAssignments.length}
+                </span>
+              </div>
+
+              {/* Assignment Cards Stack */}
+              <div style={{
+                padding: '12px',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '12px',
+                overflowY: 'auto',
+                flex: 1
+              }}>
+                {colAssignments.length === 0 ? (
+                  <div style={{ textAlign: 'center', color: '#94a3b8', fontSize: '0.75rem', padding: '30px 0', fontStyle: 'italic' }}>
+                    No assignments in this stage.
+                  </div>
+                ) : (
+                  colAssignments.map(ass => {
+                    // Find field
+                    const linkedField = fields.find(f => f.id === ass.fieldId);
+                    // Find objective and goal
+                    const linkedObjective = objectives.find(o => o.id === ass.planningId);
+                    const linkedGoal = linkedObjective ? goals.find(g => g.id === linkedObjective.goalId) : null;
+
+                    return (
+                      <div 
+                        key={ass.id}
+                        style={{
+                          background: '#fff',
+                          borderRadius: '6px',
+                          border: '1px solid #e2e8f0',
+                          borderLeft: `4px solid ${col.color}`,
+                          padding: '12px',
+                          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.05)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '8px'
+                        }}
+                      >
+                        {/* Task Title & Delete action */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '6px' }}>
+                          <span style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.85rem', lineHeight: '1.2' }}>
+                            {ass.task}
+                          </span>
+                          <button 
+                            onClick={() => handleDeleteAssignment(ass.id)}
+                            style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: '2px', flexShrink: 0 }}
+                            title="Delete Assignment"
+                          >
+                            <Trash2 size={13} color="#e11d48" />
+                          </button>
+                        </div>
+
+                        {/* Assignment Details */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', fontSize: '0.72rem', color: '#475569' }}>
+                          {linkedField && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <span style={{ fontWeight: 600, color: '#64748b' }}>Field:</span>
+                              <span style={{ color: '#0f172a' }}>{linkedField.name}</span>
+                            </div>
+                          )}
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                            <Calendar size={11} color="#64748b" />
+                            <span>Assigned: {ass.assignmentDate || '?'}</span>
+                          </div>
+                          {ass.completedDate && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#16a34a', fontWeight: 500 }}>
+                              <Calendar size={11} />
+                              <span>Completed: {ass.completedDate}</span>
+                            </div>
+                          )}
+                          {ass.hours && (
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                              <Clock size={11} color="#64748b" />
+                              <span>{ass.hours} hours</span>
+                            </div>
+                          )}
+                          <div style={{ display: 'flex', alignItems: 'flex-start', gap: '4px', marginTop: '2px' }}>
+                            <User size={11} color="#64748b" style={{ marginTop: '2px' }} />
+                            <span>{ass.workers || renderWorkerNames(ass.workerIds)}</span>
+                          </div>
+                        </div>
+
+                        {/* Objectives & Goals badges */}
+                        {(linkedObjective || linkedGoal) && (
+                          <div style={{ 
+                            display: 'flex', 
+                            flexDirection: 'column', 
+                            gap: '4px', 
+                            borderTop: '1px dashed #e2e8f0', 
+                            paddingTop: '6px',
+                            marginTop: '2px'
+                          }}>
+                            {linkedObjective && (
+                              <div style={{ 
+                                fontSize: '0.65rem', 
+                                background: '#f1f5f9', 
+                                color: '#475569', 
+                                padding: '2px 6px', 
+                                borderRadius: '4px',
+                                textOverflow: 'ellipsis',
+                                overflow: 'hidden',
+                                whiteSpace: 'nowrap'
+                              }}>
+                                <strong>Obj:</strong> {linkedObjective.title}
+                              </div>
+                            )}
+                            {linkedGoal && (
+                              <div style={{ 
+                                fontSize: '0.65rem', 
+                                background: '#e8f5e9', 
+                                color: '#2e7d32', 
+                                padding: '2px 6px', 
+                                borderRadius: '4px',
+                                textOverflow: 'ellipsis',
+                                overflow: 'hidden',
+                                whiteSpace: 'nowrap'
+                              }}>
+                                <strong>Goal:</strong> {linkedGoal.title}
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Status dropdown selector */}
+                        <div style={{ borderTop: '1px solid #f1f5f9', paddingTop: '6px', marginTop: '2px' }}>
+                          <select
+                            value={ass.reviewStatus || 'Pending Review'}
+                            onChange={(e) => {
+                              const newStatus = e.target.value;
+                              const updated = { ...ass, reviewStatus: newStatus };
+                              dispatch(saveAssignment(updated));
+                              dispatch(queueAction({ type: 'assignments/saveAssignment', payload: updated, meta: { id: Date.now() } }));
+                            }}
+                            style={{
+                              width: '100%',
+                              padding: '4px 8px',
+                              fontSize: '0.75rem',
+                              borderRadius: '4px',
+                              border: '1px solid #cbd5e1',
+                              background: '#fff',
+                              fontWeight: 600,
+                              color: '#334155',
+                              cursor: 'pointer',
+                              outline: 'none'
+                            }}
+                          >
+                            <option value="Pending Review">Pending Review</option>
+                            <option value="Not Complete">Not Complete</option>
+                            <option value="Complete">Complete</option>
+                            <option value="Satisfactory">Satisfactory</option>
+                          </select>
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    );
+  };
+
+  const getHierarchicalList = () => {
+    const list = [];
+
+    const addGoalAndChildren = (parentId, depth) => {
+      const matchingGoals = goals.filter(g => (g.parentGoalId || '') === parentId);
+      matchingGoals.forEach(goal => {
+        list.push({ type: 'Goal', data: goal, depth });
+
+        // Objectives for this goal
+        const goalObjectives = objectives.filter(o => o.goalId === goal.id);
+        goalObjectives.forEach(obj => {
+          list.push({ type: 'Objective', data: obj, depth: depth + 1 });
+
+          // Assignments for this objective
+          const objAssignments = assignments.filter(a => a.planningId === obj.id);
+          objAssignments.forEach(ass => {
+            list.push({ type: 'Assignment', data: ass, depth: depth + 2 });
+          });
+        });
+
+        // Recurse child goals
+        addGoalAndChildren(goal.id, depth + 1);
+      });
+    };
+
+    addGoalAndChildren('', 0);
+    return list;
+  };
+
+  const renderProjectTaskList = () => {
+    const flattenedItems = getHierarchicalList();
+
+    if (flattenedItems.length === 0) {
+      return (
+        <div style={{ textAlign: 'center', color: '#64748b', padding: '40px 0', fontSize: '0.9rem', fontStyle: 'italic' }}>
+          No goals, objectives, or assignments found.
+        </div>
+      );
+    }
+
+    const handleDeleteAssignment = (id) => {
+      if (window.confirm("Delete this Work Assignment?")) {
+        dispatch(removeAssignment(id));
+        dispatch(queueAction({ type: 'core/deleteNode', payload: { id }, meta: { id: Date.now() } }));
+      }
+    };
+
+    return (
+      <div style={{ 
+        width: '100%',
+        overflowX: 'auto',
+        border: '1px solid #cbd5e1',
+        borderRadius: '8px',
+        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)',
+        background: '#fff'
+      }}>
+        <table style={{ 
+          width: '100%', 
+          minWidth: '1000px', 
+          borderCollapse: 'collapse', 
+          textAlign: 'left',
+          fontSize: '0.8rem'
+        }}>
+          <thead>
+            <tr style={{ background: '#f1f5f9', borderBottom: '2px solid #cbd5e1' }}>
+              <th style={{ padding: '12px 16px', color: '#475569', fontWeight: 700 }}>NAME / TITLE</th>
+              <th style={{ padding: '12px 16px', color: '#475569', fontWeight: 700, width: '120px' }}>TYPE</th>
+              <th style={{ padding: '12px 16px', color: '#475569', fontWeight: 700, width: '160px' }}>TIMELINE</th>
+              <th style={{ padding: '12px 16px', color: '#475569', fontWeight: 700, width: '100px', textAlign: 'center' }}>EST. HOURS</th>
+              <th style={{ padding: '12px 16px', color: '#475569', fontWeight: 700, width: '100px', textAlign: 'center' }}>ACT. HOURS</th>
+              <th style={{ padding: '12px 16px', color: '#475569', fontWeight: 700, width: '180px' }}>ASSIGNEES / WORKERS</th>
+              <th style={{ padding: '12px 16px', color: '#475569', fontWeight: 700, width: '130px' }}>LINKED RESOURCE</th>
+              <th style={{ padding: '12px 16px', color: '#475569', fontWeight: 700, width: '160px' }}>STATUS / PROGRESS</th>
+              <th style={{ padding: '12px 16px', color: '#475569', fontWeight: 700, width: '100px', textAlign: 'center' }}>ACTIONS</th>
+            </tr>
+          </thead>
+          <tbody>
+            {flattenedItems.map((item, idx) => {
+              const { type, data, depth } = item;
+              const isGoal = type === 'Goal';
+              const isObjective = type === 'Objective';
+              const isAssignment = type === 'Assignment';
+
+              // Determine row background color based on type
+              let rowBg = '#fff';
+              if (isGoal) rowBg = '#f0fdf4'; // Light green
+              else if (isObjective) rowBg = '#f0f9ff'; // Light blue
+              else if (idx % 2 === 1) rowBg = '#f8fafc'; // Alternate plain rows
+
+              // Setup badge styles
+              let badgeColor = '#475569';
+              let badgeBg = '#f1f5f9';
+              if (isGoal) {
+                badgeColor = '#166534';
+                badgeBg = '#dcfce7';
+              } else if (isObjective) {
+                badgeColor = '#075985';
+                badgeBg = '#e0f2fe';
+              }
+
+              // Determine workers / assignees names
+              const workersStr = data.workerIds ? renderWorkerNames(data.workerIds) : (data.workers || '-');
+
+              // Determine timeline
+              const timelineStr = isAssignment 
+                ? (data.assignmentDate || '-') 
+                : `${data.fromDate || '?'} to ${data.toDate || '?'}`;
+
+              // Determine estimated / actual hours
+              const estHours = data.estimatedHours || '-';
+              const actHours = data.actualHours || data.hours || '-';
+
+              // Resolve linked field name (for assignments)
+              const linkedField = isAssignment && data.fieldId 
+                ? (fields.find(f => f.id === data.fieldId)?.name || 'Unknown Field')
+                : '-';
+
+              return (
+                <tr 
+                  key={`${type}-${data.id}-${idx}`} 
+                  style={{ 
+                    background: rowBg, 
+                    borderBottom: '1px solid #e2e8f0',
+                    transition: 'background 0.15s'
+                  }}
+                >
+                  {/* Indented Name / Title */}
+                  <td style={{ 
+                    padding: '10px 16px', 
+                    paddingLeft: `${16 + depth * 24}px`,
+                    fontWeight: isGoal ? 700 : (isObjective ? 600 : 400),
+                    color: isGoal ? '#166534' : (isObjective ? '#0f172a' : '#334155'),
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px'
+                  }}>
+                    {isGoal && <Target size={15} style={{ color: '#166534' }} />}
+                    {isObjective && <ClipboardList size={14} style={{ color: '#0284c7' }} />}
+                    {isAssignment && <List size={13} style={{ color: '#64748b' }} />}
+                    <span>{data.title || data.task}</span>
+                  </td>
+
+                  {/* Type Badge */}
+                  <td style={{ padding: '10px 16px' }}>
+                    <span style={{
+                      fontSize: '0.68rem',
+                      fontWeight: 700,
+                      color: badgeColor,
+                      background: badgeBg,
+                      padding: '2px 8px',
+                      borderRadius: '12px',
+                      textTransform: 'uppercase'
+                    }}>
+                      {type}
+                    </span>
+                  </td>
+
+                  {/* Timeline */}
+                  <td style={{ padding: '10px 16px', color: '#64748b' }}>
+                    {timelineStr}
+                  </td>
+
+                  {/* Est. Hours */}
+                  <td style={{ padding: '10px 16px', textAlign: 'center', color: '#334155' }}>
+                    {estHours}
+                  </td>
+
+                  {/* Act. Hours */}
+                  <td style={{ padding: '10px 16px', textAlign: 'center', color: '#334155' }}>
+                    {actHours}
+                  </td>
+
+                  {/* Assignees */}
+                  <td style={{ 
+                    padding: '10px 16px', 
+                    color: '#475569',
+                    whiteSpace: 'nowrap',
+                    textOverflow: 'ellipsis',
+                    overflow: 'hidden',
+                    maxWidth: '180px'
+                  }} title={workersStr}>
+                    {workersStr}
+                  </td>
+
+                  {/* Linked Field */}
+                  <td style={{ padding: '10px 16px', color: '#475569' }}>
+                    {linkedField}
+                  </td>
+
+                  {/* Status / Progress */}
+                  <td style={{ padding: '10px 16px' }}>
+                    {isAssignment ? (
+                      <select
+                        value={data.reviewStatus || 'Pending Review'}
+                        onChange={(e) => {
+                          const newStatus = e.target.value;
+                          const updated = { ...data, reviewStatus: newStatus };
+                          dispatch(saveAssignment(updated));
+                          dispatch(queueAction({ type: 'assignments/saveAssignment', payload: updated, meta: { id: Date.now() } }));
+                        }}
+                        style={{
+                          padding: '3px 6px',
+                          fontSize: '0.72rem',
+                          borderRadius: '4px',
+                          border: '1px solid #cbd5e1',
+                          background: '#fff',
+                          fontWeight: 600,
+                          color: '#334155',
+                          cursor: 'pointer',
+                          width: '100%',
+                          outline: 'none'
+                        }}
+                      >
+                        <option value="Pending Review">Pending Review</option>
+                        <option value="Not Complete">Not Complete</option>
+                        <option value="Complete">Complete</option>
+                        <option value="Satisfactory">Satisfactory</option>
+                      </select>
+                    ) : (
+                      // For Goals / Objectives, calculate a simple progress bar
+                      (() => {
+                        const est = parseFloat(data.estimatedHours) || 0;
+                        const act = parseFloat(data.actualHours) || 0;
+                        const pct = est > 0 ? Math.min(100, Math.round((act / est) * 100)) : 0;
+                        return est > 0 ? (
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                            <div style={{ flex: 1, height: '5px', background: '#e2e8f0', borderRadius: '3px', overflow: 'hidden' }}>
+                              <div style={{ width: `${pct}%`, height: '100%', background: isGoal ? '#166534' : '#0284c7' }} />
+                            </div>
+                            <span style={{ fontSize: '0.7rem', fontWeight: 600, color: '#64748b' }}>{pct}%</span>
+                          </div>
+                        ) : (
+                          <span style={{ color: '#94a3b8', fontStyle: 'italic', fontSize: '0.7rem' }}>No hours est.</span>
+                        );
+                      })()
+                    )}
+                  </td>
+
+                  {/* Actions */}
+                  <td style={{ padding: '10px 16px', textAlign: 'center' }}>
+                    <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
+                      <button
+                        onClick={() => {
+                          if (isGoal) {
+                            dispatch(setEditingGoalIdRedux(data.id));
+                            window.dispatchEvent(new CustomEvent('navigate-tab', { detail: 'planning' }));
+                          } else if (isObjective) {
+                            dispatch(setEditingObjectiveIdRedux(data.id));
+                            window.dispatchEvent(new CustomEvent('navigate-tab', { detail: 'planning' }));
+                          } else {
+                            dispatch(setEditingAssignmentId(data.id));
+                            window.dispatchEvent(new CustomEvent('navigate-tab', { detail: 'assignment' }));
+                          }
+                        }}
+                        style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: '2px' }}
+                        title={`Edit ${type}`}
+                      >
+                        <Edit size={13} color="#64748b" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (isGoal) {
+                            handleDeleteGoal(data.id);
+                          } else if (isObjective) {
+                            handleDeleteObjective(data.id);
+                          } else {
+                            handleDeleteAssignment(data.id);
+                          }
+                        }}
+                        style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: '2px' }}
+                        title={`Delete ${type}`}
+                      >
+                        <Trash2 size={13} color="#e11d48" />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+    );
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
 
@@ -255,7 +804,43 @@ export default function PlanningTab() {
               fontSize: '0.95rem'
             }}
           >
-            Planning (Goals & Objectives)
+            Planning Tree View
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('board')}
+            style={{
+              flex: 1,
+              padding: '12px 16px',
+              border: 'none',
+              background: activeTab === 'board' ? 'white' : 'transparent',
+              borderBottom: activeTab === 'board' ? '3px solid var(--color-primary)' : 'none',
+              color: activeTab === 'board' ? 'var(--color-primary)' : 'var(--color-text-light)',
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+              fontSize: '0.95rem'
+            }}
+          >
+            Project Board View
+          </button>
+          <button
+            type="button"
+            onClick={() => setActiveTab('taskList')}
+            style={{
+              flex: 1,
+              padding: '12px 16px',
+              border: 'none',
+              background: activeTab === 'taskList' ? 'white' : 'transparent',
+              borderBottom: activeTab === 'taskList' ? '3px solid var(--color-primary)' : 'none',
+              color: activeTab === 'taskList' ? 'var(--color-primary)' : 'var(--color-text-light)',
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+              fontSize: '0.95rem'
+            }}
+          >
+            Project Task List
           </button>
           <button
             type="button"
@@ -278,7 +863,7 @@ export default function PlanningTab() {
         </div>
 
         <div style={{ padding: '20px' }}>
-          {activeTab === 'roster' ? (
+          {activeTab === 'roster' && (
             <>
               <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', justifyContent: 'center' }}>
                 <button
@@ -333,7 +918,13 @@ export default function PlanningTab() {
                 </div>
               )}
             </>
-          ) : (
+          )}
+
+          {activeTab === 'board' && renderProjectBoard()}
+
+          {activeTab === 'taskList' && renderProjectTaskList()}
+
+          {activeTab === 'entry' && (
             <>
               <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', justifyContent: 'center' }}>
                 <button

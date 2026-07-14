@@ -4,7 +4,8 @@ import { queueAction } from './syncSlice';
 export const assignmentSlice = createSlice({
   name: 'assignments',
   initialState: {
-    list: []
+    list: [],
+    editingId: null
   },
   reducers: {
     setAssignments: (state, action) => {
@@ -20,11 +21,14 @@ export const assignmentSlice = createSlice({
     },
     deleteAssignment: (state, action) => {
       state.list = state.list.filter(a => a.id !== action.payload);
+    },
+    setEditingAssignmentId: (state, action) => {
+      state.editingId = action.payload;
     }
   }
 });
 
-export const { setAssignments, upsertAssignment, deleteAssignment } = assignmentSlice.actions;
+export const { setAssignments, upsertAssignment, deleteAssignment, setEditingAssignmentId } = assignmentSlice.actions;
 
 // Async Thunks wrapped into syncQueue mechanics for standalone mode compatibility
 export const saveAssignment = (assignmentData) => (dispatch) => {

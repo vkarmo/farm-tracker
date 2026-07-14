@@ -2,7 +2,9 @@ import { createSlice } from '@reduxjs/toolkit';
 
 const initialState = {
   goals: [],
-  objectives: []
+  objectives: [],
+  editingGoalId: null,
+  editingObjId: null
 };
 
 const planningSlice = createSlice({
@@ -38,9 +40,15 @@ const planningSlice = createSlice({
     },
     removeObjective: (state, action) => {
       state.objectives = state.objectives.filter(o => o.id !== action.payload);
+    },
+    setEditingGoalIdRedux: (state, action) => {
+      state.editingGoalId = action.payload;
+    },
+    setEditingObjectiveIdRedux: (state, action) => {
+      state.editingObjId = action.payload;
     }
   }
 });
 
-export const { setGoals, setObjectives, saveGoal, removeGoal, saveObjective, removeObjective } = planningSlice.actions;
+export const { setGoals, setObjectives, saveGoal, removeGoal, saveObjective, removeObjective, setEditingGoalIdRedux, setEditingObjectiveIdRedux } = planningSlice.actions;
 export default planningSlice.reducer;

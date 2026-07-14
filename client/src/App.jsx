@@ -394,6 +394,18 @@ export default function App() {
   const totalActionsQueued = useSelector(state => state.sync.totalActionsQueued || 0);
 
   const [activeTab, setActiveTab] = useState('dashboard');
+
+  useEffect(() => {
+    const handleNavigate = (e) => {
+      if (e.detail) {
+        setActiveTab(e.detail);
+      }
+    };
+    window.addEventListener('navigate-tab', handleNavigate);
+    return () => {
+      window.removeEventListener('navigate-tab', handleNavigate);
+    };
+  }, []);
   const [openSettings, setOpenSettings] = useState({ general: true, dropdown: false, map: false, units: false, jobs: false, animals: false, ledgers: false, gee: false, mtn: false, owm: false, theme: false, typography: false, simulation: false, ai: false, deleteFarm: false });
   const [selectedDeleteFarmId, setSelectedDeleteFarmId] = useState('');
   const [deleteSummary, setDeleteSummary] = useState(null);
