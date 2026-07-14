@@ -17,6 +17,7 @@ import { setGoals, setObjectives } from './planningSlice';
 import { setRecommendations } from './recommendationsSlice';
 import { setPests } from './pestsSlice';
 import { setDiseases } from './livestockDiseasesSlice';
+import { setPayrolls } from './payrollSlice';
 
 export const syncSlice = createSlice({
   name: 'sync',
@@ -235,6 +236,15 @@ export const fetchInitialData = () => async (dispatch, getState) => {
     if (data.recommendations) dispatch(setRecommendations(data.recommendations));
     if (data.pests) dispatch(setPests(data.pests));
     if (data.livestockDiseases) dispatch(setDiseases(data.livestockDiseases));
+    if (data.payroll) {
+      const parsedPayrolls = data.payroll.map(p => ({
+        ...p,
+        attendance: typeof p.attendance === 'string' ? JSON.parse(p.attendance) : p.attendance || {},
+        pulledEmployees: typeof p.pulledEmployees === 'string' ? JSON.parse(p.pulledEmployees) : p.pulledEmployees || [],
+        totals: typeof p.totals === 'string' ? JSON.parse(p.totals) : p.totals || {}
+      }));
+      dispatch(setPayrolls(parsedPayrolls));
+    }
 
   } catch (err) {
     console.warn('Backend unreachable — falling back to offline cache.', err.message);

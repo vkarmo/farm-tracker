@@ -2524,7 +2524,8 @@ app.get('/api/all-data', async (req, res) => {
        objectives: 'MATCH (n:Objective)-[:BELONGS_TO]->(:Farm {id: $farmId}) RETURN n',
        livestockDiseases: 'MATCH (n:LivestockDisease)-[:BELONGS_TO]->(:Farm {id: $farmId}) RETURN n',
        poi: 'MATCH (n:PointOfInterest)-[:BELONGS_TO]->(:Farm {id: $farmId}) RETURN n',
-       recommendations: 'MATCH (n:Recommendation)-[:BELONGS_TO]->(:Farm {id: $farmId}) RETURN n'
+       recommendations: 'MATCH (n:Recommendation)-[:BELONGS_TO]->(:Farm {id: $farmId}) RETURN n',
+       payroll: 'MATCH (n:Payroll)-[:BELONGS_TO]->(:Farm {id: $farmId}) RETURN n'
     };
 
     const data = {};
@@ -3375,6 +3376,22 @@ app.post('/api/sync', async (req, res) => {
             SET d.name = $name, d.description = $description, d.treatment = $treatment, d.animalTypes = $animalTypes
             SET d.lastUpdatedBy = $userEmail RETURN d
           `, { userEmail, id, name, description, treatment, animalTypes: animalTypes ? JSON.stringify(animalTypes) : '[]' });
+          results.push({ actionId: action.meta?.id, status: 'success' });
+        }
+        else if (action.type === 'payroll/savePayroll') {
+          const { id, fromDate, toDate, exchangeRate, attendance, pulledEmployees, totals } = action.payload;
+          await session.run(`
+            MERGE (p:Payroll {id: $id})
+            SET p.fromDate = $fromDate, p.toDate = $toDate, p.exchangeRate = toFloat($exchangeRate),
+                p.attendance = $attendance, p.pulledEmployees = $pulledEmployees, p.totals = $totals
+            SET p.lastUpdatedBy = $userEmail RETURN p
+          `, { 
+            userEmail, id, fromDate, toDate, exchangeRate, 
+            attendance: typeof attendance === 'string' ? attendance : JSON.stringify(attendance), 
+            pulledEmployees: typeof pulledEmployees === 'string' ? pulledEmployees : JSON.stringify(pulledEmployees), 
+            totals: typeof totals === 'string' ? totals : JSON.stringify(totals)
+          });
+          updatedIds.push(id);
           results.push({ actionId: action.meta?.id, status: 'success' });
         }
         else {

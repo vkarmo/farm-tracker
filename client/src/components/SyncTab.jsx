@@ -118,6 +118,8 @@ const getAllRecords = (state) => {
   addItems(state.pests?.list, 'Pest', 'name');
   // 18. livestockDiseases
   addItems(state.livestockDiseases?.list, 'LivestockDisease', 'diseaseName');
+  // 19. payroll
+  addItems(state.payroll?.list, 'Payroll', 'fromDate');
   // 19. poi
   addItems(state.poi?.list, 'PointOfInterest', 'name');
 
@@ -320,6 +322,9 @@ const deleteRecordFromRedux = (dispatch, record) => {
       break;
     case 'LivestockDisease':
       dispatch({ type: 'livestockDiseases/removeDisease', payload: id });
+      break;
+    case 'Payroll':
+      dispatch({ type: 'payroll/deletePayroll', payload: id });
       break;
     case 'PointOfInterest':
       dispatch({ type: 'poi/deletePoi', payload: id });

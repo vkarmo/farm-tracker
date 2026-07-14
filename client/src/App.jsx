@@ -58,6 +58,7 @@ import EquipmentTab from './components/EquipmentTab';
 import PoiTab from './components/PoiTab';
 import SyncTab from './components/SyncTab';
 import AuditTab from './components/AuditTab';
+import PayrollTab from './components/PayrollTab';
 import GpsLogTab from './components/GpsLogTab';
 import MessagingTab from './components/MessagingTab';
 import { logout, stopImpersonating } from './store/authSlice';
@@ -68,7 +69,7 @@ const MODULES = {
   agronomy: ['field', 'nursery', 'crop', 'soilTests', 'pest'],
   livestock: ['livestock', 'breeding', 'kits', 'livestockDiseases'],
   finance: ['finance', 'budget', 'harvest'],
-  operations: ['employee', 'assignment', 'planning', 'equipment', 'deadline', 'incident'],
+  operations: ['employee', 'assignment', 'payroll', 'planning', 'equipment', 'deadline', 'incident'],
   admin: ['settings', 'admin', 'access', 'audit', 'gps']
 };
 
@@ -1220,6 +1221,7 @@ export default function App() {
             <>
               {hasAccess('employee') && <button onClick={() => setActiveTab('employee')} className={`btn ${activeTab === 'employee' ? 'tab-btn-active' : ''}`}><Contact size={16} style={{ marginRight: 6 }} /> Employees</button>}
               {hasAccess('assignment') && <button onClick={() => setActiveTab('assignment')} className={`btn ${activeTab === 'assignment' ? 'tab-btn-active' : ''}`}><Users size={16} style={{ marginRight: 6 }} /> Assignments</button>}
+              {hasAccess('payroll') && <button onClick={() => setActiveTab('payroll')} className={`btn ${activeTab === 'payroll' ? 'tab-btn-active' : ''}`}><DollarSign size={16} style={{ marginRight: 6 }} /> Payroll</button>}
               {hasAccess('planning') && <button onClick={() => setActiveTab('planning')} className={`btn ${activeTab === 'planning' ? 'tab-btn-active' : ''}`}><Target size={16} style={{ marginRight: 6 }} /> Planning</button>}
               {hasAccess('equipment') && <button onClick={() => setActiveTab('equipment')} className={`btn ${activeTab === 'equipment' ? 'tab-btn-active' : ''}`}><Briefcase size={16} style={{ marginRight: 6 }} /> Hard Assets</button>}
               {hasAccess('deadline') && <button onClick={() => setActiveTab('deadline')} className={`btn ${activeTab === 'deadline' ? 'tab-btn-active' : ''}`}><CalendarClock size={16} style={{ marginRight: 6 }} /> Deadlines</button>}
@@ -1247,7 +1249,7 @@ export default function App() {
           )}
         </nav>
 
-        <main className={`container ${['map', 'field', 'nursery', 'soilTests', 'equipment', 'gps', 'poi', 'settings', 'pest', 'livestock', 'livestockDiseases'].includes(activeTab) ? 'container-wide' : ''} ${currentUser?.role === 'Viewer' || currentUser?.role === 'Admin Viewer' ? 'role-viewer' : ''}`} style={{ marginTop: '20px' }}>
+        <main className={`container ${['map', 'field', 'nursery', 'soilTests', 'equipment', 'gps', 'poi', 'settings', 'pest', 'livestock', 'livestockDiseases', 'payroll'].includes(activeTab) ? 'container-wide' : ''} ${currentUser?.role === 'Viewer' || currentUser?.role === 'Admin Viewer' ? 'role-viewer' : ''}`} style={{ marginTop: '20px' }}>
 
           {activeTab === 'dashboard' && <DashboardTab />}
           {activeTab === 'map' && (
@@ -1276,6 +1278,7 @@ export default function App() {
           {activeTab === 'equipment' && <EquipmentTab />}
           {activeTab === 'assignment' && <AssignmentTab />}
           {activeTab === 'planning' && <PlanningTab />}
+          {activeTab === 'payroll' && <PayrollTab />}
           {activeTab === 'finance' && <FinanceTab />}
           {activeTab === 'sync' && <SyncTab />}
           {activeTab === 'budget' && <BudgetTab />}
