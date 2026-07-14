@@ -31,6 +31,17 @@ export default function PayrollTab() {
   const activeBudget = budgets.find(b => b.status === 'Active') || {};
   const logo = useSelector(state => state.settings?.logo);
 
+  const generalManager = useMemo(() => {
+    return employees.find(emp => (emp.jobTitle || '').toLowerCase().trim() === 'general manager');
+  }, [employees]);
+
+  const assistantManager = useMemo(() => {
+    return employees.find(emp => (emp.jobTitle || '').toLowerCase().trim() === 'assistant manager');
+  }, [employees]);
+
+  const gmName = generalManager ? `${generalManager.firstName} ${generalManager.lastName}` : '';
+  const amName = assistantManager ? `${assistantManager.firstName} ${assistantManager.lastName}` : '';
+
   // View state: 'list' or 'form'
   const [viewMode, setViewMode] = useState('list');
   const [editingId, setEditingId] = useState(null);
@@ -1282,18 +1293,34 @@ export default function PayrollTab() {
                   </div>
                 </div>
 
-                {/* Director and Assistant Director Signatures */}
+                {/* General Manager and Assistant Manager Signatures */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: '20px', marginBottom: '10px', padding: '0 40px', gap: '40px' }}>
+                  {/* General Manager */}
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '220px' }}>
                     <div style={{ borderBottom: '1px solid #cbd5e1', width: '100%', height: '30px' }}></div>
-                    <span style={{ fontSize: '0.75rem', fontWeight: '700', color: '#475569', marginTop: '6px' }}>Director</span>
-                    <span style={{ fontSize: '0.65rem', color: '#94a3b8' }}>NMK Farm Approval</span>
+                    <span style={{ fontSize: '0.75rem', fontWeight: '700', color: '#1e293b', marginTop: '6px', textAlign: 'center' }}>
+                      {gmName || '________________________'}
+                    </span>
+                    <span style={{ fontSize: '0.72rem', fontWeight: '600', color: '#475569' }}>General Manager</span>
+                    <span style={{ fontSize: '0.65rem', color: '#94a3b8', marginBottom: '8px' }}>NMK Farm Approval</span>
+                    <div style={{ fontSize: '0.72rem', color: '#475569', display: 'flex', gap: '4px', width: '100%', justifyContent: 'center', alignItems: 'center' }}>
+                      <span>Date:</span>
+                      <div style={{ borderBottom: '1px solid #cbd5e1', width: '120px', height: '14px' }}></div>
+                    </div>
                   </div>
 
+                  {/* Assistant Manager */}
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '220px' }}>
                     <div style={{ borderBottom: '1px solid #cbd5e1', width: '100%', height: '30px' }}></div>
-                    <span style={{ fontSize: '0.75rem', fontWeight: '700', color: '#475569', marginTop: '6px' }}>Assistant Director</span>
-                    <span style={{ fontSize: '0.65rem', color: '#94a3b8' }}>NMK Farm Verification</span>
+                    <span style={{ fontSize: '0.75rem', fontWeight: '700', color: '#1e293b', marginTop: '6px', textAlign: 'center' }}>
+                      {amName || '________________________'}
+                    </span>
+                    <span style={{ fontSize: '0.72rem', fontWeight: '600', color: '#475569' }}>Assistant Manager</span>
+                    <span style={{ fontSize: '0.65rem', color: '#94a3b8', marginBottom: '8px' }}>NMK Farm Verification</span>
+                    <div style={{ fontSize: '0.72rem', color: '#475569', display: 'flex', gap: '4px', width: '100%', justifyContent: 'center', alignItems: 'center' }}>
+                      <span>Date:</span>
+                      <div style={{ borderBottom: '1px solid #cbd5e1', width: '120px', height: '14px' }}></div>
+                    </div>
                   </div>
                 </div>
 
