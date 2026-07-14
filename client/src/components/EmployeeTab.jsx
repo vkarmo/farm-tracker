@@ -151,7 +151,38 @@ export default function EmployeeTab() {
       <span style={{ color: '#f57c00', fontWeight: 500, fontSize: '0.85rem' }}>Inactive</span>
     ) : (
       <span style={{ color: '#2e7d32', fontWeight: 500, fontSize: '0.85rem' }}>Active</span>
-    )}
+    )},
+    { 
+      key: 'toggleStatus', 
+      header: 'Toggle Status', 
+      style: { width: '15%', verticalAlign: 'top' }, 
+      render: (r) => (
+        <button
+          type="button"
+          disabled={r.isTerminated}
+          onClick={(e) => {
+            e.stopPropagation();
+            const updated = { 
+              ...r, 
+              isActive: r.isActive !== false ? false : true 
+            };
+            dispatch(saveEmployee(updated));
+          }}
+          style={{
+            padding: '4px 8px',
+            backgroundColor: r.isTerminated ? '#f1f5f9' : (r.isActive !== false ? '#fff3e0' : '#e8f5e9'),
+            color: r.isTerminated ? '#94a3b8' : (r.isActive !== false ? '#ef6c00' : '#2e7d32'),
+            border: `1px solid ${r.isTerminated ? '#e2e8f0' : (r.isActive !== false ? '#ffe0b2' : '#c8e6c9')}`,
+            borderRadius: '4px',
+            fontSize: '0.75rem',
+            fontWeight: '600',
+            cursor: r.isTerminated ? 'not-allowed' : 'pointer'
+          }}
+        >
+          Set {r.isActive !== false ? 'Inactive' : 'Active'}
+        </button>
+      )
+    }
   ];
 
   return (

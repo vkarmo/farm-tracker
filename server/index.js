@@ -3059,12 +3059,12 @@ app.post('/api/sync', async (req, res) => {
           results.push({ actionId: action.meta?.id, status: 'success' });
         }
         else if (action.type === 'employees/upsertEmployee') {
-          const { id, firstName, lastName, gender, address, phone, jobTitle, type, skills, startDate, endDate, isTerminated, terminationReason, dailyRateLD, twoWeekPayUSD } = action.payload;
+          const { id, firstName, lastName, gender, address, phone, jobTitle, type, skills, startDate, endDate, isActive, isTerminated, terminationReason, dailyRateLD, twoWeekPayUSD } = action.payload;
           await session.run(`
             MERGE (e:Employee {id: $id})
             SET e.firstName = $firstName, e.lastName = $lastName, e.gender = $gender, e.address = $address, e.phone = $phone, 
                 e.jobTitle = $jobTitle, e.type = $type, e.skills = $skills, e.startDate = $startDate, 
-                e.endDate = $endDate, e.isTerminated = $isTerminated, e.terminationReason = $terminationReason, 
+                e.endDate = $endDate, e.isActive = $isActive, e.isTerminated = $isTerminated, e.terminationReason = $terminationReason, 
                 e.dailyRateLD = toFloat($dailyRateLD), e.twoWeekPayUSD = toFloat($twoWeekPayUSD)
             SET e.lastUpdatedBy = $userEmail RETURN e
           `, { userEmail, id,
@@ -3078,6 +3078,7 @@ app.post('/api/sync', async (req, res) => {
             skills: skills || null,
             startDate: startDate || null,
             endDate: endDate || null,
+            isActive: isActive !== undefined ? isActive : true,
             isTerminated: isTerminated || false,
             terminationReason: terminationReason || null,
             dailyRateLD: dailyRateLD || 0,
