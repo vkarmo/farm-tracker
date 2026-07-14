@@ -115,9 +115,35 @@ export default function EmployeeTab() {
     resetForm();
   };
 
-  const handleDelete = (id) => {
-    dispatch(removeEmployee(id));
-    if (editingId === id) resetForm();
+  const handleDelete = async (id) => {
+    try {
+      const response = await fetch(`/api/employees/${id}/connections`);
+      const result = await response.json();
+      
+      if (result.success && result.connections && result.connections.length > 0) {
+        const summary = result.connections.map(c => {
+          const rawLabel = (c.labels && c.labels[0]) || 'Unknown';
+          let formattedLabel = rawLabel;
+          if (rawLabel === 'TaskAssignment') formattedLabel = 'Task Assignment';
+          if (rawLabel === 'Payroll') formattedLabel = 'Payroll Worksheet';
+          if (rawLabel === 'Incident') formattedLabel = 'Incident Report';
+          if (rawLabel === 'BreedingEvent') formattedLabel = 'Breeding Event';
+          if (rawLabel === 'LivestockKit') formattedLabel = 'Livestock Kit';
+          return `- ${formattedLabel} (Count: ${c.count})`;
+        }).join('\n');
+        
+        alert(`Cannot delete employee. This employee is currently connected to existing related data:\n\n${summary}\n\nPlease reassign or delete these related records before removing the employee.`);
+        return;
+      }
+      
+      dispatch(removeEmployee(id));
+      if (editingId === id) resetForm();
+    } catch (err) {
+      console.error('Error checking employee connections:', err);
+      // Fallback in case of server/network issue
+      dispatch(removeEmployee(id));
+      if (editingId === id) resetForm();
+    }
   };
 
   // Derive final filtered list immediately before rendering

@@ -2487,6 +2487,30 @@ Provide at least 5 entries. Ensure names are precise, distinct, and protocols ar
   }
 });
 
+app.get('/api/employees/:id/connections', async (req, res) => {
+  const { id } = req.params;
+  const session = driver.session();
+  try {
+    const result = await session.run(`
+      MATCH (e:Employee {id: $id})-[r]-(connected)
+      WHERE NOT connected:Farm
+      RETURN DISTINCT labels(connected) AS labels, count(connected) AS cnt
+    `, { id });
+    
+    const connections = result.records.map(rec => ({
+      labels: rec.get('labels'),
+      count: rec.get('cnt').toNumber()
+    }));
+    
+    res.json({ success: true, connections });
+  } catch (error) {
+    console.error('Failed to fetch employee connections:', error);
+    res.status(500).json({ error: error.message });
+  } finally {
+    await session.close();
+  }
+});
+
 // Global Data Hydration
 app.get('/api/all-data', async (req, res) => {
   const session = driver.session();
