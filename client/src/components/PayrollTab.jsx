@@ -1305,7 +1305,7 @@ export default function PayrollTab() {
                 <div style={{ 
                   display: 'flex', 
                   justifyContent: 'space-between', 
-                  marginTop: '20px', 
+                  marginTop: '45px', 
                   marginBottom: '10px', 
                   padding: '16px 40px', 
                   gap: '40px',
@@ -1315,7 +1315,7 @@ export default function PayrollTab() {
                 }}>
                   {/* General Manager */}
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '220px' }}>
-                    <div style={{ borderBottom: '1px solid #cbd5e1', width: '100%', height: '30px' }}></div>
+                    <div style={{ borderBottom: '1px solid #cbd5e1', width: '100%', height: '55px' }}></div>
                     <span style={{ fontSize: '0.75rem', fontWeight: '700', color: '#1e293b', marginTop: '6px', textAlign: 'center' }}>
                       {gmName}
                     </span>
@@ -1329,7 +1329,7 @@ export default function PayrollTab() {
 
                   {/* Assistant Farm Manager */}
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '220px' }}>
-                    <div style={{ borderBottom: '1px solid #cbd5e1', width: '100%', height: '30px' }}></div>
+                    <div style={{ borderBottom: '1px solid #cbd5e1', width: '100%', height: '55px' }}></div>
                     <span style={{ fontSize: '0.75rem', fontWeight: '700', color: '#1e293b', marginTop: '6px', textAlign: 'center' }}>
                       {amName}
                     </span>
