@@ -241,6 +241,7 @@ export const fetchInitialData = () => async (dispatch, getState) => {
         ...p,
         attendance: typeof p.attendance === 'string' ? JSON.parse(p.attendance) : p.attendance || {},
         pulledEmployees: typeof p.pulledEmployees === 'string' ? JSON.parse(p.pulledEmployees) : p.pulledEmployees || [],
+        customRates: typeof p.customRates === 'string' ? JSON.parse(p.customRates) : p.customRates || {},
         totals: typeof p.totals === 'string' ? JSON.parse(p.totals) : p.totals || {}
       }));
       dispatch(setPayrolls(parsedPayrolls));

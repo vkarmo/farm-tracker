@@ -1088,7 +1088,7 @@ export default function BudgetTab() {
                       {activeBudget.name}
                     </h1>
                     <div style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '2px', fontWeight: 500 }}>
-                      NMK Group of Farms • Official Budget Report
+                      NMK Farm, Kamigbo, Senjeh District, Bomi County, Liberia • Official Budget Report
                     </div>
                   </div>
                   <div style={{ textAlign: 'right', fontSize: '0.75rem', color: '#64748b', fontWeight: 500 }}>

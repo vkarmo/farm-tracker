@@ -3379,17 +3379,35 @@ app.post('/api/sync', async (req, res) => {
           results.push({ actionId: action.meta?.id, status: 'success' });
         }
         else if (action.type === 'payroll/savePayroll') {
-          const { id, fromDate, toDate, exchangeRate, attendance, pulledEmployees, totals } = action.payload;
+          const { id, fromDate, toDate, exchangeRate, attendance, pulledEmployees, customRates, totals } = action.payload;
+          
+          let employeeIds = [];
+          try {
+            const employeesList = typeof pulledEmployees === 'string' ? JSON.parse(pulledEmployees) : pulledEmployees || [];
+            employeeIds = employeesList.map(e => e.id).filter(Boolean);
+          } catch (e) {
+            console.warn('Failed to parse pulledEmployees list for relationships:', e.message);
+          }
+
           await session.run(`
             MERGE (p:Payroll {id: $id})
             SET p.fromDate = $fromDate, p.toDate = $toDate, p.exchangeRate = toFloat($exchangeRate),
-                p.attendance = $attendance, p.pulledEmployees = $pulledEmployees, p.totals = $totals
-            SET p.lastUpdatedBy = $userEmail RETURN p
+                p.attendance = $attendance, p.pulledEmployees = $pulledEmployees, p.customRates = $customRates, p.totals = $totals
+            SET p.lastUpdatedBy = $userEmail
+            WITH p
+            OPTIONAL MATCH (p)-[r:INCLUDES_EMPLOYEE]->() DELETE r
+            WITH p
+            UNWIND (CASE WHEN size($employeeIds) > 0 THEN $employeeIds ELSE [null] END) AS empId
+            OPTIONAL MATCH (e:Employee {id: empId})
+            FOREACH (ignore IN CASE WHEN e IS NOT NULL THEN [1] ELSE [] END | MERGE (p)-[:INCLUDES_EMPLOYEE]->(e))
+            RETURN p
           `, { 
             userEmail, id, fromDate, toDate, exchangeRate, 
             attendance: typeof attendance === 'string' ? attendance : JSON.stringify(attendance), 
             pulledEmployees: typeof pulledEmployees === 'string' ? pulledEmployees : JSON.stringify(pulledEmployees), 
-            totals: typeof totals === 'string' ? totals : JSON.stringify(totals)
+            customRates: typeof customRates === 'string' ? customRates : JSON.stringify(customRates || {}),
+            totals: typeof totals === 'string' ? totals : JSON.stringify(totals),
+            employeeIds
           });
           updatedIds.push(id);
           results.push({ actionId: action.meta?.id, status: 'success' });
