@@ -27,8 +27,8 @@ export default function PayrollTab() {
   const dispatch = useDispatch();
   const employees = useSelector(state => state.employees?.list) || [];
   const savedPayrolls = useSelector(state => state.payroll?.list) || [];
-  const activeBudget = useSelector(state => state.budgets?.list?.find(b => b.status === 'Active')) || {};
-  const defaultExchangeRate = parseFloat(activeBudget.exchangeRate) || 200;
+  const budgets = useSelector(state => state.budgets?.list) || [];
+  const activeBudget = budgets.find(b => b.status === 'Active') || {};
   const logo = useSelector(state => state.settings?.logo);
 
   // View state: 'list' or 'form'
@@ -54,9 +54,36 @@ export default function PayrollTab() {
   const [fromDate, setFromDate] = useState(getPastDateStr(13));
   const [toDate, setToDate] = useState(getPastDateStr(0));
   const [pulledEmployees, setPulledEmployees] = useState([]);
+
+  // Exchange rate fallback mechanism identical to BudgetTab
+  const historicalRate = useMemo(() => {
+    if (!budgets.length) return 150;
+    const sorted = [...budgets].sort((a, b) => (b.id || '').localeCompare(a.id || ''));
+    const recentWithRate = sorted.find(b => b.exchangeRate && String(b.exchangeRate).trim() !== '');
+    return recentWithRate ? parseFloat(recentWithRate.exchangeRate) : 150;
+  }, [budgets]);
+
+  const [liveRate, setLiveRate] = useState(null);
+
+  useEffect(() => {
+    let mounted = true;
+    fetch('https://open.er-api.com/v6/latest/USD')
+      .then(res => res.json())
+      .then(data => {
+        if (mounted && data?.rates?.LRD) {
+          setLiveRate(data.rates.LRD);
+        }
+      })
+      .catch(err => console.warn('Could not fetch live exchange rate (offline mode active):', err));
+    return () => { mounted = false; };
+  }, []);
+
+  const activeRate = liveRate || historicalRate;
+  const defaultExchangeRate = parseFloat(activeBudget.exchangeRate) || activeRate;
+  
   const [customExchangeRate, setCustomExchangeRate] = useState(defaultExchangeRate);
   
-  // Sync customExchangeRate with default active budget exchange rate when not editing
+  // Sync customExchangeRate with default active budget exchange rate or activeRate when not editing
   useEffect(() => {
     if (!editingId) {
       setCustomExchangeRate(defaultExchangeRate);
@@ -235,7 +262,7 @@ export default function PayrollTab() {
     let usdTotal = 0;
     let lrdTotal = 0;
     let totalEmployees = payrollRows.length;
-    const rate = parseFloat(customExchangeRate) || 200;
+    const rate = parseFloat(customExchangeRate) || activeRate;
 
     payrollRows.forEach(row => {
       if (row.currency === 'USD') {
@@ -255,7 +282,7 @@ export default function PayrollTab() {
       combinedLRD,
       totalEmployees
     };
-  }, [payrollRows, customExchangeRate]);
+  }, [payrollRows, customExchangeRate, activeRate]);
 
   // Load Saved Worksheet
   const handleLoadWorksheet = (sheet) => {
@@ -328,7 +355,7 @@ export default function PayrollTab() {
   const handleExportCSV = () => {
     if (payrollRows.length === 0) return alert('No payroll rows to export.');
 
-    const rate = parseFloat(customExchangeRate) || 200;
+    const rate = parseFloat(customExchangeRate) || activeRate;
     let csvContent = "data:text/csv;charset=utf-8,";
     csvContent += `Payroll Report: ${fromDate} to ${toDate}\n`;
     csvContent += `Exchange Rate: 1 USD = ${rate} LRD\n\n`;
@@ -643,8 +670,8 @@ export default function PayrollTab() {
               </div>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', width: isMobile ? '100%' : '55px', maxWidth: '100px' }}>
-              <label style={{ fontSize: '0.78rem', fontWeight: '600', color: '#64748b' }}>Ex. Rate</label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', width: isMobile ? '100%' : '120px', maxWidth: '140px' }}>
+              <label style={{ fontSize: '0.78rem', fontWeight: '600', color: '#64748b' }}>Ex. Rate (LRD/USD)</label>
               <input 
                 type="number" 
                 value={customExchangeRate} 

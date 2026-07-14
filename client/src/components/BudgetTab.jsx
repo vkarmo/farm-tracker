@@ -24,6 +24,31 @@ export default function BudgetTab() {
   const hasApprovalPermission = currentUser?.role === 'Admin' || currentUser?.canApprove;
   const logo = useSelector(state => state.settings?.logo);
 
+  const historicalRate = React.useMemo(() => {
+    if (!budgets.length) return 150;
+    // Sort by ID descending (which contains timestamp)
+    const sorted = [...budgets].sort((a,b) => (b.id || '').localeCompare(a.id || ''));
+    const recentWithRate = sorted.find(b => b.exchangeRate && String(b.exchangeRate).trim() !== '');
+    return recentWithRate ? parseFloat(recentWithRate.exchangeRate) : 150;
+  }, [budgets]);
+
+  const [liveRate, setLiveRate] = useState(null);
+
+  useEffect(() => {
+    let mounted = true;
+    fetch('https://open.er-api.com/v6/latest/USD')
+      .then(res => res.json())
+      .then(data => {
+        if (mounted && data?.rates?.LRD) {
+          setLiveRate(data.rates.LRD.toFixed(2));
+        }
+      })
+      .catch(err => console.warn('Could not fetch live exchange rate (offline mode active):', err));
+    return () => { mounted = false; };
+  }, []);
+
+  const activeRate = liveRate ? parseFloat(liveRate) : historicalRate;
+
   const [activeBudgetId, setActiveBudgetId] = useState(null);
   const [budgetForm, setBudgetForm] = useState(INIT_BUDGET);
   const [itemForm, setItemForm] = useState(INIT_ITEM);
@@ -74,7 +99,7 @@ export default function BudgetTab() {
   }, [filteredBudgetItems]);
 
   const getCategorySubtotal = (items) => {
-    const rate = parseFloat(activeBudget?.exchangeRate) || 1;
+    const rate = parseFloat(activeBudget?.exchangeRate) || activeRate || 150;
     let approvedUsd = 0;
     let approvedLrd = 0;
     let dispensedUsd = 0;
@@ -114,7 +139,7 @@ export default function BudgetTab() {
   };
 
   const getReportTotals = () => {
-    const rate = parseFloat(activeBudget?.exchangeRate) || 1;
+    const rate = parseFloat(activeBudget?.exchangeRate) || activeRate || 150;
     let approvedUsd = 0;
     let approvedLrd = 0;
     let dispensedUsd = 0;
@@ -178,7 +203,7 @@ export default function BudgetTab() {
     let csvContent = "data:text/csv;charset=utf-8,";
     csvContent += "Category,Description,Amount,Currency,Approval Status,Converted USD,Converted LRD\r\n";
     
-    const rate = parseFloat(activeBudget?.exchangeRate) || 1;
+    const rate = parseFloat(activeBudget?.exchangeRate) || activeRate || 150;
     
     Object.keys(groupedItems).forEach(category => {
       csvContent += `"[CATEGORY: ${category.toUpperCase().replace(/"/g, '""')}]",,,,,\r\n`;
@@ -233,30 +258,6 @@ export default function BudgetTab() {
     document.body.removeChild(link);
   };
 
-  const historicalRate = React.useMemo(() => {
-    if (!budgets.length) return 150;
-    // Sort by ID descending (which contains timestamp)
-    const sorted = [...budgets].sort((a,b) => (b.id || '').localeCompare(a.id || ''));
-    const recentWithRate = sorted.find(b => b.exchangeRate && String(b.exchangeRate).trim() !== '');
-    return recentWithRate ? recentWithRate.exchangeRate : 150;
-  }, [budgets]);
-
-  const [liveRate, setLiveRate] = useState(null);
-
-  useEffect(() => {
-    let mounted = true;
-    fetch('https://open.er-api.com/v6/latest/USD')
-      .then(res => res.json())
-      .then(data => {
-        if (mounted && data?.rates?.LRD) {
-          setLiveRate(data.rates.LRD.toFixed(2));
-        }
-      })
-      .catch(err => console.warn('Could not fetch live exchange rate (offline mode active):', err));
-    return () => { mounted = false; };
-  }, []);
-
-  const activeRate = liveRate || historicalRate;
   const getInitBudget = React.useCallback(() => ({ ...INIT_BUDGET, exchangeRate: activeRate }), [activeRate]);
 
   const [isInitialized, setIsInitialized] = useState(false);
@@ -464,7 +465,7 @@ export default function BudgetTab() {
         category: item.category || 'Operating Expenses',
         amount: item.currency === 'USD' ? item.amount : '',
         amountLd: item.currency === 'LRD' ? item.amount : '',
-        exchangeRate: activeBudget.exchangeRate || 150,
+        exchangeRate: activeBudget.exchangeRate || activeRate || 150,
         vendor: `Budgeted: ${activeBudget.name}`,
         notes: item.description || '',
         date: todayStr,
@@ -492,7 +493,7 @@ export default function BudgetTab() {
 
   const calculateTotals = () => {
     if (!activeBudget || !activeBudget.items) return { totalUSD: 0, totalLRD: 0 };
-    const rate = parseFloat(activeBudget.exchangeRate) || 1;
+    const rate = parseFloat(activeBudget.exchangeRate) || activeRate || 150;
 
     let usd = 0;
     let lrd = 0;
@@ -523,7 +524,7 @@ export default function BudgetTab() {
       header: 'Converted',
       render: r => {
         const amt = parseFloat(r.amount) || 0;
-        const rate = activeBudget?.exchangeRate || 1;
+        const rate = parseFloat(activeBudget?.exchangeRate) || activeRate || 150;
         if (r.currency === 'USD') return `L$${(amt * rate).toLocaleString()}`;
         return `$${(amt / rate).toFixed(2)}`;
       }
@@ -711,7 +712,7 @@ export default function BudgetTab() {
                 <div style={{ fontSize: '0.75rem', color: '#555', fontWeight: 600, marginBottom: 4 }}>EXCHANGE RATE</div>
                 <div style={{ display: 'flex', alignItems: 'center' }}>
                   <span style={{ marginRight: 6, fontWeight: 'bold' }}>L$</span>
-                  <input type="number" value={activeBudget.exchangeRate} onChange={handleUpdateExchangeRate} style={{ width: 80, padding: 4 }} />
+                  <input type="number" value={activeBudget.exchangeRate} onChange={handleUpdateExchangeRate} style={{ width: 120, padding: '6px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem', color: '#334155' }} />
                   <span style={{ marginLeft: 6 }}>/ USD</span>
                 </div>
               </div>
@@ -1140,8 +1141,9 @@ export default function BudgetTab() {
                             {items.map(item => {
                               const amt = parseFloat(item.amount) || 0;
                               const isUSD = item.currency === 'USD';
-                              const usdVal = isUSD ? amt : amt / activeBudget.exchangeRate;
-                              const lrdVal = isUSD ? amt * activeBudget.exchangeRate : amt;
+                              const rate = parseFloat(activeBudget?.exchangeRate) || activeRate || 150;
+                              const usdVal = isUSD ? amt : amt / rate;
+                              const lrdVal = isUSD ? amt * rate : amt;
 
                               const usdDisplayStr = `$${usdVal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
                               const lrdDisplayStr = `L$${Math.round(lrdVal).toLocaleString()}`;
