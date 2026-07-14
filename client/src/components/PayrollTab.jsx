@@ -359,17 +359,17 @@ export default function PayrollTab() {
     let csvContent = "data:text/csv;charset=utf-8,";
     csvContent += `Payroll Report: ${fromDate} to ${toDate}\n`;
     csvContent += `Exchange Rate: 1 USD = ${rate} LRD\n\n`;
-    csvContent += "Employee,Job Title,Type,Days Worked,Off Days,Absent Days,Pay Rate,Calculated Total,Currency\n";
+    csvContent += "Signature,Employee,Job Title,Type,Days Worked,Off Days,Absent Days,Pay Rate,Calculated Total,Currency\n";
     
     payrollRows.forEach(row => {
       const name = `"${row.employee.lastName}, ${row.employee.firstName}"`;
-      csvContent += `${name},"${row.employee.jobTitle}",${row.employee.type},${row.daysWorked},${row.daysOff},${row.daysAbsent},"${row.rateDisplay}",${row.calculatedTotal.toFixed(2)},${row.currency}\n`;
+      csvContent += `"",${name},"${row.employee.jobTitle}",${row.employee.type},${row.daysWorked},${row.daysOff},${row.daysAbsent},"${row.rateDisplay}",${row.calculatedTotal.toFixed(2)},${row.currency}\n`;
     });
 
-    csvContent += `\n,,Total LRD,,,,,${summaryTotals.lrdTotal.toFixed(2)} LRD\n`;
-    csvContent += `,,Total USD,,,,,${summaryTotals.usdTotal.toFixed(2)} USD\n`;
-    csvContent += `,,Combined Total (USD),,,,,${summaryTotals.combinedUSD.toFixed(2)} USD\n`;
-    csvContent += `,,Combined Total (LRD),,,,,${summaryTotals.combinedLRD.toFixed(2)} LRD\n`;
+    csvContent += `\n,,,Total LRD,,,,,${summaryTotals.lrdTotal.toFixed(2)} LRD\n`;
+    csvContent += `,,,Total USD,,,,,${summaryTotals.usdTotal.toFixed(2)} USD\n`;
+    csvContent += `,,,Combined Total (USD),,,,,${summaryTotals.combinedUSD.toFixed(2)} USD\n`;
+    csvContent += `,,,Combined Total (LRD),,,,,${summaryTotals.combinedLRD.toFixed(2)} LRD\n`;
 
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement("a");
@@ -1136,6 +1136,7 @@ export default function PayrollTab() {
                   <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.75rem', minWidth: '950px' }}>
                     <thead>
                       <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                        <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: '700', color: '#475569', width: '120px' }}>Signature</th>
                         <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: '700', color: '#475569', background: '#f8fafc' }}>Employee Name</th>
                         <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: '700', color: '#475569' }}>Job Title</th>
                         <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: '700', color: '#475569' }}>Pay Rate</th>
@@ -1171,6 +1172,9 @@ export default function PayrollTab() {
                               background: rIdx % 2 === 0 ? 'white' : '#f8fafc'
                             }}
                           >
+                            <td style={{ padding: '8px 10px', width: '120px' }}>
+                              <div style={{ borderBottom: '1px dotted #94a3b8', width: '100px', height: '16px' }}></div>
+                            </td>
                             <td style={{ padding: '8px 10px', fontWeight: '600', color: '#1e293b' }}>
                               {emp.lastName}, {emp.firstName}
                             </td>
