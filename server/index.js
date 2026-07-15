@@ -614,7 +614,7 @@ app.post('/api/fields', async (req, res) => {
   try {
     const { id, name, area, soil_type, irrigation, status, year, polygon } = req.body;
     const result = await session.run(
-      'CREATE (f:Field {id: $id, name: $name, area: $area, soil_type: $soil_type, irrigation: $irrigation, status: $status, year: $year, polygon: $polygon}) RETURN f', { userEmail, id, name, area, soil_type, irrigation, status, year, polygon }
+      'MERGE (f:Field {id: $id}) SET f.name = $name, f.area = $area, f.soil_type = $soil_type, f.irrigation = $irrigation, f.status = $status, f.year = $year, f.polygon = $polygon RETURN f', { userEmail, id, name, area, soil_type, irrigation, status, year, polygon }
     );
     const field = result.records[0].get('f').properties;
     res.json(field);
@@ -2314,15 +2314,13 @@ Provide at least 5 entries. Ensure names are precise, distinct, and treatments a
 
       await session.run(`
         MATCH (f:Farm {id: $farmId})
-        CREATE (p:Pest {
-          id: $id,
-          name: $name,
-          type: $type,
-          description: $description,
-          treatment: $treatment,
-          lastUpdatedBy: $userEmail
-        })
-        CREATE (p)-[:BELONGS_TO]->(f)
+        MERGE (p:Pest {id: $id})
+        SET p.name = $name,
+            p.type = $type,
+            p.description = $description,
+            p.treatment = $treatment,
+            p.lastUpdatedBy = $userEmail
+        MERGE (p)-[:BELONGS_TO]->(f)
         RETURN p
       `, {
         farmId,
@@ -2483,15 +2481,13 @@ Provide at least 5 entries. Ensure names are precise, distinct, and protocols ar
 
       await session.run(`
         MATCH (f:Farm {id: $farmId})
-        CREATE (d:LivestockDisease {
-          id: $id,
-          name: $name,
-          description: $description,
-          treatment: $treatment,
-          animalTypes: $animalTypes,
-          lastUpdatedBy: $userEmail
-        })
-        CREATE (d)-[:BELONGS_TO]->(f)
+        MERGE (d:LivestockDisease {id: $id})
+        SET d.name = $name,
+            d.description = $description,
+            d.treatment = $treatment,
+            d.animalTypes = $animalTypes,
+            d.lastUpdatedBy = $userEmail
+        MERGE (d)-[:BELONGS_TO]->(f)
         RETURN d
       `, {
         farmId,
