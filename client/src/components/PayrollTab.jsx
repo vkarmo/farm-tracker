@@ -932,9 +932,22 @@ export default function PayrollTab() {
                       const parts = dateStr.split('-');
                       const label = `${parts[1]}/${parts[2]}`;
                       const dayName = getMTWRFSUChar(dateStr);
+                      const isNonWorkDay = nonWorkdays.includes(new Date(dateStr).getDay());
                       return (
-                        <th key={dateStr} style={{ padding: '8px', textAlign: 'center', fontWeight: '700', color: '#475569', minWidth: '42px', borderLeft: '1px solid #f1f5f9' }} title={dateStr}>
-                          <div style={{ fontSize: '0.75rem', color: '#475569', textTransform: 'uppercase', fontWeight: '800' }}>{dayName}</div>
+                        <th 
+                          key={dateStr} 
+                          style={{ 
+                            padding: '8px', 
+                            textAlign: 'center', 
+                            fontWeight: '700', 
+                            color: isNonWorkDay ? '#ef4444' : '#475569', 
+                            minWidth: '42px', 
+                            borderLeft: '1px solid #f1f5f9',
+                            background: isNonWorkDay ? '#f1f5f9' : '#f8fafc'
+                          }} 
+                          title={isNonWorkDay ? `${dateStr} (Non-work day)` : dateStr}
+                        >
+                          <div style={{ fontSize: '0.75rem', color: isNonWorkDay ? '#ef4444' : '#475569', textTransform: 'uppercase', fontWeight: '800' }}>{dayName}</div>
                           <div>{label}</div>
                         </th>
                       );
@@ -1002,10 +1015,11 @@ export default function PayrollTab() {
                         )}
 
                         {dateRange.map(dateStr => {
+                          const isNonWorkDay = nonWorkdays.includes(new Date(dateStr).getDay());
                           const status = empAttendance[dateStr] || '0';
                           let cellContent = '0';
-                          let bgColor = '#f1f5f9';
-                          let textColor = '#64748b';
+                          let bgColor = isNonWorkDay ? '#e2e8f0' : '#f8fafc';
+                          let textColor = isNonWorkDay ? '#475569' : '#94a3b8';
                           let fontWeight = '500';
 
                           if (status === '1') {
@@ -1029,6 +1043,7 @@ export default function PayrollTab() {
                                 textAlign: 'center', 
                                 cursor: 'pointer',
                                 borderLeft: '1px solid #f1f5f9',
+                                background: isNonWorkDay ? '#f8fafc' : 'transparent',
                                 userSelect: 'none',
                                 transition: 'all 0.1s ease'
                               }}
@@ -1300,9 +1315,10 @@ export default function PayrollTab() {
                             </td>
 
                             {dateRange.map(dateStr => {
+                              const isNonWorkDay = nonWorkdays.includes(new Date(dateStr).getDay());
                               const status = empAttendance[dateStr] || '0';
                               let cellContent = '0';
-                              let textColor = '#64748b';
+                              let textColor = isNonWorkDay ? '#475569' : '#94a3b8';
                               let fontWeight = '500';
 
                               if (status === '1') {
@@ -1322,6 +1338,7 @@ export default function PayrollTab() {
                                     padding: '4px', 
                                     textAlign: 'center', 
                                     borderLeft: '1px solid #f1f5f9',
+                                    background: isNonWorkDay ? '#f1f5f9' : 'transparent',
                                     color: textColor,
                                     fontWeight: fontWeight
                                   }}
