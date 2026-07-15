@@ -2855,7 +2855,8 @@ export default function App() {
                               { val: 6, label: 'Saturday (S)' },
                               { val: 0, label: 'Sunday (U)' }
                             ].map(dayObj => {
-                              const isChecked = nonWorkdays.includes(dayObj.val);
+                              const numericNonWorkdays = Array.isArray(nonWorkdays) ? nonWorkdays.map(Number) : [0];
+                              const isChecked = numericNonWorkdays.includes(dayObj.val);
                               return (
                                 <label key={dayObj.val} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer', fontSize: '0.9rem' }}>
                                   <input
@@ -2865,9 +2866,9 @@ export default function App() {
                                     onChange={() => {
                                       let updated;
                                       if (isChecked) {
-                                        updated = nonWorkdays.filter(d => d !== dayObj.val);
+                                        updated = numericNonWorkdays.filter(d => Number(d) !== dayObj.val);
                                       } else {
-                                        updated = [...nonWorkdays, dayObj.val];
+                                        updated = [...numericNonWorkdays, dayObj.val];
                                       }
                                       dispatch(setNonWorkdays(updated));
                                       dispatch(saveSettings());

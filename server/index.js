@@ -2650,7 +2650,7 @@ app.get('/api/all-data', async (req, res) => {
                try { props.animalTypes = JSON.parse(props.animalTypes); } catch(e){}
            }
            if (key === 'settings') {
-               ['units', 'jobTitles', 'kmlUrls', 'mapCenter', 'expenseCategories', 'incomeCategories', 'animalTypes'].forEach(field => {
+               ['units', 'jobTitles', 'kmlUrls', 'mapCenter', 'expenseCategories', 'incomeCategories', 'animalTypes', 'nonWorkdays'].forEach(field => {
                    if (props[field] && typeof props[field] === 'string') {
                        try { props[field] = JSON.parse(props[field]); } catch(e) {}
                    }

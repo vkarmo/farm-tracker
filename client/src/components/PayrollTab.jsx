@@ -32,6 +32,9 @@ export default function PayrollTab() {
   const activeBudget = budgets.find(b => b.status === 'Active') || {};
   const logo = useSelector(state => state.settings?.logo);
   const nonWorkdays = useSelector(state => state.settings?.nonWorkdays) || [0];
+  const numericNonWorkdays = useMemo(() => {
+    return Array.isArray(nonWorkdays) ? nonWorkdays.map(Number) : [0];
+  }, [nonWorkdays]);
 
   const generalManager = useMemo(() => {
     return employees.find(emp => {
@@ -190,7 +193,7 @@ export default function PayrollTab() {
         if (newAttendance[emp.id][dateStr] === undefined) {
           const date = new Date(dateStr);
           const day = date.getDay();
-          newAttendance[emp.id][dateStr] = nonWorkdays.includes(day) ? '0' : '1';
+          newAttendance[emp.id][dateStr] = numericNonWorkdays.includes(day) ? '0' : '1';
         }
       });
     });
@@ -208,18 +211,18 @@ export default function PayrollTab() {
           if (next[emp.id][dateStr] === undefined) {
             const date = new Date(dateStr);
             const day = date.getDay();
-            next[emp.id][dateStr] = nonWorkdays.includes(day) ? '0' : '1';
+            next[emp.id][dateStr] = numericNonWorkdays.includes(day) ? '0' : '1';
           }
         });
       });
       return next;
     });
-  }, [dateRange, pulledEmployees, nonWorkdays]);
+  }, [dateRange, pulledEmployees, numericNonWorkdays]);
 
   const handleCycleStatus = (empId, dateStr) => {
     setAttendance(prev => {
       const empAttendance = { ...(prev[empId] || {}) };
-      const isNonWorkDay = nonWorkdays.includes(new Date(dateStr).getDay());
+      const isNonWorkDay = numericNonWorkdays.includes(new Date(dateStr).getDay());
       const defaultStatus = isNonWorkDay ? '0' : '1';
       const current = empAttendance[dateStr] || defaultStatus;
       let nextStatus = '1';
@@ -934,7 +937,7 @@ export default function PayrollTab() {
                       const parts = dateStr.split('-');
                       const label = `${parts[1]}/${parts[2]}`;
                       const dayName = getMTWRFSUChar(dateStr);
-                      const isNonWorkDay = nonWorkdays.includes(new Date(dateStr).getDay());
+                      const isNonWorkDay = numericNonWorkdays.includes(new Date(dateStr).getDay());
                       return (
                         <th 
                           key={dateStr} 
@@ -1017,7 +1020,7 @@ export default function PayrollTab() {
                         )}
 
                         {dateRange.map(dateStr => {
-                          const isNonWorkDay = nonWorkdays.includes(new Date(dateStr).getDay());
+                          const isNonWorkDay = numericNonWorkdays.includes(new Date(dateStr).getDay());
                           const defaultStatus = isNonWorkDay ? '0' : '1';
                           const status = empAttendance[dateStr] || defaultStatus;
                           let cellContent = defaultStatus;
@@ -1318,7 +1321,7 @@ export default function PayrollTab() {
                             </td>
 
                             {dateRange.map(dateStr => {
-                              const isNonWorkDay = nonWorkdays.includes(new Date(dateStr).getDay());
+                              const isNonWorkDay = numericNonWorkdays.includes(new Date(dateStr).getDay());
                               const defaultStatus = isNonWorkDay ? '0' : '1';
                               const status = empAttendance[dateStr] || defaultStatus;
                               let cellContent = defaultStatus;

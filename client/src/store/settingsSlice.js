@@ -146,7 +146,16 @@ export const settingsSlice = createSlice({
       state.animalTypes = state.animalTypes.filter(t => t !== action.payload);
     },
     setAllSettings: (state, action) => {
-      return { ...state, ...action.payload };
+      const payload = { ...action.payload };
+      if (payload.nonWorkdays && typeof payload.nonWorkdays === 'string') {
+        try {
+          payload.nonWorkdays = JSON.parse(payload.nonWorkdays);
+        } catch (e) {}
+      }
+      if (payload.nonWorkdays === undefined) {
+        payload.nonWorkdays = state.nonWorkdays || [0];
+      }
+      return { ...state, ...payload };
     },
     setVisibleMapLayers: (state, action) => {
       state.visibleMapLayers = action.payload;
