@@ -66,6 +66,7 @@ export default function BudgetTab() {
   const [pendingLedgerExpenses, setPendingLedgerExpenses] = useState([]);
   const [showExpenseReview, setShowExpenseReview] = useState(false);
   const [selectedExpensesToSubmit, setSelectedExpensesToSubmit] = useState({});
+  const [selectedItemIds, setSelectedItemIds] = useState([]);
 
   const [filterCategory, setFilterCategory] = useState('All');
   const [filterStatuses, setFilterStatuses] = useState([]);
@@ -76,6 +77,7 @@ export default function BudgetTab() {
   useEffect(() => {
     setFilterCategory('All');
     setFilterStatuses([]);
+    setSelectedItemIds([]);
   }, [activeBudgetId]);
 
   const filteredBudgetItems = React.useMemo(() => {
@@ -1147,27 +1149,60 @@ export default function BudgetTab() {
               </div>
             </div>
 
-            {(filterCategory !== 'All' || filterStatuses.length > 0) && (
-              <button 
-                type="button" 
-                onClick={() => { setFilterCategory('All'); setFilterStatuses([]); }}
-                className="btn"
-                style={{
-                  padding: '6px 12px',
-                  fontSize: '0.85rem',
-                  color: '#64748b',
-                  background: '#f1f5f9',
-                  border: '1px solid #e2e8f0',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '4px'
-                }}
-              >
-                Clear Filters
-              </button>
-            )}
+            <div style={{ display: 'flex', gap: '10px', alignItems: 'center', marginTop: '10px' }}>
+              {(filterCategory !== 'All' || filterStatuses.length > 0) && (
+                <button 
+                  type="button" 
+                  onClick={() => { setFilterCategory('All'); setFilterStatuses([]); }}
+                  className="btn"
+                  style={{
+                    padding: '6px 12px',
+                    fontSize: '0.85rem',
+                    color: '#64748b',
+                    background: '#f1f5f9',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                  }}
+                >
+                  Clear Filters
+                </button>
+              )}
+
+              {selectedItemIds.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (window.confirm(`Are you sure you want to delete the ${selectedItemIds.length} selected budget line item(s)?`)) {
+                      selectedItemIds.forEach(id => {
+                        dispatch(deleteBudgetItem({ budgetId: activeBudget.id, itemId: id }));
+                        dispatch(queueAction({ type: 'core/deleteNode', payload: { id }, meta: { id: Date.now() } }));
+                      });
+                      setSelectedItemIds([]);
+                    }
+                  }}
+                  className="btn"
+                  style={{
+                    padding: '6px 12px',
+                    fontSize: '0.85rem',
+                    color: '#ffffff',
+                    background: '#ef4444',
+                    border: 'none',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px'
+                  }}
+                >
+                  <Trash2 size={14} />
+                  Delete Selected ({selectedItemIds.length})
+                </button>
+              )}
+            </div>
           </div>
 
           <CrudTable
@@ -1180,6 +1215,8 @@ export default function BudgetTab() {
             }}
             itemLabel="Budget Item"
             defaultSort={{ key: 'category', direction: 'asc' }}
+            selectedIds={selectedItemIds}
+            onSelectionChange={setSelectedItemIds}
           />
         </div>
       )}
