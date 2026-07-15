@@ -624,6 +624,32 @@ app.post('/api/fields', async (req, res) => {
   }
 });
 
+// Neo4j Connection Test endpoint
+app.post('/api/neo4j/test-connection', async (req, res) => {
+  const { uri, username, password, database } = req.body;
+  if (!uri || !username) {
+    return res.status(400).json({ success: false, error: 'Missing Neo4j URI or Username.' });
+  }
+  
+  let testUri = uri;
+  if (testUri.includes('.databases.neo4j.io') && testUri.startsWith('bolt+s://')) {
+    testUri = testUri.replace('bolt+s://', 'neo4j+s://');
+  }
+
+  const testDriver = neo4j.driver(testUri, neo4j.auth.basic(username, password));
+  try {
+    const session = testDriver.session({ database: database || undefined });
+    await session.run('RETURN 1 AS val');
+    await session.close();
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Neo4j connection test failed:', err);
+    res.status(500).json({ success: false, error: err.message });
+  } finally {
+    await testDriver.close();
+  }
+});
+
 // GEE Connection Test endpoint
 app.post('/api/gee/test-connection', async (req, res) => {
   const session = driver.session();

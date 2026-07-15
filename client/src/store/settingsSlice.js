@@ -61,6 +61,10 @@ export const settingsSlice = createSlice({
     geminiApiKey: '',
     claudeApiKey: '',
     aiProvider: 'gemini',
+    neo4jUri: '',
+    neo4jUser: '',
+    neo4jPassword: '',
+    neo4jDatabase: '',
   },
   reducers: {
     addUnit: (state, action) => {
@@ -276,11 +280,23 @@ export const settingsSlice = createSlice({
     },
     setAiProvider: (state, action) => {
       state.aiProvider = action.payload;
+    },
+    setNeo4jUri: (state, action) => {
+      state.neo4jUri = action.payload;
+    },
+    setNeo4jUser: (state, action) => {
+      state.neo4jUser = action.payload;
+    },
+    setNeo4jPassword: (state, action) => {
+      state.neo4jPassword = action.payload;
+    },
+    setNeo4jDatabase: (state, action) => {
+      state.neo4jDatabase = action.payload;
     }
   }
 });
 
-export const { addUnit, removeUnit, addJobTitle, removeJobTitle, addExpenseCategory, removeExpenseCategory, addIncomeCategory, removeIncomeCategory, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold, setAppName, addAnimalType, removeAnimalType, setAllSettings, setVisibleMapLayers, setSnapGap, setGeeClientEmail, setGeePrivateKey, setGeeProjectId, setGeeScale, setOwmApiKey, setThemeAppBgColor, setThemeCardBgColor, setThemeCardBorderColor, setThemeCardBorderThickness, setThemeAppBorderColor, setThemeAppBorderThickness, setThemeFontName, setThemeFontSizeBase, setThemeFontSizeCardTitle, setThemeFontSizeTabs, setThemeColorPrimary, setThemeColorCardTitle, setThemeColorTabsActiveBg, setThemeColorTabsActiveText, setThemeColorTabsInactiveBg, setThemeColorTabsInactiveText, setThemeFontAppName, setThemeFontSizeAppName, setThemeFontAppNameBold, setThemeFontAppNameCapitalize, setThemeFontSizeBaseBold, setThemeFontSizeBaseCapitalize, setThemeFontSizeCardTitleBold, setThemeFontSizeCardTitleCapitalize, setThemeFontSizeTabsBold, setThemeFontSizeTabsCapitalize, setThemeFontImager, setThemeFontSizeImager, setThemeFontImagerBold, setThemeFontImagerCapitalize, setMtnClientId, setMtnClientSecret, setMtnEnvironment, setSimulateHighWinds, setGoogleMapsApiKey, setGeminiApiKey, setClaudeApiKey, setAiProvider } = settingsSlice.actions;
+export const { addUnit, removeUnit, addJobTitle, removeJobTitle, addExpenseCategory, removeExpenseCategory, addIncomeCategory, removeIncomeCategory, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold, setAppName, addAnimalType, removeAnimalType, setAllSettings, setVisibleMapLayers, setSnapGap, setGeeClientEmail, setGeePrivateKey, setGeeProjectId, setGeeScale, setOwmApiKey, setThemeAppBgColor, setThemeCardBgColor, setThemeCardBorderColor, setThemeCardBorderThickness, setThemeAppBorderColor, setThemeAppBorderThickness, setThemeFontName, setThemeFontSizeBase, setThemeFontSizeCardTitle, setThemeFontSizeTabs, setThemeColorPrimary, setThemeColorCardTitle, setThemeColorTabsActiveBg, setThemeColorTabsActiveText, setThemeColorTabsInactiveBg, setThemeColorTabsInactiveText, setThemeFontAppName, setThemeFontSizeAppName, setThemeFontAppNameBold, setThemeFontAppNameCapitalize, setThemeFontSizeBaseBold, setThemeFontSizeBaseCapitalize, setThemeFontSizeCardTitleBold, setThemeFontSizeCardTitleCapitalize, setThemeFontSizeTabsBold, setThemeFontSizeTabsCapitalize, setThemeFontImager, setThemeFontSizeImager, setThemeFontImagerBold, setThemeFontImagerCapitalize, setMtnClientId, setMtnClientSecret, setMtnEnvironment, setSimulateHighWinds, setGoogleMapsApiKey, setGeminiApiKey, setClaudeApiKey, setAiProvider, setNeo4jUri, setNeo4jUser, setNeo4jPassword, setNeo4jDatabase } = settingsSlice.actions;
 
 export const saveSettings = () => (dispatch, getState) => {
   const settings = getState().settings;

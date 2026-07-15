@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import Select from 'react-select';
 import { fetchFields } from './store/fieldsSlice';
-import { addUnit, removeUnit, addJobTitle, removeJobTitle, addExpenseCategory, removeExpenseCategory, addIncomeCategory, removeIncomeCategory, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold, setAppName, addAnimalType, removeAnimalType, saveSettings, setGeeClientEmail, setGeePrivateKey, setGeeProjectId, setGeeScale, setOwmApiKey, setThemeAppBgColor, setThemeCardBgColor, setThemeCardBorderColor, setThemeCardBorderThickness, setThemeAppBorderColor, setThemeAppBorderThickness, setThemeFontName, setThemeFontSizeBase, setThemeFontSizeCardTitle, setThemeFontSizeTabs, setThemeColorPrimary, setThemeColorCardTitle, setThemeColorTabsActiveBg, setThemeColorTabsActiveText, setThemeColorTabsInactiveBg, setThemeColorTabsInactiveText, setThemeFontAppName, setThemeFontSizeAppName, setThemeFontAppNameBold, setThemeFontAppNameCapitalize, setThemeFontSizeBaseBold, setThemeFontSizeBaseCapitalize, setThemeFontSizeCardTitleBold, setThemeFontSizeCardTitleCapitalize, setThemeFontSizeTabsBold, setThemeFontSizeTabsCapitalize, setThemeFontImager, setThemeFontSizeImager, setThemeFontImagerBold, setThemeFontImagerCapitalize, setMtnClientId, setMtnClientSecret, setMtnEnvironment, setSimulateHighWinds, setGoogleMapsApiKey, setGeminiApiKey, setClaudeApiKey, setAiProvider } from './store/settingsSlice';
+import { addUnit, removeUnit, addJobTitle, removeJobTitle, addExpenseCategory, removeExpenseCategory, addIncomeCategory, removeIncomeCategory, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold, setAppName, addAnimalType, removeAnimalType, saveSettings, setGeeClientEmail, setGeePrivateKey, setGeeProjectId, setGeeScale, setOwmApiKey, setThemeAppBgColor, setThemeCardBgColor, setThemeCardBorderColor, setThemeCardBorderThickness, setThemeAppBorderColor, setThemeAppBorderThickness, setThemeFontName, setThemeFontSizeBase, setThemeFontSizeCardTitle, setThemeFontSizeTabs, setThemeColorPrimary, setThemeColorCardTitle, setThemeColorTabsActiveBg, setThemeColorTabsActiveText, setThemeColorTabsInactiveBg, setThemeColorTabsInactiveText, setThemeFontAppName, setThemeFontSizeAppName, setThemeFontAppNameBold, setThemeFontAppNameCapitalize, setThemeFontSizeBaseBold, setThemeFontSizeBaseCapitalize, setThemeFontSizeCardTitleBold, setThemeFontSizeCardTitleCapitalize, setThemeFontSizeTabsBold, setThemeFontSizeTabsCapitalize, setThemeFontImager, setThemeFontSizeImager, setThemeFontImagerBold, setThemeFontImagerCapitalize, setMtnClientId, setMtnClientSecret, setMtnEnvironment, setSimulateHighWinds, setGoogleMapsApiKey, setGeminiApiKey, setClaudeApiKey, setAiProvider, setNeo4jUri, setNeo4jUser, setNeo4jPassword, setNeo4jDatabase } from './store/settingsSlice';
 import { addLocation } from './store/gpsSlice';
 import { queueAction, fetchInitialData, abortSync, clearAllData } from './store/syncSlice';
 import { MapSearchBox, MapFlyTo, FarmLocationButton } from './components/MapSearchBox';
@@ -351,6 +351,10 @@ export default function App() {
   const geminiApiKey = useSelector(state => state.settings?.geminiApiKey) || '';
   const claudeApiKey = useSelector(state => state.settings?.claudeApiKey) || '';
   const aiProvider = useSelector(state => state.settings?.aiProvider) || 'gemini';
+  const neo4jUri = useSelector(state => state.settings?.neo4jUri) || '';
+  const neo4jUser = useSelector(state => state.settings?.neo4jUser) || '';
+  const neo4jPassword = useSelector(state => state.settings?.neo4jPassword) || '';
+  const neo4jDatabase = useSelector(state => state.settings?.neo4jDatabase) || '';
   const employees = useSelector(state => state.employees?.list) || [];
   const themeAppBgColor = useSelector(state => state.settings?.themeAppBgColor) || '#eeeef1';
   const themeCardBgColor = useSelector(state => state.settings?.themeCardBgColor) || '#ffffff';
@@ -407,7 +411,7 @@ export default function App() {
       window.removeEventListener('navigate-tab', handleNavigate);
     };
   }, []);
-  const [openSettings, setOpenSettings] = useState({ general: true, dropdown: false, map: false, units: false, jobs: false, animals: false, ledgers: false, gee: false, mtn: false, owm: false, theme: false, typography: false, simulation: false, ai: false, deleteFarm: false });
+  const [openSettings, setOpenSettings] = useState({ general: true, dropdown: false, map: false, units: false, jobs: false, animals: false, ledgers: false, gee: false, mtn: false, owm: false, theme: false, typography: false, simulation: false, ai: false, neo4j: false, deleteFarm: false });
   const [selectedDeleteFarmId, setSelectedDeleteFarmId] = useState('');
   const [deleteSummary, setDeleteSummary] = useState(null);
   const [deleteConfirmationText, setDeleteConfirmationText] = useState('');
@@ -420,6 +424,9 @@ export default function App() {
   const [mtnTestPhone, setMtnTestPhone] = useState('');
   const [selectedMtnEmployees, setSelectedMtnEmployees] = useState([]);
   const [mtnTestMessage, setMtnTestMessage] = useState('This is a test message from FarmTracker.');
+  const [neo4jTesting, setNeo4jTesting] = useState(false);
+  const [neo4jTestStatus, setNeo4jTestStatus] = useState(null);
+  const [showNeo4jPassword, setShowNeo4jPassword] = useState(false);
 
   const employeeOptions = useMemo(() => {
     return employees
@@ -483,6 +490,37 @@ export default function App() {
       setGeeTestStatus({ success: false, error: err.message || 'Connection test request failed.' });
     } finally {
       setGeeTesting(false);
+    }
+  };
+
+  const handleTestNeo4jConnection = async () => {
+    if (!neo4jUri || !neo4jUser) {
+      alert("Please provide at least a Neo4j URI and Username.");
+      return;
+    }
+    setNeo4jTesting(true);
+    setNeo4jTestStatus(null);
+    try {
+      const response = await fetch('/api/neo4j/test-connection', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          uri: neo4jUri,
+          username: neo4jUser,
+          password: neo4jPassword,
+          database: neo4jDatabase
+        })
+      });
+      const data = await response.json();
+      if (response.ok && data.success) {
+        setNeo4jTestStatus({ success: true });
+      } else {
+        setNeo4jTestStatus({ success: false, error: data.error || 'Connection failed' });
+      }
+    } catch (err) {
+      setNeo4jTestStatus({ success: false, error: err.message || 'Connection test request failed.' });
+    } finally {
+      setNeo4jTesting(false);
     }
   };
 
@@ -2606,6 +2644,122 @@ export default function App() {
                               </div>
                             )}
                           </div>
+                        </div>
+
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Neo4j Database Instance Settings Card */}
+              {(activeFarmId === 'default_farm' || currentUser?.role === 'Admin') && (
+                <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 0 }}>
+                  <button
+                    onClick={() => setOpenSettings({ ...openSettings, neo4j: !openSettings.neo4j })}
+                    type="button"
+                    style={{ width: '100%', padding: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f5f7fa', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '1.1rem', color: '#333' }}
+                  >
+                    Neo4j Database Credentials
+                    {openSettings.neo4j ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
+                  </button>
+
+                  {openSettings.neo4j && (
+                    <div style={{ padding: '20px', background: 'var(--color-surface)' }}>
+                      <div style={{ marginBottom: 20 }}>
+                        <h3 style={{ marginTop: 0 }}>Connection Settings</h3>
+                        <p style={{ fontSize: '0.8rem', color: '#666', marginBottom: 16 }}>
+                          Configure credentials for your Neo4j instance. These credentials will be stored in your global application settings.
+                        </p>
+
+                        <div style={{ marginBottom: 16 }}>
+                          <label style={{ fontWeight: '600', display: 'block', marginBottom: '8px' }}>Neo4j URI</label>
+                          <input
+                            type="text"
+                            value={neo4jUri}
+                            onChange={(e) => { dispatch(setNeo4jUri(e.target.value)); dispatch(saveSettings()); }}
+                            disabled={currentUser?.role === 'Admin Viewer'}
+                            placeholder="e.g. neo4j+s://3fa11aa8.databases.neo4j.io"
+                            className="btn"
+                            style={{ display: 'block', marginTop: 8, padding: '8px', width: '100%', maxWidth: '500px', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'text', background: '#fff', border: '1px solid #ccc' }}
+                          />
+                        </div>
+
+                        <div style={{ marginBottom: 16 }}>
+                          <label style={{ fontWeight: '600', display: 'block', marginBottom: '8px' }}>Username</label>
+                          <input
+                            type="text"
+                            value={neo4jUser}
+                            onChange={(e) => { dispatch(setNeo4jUser(e.target.value)); dispatch(saveSettings()); }}
+                            disabled={currentUser?.role === 'Admin Viewer'}
+                            placeholder="e.g. neo4j"
+                            className="btn"
+                            style={{ display: 'block', marginTop: 8, padding: '8px', width: '100%', maxWidth: '500px', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'text', background: '#fff', border: '1px solid #ccc' }}
+                          />
+                        </div>
+
+                        <div style={{ marginBottom: 16 }}>
+                          <label style={{ fontWeight: '600', display: 'block', marginBottom: '8px' }}>Password</label>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', maxWidth: '500px' }}>
+                            <input
+                              type={showNeo4jPassword ? 'text' : 'password'}
+                              value={neo4jPassword}
+                              onChange={(e) => { dispatch(setNeo4jPassword(e.target.value)); dispatch(saveSettings()); }}
+                              disabled={currentUser?.role === 'Admin Viewer'}
+                              placeholder="Password"
+                              className="btn"
+                              style={{ flex: 1, padding: '8px', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'text', background: '#fff', border: '1px solid #ccc' }}
+                            />
+                            <button
+                              type="button"
+                              onClick={() => setShowNeo4jPassword(!showNeo4jPassword)}
+                              className="btn"
+                              style={{ background: '#e2e8f0', color: '#475569', border: '1px solid #cbd5e1', padding: '8px 12px', fontSize: '0.85rem' }}
+                            >
+                              {showNeo4jPassword ? 'Hide' : 'Show'}
+                            </button>
+                          </div>
+                        </div>
+
+                        <div style={{ marginBottom: 16 }}>
+                          <label style={{ fontWeight: '600', display: 'block', marginBottom: '8px' }}>Database Name (Optional)</label>
+                          <input
+                            type="text"
+                            value={neo4jDatabase}
+                            onChange={(e) => { dispatch(setNeo4jDatabase(e.target.value)); dispatch(saveSettings()); }}
+                            disabled={currentUser?.role === 'Admin Viewer'}
+                            placeholder="e.g. neo4j (defaults to active database)"
+                            className="btn"
+                            style={{ display: 'block', marginTop: 8, padding: '8px', width: '100%', maxWidth: '500px', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'text', background: '#fff', border: '1px solid #ccc' }}
+                          />
+                        </div>
+
+                        <div style={{ marginTop: 24, paddingTop: 20, borderTop: '1px solid #eee' }}>
+                          <button
+                            type="button"
+                            onClick={handleTestNeo4jConnection}
+                            className="btn btn-primary"
+                            style={{ background: '#0f766e', color: 'white', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', border: 'none', fontWeight: 600 }}
+                            disabled={neo4jTesting || !neo4jUri || !neo4jUser}
+                          >
+                            {neo4jTesting ? 'Testing Connection...' : 'Test Database Connection'}
+                          </button>
+
+                          {neo4jTestStatus && (
+                            <div style={{
+                              marginTop: 12,
+                              padding: '10px',
+                              borderRadius: '4px',
+                              border: `1px solid ${neo4jTestStatus.success ? '#c5e1a5' : '#ffcdd2'}`,
+                              background: neo4jTestStatus.success ? '#f1f8e9' : '#ffebee',
+                              color: neo4jTestStatus.success ? '#33691e' : '#c62828',
+                              fontSize: '0.85rem'
+                            }}>
+                              {neo4jTestStatus.success
+                                ? '✓ Neo4j Database Connection Successful!'
+                                : `⚠ Connection Failed: ${neo4jTestStatus.error}`}
+                            </div>
+                          )}
                         </div>
 
                       </div>
