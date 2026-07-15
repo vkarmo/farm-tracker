@@ -404,9 +404,10 @@ app.post('/api/farms', async (req, res) => {
   try {
     const farmId = 'farm_' + Date.now();
     await session.run(`
-      CREATE (f:Farm {id: $farmId, name: $name})
-      CREATE (s:GlobalSettings {id: $settingsId})
-      CREATE (s)-[:BELONGS_TO]->(f)
+      MERGE (f:Farm {id: $farmId})
+      ON CREATE SET f.name = $name
+      MERGE (s:GlobalSettings {id: $settingsId})
+      MERGE (s)-[:BELONGS_TO]->(f)
     `, { farmId, name: name.trim(), settingsId: 'settings_' + farmId });
     res.json({ success: true, farm: { id: farmId, name: name.trim() } });
   } catch (err) {
