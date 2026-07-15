@@ -147,13 +147,23 @@ export const settingsSlice = createSlice({
     },
     setAllSettings: (state, action) => {
       const payload = { ...action.payload };
-      if (payload.nonWorkdays && typeof payload.nonWorkdays === 'string') {
-        try {
-          payload.nonWorkdays = JSON.parse(payload.nonWorkdays);
-        } catch (e) {}
-      }
-      if (payload.nonWorkdays === undefined) {
-        payload.nonWorkdays = state.nonWorkdays || [0];
+      if (payload.nonWorkdays !== undefined) {
+        if (payload.nonWorkdays === null || payload.nonWorkdays === '') {
+          payload.nonWorkdays = [];
+        } else {
+          let parsed = payload.nonWorkdays;
+          if (typeof parsed === 'string') {
+            try {
+              parsed = JSON.parse(parsed);
+            } catch (e) {
+              if (parsed.trim() === '') parsed = [];
+              else parsed = parsed.split(',').map(Number).filter(n => !isNaN(n));
+            }
+          }
+          payload.nonWorkdays = Array.isArray(parsed) ? parsed.map(Number) : [];
+        }
+      } else {
+        payload.nonWorkdays = state.nonWorkdays !== undefined ? state.nonWorkdays : [0];
       }
       return { ...state, ...payload };
     },
@@ -308,7 +318,12 @@ export const settingsSlice = createSlice({
       state.workdayHours = action.payload;
     },
     setNonWorkdays: (state, action) => {
-      state.nonWorkdays = action.payload;
+      const val = action.payload;
+      if (val === null || val === undefined || val === '') {
+        state.nonWorkdays = [];
+      } else {
+        state.nonWorkdays = Array.isArray(val) ? val.map(Number) : [Number(val)];
+      }
     }
   }
 });
