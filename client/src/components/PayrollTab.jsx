@@ -456,22 +456,13 @@ export default function PayrollTab() {
       const imgData = canvas.toDataURL('image/png');
       const imgWidth = canvas.width;
       const imgHeight = canvas.height;
-      const orientation = imgWidth > imgHeight ? 'l' : 'p';
-
       const pdf = new jsPDF({
-        orientation: orientation,
-        unit: 'mm',
-        format: 'a4'
+        orientation: 'l',
+        unit: 'px',
+        format: [imgWidth, imgHeight]
       });
 
-      const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = pdf.internal.pageSize.getHeight();
-
-      const ratio = imgHeight / imgWidth;
-      const width = pdfWidth;
-      const height = pdfWidth * ratio;
-
-      pdf.addImage(imgData, 'PNG', 0, 0, width, height);
+      pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
       pdf.save(`payroll_report_${fromDate}_to_${toDate}.pdf`);
     }).catch(err => {
       element.setAttribute('style', originalStyle);
@@ -527,7 +518,23 @@ export default function PayrollTab() {
                 const dateStr = new Date(sheet.createdAt || Date.now()).toLocaleDateString();
 
                 return (
-                  <div key={sheet.id} style={{ background: '#f8fafc', padding: '14px', borderRadius: '8px', border: '1px solid #cbd5e1', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  <div 
+                    key={sheet.id} 
+                    onClick={() => handleLoadWorksheet(sheet)}
+                    style={{ 
+                      background: '#f8fafc', 
+                      padding: '14px', 
+                      borderRadius: '8px', 
+                      border: '1px solid #cbd5e1', 
+                      display: 'flex', 
+                      flexDirection: 'column', 
+                      gap: '10px',
+                      cursor: 'pointer',
+                      transition: 'background-color 0.2s'
+                    }}
+                    onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f1f5f9'}
+                    onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#f8fafc'}
+                  >
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       <span style={{ fontWeight: '700', color: '#1e293b', fontSize: '0.85rem' }}>{sheet.fromDate} to {sheet.toDate}</span>
                       <span style={{ fontSize: '0.72rem', color: '#64748b' }}>{dateStr}</span>
@@ -539,7 +546,7 @@ export default function PayrollTab() {
                         <span style={{ color: '#1e3a8a', fontWeight: '700' }}>{totalLRD.toLocaleString()} LD</span>
                       </div>
                     </div>
-                    <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }} onClick={(e) => e.stopPropagation()}>
                       <button
                         onClick={() => handleLoadWorksheet(sheet)}
                         className="btn"
@@ -548,7 +555,10 @@ export default function PayrollTab() {
                         Load Worksheet
                       </button>
                       <button
-                        onClick={() => handleDeleteWorksheet(sheet.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDeleteWorksheet(sheet.id);
+                        }}
                         style={{ padding: '8px 12px', background: '#fee2e2', color: '#ef4444', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
                       >
                         <Trash2 size={14} />
@@ -579,8 +589,19 @@ export default function PayrollTab() {
                     const staff = sheet.totals?.totalEmployees || 0;
                     const dateStr = new Date(sheet.createdAt || Date.now()).toLocaleDateString();
 
-                    return (
-                      <tr key={sheet.id} style={{ borderBottom: '1px solid #e2e8f0', background: idx % 2 === 0 ? 'white' : '#f8fafc' }}>
+                     return (
+                      <tr 
+                        key={sheet.id} 
+                        onClick={() => handleLoadWorksheet(sheet)}
+                        style={{ 
+                          borderBottom: '1px solid #e2e8f0', 
+                          background: idx % 2 === 0 ? 'white' : '#f8fafc',
+                          cursor: 'pointer',
+                          transition: 'background-color 0.2s'
+                        }}
+                        onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f1f5f9'}
+                        onMouseLeave={(e) => e.currentTarget.style.backgroundColor = idx % 2 === 0 ? 'white' : '#f8fafc'}
+                      >
                         <td style={{ padding: '12px 16px', fontWeight: '600', color: '#1e293b' }}>
                           {sheet.fromDate} to {sheet.toDate}
                         </td>
@@ -596,7 +617,7 @@ export default function PayrollTab() {
                         <td style={{ padding: '12px 16px', color: '#64748b' }}>
                           {dateStr}
                         </td>
-                        <td style={{ padding: '12px 16px', textAlign: 'center' }}>
+                        <td style={{ padding: '12px 16px', textAlign: 'center' }} onClick={(e) => e.stopPropagation()}>
                           <div style={{ display: 'flex', gap: '8px', justifyContent: 'center' }}>
                             <button
                               onClick={() => handleLoadWorksheet(sheet)}
@@ -606,7 +627,10 @@ export default function PayrollTab() {
                               Load
                             </button>
                             <button
-                              onClick={() => handleDeleteWorksheet(sheet.id)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteWorksheet(sheet.id);
+                              }}
                               className="btn"
                               style={{ padding: '4px 10px', fontSize: '0.75rem', background: '#fee2e2', color: '#ef4444', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
                             >
