@@ -1488,28 +1488,67 @@ export default function PayrollTab() {
                 Download File
               </button>
 
+              {navigator.share && navigator.canShare && (
+                <button
+                  onClick={async () => {
+                    const file = new File([generatedFile.blob], generatedFile.name, { type: generatedFile.mimeType });
+                    if (navigator.canShare({ files: [file] })) {
+                      try {
+                        await navigator.share({
+                          files: [file],
+                          title: generatedFile.name,
+                          text: `Here is the generated report: ${generatedFile.name}`
+                        });
+                        setGeneratedFile(null);
+                      } catch (err) {
+                        console.error('Sharing failed', err);
+                      }
+                    }
+                  }}
+                  className="btn"
+                  style={{ width: '100%', padding: '12px', background: '#2563eb', color: 'white', fontWeight: 600, border: 'none' }}
+                >
+                  Share via Apps (Native)
+                </button>
+              )}
+
               <button
                 onClick={async () => {
-                  const file = new File([generatedFile.blob], generatedFile.name, { type: generatedFile.mimeType });
-                  if (navigator.canShare && navigator.canShare({ files: [file] })) {
-                    try {
-                      await navigator.share({
-                        files: [file],
-                        title: generatedFile.name,
-                        text: `Here is the generated report: ${generatedFile.name}`
-                      });
-                      setGeneratedFile(null);
-                    } catch (err) {
-                      console.error('Sharing failed', err);
+                  try {
+                    if (generatedFile.mimeType === 'image/png') {
+                      await navigator.clipboard.write([
+                        new ClipboardItem({ 'image/png': generatedFile.blob })
+                      ]);
+                      alert("Image copied to clipboard! You can paste it (e.g. WhatsApp, Slack, Email).");
+                    } else if (generatedFile.mimeType === 'text/csv') {
+                      const text = await generatedFile.blob.text();
+                      await navigator.clipboard.writeText(text);
+                      alert("CSV text copied to clipboard!");
+                    } else {
+                      await navigator.clipboard.writeText(generatedFile.name);
+                      alert(`Copied file name to clipboard: ${generatedFile.name}`);
                     }
-                  } else {
-                    alert("Sharing is not supported on this browser/device. Please download the file instead.");
+                  } catch (err) {
+                    console.error('Failed to copy', err);
+                    alert(`Could not copy to clipboard: ${err.message}`);
                   }
                 }}
                 className="btn"
-                style={{ width: '100%', padding: '12px', background: '#1e293b', color: 'white', fontWeight: 600, border: 'none' }}
+                style={{ width: '100%', padding: '12px', background: '#475569', color: 'white', fontWeight: 600, border: 'none' }}
               >
-                Share File
+                Copy to Clipboard
+              </button>
+
+              <button
+                onClick={() => {
+                  const subject = encodeURIComponent(`NMK Farm Tracker Report: ${generatedFile.name}`);
+                  const body = encodeURIComponent(`Hi,\n\nPlease find attached/below the generated report: ${generatedFile.name}.\n\nBest regards.`);
+                  window.open(`mailto:?subject=${subject}&body=${body}`, '_blank');
+                }}
+                className="btn"
+                style={{ width: '100%', padding: '12px', background: '#0284c7', color: 'white', fontWeight: 600, border: 'none' }}
+              >
+                Send via Email
               </button>
 
               <button
