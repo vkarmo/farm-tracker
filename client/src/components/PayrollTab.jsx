@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { DollarSign, Users, Calendar, Filter, FileText, Check, X, Plus, Trash2, ArrowLeft, Save } from 'lucide-react';
 import Select from 'react-select';
@@ -137,6 +137,82 @@ export default function PayrollTab() {
     { value: 'Farm Worker', label: 'Farm Worker' }
   ]);
   const [attendance, setAttendance] = useState({});
+
+  const prevWorkdaysRef = useRef(stringWorkdays);
+
+  // Sync loaded attendance with settings changes on settings updates
+  useEffect(() => {
+    if (viewMode !== 'form' || pulledEmployees.length === 0 || dateRange.length === 0) {
+      prevWorkdaysRef.current = stringWorkdays;
+      return;
+    }
+    const prev = prevWorkdaysRef.current || [];
+    const added = stringWorkdays.filter(d => !prev.includes(d));
+    const removed = prev.filter(d => !stringWorkdays.includes(d));
+
+    if (added.length > 0 || removed.length > 0) {
+      setAttendance(currentAttendance => {
+        const updated = { ...currentAttendance };
+        pulledEmployees.forEach(emp => {
+          const empAtt = { ...(currentAttendance[emp.id] || {}) };
+          let changed = false;
+          dateRange.forEach(dateStr => {
+            const dayStr = String(parseLocalDate(dateStr).getDay());
+            if (added.includes(dayStr)) {
+              if (empAtt[dateStr] === '0' || empAtt[dateStr] === undefined) {
+                empAtt[dateStr] = '1';
+                changed = true;
+              }
+            } else if (removed.includes(dayStr)) {
+              if (empAtt[dateStr] !== '0') {
+                empAtt[dateStr] = '0';
+                changed = true;
+              }
+            }
+          });
+          if (changed) {
+            updated[emp.id] = empAtt;
+          }
+        });
+        return updated;
+      });
+    }
+    prevWorkdaysRef.current = stringWorkdays;
+  }, [stringWorkdays, pulledEmployees, dateRange, viewMode]);
+
+  // Adapt loaded attendance to settings when sheet is loaded or viewMode is initialized
+  useEffect(() => {
+    if (viewMode === 'form' && pulledEmployees.length > 0 && dateRange.length > 0) {
+      setAttendance(currentAttendance => {
+        const updated = { ...currentAttendance };
+        let overallChanged = false;
+        pulledEmployees.forEach(emp => {
+          const empAtt = { ...(currentAttendance[emp.id] || {}) };
+          let changed = false;
+          dateRange.forEach(dateStr => {
+            const dayStr = String(parseLocalDate(dateStr).getDay());
+            const isWorkday = stringWorkdays.includes(dayStr);
+            if (isWorkday) {
+              if (empAtt[dateStr] === '0' || empAtt[dateStr] === undefined) {
+                empAtt[dateStr] = '1';
+                changed = true;
+              }
+            } else {
+              if (empAtt[dateStr] !== '0') {
+                empAtt[dateStr] = '0';
+                changed = true;
+              }
+            }
+          });
+          if (changed) {
+            updated[emp.id] = empAtt;
+            overallChanged = true;
+          }
+        });
+        return overallChanged ? updated : currentAttendance;
+      });
+    }
+  }, [editingId, viewMode, stringWorkdays, pulledEmployees, dateRange]);
 
   const parseLocalDate = (dateStr) => {
     if (!dateStr) return new Date();
@@ -1025,10 +1101,11 @@ export default function PayrollTab() {
                         {dateRange.map(dateStr => {
                           const isNonWorkDay = !stringWorkdays.includes(String(parseLocalDate(dateStr).getDay()));
                           const status = isNonWorkDay ? '0' : (empAttendance[dateStr] || '1');
+
                           let cellContent = status;
-                          let bgColor = '#f1f5f9';
-                          let textColor = '#64748b';
-                          let fontWeight = '500';
+                          let bgColor = '#dcfce7';
+                          let textColor = '#15803d';
+                          let fontWeight = '800';
 
                           if (status === '1') {
                             cellContent = '1';
