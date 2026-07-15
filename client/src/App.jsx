@@ -524,6 +524,25 @@ export default function App() {
     }
   };
 
+  const handleLoadDefaultNeo4jCredentials = async () => {
+    try {
+      const response = await fetch('/api/neo4j/server-credentials');
+      if (response.ok) {
+        const creds = await response.json();
+        dispatch(setNeo4jUri(creds.uri));
+        dispatch(setNeo4jUser(creds.username));
+        dispatch(setNeo4jPassword(creds.password));
+        dispatch(setNeo4jDatabase(creds.database));
+        dispatch(saveSettings());
+        alert("Server default Neo4j credentials successfully loaded and saved.");
+      } else {
+        alert("Failed to retrieve server credentials.");
+      }
+    } catch (err) {
+      alert(`Error fetching server credentials: ${err.message}`);
+    }
+  };
+
   const handleSendTestSms = async () => {
     setMtnTesting(true);
     setMtnTestStatus(null);
@@ -2671,6 +2690,18 @@ export default function App() {
                         <p style={{ fontSize: '0.8rem', color: '#666', marginBottom: 16 }}>
                           Configure credentials for your Neo4j instance. These credentials will be stored in your global application settings.
                         </p>
+
+                        <div style={{ marginBottom: 20 }}>
+                          <button
+                            type="button"
+                            onClick={handleLoadDefaultNeo4jCredentials}
+                            disabled={currentUser?.role === 'Admin Viewer'}
+                            className="btn"
+                            style={{ background: '#37474f', color: 'white', padding: '6px 12px', fontSize: '0.85rem', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer' }}
+                          >
+                            Load Server Defaults
+                          </button>
+                        </div>
 
                         <div style={{ marginBottom: 16 }}>
                           <label style={{ fontWeight: '600', display: 'block', marginBottom: '8px' }}>Neo4j URI</label>

@@ -650,6 +650,16 @@ app.post('/api/neo4j/test-connection', async (req, res) => {
   }
 });
 
+// Retrieve server Neo4j credentials
+app.get('/api/neo4j/server-credentials', async (req, res) => {
+  res.json({
+    uri: process.env.NEO4J_URI || 'bolt://localhost:7687',
+    username: process.env.NEO4J_USER || 'neo4j',
+    password: process.env.NEO4J_PASSWORD || 'password',
+    database: process.env.NEO4J_DATABASE || ''
+  });
+});
+
 // GEE Connection Test endpoint
 app.post('/api/gee/test-connection', async (req, res) => {
   const session = driver.session();
