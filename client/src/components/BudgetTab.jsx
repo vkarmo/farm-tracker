@@ -67,6 +67,8 @@ export default function BudgetTab() {
   const [showExpenseReview, setShowExpenseReview] = useState(false);
   const [selectedExpensesToSubmit, setSelectedExpensesToSubmit] = useState({});
   const [selectedItemIds, setSelectedItemIds] = useState([]);
+  const [showPrevUnapprovedModal, setShowPrevUnapprovedModal] = useState(false);
+  const [selectedPrevItemsToImport, setSelectedPrevItemsToImport] = useState({});
 
   const [filterCategory, setFilterCategory] = useState('All');
   const [filterStatuses, setFilterStatuses] = useState([]);
@@ -104,6 +106,52 @@ export default function BudgetTab() {
     });
     return groups;
   }, [filteredBudgetItems]);
+
+  const unapprovedItems = React.useMemo(() => {
+    const list = [];
+    budgets.forEach(b => {
+      if (b.id !== activeBudgetId && b.items) {
+        b.items.forEach(item => {
+          const isApproved = item.status === 'Approved' || item.status === 'Approved & Dispensed' || item.status === 'Dispensed';
+          if (!isApproved) {
+            list.push({
+              ...item,
+              budgetName: b.name || 'Unnamed Budget',
+              budgetId: b.id
+            });
+          }
+        });
+      }
+    });
+    return list;
+  }, [budgets, activeBudgetId]);
+
+  const handleImportPrevItems = () => {
+    const itemsToImport = unapprovedItems.filter(item => selectedPrevItemsToImport[item.id]);
+    if (itemsToImport.length === 0) return;
+
+    itemsToImport.forEach((item, index) => {
+      const newItem = {
+        id: `bli_${Date.now()}_imp_${index}`,
+        category: item.category,
+        description: item.description,
+        amount: parseFloat(item.amount),
+        currency: item.currency,
+        status: 'Pending Review'
+      };
+
+      dispatch(addBudgetItem({ budgetId: activeBudget.id, item: newItem }));
+      dispatch(queueAction({
+        type: 'budgets/upsertBudgetItem',
+        payload: { budgetId: activeBudget.id, item: newItem },
+        meta: { id: Date.now() + index }
+      }));
+    });
+
+    alert(`Successfully imported ${itemsToImport.length} line item(s) into the current budget.`);
+    setSelectedPrevItemsToImport({});
+    setShowPrevUnapprovedModal(false);
+  };
 
   const getCategorySubtotal = (items) => {
     const rate = parseFloat(activeBudget?.exchangeRate) || activeRate || 150;
@@ -922,46 +970,81 @@ export default function BudgetTab() {
               </button>
             </div>
 
-            {savedPayrolls.length > 0 && (
-              <div className="form-group" style={{ gridColumn: '1 / -1', background: '#f1f5f9', padding: '12px', borderRadius: '6px', border: '1px solid #cbd5e1', marginBottom: '10px' }}>
-                <label style={{ fontWeight: '600', color: '#1e293b', marginBottom: '6px', display: 'block', fontSize: '0.85rem' }}>
-                  Quick Import from Saved Payroll Worksheet:
-                </label>
-                <select 
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    if (!val) return;
-                    const sheet = savedPayrolls.find(s => s.id === val);
-                    if (sheet) {
+            <div style={{ gridColumn: '1 / -1', display: 'flex', gap: '15px', flexWrap: 'wrap', marginBottom: '15px' }}>
+              {savedPayrolls.length > 0 && (
+                <div style={{ flex: 1, minWidth: '250px', background: '#f1f5f9', padding: '12px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
+                  <label style={{ fontWeight: '600', color: '#1e293b', marginBottom: '6px', display: 'block', fontSize: '0.85rem' }}>
+                    Quick Import from Saved Payroll Worksheet:
+                  </label>
+                  <select 
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      if (!val) return;
+                      const sheet = savedPayrolls.find(s => s.id === val);
+                      if (sheet) {
+                        const workersCount = sheet.totals?.totalEmployees || 0;
+                        const desc = `Labor Pay for  ${sheet.fromDate} to ${sheet.toDate} - (${workersCount} Workers)`;
+                        const curr = itemForm.currency || 'USD';
+                        const amt = curr === 'USD' ? (sheet.totals?.combinedUSD || 0) : (sheet.totals?.combinedLRD || 0);
+                        
+                        setItemForm({
+                          ...itemForm,
+                          category: 'Payroll',
+                          description: desc,
+                          amount: amt.toFixed(2),
+                          currency: curr
+                        });
+                      }
+                      e.target.value = '';
+                    }}
+                    style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }}
+                  >
+                    <option value="">-- Choose a Saved Payroll Worksheet --</option>
+                    {savedPayrolls.map(sheet => {
                       const workersCount = sheet.totals?.totalEmployees || 0;
-                      const desc = `Labor Pay for  ${sheet.fromDate} to ${sheet.toDate} - (${workersCount} Workers)`;
-                      const curr = itemForm.currency || 'USD';
-                      const amt = curr === 'USD' ? (sheet.totals?.combinedUSD || 0) : (sheet.totals?.combinedLRD || 0);
-                      
-                      setItemForm({
-                        ...itemForm,
-                        category: 'Payroll',
-                        description: desc,
-                        amount: amt.toFixed(2),
-                        currency: curr
-                      });
-                    }
-                    e.target.value = '';
+                      return (
+                        <option key={sheet.id} value={sheet.id}>
+                          {sheet.fromDate} to {sheet.toDate} (${sheet.totals?.combinedUSD?.toFixed(2)} USD / {sheet.totals?.combinedLRD?.toLocaleString()} LRD) - {workersCount} Workers
+                        </option>
+                      );
+                    })}
+                  </select>
+                </div>
+              )}
+              
+              <div style={{ flex: 1, minWidth: '250px', background: '#f0f9ff', padding: '12px', borderRadius: '6px', border: '1px solid #bae6fd', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+                <label style={{ fontWeight: '600', color: '#0369a1', marginBottom: '6px', display: 'block', fontSize: '0.85rem' }}>
+                  Unapproved Items from Previous Budgets:
+                </label>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedPrevItemsToImport({});
+                    setShowPrevUnapprovedModal(true);
                   }}
-                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }}
+                  className="btn"
+                  style={{
+                    width: '100%',
+                    padding: '8px',
+                    borderRadius: '4px',
+                    background: '#0284c7',
+                    color: '#ffffff',
+                    border: 'none',
+                    fontWeight: 600,
+                    fontSize: '0.85rem',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    gap: '6px',
+                    height: '38px'
+                  }}
                 >
-                  <option value="">-- Choose a Saved Payroll Worksheet --</option>
-                  {savedPayrolls.map(sheet => {
-                    const workersCount = sheet.totals?.totalEmployees || 0;
-                    return (
-                      <option key={sheet.id} value={sheet.id}>
-                        {sheet.fromDate} to {sheet.toDate} (${sheet.totals?.combinedUSD?.toFixed(2)} USD / {sheet.totals?.combinedLRD?.toLocaleString()} LRD) - {workersCount} Workers
-                      </option>
-                    );
-                  })}
-                </select>
+                  <Plus size={16} />
+                  Import Previous Unapproved Items
+                </button>
               </div>
-            )}
+            </div>
 
             <div className="form-group">
               <label>Category</label>
@@ -1487,6 +1570,118 @@ export default function BudgetTab() {
               </div>
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {showPrevUnapprovedModal && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(15, 23, 42, 0.65)',
+          backdropFilter: 'blur(4px)',
+          zIndex: 1000,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '16px',
+        }} onClick={() => setShowPrevUnapprovedModal(false)}>
+          
+          <div style={{
+            background: 'white',
+            borderRadius: '10px',
+            width: '90%',
+            maxWidth: '650px',
+            maxHeight: '80vh',
+            display: 'flex',
+            flexDirection: 'column',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+            overflow: 'hidden'
+          }} onClick={e => e.stopPropagation()}>
+            
+            <div style={{
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              padding: '16px 20px',
+              borderBottom: '1px solid #e2e8f0',
+              background: '#f8fafc'
+            }}>
+              <h3 style={{ margin: 0, color: '#1e293b', fontSize: '1.1rem' }}>Import Unapproved Items from Previous Budgets</h3>
+              <button onClick={() => setShowPrevUnapprovedModal(false)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center' }}>
+                <X size={18} color="#64748b" />
+              </button>
+            </div>
+            
+            <div style={{ padding: '20px', overflowY: 'auto', flex: 1 }}>
+              {unapprovedItems.length === 0 ? (
+                <p style={{ textAlign: 'center', color: '#64748b', margin: '20px 0', fontStyle: 'italic' }}>
+                  No unapproved line items found in previous budgets.
+                </p>
+              ) : (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {unapprovedItems.map(item => {
+                    const isChecked = selectedPrevItemsToImport[item.id] || false;
+                    return (
+                      <label 
+                        key={item.id} 
+                        style={{ 
+                          display: 'flex', 
+                          alignItems: 'flex-start', 
+                          gap: '10px', 
+                          padding: '10px', 
+                          borderRadius: '6px', 
+                          border: '1px solid #e2e8f0', 
+                          background: isChecked ? '#f0fdf4' : '#fff',
+                          cursor: 'pointer',
+                          transition: 'background 0.2s',
+                          textAlign: 'left'
+                        }}
+                      >
+                        <input 
+                          type="checkbox" 
+                          checked={isChecked} 
+                          onChange={(e) => setSelectedPrevItemsToImport(prev => ({ ...prev, [item.id]: e.target.checked }))} 
+                          style={{ marginTop: '3px', width: '16px', height: '16px' }}
+                        />
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                          <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 500 }}>
+                            Budget: <strong>{item.budgetName}</strong>
+                          </span>
+                          <span style={{ fontSize: '0.9rem', color: '#1e293b', fontWeight: 600 }}>
+                            {item.category} - {item.description}
+                          </span>
+                          <span style={{ fontSize: '0.85rem', color: '#0f766e', fontWeight: 700 }}>
+                            {item.currency === 'USD' ? '$' : 'L$'}{parseFloat(item.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })} [{item.status}]
+                          </span>
+                        </div>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+            
+            <div style={{ padding: '16px 20px', borderTop: '1px solid #e2e8f0', background: '#f8fafc', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+              <button 
+                onClick={() => setShowPrevUnapprovedModal(false)} 
+                className="btn" 
+                style={{ background: '#e2e8f0', color: '#334155' }}
+              >
+                Cancel
+              </button>
+              <button 
+                onClick={handleImportPrevItems} 
+                className="btn btn-primary" 
+                disabled={Object.values(selectedPrevItemsToImport).filter(Boolean).length === 0}
+                style={{ background: '#0f766e', borderColor: '#0f766e' }}
+              >
+                Import Selected ({Object.values(selectedPrevItemsToImport).filter(Boolean).length})
+              </button>
+            </div>
           </div>
         </div>
       )}
