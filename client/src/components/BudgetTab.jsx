@@ -69,6 +69,7 @@ export default function BudgetTab() {
   const [selectedItemIds, setSelectedItemIds] = useState([]);
   const [showPrevUnapprovedModal, setShowPrevUnapprovedModal] = useState(false);
   const [selectedPrevItemsToImport, setSelectedPrevItemsToImport] = useState({});
+  const [modalSearchTerm, setModalSearchTerm] = useState('');
 
   const [filterCategory, setFilterCategory] = useState('All');
   const [filterStatuses, setFilterStatuses] = useState([]);
@@ -125,6 +126,39 @@ export default function BudgetTab() {
     });
     return list;
   }, [budgets, activeBudgetId]);
+
+  const filteredUnapprovedItems = React.useMemo(() => {
+    if (!modalSearchTerm.trim()) return unapprovedItems;
+    const term = modalSearchTerm.toLowerCase();
+    return unapprovedItems.filter(item => {
+      return (item.budgetName || '').toLowerCase().includes(term) ||
+             (item.category || '').toLowerCase().includes(term) ||
+             (item.description || '').toLowerCase().includes(term);
+    });
+  }, [unapprovedItems, modalSearchTerm]);
+
+  const handleToggleSelectAllPrevItems = () => {
+    const allSelected = filteredUnapprovedItems.length > 0 && filteredUnapprovedItems.every(item => selectedPrevItemsToImport[item.id]);
+    if (allSelected) {
+      const next = { ...selectedPrevItemsToImport };
+      filteredUnapprovedItems.forEach(item => {
+        delete next[item.id];
+      });
+      setSelectedPrevItemsToImport(next);
+    } else {
+      const next = { ...selectedPrevItemsToImport };
+      filteredUnapprovedItems.forEach(item => {
+        next[item.id] = true;
+      });
+      setSelectedPrevItemsToImport(next);
+    }
+  };
+
+  useEffect(() => {
+    if (!showPrevUnapprovedModal) {
+      setModalSearchTerm('');
+    }
+  }, [showPrevUnapprovedModal]);
 
   const handleImportPrevItems = () => {
     const itemsToImport = unapprovedItems.filter(item => selectedPrevItemsToImport[item.id]);
@@ -1615,7 +1649,6 @@ export default function BudgetTab() {
                 <X size={18} color="#64748b" />
               </button>
             </div>
-            
             <div style={{ padding: '20px', overflowY: 'auto', flex: 1 }}>
               {unapprovedItems.length === 0 ? (
                 <p style={{ textAlign: 'center', color: '#64748b', margin: '20px 0', fontStyle: 'italic' }}>
@@ -1623,44 +1656,77 @@ export default function BudgetTab() {
                 </p>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {unapprovedItems.map(item => {
-                    const isChecked = selectedPrevItemsToImport[item.id] || false;
-                    return (
-                      <label 
-                        key={item.id} 
-                        style={{ 
-                          display: 'flex', 
-                          alignItems: 'flex-start', 
-                          gap: '10px', 
-                          padding: '10px', 
-                          borderRadius: '6px', 
-                          border: '1px solid #e2e8f0', 
-                          background: isChecked ? '#f0fdf4' : '#fff',
-                          cursor: 'pointer',
-                          transition: 'background 0.2s',
-                          textAlign: 'left'
-                        }}
-                      >
-                        <input 
-                          type="checkbox" 
-                          checked={isChecked} 
-                          onChange={(e) => setSelectedPrevItemsToImport(prev => ({ ...prev, [item.id]: e.target.checked }))} 
-                          style={{ marginTop: '3px', width: '16px', height: '16px' }}
-                        />
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
-                          <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 500 }}>
-                            Budget: <strong>{item.budgetName}</strong>
-                          </span>
-                          <span style={{ fontSize: '0.9rem', color: '#1e293b', fontWeight: 600 }}>
-                            {item.category} - {item.description}
-                          </span>
-                          <span style={{ fontSize: '0.85rem', color: '#0f766e', fontWeight: 700 }}>
-                            {item.currency === 'USD' ? '$' : 'L$'}{parseFloat(item.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })} [{item.status}]
-                          </span>
-                        </div>
-                      </label>
-                    );
-                  })}
+                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '15px', flexWrap: 'wrap' }}>
+                    <input 
+                      type="text" 
+                      placeholder="Search by description, category, or budget..."
+                      value={modalSearchTerm}
+                      onChange={e => setModalSearchTerm(e.target.value)}
+                      style={{
+                        flex: 1,
+                        padding: '8px 12px',
+                        fontSize: '0.85rem',
+                        borderRadius: '6px',
+                        border: '1px solid #cbd5e1',
+                        outline: 'none'
+                      }}
+                    />
+                    
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', color: '#475569', fontWeight: 600, cursor: 'pointer', userSelect: 'none' }}>
+                      <input 
+                        type="checkbox"
+                        checked={filteredUnapprovedItems.length > 0 && filteredUnapprovedItems.every(item => selectedPrevItemsToImport[item.id])}
+                        onChange={handleToggleSelectAllPrevItems}
+                        style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                      />
+                      Select All Visible
+                    </label>
+                  </div>
+
+                  {filteredUnapprovedItems.length === 0 ? (
+                    <p style={{ textAlign: 'center', color: '#64748b', margin: '20px 0', fontStyle: 'italic' }}>
+                      No unapproved line items match your search.
+                    </p>
+                  ) : (
+                    filteredUnapprovedItems.map(item => {
+                      const isChecked = selectedPrevItemsToImport[item.id] || false;
+                      return (
+                        <label 
+                          key={item.id} 
+                          style={{ 
+                            display: 'flex', 
+                            alignItems: 'flex-start', 
+                            gap: '10px', 
+                            padding: '10px', 
+                            borderRadius: '6px', 
+                            border: '1px solid #e2e8f0', 
+                            background: isChecked ? '#f0fdf4' : '#fff',
+                            cursor: 'pointer',
+                            transition: 'background 0.2s',
+                            textAlign: 'left'
+                          }}
+                        >
+                          <input 
+                            type="checkbox" 
+                            checked={isChecked} 
+                            onChange={(e) => setSelectedPrevItemsToImport(prev => ({ ...prev, [item.id]: e.target.checked }))} 
+                            style={{ marginTop: '3px', width: '16px', height: '16px' }}
+                          />
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                            <span style={{ fontSize: '0.85rem', color: '#64748b', fontWeight: 500 }}>
+                              Budget: <strong>{item.budgetName}</strong>
+                            </span>
+                            <span style={{ fontSize: '0.9rem', color: '#1e293b', fontWeight: 600 }}>
+                              {item.category} - {item.description}
+                            </span>
+                            <span style={{ fontSize: '0.85rem', color: '#0f766e', fontWeight: 700 }}>
+                              {item.currency === 'USD' ? '$' : 'L$'}{parseFloat(item.amount).toLocaleString(undefined, { minimumFractionDigits: 2 })} [{item.status}]
+                            </span>
+                          </div>
+                        </label>
+                      );
+                    })
+                  )}
                 </div>
               )}
             </div>
