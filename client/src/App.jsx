@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import Select from 'react-select';
 import { fetchFields } from './store/fieldsSlice';
-import { addUnit, removeUnit, addJobTitle, removeJobTitle, addExpenseCategory, removeExpenseCategory, addIncomeCategory, removeIncomeCategory, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold, setAppName, addAnimalType, removeAnimalType, saveSettings, setGeeClientEmail, setGeePrivateKey, setGeeProjectId, setGeeScale, setOwmApiKey, setThemeAppBgColor, setThemeCardBgColor, setThemeCardBorderColor, setThemeCardBorderThickness, setThemeAppBorderColor, setThemeAppBorderThickness, setThemeFontName, setThemeFontSizeBase, setThemeFontSizeCardTitle, setThemeFontSizeTabs, setThemeColorPrimary, setThemeColorCardTitle, setThemeColorTabsActiveBg, setThemeColorTabsActiveText, setThemeColorTabsInactiveBg, setThemeColorTabsInactiveText, setThemeFontAppName, setThemeFontSizeAppName, setThemeFontAppNameBold, setThemeFontAppNameCapitalize, setThemeFontSizeBaseBold, setThemeFontSizeBaseCapitalize, setThemeFontSizeCardTitleBold, setThemeFontSizeCardTitleCapitalize, setThemeFontSizeTabsBold, setThemeFontSizeTabsCapitalize, setThemeFontImager, setThemeFontSizeImager, setThemeFontImagerBold, setThemeFontImagerCapitalize, setMtnClientId, setMtnClientSecret, setMtnEnvironment, setSimulateHighWinds, setGoogleMapsApiKey, setGeminiApiKey, setClaudeApiKey, setAiProvider, setNeo4jUri, setNeo4jUser, setNeo4jPassword, setNeo4jDatabase } from './store/settingsSlice';
+import { addUnit, removeUnit, addJobTitle, removeJobTitle, addExpenseCategory, removeExpenseCategory, addIncomeCategory, removeIncomeCategory, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold, setAppName, addAnimalType, removeAnimalType, saveSettings, setGeeClientEmail, setGeePrivateKey, setGeeProjectId, setGeeScale, setOwmApiKey, setThemeAppBgColor, setThemeCardBgColor, setThemeCardBorderColor, setThemeCardBorderThickness, setThemeAppBorderColor, setThemeAppBorderThickness, setThemeFontName, setThemeFontSizeBase, setThemeFontSizeCardTitle, setThemeFontSizeTabs, setThemeColorPrimary, setThemeColorCardTitle, setThemeColorTabsActiveBg, setThemeColorTabsActiveText, setThemeColorTabsInactiveBg, setThemeColorTabsInactiveText, setThemeFontAppName, setThemeFontSizeAppName, setThemeFontAppNameBold, setThemeFontAppNameCapitalize, setThemeFontSizeBaseBold, setThemeFontSizeBaseCapitalize, setThemeFontSizeCardTitleBold, setThemeFontSizeCardTitleCapitalize, setThemeFontSizeTabsBold, setThemeFontSizeTabsCapitalize, setThemeFontImager, setThemeFontSizeImager, setThemeFontImagerBold, setThemeFontImagerCapitalize, setMtnClientId, setMtnClientSecret, setMtnEnvironment, setSimulateHighWinds, setGoogleMapsApiKey, setGeminiApiKey, setClaudeApiKey, setAiProvider, setNeo4jUri, setNeo4jUser, setNeo4jPassword, setNeo4jDatabase, setWorkdayHours } from './store/settingsSlice';
 import { addLocation } from './store/gpsSlice';
 import { queueAction, fetchInitialData, abortSync, clearAllData } from './store/syncSlice';
 import { MapSearchBox, MapFlyTo, FarmLocationButton } from './components/MapSearchBox';
@@ -355,6 +355,7 @@ export default function App() {
   const neo4jUser = useSelector(state => state.settings?.neo4jUser) || '';
   const neo4jPassword = useSelector(state => state.settings?.neo4jPassword) || '';
   const neo4jDatabase = useSelector(state => state.settings?.neo4jDatabase) || '';
+  const workdayHours = useSelector(state => state.settings?.workdayHours) ?? 7.0;
   const employees = useSelector(state => state.employees?.list) || [];
   const themeAppBgColor = useSelector(state => state.settings?.themeAppBgColor) || '#eeeef1';
   const themeCardBgColor = useSelector(state => state.settings?.themeCardBgColor) || '#ffffff';
@@ -411,7 +412,7 @@ export default function App() {
       window.removeEventListener('navigate-tab', handleNavigate);
     };
   }, []);
-  const [openSettings, setOpenSettings] = useState({ general: true, dropdown: false, map: false, units: false, jobs: false, animals: false, ledgers: false, gee: false, mtn: false, owm: false, theme: false, typography: false, simulation: false, ai: false, neo4j: false, deleteFarm: false });
+  const [openSettings, setOpenSettings] = useState({ general: true, dropdown: false, map: false, units: false, jobs: false, animals: false, ledgers: false, gee: false, mtn: false, owm: false, theme: false, typography: false, simulation: false, ai: false, neo4j: false, businessDefaults: false, deleteFarm: false });
   const [selectedDeleteFarmId, setSelectedDeleteFarmId] = useState('');
   const [deleteSummary, setDeleteSummary] = useState(null);
   const [deleteConfirmationText, setDeleteConfirmationText] = useState('');
@@ -2793,6 +2794,53 @@ export default function App() {
                           )}
                         </div>
 
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Business Defaults Settings Card */}
+              {(activeFarmId === 'default_farm' || currentUser?.role === 'Admin') && (
+                <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 0 }}>
+                  <button
+                    onClick={() => setOpenSettings({ ...openSettings, businessDefaults: !openSettings.businessDefaults })}
+                    type="button"
+                    style={{ width: '100%', padding: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#f5f7fa', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '1.1rem', color: '#333' }}
+                  >
+                    Business Defaults Settings
+                    {openSettings.businessDefaults ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
+                  </button>
+
+                  {openSettings.businessDefaults && (
+                    <div style={{ padding: '20px', background: 'var(--color-surface)' }}>
+                      <div style={{ marginBottom: 20 }}>
+                        <h3 style={{ marginTop: 0 }}>Business Defaults Configuration</h3>
+                        <p style={{ fontSize: '0.8rem', color: '#666', marginBottom: 16 }}>
+                          Configure standard business metrics, workday thresholds, and operational defaults.
+                        </p>
+
+                        <div style={{ marginBottom: 16 }}>
+                          <label style={{ fontWeight: '600', display: 'block', marginBottom: '8px' }}>Workday Hours</label>
+                          <input
+                            type="number"
+                            step="0.5"
+                            min="0"
+                            value={workdayHours}
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value);
+                              dispatch(setWorkdayHours(isNaN(val) ? 0 : val));
+                              dispatch(saveSettings());
+                            }}
+                            disabled={currentUser?.role === 'Admin Viewer'}
+                            placeholder="e.g. 7.0"
+                            className="btn"
+                            style={{ display: 'block', marginTop: 8, padding: '8px', width: '100%', maxWidth: '500px', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'text', background: '#fff', border: '1px solid #ccc' }}
+                          />
+                          <small style={{ display: 'block', marginTop: '6px', color: '#64748b' }}>
+                            Specify the default number of hours in a single workday. Used for payroll worksheets and contract day tracking.
+                          </small>
+                        </div>
                       </div>
                     </div>
                   )}

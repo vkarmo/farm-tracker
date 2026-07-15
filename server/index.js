@@ -3148,6 +3148,11 @@ app.post('/api/sync', async (req, res) => {
         }
         else if (action.type === 'core/deleteNode') {
           const { id } = action.payload;
+          // Delete linked ContractDay nodes if it's a Payroll node being deleted
+          await session.run(`
+            OPTIONAL MATCH (p:Payroll {id: $id})<-[:FOR_PAYROLL]-(cd:ContractDay)
+            DETACH DELETE cd
+          `, { id });
           await session.run('MATCH (n {id: $id}) DETACH DELETE n', { id });
           results.push({ actionId: action.meta?.id, status: 'success' });
         }
@@ -3450,6 +3455,21 @@ app.post('/api/sync', async (req, res) => {
             console.warn('Failed to parse pulledEmployees list for relationships:', e.message);
           }
 
+          // Fetch workdayHours setting from DB, default to 7.0
+          const settingsId = activeFarmId === 'default_farm' ? 'default' : 'settings_' + activeFarmId;
+          const settingsRes = await session.run(`
+            OPTIONAL MATCH (s:GlobalSettings {id: $settingsId})
+            RETURN s.workdayHours AS workdayHours
+          `, { settingsId });
+          
+          let workdayHours = 7.0;
+          if (settingsRes.records.length > 0) {
+            const rawHrs = settingsRes.records[0].get('workdayHours');
+            if (rawHrs !== null && rawHrs !== undefined) {
+              workdayHours = parseFloat(rawHrs);
+            }
+          }
+
           await session.run(`
             MERGE (p:Payroll {id: $id})
             SET p.fromDate = $fromDate, p.toDate = $toDate, p.exchangeRate = toFloat($exchangeRate),
@@ -3470,6 +3490,62 @@ app.post('/api/sync', async (req, res) => {
             totals: typeof totals === 'string' ? totals : JSON.stringify(totals),
             employeeIds
           });
+
+          // Parse attendance and create/update ContractDay nodes
+          let attendanceObj = {};
+          try {
+            attendanceObj = typeof attendance === 'string' ? JSON.parse(attendance) : attendance || {};
+          } catch (e) {
+            console.warn('Failed to parse attendance for contractday:', e.message);
+          }
+
+          const contractDays = [];
+          const activeCdIds = [];
+          for (const empId of Object.keys(attendanceObj)) {
+            const empDates = attendanceObj[empId] || {};
+            for (const dateStr of Object.keys(empDates)) {
+              const status = String(empDates[dateStr]);
+              let hours = workdayHours;
+              if (status === 'X') {
+                hours = 0.0;
+              } else if (status === '1') {
+                hours = workdayHours;
+              } else if (status === '0') {
+                hours = workdayHours;
+              }
+              const cdId = `${empId}_${dateStr}_${id}`;
+              contractDays.push({
+                id: cdId,
+                employeeId: empId,
+                dateStr,
+                status,
+                hours
+              });
+              activeCdIds.push(cdId);
+            }
+          }
+
+          if (contractDays.length > 0) {
+            await session.run(`
+              UNWIND $contractDays AS cdInfo
+              MERGE (cd:ContractDay {id: cdInfo.id})
+              SET cd.date = cdInfo.dateStr, cd.status = cdInfo.status, cd.hours = toFloat(cdInfo.hours), cd.lastUpdatedBy = $userEmail
+              WITH cd, cdInfo
+              OPTIONAL MATCH (e:Employee {id: cdInfo.employeeId})
+              FOREACH (ignore IN CASE WHEN e IS NOT NULL THEN [1] ELSE [] END | MERGE (cd)-[:FOR_EMPLOYEE]->(e))
+              WITH cd, cdInfo
+              OPTIONAL MATCH (p:Payroll {id: $id})
+              FOREACH (ignore IN CASE WHEN p IS NOT NULL THEN [1] ELSE [] END | MERGE (cd)-[:FOR_PAYROLL]->(p))
+            `, { contractDays, id, userEmail });
+          }
+
+          // Delete obsolete ContractDay nodes linked to this Payroll that are not in the current save batch
+          await session.run(`
+            MATCH (p:Payroll {id: $id})<-[:FOR_PAYROLL]-(cd:ContractDay)
+            WHERE NOT cd.id IN $activeCdIds
+            DETACH DELETE cd
+          `, { id, activeCdIds });
+
           updatedIds.push(id);
           results.push({ actionId: action.meta?.id, status: 'success' });
         }
