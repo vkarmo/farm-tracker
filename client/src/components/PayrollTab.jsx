@@ -219,7 +219,9 @@ export default function PayrollTab() {
   const handleCycleStatus = (empId, dateStr) => {
     setAttendance(prev => {
       const empAttendance = { ...(prev[empId] || {}) };
-      const current = empAttendance[dateStr] || '0';
+      const isNonWorkDay = nonWorkdays.includes(new Date(dateStr).getDay());
+      const defaultStatus = isNonWorkDay ? '0' : '1';
+      const current = empAttendance[dateStr] || defaultStatus;
       let nextStatus = '1';
       if (current === '1') nextStatus = '0';
       else if (current === '0') nextStatus = 'X';
@@ -1016,8 +1018,9 @@ export default function PayrollTab() {
 
                         {dateRange.map(dateStr => {
                           const isNonWorkDay = nonWorkdays.includes(new Date(dateStr).getDay());
-                          const status = empAttendance[dateStr] || '0';
-                          let cellContent = '0';
+                          const defaultStatus = isNonWorkDay ? '0' : '1';
+                          const status = empAttendance[dateStr] || defaultStatus;
+                          let cellContent = defaultStatus;
                           let bgColor = isNonWorkDay ? '#e2e8f0' : '#f8fafc';
                           let textColor = isNonWorkDay ? '#475569' : '#94a3b8';
                           let fontWeight = '500';
@@ -1316,8 +1319,9 @@ export default function PayrollTab() {
 
                             {dateRange.map(dateStr => {
                               const isNonWorkDay = nonWorkdays.includes(new Date(dateStr).getDay());
-                              const status = empAttendance[dateStr] || '0';
-                              let cellContent = '0';
+                              const defaultStatus = isNonWorkDay ? '0' : '1';
+                              const status = empAttendance[dateStr] || defaultStatus;
+                              let cellContent = defaultStatus;
                               let textColor = isNonWorkDay ? '#475569' : '#94a3b8';
                               let fontWeight = '500';
 
