@@ -1656,14 +1656,14 @@ export default function BudgetTab() {
                 </p>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '15px', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '10px' }}>
                     <input 
                       type="text" 
                       placeholder="Search by description, category, or budget..."
                       value={modalSearchTerm}
                       onChange={e => setModalSearchTerm(e.target.value)}
                       style={{
-                        flex: 1,
+                        width: '100%',
                         padding: '8px 12px',
                         fontSize: '0.85rem',
                         borderRadius: '6px',
@@ -1672,15 +1672,19 @@ export default function BudgetTab() {
                       }}
                     />
                     
-                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.85rem', color: '#475569', fontWeight: 600, cursor: 'pointer', userSelect: 'none' }}>
-                      <input 
-                        type="checkbox"
-                        checked={filteredUnapprovedItems.length > 0 && filteredUnapprovedItems.every(item => selectedPrevItemsToImport[item.id])}
-                        onChange={handleToggleSelectAllPrevItems}
-                        style={{ width: '16px', height: '16px', cursor: 'pointer' }}
-                      />
-                      Select All Visible
-                    </label>
+                    {filteredUnapprovedItems.length > 0 && (
+                      <div style={{ display: 'flex', alignItems: 'center', padding: '8px 10px', background: '#f1f5f9', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
+                        <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.85rem', color: '#334155', fontWeight: 700, cursor: 'pointer', userSelect: 'none', width: '100%' }}>
+                          <input 
+                            type="checkbox"
+                            checked={filteredUnapprovedItems.every(item => selectedPrevItemsToImport[item.id])}
+                            onChange={handleToggleSelectAllPrevItems}
+                            style={{ width: '16px', height: '16px', cursor: 'pointer' }}
+                          />
+                          Select All ({filteredUnapprovedItems.length} items)
+                        </label>
+                      </div>
+                    )}
                   </div>
 
                   {filteredUnapprovedItems.length === 0 ? (
