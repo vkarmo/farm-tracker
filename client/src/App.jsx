@@ -356,7 +356,22 @@ export default function App() {
   const neo4jPassword = useSelector(state => state.settings?.neo4jPassword) || '';
   const neo4jDatabase = useSelector(state => state.settings?.neo4jDatabase) || '';
   const workdayHours = useSelector(state => state.settings?.workdayHours) ?? 7.0;
-  const nonWorkdays = useSelector(state => state.settings?.nonWorkdays) || [0];
+  const nonWorkdays = useSelector(state => state.settings?.nonWorkdays);
+  const numericNonWorkdays = useMemo(() => {
+    if (nonWorkdays === undefined || nonWorkdays === null) {
+      return [0];
+    }
+    let parsed = nonWorkdays;
+    if (typeof parsed === 'string') {
+      try {
+        parsed = JSON.parse(parsed);
+      } catch (e) {
+        if (parsed.trim() === '') return [];
+        parsed = parsed.split(',').map(Number).filter(n => !isNaN(n));
+      }
+    }
+    return Array.isArray(parsed) ? parsed.map(Number) : [0];
+  }, [nonWorkdays]);
   const employees = useSelector(state => state.employees?.list) || [];
   const themeAppBgColor = useSelector(state => state.settings?.themeAppBgColor) || '#eeeef1';
   const themeCardBgColor = useSelector(state => state.settings?.themeCardBgColor) || '#ffffff';
@@ -2855,7 +2870,6 @@ export default function App() {
                               { val: 6, label: 'Saturday (S)' },
                               { val: 0, label: 'Sunday (U)' }
                             ].map(dayObj => {
-                              const numericNonWorkdays = Array.isArray(nonWorkdays) ? nonWorkdays.map(Number) : [0];
                               const isChecked = numericNonWorkdays.includes(dayObj.val);
                               return (
                                 <label key={dayObj.val} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer', fontSize: '0.9rem' }}>

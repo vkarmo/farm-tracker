@@ -31,9 +31,21 @@ export default function PayrollTab() {
   const budgets = useSelector(state => state.budgets?.list) || [];
   const activeBudget = budgets.find(b => b.status === 'Active') || {};
   const logo = useSelector(state => state.settings?.logo);
-  const nonWorkdays = useSelector(state => state.settings?.nonWorkdays) || [0];
+  const nonWorkdays = useSelector(state => state.settings?.nonWorkdays);
   const numericNonWorkdays = useMemo(() => {
-    return Array.isArray(nonWorkdays) ? nonWorkdays.map(Number) : [0];
+    if (nonWorkdays === undefined || nonWorkdays === null) {
+      return [0];
+    }
+    let parsed = nonWorkdays;
+    if (typeof parsed === 'string') {
+      try {
+        parsed = JSON.parse(parsed);
+      } catch (e) {
+        if (parsed.trim() === '') return [];
+        parsed = parsed.split(',').map(Number).filter(n => !isNaN(n));
+      }
+    }
+    return Array.isArray(parsed) ? parsed.map(Number) : [0];
   }, [nonWorkdays]);
 
   const generalManager = useMemo(() => {
