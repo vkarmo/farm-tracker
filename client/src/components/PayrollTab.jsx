@@ -55,6 +55,7 @@ export default function PayrollTab() {
   const [viewMode, setViewMode] = useState('list');
   const [editingId, setEditingId] = useState(null);
   const [showReportModal, setShowReportModal] = useState(false);
+  const [generatedFile, setGeneratedFile] = useState(null);
 
   // Responsive state
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
@@ -376,8 +377,7 @@ export default function PayrollTab() {
     if (payrollRows.length === 0) return alert('No payroll rows to export.');
 
     const rate = Math.round(parseFloat(customExchangeRate) || activeRate);
-    let csvContent = "data:text/csv;charset=utf-8,";
-    csvContent += `Payroll Report: ${fromDate} to ${toDate}\n`;
+    let csvContent = `Payroll Report: ${fromDate} to ${toDate}\n`;
     csvContent += `Exchange Rate: 1 USD = ${rate} LRD\n\n`;
     csvContent += "Signature,Employee,Job Title,Type,Days Worked,Off Days,Absent Days,Pay Rate,Calculated Total,Currency\n";
     
@@ -391,13 +391,9 @@ export default function PayrollTab() {
     csvContent += `,,,Combined Total (USD),,,,,${summaryTotals.combinedUSD.toFixed(2)} USD\n`;
     csvContent += `,,,Combined Total (LRD),,,,,${summaryTotals.combinedLRD.toFixed(2)} LRD\n`;
 
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", `payroll_report_${fromDate}_to_${toDate}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const filename = `payroll_report_${fromDate}_to_${toDate}.csv`;
+    setGeneratedFile({ blob, name: filename, mimeType: 'text/csv' });
   };
 
   // Export PNG Report
@@ -420,11 +416,14 @@ export default function PayrollTab() {
       windowWidth: 1200
     }).then(canvas => {
       element.setAttribute('style', originalStyle);
-      const dataUrl = canvas.toDataURL('image/png');
-      const link = document.createElement('a');
-      link.download = `payroll_report_${fromDate}_to_${toDate}.png`;
-      link.href = dataUrl;
-      link.click();
+      canvas.toBlob(blob => {
+        if (blob) {
+          const filename = `payroll_report_${fromDate}_to_${toDate}.png`;
+          setGeneratedFile({ blob, name: filename, mimeType: 'image/png' });
+        } else {
+          alert('Failed to generate PNG blob.');
+        }
+      }, 'image/png');
     }).catch(err => {
       element.setAttribute('style', originalStyle);
       console.error('Failed to export PNG', err);
@@ -463,7 +462,9 @@ export default function PayrollTab() {
       });
 
       pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
-      pdf.save(`payroll_report_${fromDate}_to_${toDate}.pdf`);
+      const blob = pdf.output('blob');
+      const filename = `payroll_report_${fromDate}_to_${toDate}.pdf`;
+      setGeneratedFile({ blob, name: filename, mimeType: 'application/pdf' });
     }).catch(err => {
       element.setAttribute('style', originalStyle);
       console.error('Failed to export PDF', err);
@@ -1435,6 +1436,90 @@ export default function PayrollTab() {
               </div>
             </div>
 
+          </div>
+        </div>
+      )}
+
+      {generatedFile && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(15, 23, 42, 0.65)',
+          backdropFilter: 'blur(4px)',
+          zIndex: 1100,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '16px'
+        }} onClick={() => setGeneratedFile(null)}>
+          <div style={{
+            background: 'white',
+            borderRadius: '10px',
+            padding: '24px',
+            width: '90%',
+            maxWidth: '400px',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+            textAlign: 'center'
+          }} onClick={e => e.stopPropagation()}>
+            <h3 style={{ margin: '0 0 10px 0', color: '#1e293b' }}>Report Ready!</h3>
+            <p style={{ fontSize: '0.9rem', color: '#64748b', margin: '0 0 20px 0', wordBreak: 'break-all' }}>
+              <strong>{generatedFile.name}</strong> has been generated successfully.
+            </p>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              <button
+                onClick={() => {
+                  const url = URL.createObjectURL(generatedFile.blob);
+                  const link = document.createElement('a');
+                  link.href = url;
+                  link.download = generatedFile.name;
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                  URL.revokeObjectURL(url);
+                  setGeneratedFile(null);
+                }}
+                className="btn btn-primary"
+                style={{ width: '100%', padding: '12px', background: '#0f766e', borderColor: '#0f766e', fontWeight: 600 }}
+              >
+                Download File
+              </button>
+
+              <button
+                onClick={async () => {
+                  const file = new File([generatedFile.blob], generatedFile.name, { type: generatedFile.mimeType });
+                  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                    try {
+                      await navigator.share({
+                        files: [file],
+                        title: generatedFile.name,
+                        text: `Here is the generated report: ${generatedFile.name}`
+                      });
+                      setGeneratedFile(null);
+                    } catch (err) {
+                      console.error('Sharing failed', err);
+                    }
+                  } else {
+                    alert("Sharing is not supported on this browser/device. Please download the file instead.");
+                  }
+                }}
+                className="btn"
+                style={{ width: '100%', padding: '12px', background: '#1e293b', color: 'white', fontWeight: 600, border: 'none' }}
+              >
+                Share File
+              </button>
+
+              <button
+                onClick={() => setGeneratedFile(null)}
+                className="btn"
+                style={{ width: '100%', padding: '10px', background: '#e2e8f0', color: '#475569', border: 'none', marginTop: '10px' }}
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}
