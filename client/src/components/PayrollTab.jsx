@@ -138,6 +138,45 @@ export default function PayrollTab() {
   ]);
   const [attendance, setAttendance] = useState({});
 
+  const parseLocalDate = (dateStr) => {
+    if (!dateStr) return new Date();
+    const parts = dateStr.split('-');
+    return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
+  };
+
+  const getMTWRFSUChar = (dateStr) => {
+    const date = parseLocalDate(dateStr);
+    const day = date.getDay();
+    const mapping = ['U', 'M', 'T', 'W', 'R', 'F', 'S'];
+    return mapping[day] || '';
+  };
+
+  // Generate array of date objects within range
+  const dateRange = useMemo(() => {
+    const dates = [];
+    if (!fromDate || !toDate) return dates;
+
+    const start = parseLocalDate(fromDate);
+    const end = parseLocalDate(toDate);
+
+    // Safety check to prevent infinite loop or huge ranges
+    const diffTime = Math.abs(end - start);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    if (diffDays > 45) {
+      end.setDate(start.getDate() + 45);
+    }
+
+    const current = new Date(start);
+    while (current <= end) {
+      const yyyy = current.getFullYear();
+      const mm = String(current.getMonth() + 1).padStart(2, '0');
+      const dd = String(current.getDate()).padStart(2, '0');
+      dates.push(`${yyyy}-${mm}-${dd}`);
+      current.setDate(current.getDate() + 1);
+    }
+    return dates;
+  }, [fromDate, toDate]);
+
   const prevWorkdaysRef = useRef(stringWorkdays);
 
   // Sync loaded attendance with settings changes on settings updates
@@ -213,45 +252,6 @@ export default function PayrollTab() {
       });
     }
   }, [editingId, viewMode, stringWorkdays, pulledEmployees, dateRange]);
-
-  const parseLocalDate = (dateStr) => {
-    if (!dateStr) return new Date();
-    const parts = dateStr.split('-');
-    return new Date(Number(parts[0]), Number(parts[1]) - 1, Number(parts[2]));
-  };
-
-  const getMTWRFSUChar = (dateStr) => {
-    const date = parseLocalDate(dateStr);
-    const day = date.getDay();
-    const mapping = ['U', 'M', 'T', 'W', 'R', 'F', 'S'];
-    return mapping[day] || '';
-  };
-
-  // Generate array of date objects within range
-  const dateRange = useMemo(() => {
-    const dates = [];
-    if (!fromDate || !toDate) return dates;
-
-    const start = parseLocalDate(fromDate);
-    const end = parseLocalDate(toDate);
-
-    // Safety check to prevent infinite loop or huge ranges
-    const diffTime = Math.abs(end - start);
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-    if (diffDays > 45) {
-      end.setDate(start.getDate() + 45);
-    }
-
-    const current = new Date(start);
-    while (current <= end) {
-      const yyyy = current.getFullYear();
-      const mm = String(current.getMonth() + 1).padStart(2, '0');
-      const dd = String(current.getDate()).padStart(2, '0');
-      dates.push(`${yyyy}-${mm}-${dd}`);
-      current.setDate(current.getDate() + 1);
-    }
-    return dates;
-  }, [fromDate, toDate]);
 
   // Unique job titles options from all employees
   const jobTitleOptions = useMemo(() => {
