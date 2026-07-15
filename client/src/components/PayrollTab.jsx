@@ -220,11 +220,11 @@ export default function PayrollTab() {
   }, [dateRange, pulledEmployees, numericNonWorkdays]);
 
   const handleCycleStatus = (empId, dateStr) => {
+    const isNonWorkDay = numericNonWorkdays.includes(new Date(dateStr).getDay());
+    if (isNonWorkDay) return;
     setAttendance(prev => {
       const empAttendance = { ...(prev[empId] || {}) };
-      const isNonWorkDay = numericNonWorkdays.includes(new Date(dateStr).getDay());
-      const defaultStatus = isNonWorkDay ? '0' : '1';
-      const current = empAttendance[dateStr] || defaultStatus;
+      const current = empAttendance[dateStr] || '1';
       let nextStatus = '1';
       if (current === '1') nextStatus = '0';
       else if (current === '0') nextStatus = 'X';
@@ -1021,11 +1021,10 @@ export default function PayrollTab() {
 
                         {dateRange.map(dateStr => {
                           const isNonWorkDay = numericNonWorkdays.includes(new Date(dateStr).getDay());
-                          const defaultStatus = isNonWorkDay ? '0' : '1';
-                          const status = empAttendance[dateStr] || defaultStatus;
-                          let cellContent = defaultStatus;
-                          let bgColor = isNonWorkDay ? '#e2e8f0' : '#f8fafc';
-                          let textColor = isNonWorkDay ? '#475569' : '#94a3b8';
+                          const status = isNonWorkDay ? '0' : (empAttendance[dateStr] || '1');
+                          let cellContent = status;
+                          let bgColor = '#f1f5f9';
+                          let textColor = '#64748b';
                           let fontWeight = '500';
 
                           if (status === '1') {
@@ -1322,10 +1321,9 @@ export default function PayrollTab() {
 
                             {dateRange.map(dateStr => {
                               const isNonWorkDay = numericNonWorkdays.includes(new Date(dateStr).getDay());
-                              const defaultStatus = isNonWorkDay ? '0' : '1';
-                              const status = empAttendance[dateStr] || defaultStatus;
-                              let cellContent = defaultStatus;
-                              let textColor = isNonWorkDay ? '#475569' : '#94a3b8';
+                              const status = isNonWorkDay ? '0' : (empAttendance[dateStr] || '1');
+                              let cellContent = status;
+                              let textColor = '#64748b';
                               let fontWeight = '500';
 
                               if (status === '1') {
