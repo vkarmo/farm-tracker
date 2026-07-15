@@ -31,12 +31,12 @@ export default function PayrollTab() {
   const budgets = useSelector(state => state.budgets?.list) || [];
   const activeBudget = budgets.find(b => b.status === 'Active') || {};
   const logo = useSelector(state => state.settings?.logo);
-  const nonWorkdays = useSelector(state => state.settings?.nonWorkdays);
-  const numericNonWorkdays = useMemo(() => {
-    if (nonWorkdays === undefined || nonWorkdays === null) {
-      return [];
+  const workdays = useSelector(state => state.settings?.workdays);
+  const numericWorkdays = useMemo(() => {
+    if (workdays === undefined || workdays === null) {
+      return [1, 2, 3, 4, 5, 6, 0];
     }
-    let parsed = nonWorkdays;
+    let parsed = workdays;
     if (typeof parsed === 'string') {
       try {
         parsed = JSON.parse(parsed);
@@ -45,8 +45,8 @@ export default function PayrollTab() {
         parsed = parsed.split(',').map(Number).filter(n => !isNaN(n));
       }
     }
-    return Array.isArray(parsed) ? parsed.map(Number) : [];
-  }, [nonWorkdays]);
+    return Array.isArray(parsed) ? parsed.map(Number) : [1, 2, 3, 4, 5, 6, 0];
+  }, [workdays]);
 
   const generalManager = useMemo(() => {
     return employees.find(emp => {
@@ -206,7 +206,7 @@ export default function PayrollTab() {
   };
 
   const handleCycleStatus = (empId, dateStr) => {
-    const isNonWorkDay = numericNonWorkdays.includes(parseLocalDate(dateStr).getDay());
+    const isNonWorkDay = !numericWorkdays.includes(parseLocalDate(dateStr).getDay());
     if (isNonWorkDay) return;
     setAttendance(prev => {
       const empAttendance = { ...(prev[empId] || {}) };
@@ -243,7 +243,7 @@ export default function PayrollTab() {
       let daysOff = 0;
 
       dateRange.forEach(dateStr => {
-        const isNonWorkDay = numericNonWorkdays.includes(parseLocalDate(dateStr).getDay());
+        const isNonWorkDay = !numericWorkdays.includes(parseLocalDate(dateStr).getDay());
         const status = isNonWorkDay ? '0' : (empAttendance[dateStr] || '1');
         if (status === '1') daysWorked++;
         else if (status === 'X') daysAbsent++;
@@ -342,7 +342,7 @@ export default function PayrollTab() {
     pulledEmployees.forEach(emp => {
       fullAttendance[emp.id] = {};
       dateRange.forEach(dateStr => {
-        const isNonWorkDay = numericNonWorkdays.includes(parseLocalDate(dateStr).getDay());
+        const isNonWorkDay = !numericWorkdays.includes(parseLocalDate(dateStr).getDay());
         const status = isNonWorkDay ? '0' : (attendance[emp.id]?.[dateStr] || '1');
         fullAttendance[emp.id][dateStr] = status;
       });
@@ -937,7 +937,7 @@ export default function PayrollTab() {
                       const parts = dateStr.split('-');
                       const label = `${parts[1]}/${parts[2]}`;
                       const dayName = getMTWRFSUChar(dateStr);
-                      const isNonWorkDay = numericNonWorkdays.includes(parseLocalDate(dateStr).getDay());
+                      const isNonWorkDay = !numericWorkdays.includes(parseLocalDate(dateStr).getDay());
                       return (
                         <th
                           key={dateStr}
@@ -1020,7 +1020,7 @@ export default function PayrollTab() {
                         )}
 
                         {dateRange.map(dateStr => {
-                          const isNonWorkDay = numericNonWorkdays.includes(parseLocalDate(dateStr).getDay());
+                          const isNonWorkDay = !numericWorkdays.includes(parseLocalDate(dateStr).getDay());
                           const status = isNonWorkDay ? '0' : (empAttendance[dateStr] || '1');
                           let cellContent = status;
                           let bgColor = '#f1f5f9';
@@ -1325,7 +1325,7 @@ export default function PayrollTab() {
                             </td>
 
                             {dateRange.map(dateStr => {
-                              const isNonWorkDay = numericNonWorkdays.includes(parseLocalDate(dateStr).getDay());
+                              const isNonWorkDay = !numericWorkdays.includes(parseLocalDate(dateStr).getDay());
                               const status = isNonWorkDay ? '0' : (empAttendance[dateStr] || '1');
                               let cellContent = status;
                               let textColor = '#64748b';

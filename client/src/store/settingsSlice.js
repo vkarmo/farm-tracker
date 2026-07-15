@@ -66,7 +66,7 @@ export const settingsSlice = createSlice({
     neo4jPassword: '',
     neo4jDatabase: '',
     workdayHours: 7.0,
-    nonWorkdays: [0],
+    workdays: [1, 2, 3, 4, 5, 6, 0],
   },
   reducers: {
     addUnit: (state, action) => {
@@ -147,11 +147,26 @@ export const settingsSlice = createSlice({
     },
     setAllSettings: (state, action) => {
       const payload = { ...action.payload };
-      if (payload.nonWorkdays !== undefined) {
-        if (payload.nonWorkdays === null || payload.nonWorkdays === '') {
-          payload.nonWorkdays = [];
+      
+      // Backward compatibility: If workdays is undefined but nonWorkdays is present
+      if (payload.workdays === undefined) {
+        if (payload.nonWorkdays !== undefined && payload.nonWorkdays !== null) {
+          let nwd = payload.nonWorkdays;
+          if (typeof nwd === 'string') {
+            try { nwd = JSON.parse(nwd); } catch (e) {}
+          }
+          if (Array.isArray(nwd)) {
+            const nwdNums = nwd.map(Number);
+            payload.workdays = [1, 2, 3, 4, 5, 6, 0].filter(d => !nwdNums.includes(d));
+          }
+        }
+      }
+
+      if (payload.workdays !== undefined) {
+        if (payload.workdays === null || payload.workdays === '') {
+          payload.workdays = [];
         } else {
-          let parsed = payload.nonWorkdays;
+          let parsed = payload.workdays;
           if (typeof parsed === 'string') {
             try {
               parsed = JSON.parse(parsed);
@@ -160,10 +175,10 @@ export const settingsSlice = createSlice({
               else parsed = parsed.split(',').map(Number).filter(n => !isNaN(n));
             }
           }
-          payload.nonWorkdays = Array.isArray(parsed) ? parsed.map(Number) : [];
+          payload.workdays = Array.isArray(parsed) ? parsed.map(Number) : [];
         }
       } else {
-        payload.nonWorkdays = state.nonWorkdays !== undefined ? state.nonWorkdays : [0];
+        payload.workdays = state.workdays !== undefined ? state.workdays : [1, 2, 3, 4, 5, 6, 0];
       }
       return { ...state, ...payload };
     },
@@ -317,18 +332,18 @@ export const settingsSlice = createSlice({
     setWorkdayHours: (state, action) => {
       state.workdayHours = action.payload;
     },
-    setNonWorkdays: (state, action) => {
+    setWorkdays: (state, action) => {
       const val = action.payload;
       if (val === null || val === undefined || val === '') {
-        state.nonWorkdays = [];
+        state.workdays = [];
       } else {
-        state.nonWorkdays = Array.isArray(val) ? val.map(Number) : [Number(val)];
+        state.workdays = Array.isArray(val) ? val.map(Number) : [Number(val)];
       }
     }
   }
 });
 
-export const { addUnit, removeUnit, addJobTitle, removeJobTitle, addExpenseCategory, removeExpenseCategory, addIncomeCategory, removeIncomeCategory, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold, setAppName, addAnimalType, removeAnimalType, setAllSettings, setVisibleMapLayers, setSnapGap, setGeeClientEmail, setGeePrivateKey, setGeeProjectId, setGeeScale, setOwmApiKey, setThemeAppBgColor, setThemeCardBgColor, setThemeCardBorderColor, setThemeCardBorderThickness, setThemeAppBorderColor, setThemeAppBorderThickness, setThemeFontName, setThemeFontSizeBase, setThemeFontSizeCardTitle, setThemeFontSizeTabs, setThemeColorPrimary, setThemeColorCardTitle, setThemeColorTabsActiveBg, setThemeColorTabsActiveText, setThemeColorTabsInactiveBg, setThemeColorTabsInactiveText, setThemeFontAppName, setThemeFontSizeAppName, setThemeFontAppNameBold, setThemeFontAppNameCapitalize, setThemeFontSizeBaseBold, setThemeFontSizeBaseCapitalize, setThemeFontSizeCardTitleBold, setThemeFontSizeCardTitleCapitalize, setThemeFontSizeTabsBold, setThemeFontSizeTabsCapitalize, setThemeFontImager, setThemeFontSizeImager, setThemeFontImagerBold, setThemeFontImagerCapitalize, setMtnClientId, setMtnClientSecret, setMtnEnvironment, setSimulateHighWinds, setGoogleMapsApiKey, setGeminiApiKey, setClaudeApiKey, setAiProvider, setNeo4jUri, setNeo4jUser, setNeo4jPassword, setNeo4jDatabase, setWorkdayHours, setNonWorkdays } = settingsSlice.actions;
+export const { addUnit, removeUnit, addJobTitle, removeJobTitle, addExpenseCategory, removeExpenseCategory, addIncomeCategory, removeIncomeCategory, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold, setAppName, addAnimalType, removeAnimalType, setAllSettings, setVisibleMapLayers, setSnapGap, setGeeClientEmail, setGeePrivateKey, setGeeProjectId, setGeeScale, setOwmApiKey, setThemeAppBgColor, setThemeCardBgColor, setThemeCardBorderColor, setThemeCardBorderThickness, setThemeAppBorderColor, setThemeAppBorderThickness, setThemeFontName, setThemeFontSizeBase, setThemeFontSizeCardTitle, setThemeFontSizeTabs, setThemeColorPrimary, setThemeColorCardTitle, setThemeColorTabsActiveBg, setThemeColorTabsActiveText, setThemeColorTabsInactiveBg, setThemeColorTabsInactiveText, setThemeFontAppName, setThemeFontSizeAppName, setThemeFontAppNameBold, setThemeFontAppNameCapitalize, setThemeFontSizeBaseBold, setThemeFontSizeBaseCapitalize, setThemeFontSizeCardTitleBold, setThemeFontSizeCardTitleCapitalize, setThemeFontSizeTabsBold, setThemeFontSizeTabsCapitalize, setThemeFontImager, setThemeFontSizeImager, setThemeFontImagerBold, setThemeFontImagerCapitalize, setMtnClientId, setMtnClientSecret, setMtnEnvironment, setSimulateHighWinds, setGoogleMapsApiKey, setGeminiApiKey, setClaudeApiKey, setAiProvider, setNeo4jUri, setNeo4jUser, setNeo4jPassword, setNeo4jDatabase, setWorkdayHours, setWorkdays } = settingsSlice.actions;
 
 export const saveSettings = () => (dispatch, getState) => {
   const settings = getState().settings;
