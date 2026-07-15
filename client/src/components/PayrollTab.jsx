@@ -203,42 +203,7 @@ export default function PayrollTab() {
     });
 
     setPulledEmployees(sorted);
-
-    // Initialize attendance: default based on configured nonWorkdays setting
-    const newAttendance = { ...attendance };
-    sorted.forEach(emp => {
-      if (!newAttendance[emp.id]) {
-        newAttendance[emp.id] = {};
-      }
-      dateRange.forEach(dateStr => {
-        if (newAttendance[emp.id][dateStr] === undefined) {
-          const date = parseLocalDate(dateStr);
-          const day = date.getDay();
-          newAttendance[emp.id][dateStr] = numericNonWorkdays.includes(day) ? '0' : '1';
-        }
-      });
-    });
-    setAttendance(newAttendance);
   };
-
-  // Sync attendance slots if dates change based on configured nonWorkdays setting
-  useEffect(() => {
-    if (pulledEmployees.length === 0) return;
-    setAttendance(prev => {
-      const next = { ...prev };
-      pulledEmployees.forEach(emp => {
-        if (!next[emp.id]) next[emp.id] = {};
-        dateRange.forEach(dateStr => {
-          if (next[emp.id][dateStr] === undefined) {
-            const date = parseLocalDate(dateStr);
-            const day = date.getDay();
-            next[emp.id][dateStr] = numericNonWorkdays.includes(day) ? '0' : '1';
-          }
-        });
-      });
-      return next;
-    });
-  }, [dateRange, pulledEmployees, numericNonWorkdays]);
 
   const handleCycleStatus = (empId, dateStr) => {
     const isNonWorkDay = numericNonWorkdays.includes(parseLocalDate(dateStr).getDay());
@@ -371,12 +336,24 @@ export default function PayrollTab() {
 
     const id = editingId || 'payroll_' + Date.now();
     const rate = Math.round(parseFloat(customExchangeRate) || defaultExchangeRate);
+    
+    // Construct fully-populated attendance object containing all days to preserve ContractDay constraints
+    const fullAttendance = {};
+    pulledEmployees.forEach(emp => {
+      fullAttendance[emp.id] = {};
+      dateRange.forEach(dateStr => {
+        const isNonWorkDay = numericNonWorkdays.includes(parseLocalDate(dateStr).getDay());
+        const status = isNonWorkDay ? '0' : (attendance[emp.id]?.[dateStr] || '1');
+        fullAttendance[emp.id][dateStr] = status;
+      });
+    });
+
     const payload = {
       id,
       fromDate,
       toDate,
       exchangeRate: rate,
-      attendance,
+      attendance: fullAttendance,
       pulledEmployees,
       totals: {
         usdTotal: summaryTotals.usdTotal,
@@ -393,6 +370,7 @@ export default function PayrollTab() {
     
     setViewMode('list');
     setEditingId(null);
+    setAttendance({}); // Reset clean state
   };
 
   // Delete Worksheet (Direct or list action)
