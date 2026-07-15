@@ -155,7 +155,10 @@ export const settingsSlice = createSlice({
           if (typeof nwd === 'string') {
             try { nwd = JSON.parse(nwd); } catch (e) {}
           }
-          if (Array.isArray(nwd)) {
+          if (nwd !== undefined && nwd !== null) {
+            if (!Array.isArray(nwd)) {
+              nwd = [nwd];
+            }
             const nwdNums = nwd.map(Number);
             payload.workdays = [1, 2, 3, 4, 5, 6, 0].filter(d => !nwdNums.includes(d));
           }
@@ -175,7 +178,14 @@ export const settingsSlice = createSlice({
               else parsed = parsed.split(',').map(Number).filter(n => !isNaN(n));
             }
           }
-          payload.workdays = Array.isArray(parsed) ? parsed.map(Number) : [];
+          if (parsed !== undefined && parsed !== null) {
+            if (!Array.isArray(parsed)) {
+              parsed = [parsed];
+            }
+            payload.workdays = parsed.map(Number);
+          } else {
+            payload.workdays = [];
+          }
         }
       } else {
         payload.workdays = state.workdays !== undefined ? state.workdays : [1, 2, 3, 4, 5, 6, 0];

@@ -45,7 +45,10 @@ export default function PayrollTab() {
         parsed = parsed.split(',').map(Number).filter(n => !isNaN(n));
       }
     }
-    return Array.isArray(parsed) ? parsed.map(Number) : [1, 2, 3, 4, 5, 6, 0];
+    if (!Array.isArray(parsed)) {
+      parsed = [parsed];
+    }
+    return parsed.map(Number);
   }, [workdays]);
 
   const generalManager = useMemo(() => {
