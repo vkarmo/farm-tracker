@@ -24,6 +24,7 @@ export default function BudgetTab() {
   const currentUser = useSelector(state => state.auth?.currentUser);
   const hasApprovalPermission = currentUser?.role === 'Admin' || currentUser?.canApprove;
   const logo = useSelector(state => state.settings?.logo);
+  const savedPayrolls = useSelector(state => state.payroll?.list) || [];
 
   const historicalRate = React.useMemo(() => {
     if (!budgets.length) return 150;
@@ -901,6 +902,48 @@ export default function BudgetTab() {
                 {editingItemId ? <Check size={16} /> : <Plus size={16} />} {editingItemId ? 'Update' : 'Add Item'}
               </button>
             </div>
+
+            {savedPayrolls.length > 0 && (
+              <div className="form-group" style={{ gridColumn: '1 / -1', background: '#f1f5f9', padding: '12px', borderRadius: '6px', border: '1px solid #cbd5e1', marginBottom: '10px' }}>
+                <label style={{ fontWeight: '600', color: '#1e293b', marginBottom: '6px', display: 'block', fontSize: '0.85rem' }}>
+                  Quick Import from Saved Payroll Worksheet:
+                </label>
+                <select 
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    if (!val) return;
+                    const sheet = savedPayrolls.find(s => s.id === val);
+                    if (sheet) {
+                      const workersCount = sheet.totals?.totalEmployees || 0;
+                      const desc = `Labor Pay for  ${sheet.fromDate} to ${sheet.toDate} - (${workersCount} Workers)`;
+                      const curr = itemForm.currency || 'USD';
+                      const amt = curr === 'USD' ? (sheet.totals?.combinedUSD || 0) : (sheet.totals?.combinedLRD || 0);
+                      
+                      setItemForm({
+                        ...itemForm,
+                        category: 'Labor',
+                        description: desc,
+                        amount: amt.toFixed(2),
+                        currency: curr
+                      });
+                    }
+                    e.target.value = '';
+                  }}
+                  style={{ width: '100%', padding: '8px', borderRadius: '4px', border: '1px solid #cbd5e1', fontSize: '0.85rem' }}
+                >
+                  <option value="">-- Choose a Saved Payroll Worksheet --</option>
+                  {savedPayrolls.map(sheet => {
+                    const workersCount = sheet.totals?.totalEmployees || 0;
+                    return (
+                      <option key={sheet.id} value={sheet.id}>
+                        {sheet.fromDate} to {sheet.toDate} (${sheet.totals?.combinedUSD?.toFixed(2)} USD / {sheet.totals?.combinedLRD?.toLocaleString()} LRD) - {workersCount} Workers
+                      </option>
+                    );
+                  })}
+                </select>
+              </div>
+            )}
+
             <div className="form-group">
               <label>Category</label>
               <select value={itemForm.category} onChange={e => setItemForm({ ...itemForm, category: e.target.value })}>
