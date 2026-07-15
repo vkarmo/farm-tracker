@@ -357,9 +357,9 @@ export default function App() {
   const neo4jDatabase = useSelector(state => state.settings?.neo4jDatabase) || '';
   const workdayHours = useSelector(state => state.settings?.workdayHours) ?? 7.0;
   const workdays = useSelector(state => state.settings?.workdays);
-  const numericWorkdays = useMemo(() => {
+  const stringWorkdays = useMemo(() => {
     if (workdays === undefined || workdays === null) {
-      return [1, 2, 3, 4, 5, 6, 0];
+      return ['1', '2', '3', '4', '5', '6', '0'];
     }
     let parsed = workdays;
     if (typeof parsed === 'string') {
@@ -367,13 +367,13 @@ export default function App() {
         parsed = JSON.parse(parsed);
       } catch (e) {
         if (parsed.trim() === '') return [];
-        parsed = parsed.split(',').map(Number).filter(n => !isNaN(n));
+        parsed = parsed.split(',').map(String).filter(n => n.trim() !== '');
       }
     }
     if (!Array.isArray(parsed)) {
       parsed = [parsed];
     }
-    return parsed.map(Number);
+    return parsed.map(String);
   }, [workdays]);
   const employees = useSelector(state => state.employees?.list) || [];
   const themeAppBgColor = useSelector(state => state.settings?.themeAppBgColor) || '#eeeef1';
@@ -2873,7 +2873,7 @@ export default function App() {
                               { val: 6, label: 'Saturday (S)' },
                               { val: 0, label: 'Sunday (U)' }
                             ].map(dayObj => {
-                              const isChecked = numericWorkdays.includes(dayObj.val);
+                              const isChecked = stringWorkdays.includes(String(dayObj.val));
                               return (
                                 <label key={dayObj.val} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer', fontSize: '0.9rem' }}>
                                   <input
@@ -2883,9 +2883,9 @@ export default function App() {
                                     onChange={() => {
                                       let updated;
                                       if (isChecked) {
-                                        updated = numericWorkdays.filter(d => Number(d) !== dayObj.val);
+                                        updated = stringWorkdays.filter(d => String(d) !== String(dayObj.val));
                                       } else {
-                                        updated = [...numericWorkdays, dayObj.val];
+                                        updated = [...stringWorkdays, String(dayObj.val)];
                                       }
                                       dispatch(setWorkdays(updated));
                                       dispatch(saveSettings());

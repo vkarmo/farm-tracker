@@ -66,7 +66,7 @@ export const settingsSlice = createSlice({
     neo4jPassword: '',
     neo4jDatabase: '',
     workdayHours: 7.0,
-    workdays: [1, 2, 3, 4, 5, 6, 0],
+    workdays: ['1', '2', '3', '4', '5', '6', '0'],
   },
   reducers: {
     addUnit: (state, action) => {
@@ -160,7 +160,7 @@ export const settingsSlice = createSlice({
               nwd = [nwd];
             }
             const nwdNums = nwd.map(Number);
-            payload.workdays = [1, 2, 3, 4, 5, 6, 0].filter(d => !nwdNums.includes(d));
+            payload.workdays = ['1', '2', '3', '4', '5', '6', '0'].filter(d => !nwdNums.includes(Number(d)));
           }
         }
       }
@@ -175,20 +175,20 @@ export const settingsSlice = createSlice({
               parsed = JSON.parse(parsed);
             } catch (e) {
               if (parsed.trim() === '') parsed = [];
-              else parsed = parsed.split(',').map(Number).filter(n => !isNaN(n));
+              else parsed = parsed.split(',').map(String).filter(n => n.trim() !== '');
             }
           }
           if (parsed !== undefined && parsed !== null) {
             if (!Array.isArray(parsed)) {
               parsed = [parsed];
             }
-            payload.workdays = parsed.map(Number);
+            payload.workdays = parsed.map(String);
           } else {
             payload.workdays = [];
           }
         }
       } else {
-        payload.workdays = state.workdays !== undefined ? state.workdays : [1, 2, 3, 4, 5, 6, 0];
+        payload.workdays = state.workdays !== undefined ? state.workdays : ['1', '2', '3', '4', '5', '6', '0'];
       }
       return { ...state, ...payload };
     },
@@ -347,7 +347,7 @@ export const settingsSlice = createSlice({
       if (val === null || val === undefined || val === '') {
         state.workdays = [];
       } else {
-        state.workdays = Array.isArray(val) ? val.map(Number) : [Number(val)];
+        state.workdays = Array.isArray(val) ? val.map(String) : [String(val)];
       }
     }
   }
