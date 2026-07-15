@@ -8,6 +8,7 @@ import { FileText, Plus, Trash2, Edit2, Calculator, Check, X, ArrowRightCircle, 
 import CrudTable from './CrudTable';
 import NmkLogo from './NmkLogo';
 import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
 import Select from 'react-select';
 
 
@@ -180,20 +181,77 @@ export default function BudgetTab() {
     const element = document.getElementById('budget-report-container');
     if (!element) return;
     
+    const originalStyle = element.getAttribute('style') || '';
+    
+    // Force desktop styling and size
+    element.style.width = '800px';
+    element.style.minWidth = '800px';
+    element.style.maxWidth = '800px';
+    
     html2canvas(element, {
       backgroundColor: '#ffffff',
       scale: 2,
       useCORS: true,
-      logging: false
+      logging: false,
+      windowWidth: 1024
     }).then(canvas => {
+      element.setAttribute('style', originalStyle);
       const dataUrl = canvas.toDataURL('image/png');
       const link = document.createElement('a');
       link.download = `${activeBudget.name.replace(/\s+/g, '_')}_Report.png`;
       link.href = dataUrl;
       link.click();
     }).catch(err => {
+      element.setAttribute('style', originalStyle);
       console.error('Failed to export PNG', err);
       alert('Error generating PNG. Please try again.');
+    });
+  };
+
+  const handleExportPDF = () => {
+    const element = document.getElementById('budget-report-container');
+    if (!element) return;
+    
+    const originalStyle = element.getAttribute('style') || '';
+    
+    // Force desktop styling and size
+    element.style.width = '800px';
+    element.style.minWidth = '800px';
+    element.style.maxWidth = '800px';
+    
+    html2canvas(element, {
+      backgroundColor: '#ffffff',
+      scale: 2,
+      useCORS: true,
+      logging: false,
+      windowWidth: 1024
+    }).then(canvas => {
+      element.setAttribute('style', originalStyle);
+      
+      const imgData = canvas.toDataURL('image/png');
+      const imgWidth = canvas.width;
+      const imgHeight = canvas.height;
+      const orientation = imgWidth > imgHeight ? 'l' : 'p';
+      
+      const pdf = new jsPDF({
+        orientation: orientation,
+        unit: 'mm',
+        format: 'a4'
+      });
+      
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+      
+      const ratio = imgHeight / imgWidth;
+      const width = pdfWidth;
+      const height = pdfWidth * ratio;
+      
+      pdf.addImage(imgData, 'PNG', 0, 0, width, height);
+      pdf.save(`${activeBudget.name.replace(/\s+/g, '_')}_Report.pdf`);
+    }).catch(err => {
+      element.setAttribute('style', originalStyle);
+      console.error('Failed to export PDF', err);
+      alert('Error generating PDF. Please try again.');
     });
   };
 
@@ -1057,6 +1115,9 @@ export default function BudgetTab() {
                 </button>
                 <button onClick={handleExportPNG} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', padding: '6px 12px' }}>
                   Export to PNG
+                </button>
+                <button onClick={handleExportPDF} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', padding: '6px 12px', background: '#2563eb', borderColor: '#2563eb' }}>
+                  Export to PDF
                 </button>
                 <button onClick={() => setShowReportModal(false)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center' }}>
                   <X size={18} color="#64748b" />

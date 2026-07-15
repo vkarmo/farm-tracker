@@ -6,6 +6,7 @@ import { queueAction } from '../store/syncSlice';
 import { savePayroll, deletePayroll } from '../store/payrollSlice';
 import NmkLogo from './NmkLogo';
 import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
 
 const rankOrder = [
   'director',
@@ -404,20 +405,78 @@ export default function PayrollTab() {
     const element = document.getElementById('payroll-report-container');
     if (!element) return;
 
+    const originalStyle = element.getAttribute('style') || '';
+
+    // Force desktop styling and size (1050px to fit Bomi county layout and signature columns perfectly without scrollbars)
+    element.style.width = '1050px';
+    element.style.minWidth = '1050px';
+    element.style.maxWidth = '1050px';
+
     html2canvas(element, {
       backgroundColor: '#ffffff',
       scale: 2,
       useCORS: true,
-      logging: false
+      logging: false,
+      windowWidth: 1200
     }).then(canvas => {
+      element.setAttribute('style', originalStyle);
       const dataUrl = canvas.toDataURL('image/png');
       const link = document.createElement('a');
       link.download = `payroll_report_${fromDate}_to_${toDate}.png`;
       link.href = dataUrl;
       link.click();
     }).catch(err => {
+      element.setAttribute('style', originalStyle);
       console.error('Failed to export PNG', err);
       alert('Error generating PNG. Please try again.');
+    });
+  };
+
+  // Export PDF Report
+  const handleExportPDF = () => {
+    const element = document.getElementById('payroll-report-container');
+    if (!element) return;
+
+    const originalStyle = element.getAttribute('style') || '';
+
+    // Force desktop styling and size
+    element.style.width = '1050px';
+    element.style.minWidth = '1050px';
+    element.style.maxWidth = '1050px';
+
+    html2canvas(element, {
+      backgroundColor: '#ffffff',
+      scale: 2,
+      useCORS: true,
+      logging: false,
+      windowWidth: 1200
+    }).then(canvas => {
+      element.setAttribute('style', originalStyle);
+      
+      const imgData = canvas.toDataURL('image/png');
+      const imgWidth = canvas.width;
+      const imgHeight = canvas.height;
+      const orientation = imgWidth > imgHeight ? 'l' : 'p';
+
+      const pdf = new jsPDF({
+        orientation: orientation,
+        unit: 'mm',
+        format: 'a4'
+      });
+
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+
+      const ratio = imgHeight / imgWidth;
+      const width = pdfWidth;
+      const height = pdfWidth * ratio;
+
+      pdf.addImage(imgData, 'PNG', 0, 0, width, height);
+      pdf.save(`payroll_report_${fromDate}_to_${toDate}.pdf`);
+    }).catch(err => {
+      element.setAttribute('style', originalStyle);
+      console.error('Failed to export PDF', err);
+      alert('Error generating PDF. Please try again.');
     });
   };
 
@@ -1108,6 +1167,9 @@ export default function PayrollTab() {
                 </button>
                 <button onClick={handleExportPNG} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', padding: '6px 12px', background: '#1e293b', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
                   Export to PNG
+                </button>
+                <button onClick={handleExportPDF} className="btn btn-primary" style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', padding: '6px 12px', background: '#2563eb', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}>
+                  Export to PDF
                 </button>
                 <button onClick={() => setShowReportModal(false)} style={{ border: 'none', background: 'transparent', cursor: 'pointer', padding: '4px', display: 'flex', alignItems: 'center' }}>
                   <X size={18} color="#64748b" />
