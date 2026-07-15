@@ -908,7 +908,7 @@ export default function PayrollTab() {
           </div>
 
           <div style={{ background: '#f8fafc', border: '1px dashed #cbd5e1', padding: '12px', borderRadius: '6px', marginBottom: '20px', fontSize: '0.78rem', color: '#64748b' }}>
-            <strong>Interactive Grid Logging:</strong> Click any status pill in the grid to cycle: <strong>1</strong> (Work day) &rarr; <strong>0</strong> (Non-work day) &rarr; <strong>X</strong> (Absent). Sundays default to off (<strong>0</strong>), and Saturdays default to work days (<strong>1</strong>).
+            <strong>Interactive Grid Logging:</strong> Click any status pill in the grid to cycle: <strong>1</strong> (Work day) &rarr; <strong>0</strong> (Non-work day) &rarr; <strong>X</strong> (Absent). Non-workdays configured in business settings default to off (<strong>0</strong>), and scheduled workdays default to work days (<strong>1</strong>).
           </div>
 
           {/* Worksheet Grid Sheet */}
