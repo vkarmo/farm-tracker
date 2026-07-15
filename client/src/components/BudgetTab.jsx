@@ -627,16 +627,16 @@ export default function BudgetTab() {
 
   const handleGenerateExpenses = () => {
     if (!activeBudget) return;
-    const approvedUnlinkedItems = activeBudget.items.filter(i => i.status === 'Approved' && !i.linkedTxId);
+    const approvedItems = activeBudget.items.filter(i => i.status === 'Approved');
     
-    if (approvedUnlinkedItems.length === 0) {
+    if (approvedItems.length === 0) {
       alert("No approved budget items are pending for Ledger generation.");
       return;
     }
 
-    const proposedTxs = approvedUnlinkedItems.map(item => ({
+    const proposedTxs = approvedItems.map(item => ({
       ...item,
-      proposedTxId: `t_${Date.now()}_${item.id}`
+      proposedTxId: item.linkedTxId || `t_${Date.now()}_${item.id}`
     }));
 
     const initialSelections = {};
@@ -654,7 +654,7 @@ export default function BudgetTab() {
     const todayStr = new Date().toISOString().split('T')[0];
 
     itemsToSubmit.forEach(item => {
-      // 1. Create Transaction
+      // 1. Create/Update Transaction
       const txPayload = {
         id: item.proposedTxId,
         txType: 'Expense',
@@ -671,20 +671,29 @@ export default function BudgetTab() {
       dispatch(addTransaction(txPayload));
       dispatch(queueAction({ type: 'financials/addTransaction', payload: txPayload, meta: { id: Date.now() + Math.random() } }));
 
-      // 2. Update Budget Item with linkedTxId
-      const updatedItem = { ...activeBudget.items.find(i => i.id === item.id), linkedTxId: item.proposedTxId };
-      dispatch(addBudgetItem({ budgetId: activeBudget.id, item: updatedItem }));
+      // 2. Create relationship (ledger item)-[DERIVED_FROM]-(approved budget line)
       dispatch(queueAction({
-        type: 'budgets/upsertBudgetItem',
-        payload: { budgetId: activeBudget.id, item: updatedItem },
+        type: 'core/createRelationship',
+        payload: { sourceId: item.proposedTxId, targetId: item.id, relationshipType: 'DERIVED_FROM' },
         meta: { id: Date.now() + Math.random() }
       }));
+
+      // 3. Update Budget Item with linkedTxId (if not already linked)
+      if (!item.linkedTxId) {
+        const updatedItem = { ...activeBudget.items.find(i => i.id === item.id), linkedTxId: item.proposedTxId };
+        dispatch(addBudgetItem({ budgetId: activeBudget.id, item: updatedItem }));
+        dispatch(queueAction({
+          type: 'budgets/upsertBudgetItem',
+          payload: { budgetId: activeBudget.id, item: updatedItem },
+          meta: { id: Date.now() + Math.random() }
+        }));
+      }
     });
 
     setPendingLedgerExpenses([]);
     setShowExpenseReview(false);
     setSelectedExpensesToSubmit({});
-    alert(`Successfully posted ${itemsToSubmit.length} transaction(s) to the Finance Ledger.`);
+    alert(`Successfully posted/updated ${itemsToSubmit.length} transaction(s) in the Finance Ledger.`);
   };
 
   const calculateTotals = () => {

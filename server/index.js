@@ -3437,6 +3437,27 @@ app.post('/api/sync', async (req, res) => {
           updatedIds.push(id);
           results.push({ actionId: action.meta?.id, status: 'success' });
         }
+        else if (action.type === 'core/createRelationship') {
+          const { sourceId, targetId, relationshipType } = action.payload;
+          const safeRelType = /^[A-Z0-9_]+$/i.test(relationshipType) ? relationshipType : 'RELATED_TO';
+          await session.run(`
+            MATCH (s {id: $sourceId})
+            MATCH (t {id: $targetId})
+            MERGE (s)-[r:${safeRelType}]->(t)
+            SET r.lastUpdatedBy = $userEmail
+            RETURN r
+          `, { sourceId, targetId, userEmail });
+          results.push({ actionId: action.meta?.id, status: 'success' });
+        }
+        else if (action.type === 'core/deleteRelationship') {
+          const { sourceId, targetId, relationshipType } = action.payload;
+          const safeRelType = /^[A-Z0-9_]+$/i.test(relationshipType) ? relationshipType : 'RELATED_TO';
+          await session.run(`
+            MATCH (s {id: $sourceId})-[r:${safeRelType}]->(t {id: $targetId})
+            DELETE r
+          `, { sourceId, targetId });
+          results.push({ actionId: action.meta?.id, status: 'success' });
+        }
         else {
           console.warn('Unknown sync action:', action.type);
           results.push({ actionId: action.meta?.id, status: 'ignored' });
