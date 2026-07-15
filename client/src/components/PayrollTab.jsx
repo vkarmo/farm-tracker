@@ -34,18 +34,18 @@ export default function PayrollTab() {
   const nonWorkdays = useSelector(state => state.settings?.nonWorkdays);
   const numericNonWorkdays = useMemo(() => {
     if (nonWorkdays === undefined || nonWorkdays === null) {
-      return [0];
+      return [];
     }
     let parsed = nonWorkdays;
     if (typeof parsed === 'string') {
       try {
         parsed = JSON.parse(parsed);
       } catch (e) {
-        if (parsed.trim() === '') return [];
+        if (parsed == null || parsed.trim() === '') return [];
         parsed = parsed.split(',').map(Number).filter(n => !isNaN(n));
       }
     }
-    return Array.isArray(parsed) ? parsed.map(Number) : [0];
+    return Array.isArray(parsed) ? parsed.map(Number) : [];
   }, [nonWorkdays]);
 
   const generalManager = useMemo(() => {
@@ -117,9 +117,9 @@ export default function PayrollTab() {
 
   const activeRate = Math.round(liveRate ? parseFloat(liveRate) : historicalRate);
   const defaultExchangeRate = Math.round(parseFloat(activeBudget.exchangeRate) || activeRate);
-  
+
   const [customExchangeRate, setCustomExchangeRate] = useState(defaultExchangeRate);
-  
+
   // Sync customExchangeRate with default active budget exchange rate or activeRate when not editing
   useEffect(() => {
     if (!editingId) {
@@ -152,10 +152,10 @@ export default function PayrollTab() {
   const dateRange = useMemo(() => {
     const dates = [];
     if (!fromDate || !toDate) return dates;
-    
+
     const start = parseLocalDate(fromDate);
     const end = parseLocalDate(toDate);
-    
+
     // Safety check to prevent infinite loop or huge ranges
     const diffTime = Math.abs(end - start);
     const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
@@ -195,10 +195,10 @@ export default function PayrollTab() {
       const rankA = getRankIndex(a.jobTitle);
       const rankB = getRankIndex(b.jobTitle);
       if (rankA !== rankB) return rankA - rankB;
-      
+
       const lastCompare = (a.lastName || '').localeCompare(b.lastName || '');
       if (lastCompare !== 0) return lastCompare;
-      
+
       return (a.firstName || '').localeCompare(b.firstName || '');
     });
 
@@ -215,7 +215,7 @@ export default function PayrollTab() {
       if (current === '1') nextStatus = '0';
       else if (current === '0') nextStatus = 'X';
       else if (current === 'X') nextStatus = '1';
-      
+
       return {
         ...prev,
         [empId]: {
@@ -230,7 +230,7 @@ export default function PayrollTab() {
   const filteredPulledEmployees = useMemo(() => {
     if (selectedTitles.length === 0) return pulledEmployees;
     const filterVals = selectedTitles.map(t => t.value.toLowerCase());
-    return pulledEmployees.filter(emp => 
+    return pulledEmployees.filter(emp =>
       filterVals.includes((emp.jobTitle || '').toLowerCase())
     );
   }, [pulledEmployees, selectedTitles]);
@@ -336,7 +336,7 @@ export default function PayrollTab() {
 
     const id = editingId || 'payroll_' + Date.now();
     const rate = Math.round(parseFloat(customExchangeRate) || defaultExchangeRate);
-    
+
     // Construct fully-populated attendance object containing all days to preserve ContractDay constraints
     const fullAttendance = {};
     pulledEmployees.forEach(emp => {
@@ -367,7 +367,7 @@ export default function PayrollTab() {
 
     dispatch(queueAction({ type: 'payroll/savePayroll', payload, meta: { id: Date.now() } }));
     dispatch(savePayroll(payload));
-    
+
     setViewMode('list');
     setEditingId(null);
     setAttendance({}); // Reset clean state
@@ -393,7 +393,7 @@ export default function PayrollTab() {
     let csvContent = `Payroll Report: ${fromDate} to ${toDate}\n`;
     csvContent += `Exchange Rate: 1 USD = ${rate} LRD\n\n`;
     csvContent += "Signature,Employee,Job Title,Type,Days Worked,Off Days,Absent Days,Pay Rate,Calculated Total,Currency\n";
-    
+
     payrollRows.forEach(row => {
       const name = `"${row.employee.lastName}, ${row.employee.firstName}"`;
       csvContent += `"",${name},"${row.employee.jobTitle}",${row.employee.type},${row.daysWorked},${row.daysOff},${row.daysAbsent},"${row.rateDisplay}",${row.calculatedTotal.toFixed(2)},${row.currency}\n`;
@@ -464,7 +464,7 @@ export default function PayrollTab() {
       windowWidth: 1200
     }).then(canvas => {
       element.setAttribute('style', originalStyle);
-      
+
       const imgData = canvas.toDataURL('image/png');
       const imgWidth = canvas.width;
       const imgHeight = canvas.height;
@@ -487,7 +487,7 @@ export default function PayrollTab() {
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px', fontFamily: '"Inter", sans-serif' }}>
-      
+
       {/* 1. Saved Payroll Worksheets Roster list */}
       {viewMode === 'list' && (
         <div style={{ background: 'white', padding: isMobile ? '12px' : '20px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
@@ -495,7 +495,7 @@ export default function PayrollTab() {
             <h3 style={{ margin: 0, fontSize: '1.2rem', color: '#1e293b', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <DollarSign size={20} color="#16a34a" /> Saved Payroll Logs
             </h3>
-            <button 
+            <button
               onClick={handleCreateNew}
               style={{
                 padding: '10px 16px',
@@ -532,16 +532,16 @@ export default function PayrollTab() {
                 const dateStr = new Date(sheet.createdAt || Date.now()).toLocaleDateString();
 
                 return (
-                  <div 
-                    key={sheet.id} 
+                  <div
+                    key={sheet.id}
                     onClick={() => handleLoadWorksheet(sheet)}
-                    style={{ 
-                      background: '#f8fafc', 
-                      padding: '14px', 
-                      borderRadius: '8px', 
-                      border: '1px solid #cbd5e1', 
-                      display: 'flex', 
-                      flexDirection: 'column', 
+                    style={{
+                      background: '#f8fafc',
+                      padding: '14px',
+                      borderRadius: '8px',
+                      border: '1px solid #cbd5e1',
+                      display: 'flex',
+                      flexDirection: 'column',
                       gap: '10px',
                       cursor: 'pointer',
                       transition: 'background-color 0.2s'
@@ -603,12 +603,12 @@ export default function PayrollTab() {
                     const staff = sheet.totals?.totalEmployees || 0;
                     const dateStr = new Date(sheet.createdAt || Date.now()).toLocaleDateString();
 
-                     return (
-                      <tr 
-                        key={sheet.id} 
+                    return (
+                      <tr
+                        key={sheet.id}
                         onClick={() => handleLoadWorksheet(sheet)}
-                        style={{ 
-                          borderBottom: '1px solid #e2e8f0', 
+                        style={{
+                          borderBottom: '1px solid #e2e8f0',
                           background: idx % 2 === 0 ? 'white' : '#f8fafc',
                           cursor: 'pointer',
                           transition: 'background-color 0.2s'
@@ -665,11 +665,11 @@ export default function PayrollTab() {
       {/* 2. Interactive Worksheet Form Studio */}
       {viewMode === 'form' && (
         <div style={{ background: 'white', padding: isMobile ? '12px' : '20px', borderRadius: '8px', border: '1px solid #cbd5e1' }}>
-          
+
           {/* Header Action Row */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: isMobile ? 'stretch' : 'center', flexDirection: isMobile ? 'column' : 'row', gap: '14px', marginBottom: '20px', borderBottom: '1px solid #f1f5f9', paddingBottom: '14px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <button 
+              <button
                 onClick={() => {
                   if (window.confirm('Cancel worksheet editor? Unsaved entries will be lost.')) {
                     setViewMode('list');
@@ -764,10 +764,10 @@ export default function PayrollTab() {
               <label style={{ fontSize: '0.78rem', fontWeight: '600', color: '#64748b' }}>Period From</label>
               <div style={{ position: 'relative', display: 'flex', alignItems: 'center', width: '100%' }}>
                 <Calendar size={15} color="#94a3b8" style={{ position: 'absolute', left: '10px' }} />
-                <input 
-                  type="date" 
-                  value={fromDate} 
-                  onChange={e => setFromDate(e.target.value)} 
+                <input
+                  type="date"
+                  value={fromDate}
+                  onChange={e => setFromDate(e.target.value)}
                   style={{ padding: '8px 10px 8px 32px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem', color: '#334155', width: '100%', boxSizing: 'border-box' }}
                 />
               </div>
@@ -777,10 +777,10 @@ export default function PayrollTab() {
               <label style={{ fontSize: '0.78rem', fontWeight: '600', color: '#64748b' }}>Period To</label>
               <div style={{ position: 'relative', display: 'flex', alignItems: 'center', width: '100%' }}>
                 <Calendar size={15} color="#94a3b8" style={{ position: 'absolute', left: '10px' }} />
-                <input 
-                  type="date" 
-                  value={toDate} 
-                  onChange={e => setToDate(e.target.value)} 
+                <input
+                  type="date"
+                  value={toDate}
+                  onChange={e => setToDate(e.target.value)}
                   style={{ padding: '8px 10px 8px 32px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem', color: '#334155', width: '100%', boxSizing: 'border-box' }}
                 />
               </div>
@@ -788,14 +788,14 @@ export default function PayrollTab() {
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', width: isMobile ? '100%' : '120px', maxWidth: '140px' }}>
               <label style={{ fontSize: '0.78rem', fontWeight: '600', color: '#64748b' }}>Ex. Rate (LRD/USD)</label>
-              <input 
-                type="number" 
+              <input
+                type="number"
                 step="1"
-                value={customExchangeRate} 
+                value={customExchangeRate}
                 onChange={e => {
                   const val = parseFloat(e.target.value);
                   setCustomExchangeRate(isNaN(val) ? '' : Math.round(val));
-                }} 
+                }}
                 style={{ padding: '8px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '0.85rem', color: '#334155', width: '100%', boxSizing: 'border-box' }}
               />
             </div>
@@ -823,7 +823,7 @@ export default function PayrollTab() {
             </div>
 
             <div style={{ display: 'flex', gap: '8px', width: isMobile ? '100%' : 'auto', marginTop: '10px', flexWrap: 'wrap' }}>
-              <button 
+              <button
                 type="button"
                 onClick={handlePullEmployees}
                 style={{
@@ -851,7 +851,7 @@ export default function PayrollTab() {
 
               {payrollRows.length > 0 && (
                 <>
-                  <button 
+                  <button
                     type="button"
                     onClick={() => setShowReportModal(true)}
                     style={{
@@ -877,7 +877,7 @@ export default function PayrollTab() {
                     <FileText size={16} /> Generate Report
                   </button>
 
-                  <button 
+                  <button
                     type="button"
                     onClick={handleExportCSV}
                     style={{
@@ -932,24 +932,24 @@ export default function PayrollTab() {
                     <th style={{ padding: '12px 16px', textAlign: 'left', fontWeight: '700', color: '#475569', position: 'sticky', left: 0, background: '#f8fafc', zIndex: 10, boxShadow: '2px 0 5px rgba(0,0,0,0.05)' }}>Employee Name</th>
                     {!isMobile && <th style={{ padding: '12px 12px', textAlign: 'left', fontWeight: '700', color: '#475569' }}>Job Title</th>}
                     {!isMobile && <th style={{ padding: '12px 12px', textAlign: 'left', fontWeight: '700', color: '#475569' }}>Pay Rate</th>}
-                    
+
                     {dateRange.map(dateStr => {
                       const parts = dateStr.split('-');
                       const label = `${parts[1]}/${parts[2]}`;
                       const dayName = getMTWRFSUChar(dateStr);
                       const isNonWorkDay = numericNonWorkdays.includes(parseLocalDate(dateStr).getDay());
                       return (
-                        <th 
-                          key={dateStr} 
-                          style={{ 
-                            padding: '8px', 
-                            textAlign: 'center', 
-                            fontWeight: '700', 
-                            color: isNonWorkDay ? '#ef4444' : '#475569', 
-                            minWidth: '42px', 
+                        <th
+                          key={dateStr}
+                          style={{
+                            padding: '8px',
+                            textAlign: 'center',
+                            fontWeight: '700',
+                            color: isNonWorkDay ? '#ef4444' : '#475569',
+                            minWidth: '42px',
                             borderLeft: '1px solid #f1f5f9',
                             background: isNonWorkDay ? '#f1f5f9' : '#f8fafc'
-                          }} 
+                          }}
                           title={isNonWorkDay ? `${dateStr} (Non-work day)` : dateStr}
                         >
                           <div style={{ fontSize: '0.75rem', color: isNonWorkDay ? '#ef4444' : '#475569', textTransform: 'uppercase', fontWeight: '800' }}>{dayName}</div>
@@ -968,25 +968,25 @@ export default function PayrollTab() {
                   {payrollRows.map((row, rIdx) => {
                     const emp = row.employee;
                     const empAttendance = attendance[emp.id] || {};
-                    
+
                     return (
-                      <tr 
-                        key={emp.id} 
-                        style={{ 
-                          borderBottom: '1px solid #e2e8f0', 
+                      <tr
+                        key={emp.id}
+                        style={{
+                          borderBottom: '1px solid #e2e8f0',
                           background: rIdx % 2 === 0 ? 'white' : '#f8fafc',
                           transition: 'background 0.15s ease'
                         }}
                         onMouseOver={e => e.currentTarget.style.background = '#f1f5f9'}
                         onMouseOut={e => e.currentTarget.style.background = rIdx % 2 === 0 ? 'white' : '#f8fafc'}
                       >
-                        <td style={{ 
-                          padding: '12px 16px', 
-                          fontWeight: '600', 
-                          color: '#1e293b', 
-                          position: 'sticky', 
-                          left: 0, 
-                          background: rIdx % 2 === 0 ? 'white' : '#f8fafc', 
+                        <td style={{
+                          padding: '12px 16px',
+                          fontWeight: '600',
+                          color: '#1e293b',
+                          position: 'sticky',
+                          left: 0,
+                          background: rIdx % 2 === 0 ? 'white' : '#f8fafc',
                           zIndex: 5,
                           boxShadow: '2px 0 5px rgba(0,0,0,0.05)'
                         }}>
@@ -997,14 +997,14 @@ export default function PayrollTab() {
                             </div>
                           )}
                         </td>
-                        
+
                         {!isMobile && (
                           <td style={{ padding: '12px 12px', color: '#475569' }}>
-                            <span style={{ 
-                              fontSize: '0.72rem', 
-                              background: '#e2e8f0', 
-                              color: '#475569', 
-                              padding: '2px 6px', 
+                            <span style={{
+                              fontSize: '0.72rem',
+                              background: '#e2e8f0',
+                              color: '#475569',
+                              padding: '2px 6px',
                               borderRadius: '4px',
                               fontWeight: '600'
                             }}>
@@ -1037,15 +1037,20 @@ export default function PayrollTab() {
                             bgColor = '#fee2e2';
                             textColor = '#b91c1c';
                             fontWeight = '900';
+                          } else {
+                            cellContent = '0';
+                            bgColor = '#f1f5f9';
+                            textColor = '#64748b';
+                            fontWeight = '500';
                           }
 
                           return (
-                            <td 
+                            <td
                               key={dateStr}
                               onClick={() => handleCycleStatus(emp.id, dateStr)}
-                              style={{ 
-                                padding: '6px', 
-                                textAlign: 'center', 
+                              style={{
+                                padding: '6px',
+                                textAlign: 'center',
                                 cursor: 'pointer',
                                 borderLeft: '1px solid #f1f5f9',
                                 background: isNonWorkDay ? '#f8fafc' : 'transparent',
@@ -1088,14 +1093,14 @@ export default function PayrollTab() {
                           {row.daysAbsent}d
                         </td>
 
-                        <td style={{ 
-                          padding: '12px 16px', 
-                          textAlign: 'right', 
-                          fontWeight: '700', 
+                        <td style={{
+                          padding: '12px 16px',
+                          textAlign: 'right',
+                          fontWeight: '700',
                           color: row.currency === 'USD' ? '#0f172a' : '#1e3a8a',
                           background: rIdx % 2 === 0 ? 'white' : '#f8fafc',
-                          position: 'sticky', 
-                          right: 0, 
+                          position: 'sticky',
+                          right: 0,
                           zIndex: 5,
                           boxShadow: '-2px 0 5px rgba(0,0,0,0.05)'
                         }}>
@@ -1115,16 +1120,16 @@ export default function PayrollTab() {
 
           {/* Combined Summary Band */}
           {payrollRows.length > 0 && (
-            <div style={{ 
-              marginTop: '20px', 
-              padding: '16px', 
-              background: '#f8fafc', 
-              borderRadius: '8px', 
-              border: '1px solid #e2e8f0', 
-              display: 'flex', 
-              justifyContent: 'space-between', 
-              flexDirection: isMobile ? 'column' : 'row', 
-              gap: '16px' 
+            <div style={{
+              marginTop: '20px',
+              padding: '16px',
+              background: '#f8fafc',
+              borderRadius: '8px',
+              border: '1px solid #e2e8f0',
+              display: 'flex',
+              justifyContent: 'space-between',
+              flexDirection: isMobile ? 'column' : 'row',
+              gap: '16px'
             }}>
               <div style={{ display: 'flex', gap: isMobile ? '16px' : '24px', flexWrap: 'wrap', flexDirection: isMobile ? 'column' : 'row' }}>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
@@ -1141,12 +1146,12 @@ export default function PayrollTab() {
                 </div>
               </div>
 
-              <div style={{ 
-                display: 'flex', 
-                gap: isMobile ? '16px' : '24px', 
-                flexWrap: 'wrap', 
+              <div style={{
+                display: 'flex',
+                gap: isMobile ? '16px' : '24px',
+                flexWrap: 'wrap',
                 flexDirection: isMobile ? 'column' : 'row',
-                borderLeft: isMobile ? 'none' : '1px solid #cbd5e1', 
+                borderLeft: isMobile ? 'none' : '1px solid #cbd5e1',
                 borderTop: isMobile ? '1px solid #cbd5e1' : 'none',
                 paddingLeft: isMobile ? '0' : '24px',
                 paddingTop: isMobile ? '16px' : '0'
@@ -1165,7 +1170,7 @@ export default function PayrollTab() {
                     Combined Total (LRD)
                   </span>
                   <span style={{ fontSize: '1.25rem', fontWeight: '900', color: '#1e3a8a' }}>
-                    {summaryTotals.combinedLRD.toLocaleString(undefined, {maximumFractionDigits: 0})} LRD
+                    {summaryTotals.combinedLRD.toLocaleString(undefined, { maximumFractionDigits: 0 })} LRD
                   </span>
                 </div>
               </div>
@@ -1191,7 +1196,7 @@ export default function PayrollTab() {
           justifyContent: 'center',
           padding: '16px',
         }} onClick={() => setShowReportModal(false)}>
-          
+
           <div style={{
             background: 'white',
             borderRadius: '10px',
@@ -1203,7 +1208,7 @@ export default function PayrollTab() {
             boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
             overflow: 'hidden'
           }} onClick={e => e.stopPropagation()}>
-            
+
             {/* Modal Toolbar */}
             <div style={{
               display: 'flex',
@@ -1274,7 +1279,7 @@ export default function PayrollTab() {
                         <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: '700', color: '#475569', background: '#f8fafc' }}>Employee Name</th>
                         <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: '700', color: '#475569' }}>Job Title</th>
                         <th style={{ padding: '8px 10px', textAlign: 'left', fontWeight: '700', color: '#475569' }}>Pay Rate</th>
-                        
+
                         {dateRange.map(dateStr => {
                           const parts = dateStr.split('-');
                           const label = `${parts[1]}/${parts[2]}`;
@@ -1297,12 +1302,12 @@ export default function PayrollTab() {
                       {payrollRows.map((row, rIdx) => {
                         const emp = row.employee;
                         const empAttendance = attendance[emp.id] || {};
-                        
+
                         return (
-                          <tr 
-                            key={emp.id} 
-                            style={{ 
-                              borderBottom: '1px solid #e2e8f0', 
+                          <tr
+                            key={emp.id}
+                            style={{
+                              borderBottom: '1px solid #e2e8f0',
                               background: rIdx % 2 === 0 ? 'white' : '#f8fafc'
                             }}
                           >
@@ -1337,11 +1342,11 @@ export default function PayrollTab() {
                               }
 
                               return (
-                                <td 
+                                <td
                                   key={dateStr}
-                                  style={{ 
-                                    padding: '4px', 
-                                    textAlign: 'center', 
+                                  style={{
+                                    padding: '4px',
+                                    textAlign: 'center',
                                     borderLeft: '1px solid #f1f5f9',
                                     background: isNonWorkDay ? '#f1f5f9' : 'transparent',
                                     color: textColor,
@@ -1373,14 +1378,14 @@ export default function PayrollTab() {
                 </div>
 
                 {/* Subtotals & Combined Totals Segment */}
-                <div style={{ 
-                  padding: '16px', 
-                  background: '#f8fafc', 
-                  borderRadius: '6px', 
-                  border: '1px solid #e2e8f0', 
-                  display: 'flex', 
-                  justifyContent: 'space-between', 
-                  gap: '16px' 
+                <div style={{
+                  padding: '16px',
+                  background: '#f8fafc',
+                  borderRadius: '6px',
+                  border: '1px solid #e2e8f0',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  gap: '16px'
                 }}>
                   <div style={{ display: 'flex', gap: '32px' }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '2px' }}>
@@ -1412,19 +1417,19 @@ export default function PayrollTab() {
                         Combined Payroll (LRD)
                       </span>
                       <span style={{ fontSize: '1.2rem', fontWeight: '900', color: '#1e3a8a' }}>
-                        {summaryTotals.combinedLRD.toLocaleString(undefined, {maximumFractionDigits: 0})} LRD
+                        {summaryTotals.combinedLRD.toLocaleString(undefined, { maximumFractionDigits: 0 })} LRD
                       </span>
                     </div>
                   </div>
                 </div>
 
                 {/* General Manager and Assistant Manager Signatures */}
-                <div style={{ 
-                  display: 'flex', 
-                  justifyContent: 'space-between', 
-                  marginTop: '45px', 
-                  marginBottom: '10px', 
-                  padding: '16px 40px', 
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  marginTop: '45px',
+                  marginBottom: '10px',
+                  padding: '16px 40px',
                   gap: '40px',
                   border: '1px solid #cbd5e1',
                   borderRadius: '6px',
@@ -1498,7 +1503,7 @@ export default function PayrollTab() {
             <p style={{ fontSize: '0.9rem', color: '#64748b', margin: '0 0 20px 0', wordBreak: 'break-all' }}>
               <strong>{generatedFile.name}</strong> has been generated successfully.
             </p>
-            
+
             <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
               <button
                 onClick={() => {
