@@ -411,9 +411,79 @@ export default function BudgetTab() {
     if (!budgetFromDate || !budgetToDate) return alert("Select From and To dates.");
 
     const newItems = [];
+    const nonDailyWorkers = employeesList.filter(e => e.type !== 'Daily' && !e.isTerminated);
 
-    // 1. Labor Force Payroll from Work Assignments
+    // 1. General Manager (First in sequence)
+    if (genMgrChecked) {
+      const gms = nonDailyWorkers.filter(e => (e.jobTitle || '').toLowerCase().includes('general manager'));
+      const totalGM = gms.reduce((sum, e) => sum + (parseFloat(e.twoWeekPayUSD) || 0), 0);
+      if (totalGM > 0) {
+        const names = gms.map(e => `${e.firstName} ${e.lastName}`).join(', ');
+        const displayTitle = gms[0]?.jobTitle || 'General Manager';
+        newItems.push({
+          id: `bli_${Date.now()}_gm`,
+          category: 'Payroll',
+          description: `${displayTitle} - ${names}`,
+          amount: parseFloat(totalGM.toFixed(2)),
+          currency: 'USD',
+          status: 'Pending Review'
+        });
+      }
+    }
+
+    // 2. Assistant Farm Manager (Second in sequence)
+    if (asstMgrChecked) {
+      const ams = nonDailyWorkers.filter(e => {
+        const t = (e.jobTitle || '').toLowerCase();
+        return t.includes('assistant manager') || t.includes('assistant farm manager');
+      });
+      const totalAM = ams.reduce((sum, e) => sum + (parseFloat(e.twoWeekPayUSD) || 0), 0);
+      if (totalAM > 0) {
+        const names = ams.map(e => `${e.firstName} ${e.lastName}`).join(', ');
+        const displayTitle = ams[0]?.jobTitle || 'Assistant Farm Manager';
+        newItems.push({
+          id: `bli_${Date.now()}_am`,
+          category: 'Payroll',
+          description: `${displayTitle} - ${names}`,
+          amount: parseFloat(totalAM.toFixed(2)),
+          currency: 'USD',
+          status: 'Pending Review'
+        });
+      }
+    }
+
+    // 3. Labor Pay (Third in sequence)
     if (laborForceChecked) {
+      // A. Other non-daily staff (non-GM, non-AM)
+      const otherStaff = nonDailyWorkers.filter(e => {
+        const t = (e.jobTitle || '').toLowerCase();
+        const isGM = t.includes('general manager');
+        const isAM = t.includes('assistant manager') || t.includes('assistant farm manager');
+        return !isGM && !isAM;
+      });
+
+      const otherByTitle = {};
+      otherStaff.forEach(emp => {
+        const title = emp.jobTitle || 'Uncategorized Staff';
+        const groupedTitle = title.toLowerCase().includes('security') ? 'NMK Security' : title;
+        if (!otherByTitle[groupedTitle]) otherByTitle[groupedTitle] = 0;
+        otherByTitle[groupedTitle] += (parseFloat(emp.twoWeekPayUSD) || 0);
+      });
+
+      Object.keys(otherByTitle).forEach((title, idx) => {
+        if (otherByTitle[title] > 0) {
+          newItems.push({
+            id: `bli_${Date.now()}_other_${idx}`,
+            category: 'Payroll',
+            description: title,
+            amount: parseFloat(otherByTitle[title].toFixed(2)),
+            currency: 'USD',
+            status: 'Pending Review'
+          });
+        }
+      });
+
+      // B. Daily workers payroll
       const rangeAssignments = assignments.filter(a =>
         a.assignmentDate >= budgetFromDate && a.assignmentDate <= budgetToDate
       );
@@ -452,44 +522,6 @@ export default function BudgetTab() {
         });
       }
     }
-
-    // 2. Management & Staff Payroll Info
-    const nonDailyWorkers = employeesList.filter(e => e.type !== 'Daily' && !e.isTerminated);
-    const nonDailyByTitle = {};
-    nonDailyWorkers.forEach(emp => {
-      const title = emp.jobTitle || 'Uncategorized Staff';
-      const groupedTitle = title.toLowerCase().includes('security') ? 'NMK Security' : title;
-      if (!nonDailyByTitle[groupedTitle]) nonDailyByTitle[groupedTitle] = 0;
-      nonDailyByTitle[groupedTitle] += (parseFloat(emp.twoWeekPayUSD) || 0);
-    });
-
-    Object.keys(nonDailyByTitle).forEach((title, idx) => {
-      if (nonDailyByTitle[title] > 0) {
-        const isGM = title.toLowerCase().includes('general manager') || title === 'General Manager';
-        const isAM = title.toLowerCase().includes('assistant manager') || title === 'Assistant Manager' || title.toLowerCase().includes('assistant farm manager') || title === 'Assistant Farm Manager';
-        
-        let shouldInclude = true;
-        if (isGM) {
-          shouldInclude = genMgrChecked;
-        } else if (isAM) {
-          shouldInclude = asstMgrChecked;
-        } else {
-          // Other non-daily staff (Foreman, Security, Tractor Operator, etc.) can be grouped under labor force
-          shouldInclude = laborForceChecked;
-        }
-
-        if (shouldInclude) {
-          newItems.push({
-            id: `bli_${Date.now()}_nd_${idx}`,
-            category: 'Payroll',
-            description: title,
-            amount: parseFloat(nonDailyByTitle[title].toFixed(2)),
-            currency: 'USD',
-            status: 'Pending Review'
-          });
-        }
-      }
-    });
 
     if (newItems.length === 0) {
       alert("No payroll items generated matching the selected criteria.");
@@ -906,7 +938,7 @@ export default function BudgetTab() {
                       
                       setItemForm({
                         ...itemForm,
-                        category: 'Labor',
+                        category: 'Payroll',
                         description: desc,
                         amount: amt.toFixed(2),
                         currency: curr
