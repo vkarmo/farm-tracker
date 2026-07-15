@@ -59,6 +59,9 @@ export default function BudgetTab() {
   const [isNmkBudget, setIsNmkBudget] = useState(false);
   const [budgetFromDate, setBudgetFromDate] = useState('');
   const [budgetToDate, setBudgetToDate] = useState('');
+  const [genMgrChecked, setGenMgrChecked] = useState(true);
+  const [asstMgrChecked, setAsstMgrChecked] = useState(true);
+  const [laborForceChecked, setLaborForceChecked] = useState(true);
 
   const [pendingLedgerExpenses, setPendingLedgerExpenses] = useState([]);
   const [showExpenseReview, setShowExpenseReview] = useState(false);
@@ -407,51 +410,54 @@ export default function BudgetTab() {
     if (!activeBudget) return;
     if (!budgetFromDate || !budgetToDate) return alert("Select From and To dates.");
 
-    const rangeAssignments = assignments.filter(a =>
-      a.assignmentDate >= budgetFromDate && a.assignmentDate <= budgetToDate
-    );
-
-    const dailyWorkerDays = {}; // employeeId -> Set of dates
-    rangeAssignments.forEach(a => {
-      if (a.workerIds) {
-        a.workerIds.forEach(id => {
-          if (!dailyWorkerDays[id]) dailyWorkerDays[id] = new Set();
-          dailyWorkerDays[id].add(a.assignmentDate);
-        });
-      }
-    });
-
-    let totalDailyLD = 0;
-    Object.keys(dailyWorkerDays).forEach(empId => {
-      const emp = employeesList.find(e => e.id === empId);
-      if (emp && emp.type === 'Daily') {
-        const daysWorked = dailyWorkerDays[empId].size;
-        const rate = parseFloat(emp.dailyRateLD) || 0;
-        totalDailyLD += (daysWorked * rate);
-      }
-    });
-
-    const exRate = parseFloat(activeBudget.exchangeRate) || 1;
-    const totalDailyUSD = exRate > 0 ? (totalDailyLD / exRate) : 0;
-
     const newItems = [];
 
-    if (totalDailyUSD > 0) {
-      newItems.push({
-        id: `bli_${Date.now()}_daily`,
-        category: 'Payroll',
-        description: 'Labor Pay (Daily Farm Workers)',
-        amount: parseFloat(totalDailyUSD.toFixed(2)),
-        currency: 'USD',
-        status: 'Pending Review'
+    // 1. Labor Force Payroll from Work Assignments
+    if (laborForceChecked) {
+      const rangeAssignments = assignments.filter(a =>
+        a.assignmentDate >= budgetFromDate && a.assignmentDate <= budgetToDate
+      );
+
+      const dailyWorkerDays = {}; // employeeId -> Set of dates
+      rangeAssignments.forEach(a => {
+        if (a.workerIds) {
+          a.workerIds.forEach(id => {
+            if (!dailyWorkerDays[id]) dailyWorkerDays[id] = new Set();
+            dailyWorkerDays[id].add(a.assignmentDate);
+          });
+        }
       });
+
+      let totalDailyLD = 0;
+      Object.keys(dailyWorkerDays).forEach(empId => {
+        const emp = employeesList.find(e => e.id === empId);
+        if (emp && emp.type === 'Daily') {
+          const daysWorked = dailyWorkerDays[empId].size;
+          const rate = parseFloat(emp.dailyRateLD) || 0;
+          totalDailyLD += (daysWorked * rate);
+        }
+      });
+
+      const exRate = parseFloat(activeBudget.exchangeRate) || 1;
+      const totalDailyUSD = exRate > 0 ? (totalDailyLD / exRate) : 0;
+
+      if (totalDailyUSD > 0) {
+        newItems.push({
+          id: `bli_${Date.now()}_daily`,
+          category: 'Payroll',
+          description: 'Labor Pay (Daily Farm Workers)',
+          amount: parseFloat(totalDailyUSD.toFixed(2)),
+          currency: 'USD',
+          status: 'Pending Review'
+        });
+      }
     }
 
+    // 2. Management & Staff Payroll Info
     const nonDailyWorkers = employeesList.filter(e => e.type !== 'Daily' && !e.isTerminated);
     const nonDailyByTitle = {};
     nonDailyWorkers.forEach(emp => {
       const title = emp.jobTitle || 'Uncategorized Staff';
-      // Group security guards into one bucket as specified
       const groupedTitle = title.toLowerCase().includes('security') ? 'NMK Security' : title;
       if (!nonDailyByTitle[groupedTitle]) nonDailyByTitle[groupedTitle] = 0;
       nonDailyByTitle[groupedTitle] += (parseFloat(emp.twoWeekPayUSD) || 0);
@@ -459,19 +465,34 @@ export default function BudgetTab() {
 
     Object.keys(nonDailyByTitle).forEach((title, idx) => {
       if (nonDailyByTitle[title] > 0) {
-        newItems.push({
-          id: `bli_${Date.now()}_nd_${idx}`,
-          category: 'Payroll',
-          description: title,
-          amount: parseFloat(nonDailyByTitle[title].toFixed(2)),
-          currency: 'USD',
-          status: 'Pending Review'
-        });
+        const isGM = title.toLowerCase().includes('general manager') || title === 'General Manager';
+        const isAM = title.toLowerCase().includes('assistant manager') || title === 'Assistant Manager' || title.toLowerCase().includes('assistant farm manager') || title === 'Assistant Farm Manager';
+        
+        let shouldInclude = true;
+        if (isGM) {
+          shouldInclude = genMgrChecked;
+        } else if (isAM) {
+          shouldInclude = asstMgrChecked;
+        } else {
+          // Other non-daily staff (Foreman, Security, Tractor Operator, etc.) can be grouped under labor force
+          shouldInclude = laborForceChecked;
+        }
+
+        if (shouldInclude) {
+          newItems.push({
+            id: `bli_${Date.now()}_nd_${idx}`,
+            category: 'Payroll',
+            description: title,
+            amount: parseFloat(nonDailyByTitle[title].toFixed(2)),
+            currency: 'USD',
+            status: 'Pending Review'
+          });
+        }
       }
     });
 
     if (newItems.length === 0) {
-      alert("No payroll data calculated for this period.");
+      alert("No payroll items generated matching the selected criteria.");
       return;
     }
 
@@ -811,82 +832,46 @@ export default function BudgetTab() {
             </label>
 
             {isNmkBudget && (
-              <div style={{ marginTop: 15, display: 'flex', gap: 15, flexWrap: 'wrap', alignItems: 'flex-end' }}>
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label style={{ color: '#558b2f' }}>From Date</label>
-                  <input type="date" value={budgetFromDate} onChange={e => setBudgetFromDate(e.target.value)} style={{ border: '1px solid #cddc39' }} />
-                </div>
-                <div className="form-group" style={{ marginBottom: 0 }}>
-                  <label style={{ color: '#558b2f' }}>To Date</label>
-                  <input type="date" value={budgetToDate} onChange={e => setBudgetToDate(e.target.value)} style={{ border: '1px solid #cddc39' }} />
-                </div>
-                <button
-                  type="button"
-                  onClick={handleGeneratePayroll}
-                  className="btn btn-primary"
-                  disabled={!budgetFromDate || !budgetToDate}
-                  style={{ padding: '10px 16px', background: '#827717', color: 'white', border: 'none' }}
-                >
-                  <Calculator size={16} style={{ marginRight: 6, display: 'inline-block', verticalAlign: 'text-bottom' }} />
-                  Generate Payroll Items
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* Budget to Ledger Linkage - Moved right below Payroll */}
-          <div style={{ marginTop: 20, marginBottom: 20, background: '#e3f2fd', padding: 20, borderRadius: 8, border: '1px solid #90caf9' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <div>
-                <h3 style={{ color: '#1565c0', margin: 0 }}>Ledger Integration</h3>
-                <p style={{ color: '#1976d2', fontSize: '0.9rem', marginTop: 5 }}>Generate official finance expenses from approved budget items.</p>
-              </div>
-              <button onClick={handleGenerateExpenses} className="btn btn-primary" style={{ background: '#1565c0', border: 'none' }}>
-                <ArrowRightCircle size={18} style={{ marginRight: 6 }} /> Generate Ledger Items
-              </button>
-            </div>
-
-            {showExpenseReview && pendingLedgerExpenses.length > 0 && (
-              <div style={{ marginTop: 20, background: '#ffffff', padding: 15, borderRadius: 8, border: '1px solid #bbdefb' }}>
-                <h4 style={{ marginBottom: 15, color: '#0d47a1' }}>Pending Review: Generated Ledger Items</h4>
-                <div style={{ maxHeight: 300, overflowY: 'auto', overflowX: 'auto', width: '100%', marginBottom: 15 }}>
-                  <table className="table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
-                    <thead>
-                      <tr style={{ borderBottom: '2px solid #e0e0e0', textAlign: 'left' }}>
-                        <th style={{ padding: '8px 4px' }}>Approve</th>
-                        <th style={{ padding: '8px 4px' }}>Category</th>
-                        <th style={{ padding: '8px 4px' }}>Description</th>
-                        <th style={{ padding: '8px 4px' }}>Amount</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {pendingLedgerExpenses.map(item => (
-                        <tr key={item.id} style={{ borderBottom: '1px solid #eeeeee' }}>
-                          <td style={{ padding: '8px 4px', textAlign: 'center' }}>
-                            <input 
-                              type="checkbox" 
-                              checked={selectedExpensesToSubmit[item.id] || false} 
-                              onChange={(e) => setSelectedExpensesToSubmit(prev => ({ ...prev, [item.id]: e.target.checked }))} 
-                              style={{ width: 18, height: 18, cursor: 'pointer' }}
-                            />
-                          </td>
-                          <td style={{ padding: '8px 4px' }}>{item.category}</td>
-                          <td style={{ padding: '8px 4px' }}>{item.description}</td>
-                          <td style={{ padding: '8px 4px', fontWeight: 'bold' }}>{item.currency === 'USD' ? '$' : 'L$'}{item.amount}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
-                  <button onClick={() => setShowExpenseReview(false)} className="btn" style={{ background: '#f5f5f5', color: '#333' }}>Cancel</button>
-                  <button onClick={handleSubmitExpensesToLedger} className="btn btn-primary" style={{ background: '#2e7d32', border: 'none' }}>
-                    Approve to Generate Expenses
+              <div style={{ marginTop: 15, display: 'flex', flexDirection: 'column', gap: 15, background: 'rgba(255,255,255,0.4)', padding: '12px', borderRadius: '6px' }}>
+                <div style={{ display: 'flex', gap: 15, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label style={{ color: '#558b2f' }}>From Date</label>
+                    <input type="date" value={budgetFromDate} onChange={e => setBudgetFromDate(e.target.value)} style={{ border: '1px solid #cddc39' }} />
+                  </div>
+                  <div className="form-group" style={{ marginBottom: 0 }}>
+                    <label style={{ color: '#558b2f' }}>To Date</label>
+                    <input type="date" value={budgetToDate} onChange={e => setBudgetToDate(e.target.value)} style={{ border: '1px solid #cddc39' }} />
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleGeneratePayroll}
+                    className="btn btn-primary"
+                    disabled={!budgetFromDate || !budgetToDate}
+                    style={{ padding: '10px 16px', background: '#827717', color: 'white', border: 'none' }}
+                  >
+                    <Calculator size={16} style={{ marginRight: 6, display: 'inline-block', verticalAlign: 'text-bottom' }} />
+                    Generate Payroll Items
                   </button>
                 </div>
+                
+                <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', marginTop: '5px', padding: '8px', borderTop: '1px solid rgba(205, 220, 57, 0.4)' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', color: '#558b2f', cursor: 'pointer', fontWeight: 600 }}>
+                    <input type="checkbox" checked={genMgrChecked} onChange={e => setGenMgrChecked(e.target.checked)} style={{ width: '16px', height: '16px' }} />
+                    General Manager payment info
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', color: '#558b2f', cursor: 'pointer', fontWeight: 600 }}>
+                    <input type="checkbox" checked={asstMgrChecked} onChange={e => setAsstMgrChecked(e.target.checked)} style={{ width: '16px', height: '16px' }} />
+                    Assistant Manager payment info
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.82rem', color: '#558b2f', cursor: 'pointer', fontWeight: 600 }}>
+                    <input type="checkbox" checked={laborForceChecked} onChange={e => setLaborForceChecked(e.target.checked)} style={{ width: '16px', height: '16px' }} />
+                    Labor Force Payroll from Work Assignments
+                  </label>
+                </div>
               </div>
             )}
           </div>
+
 
           <h3 style={{ marginBottom: 15, display: 'flex', alignItems: 'center' }}>
             <Calculator size={18} style={{ marginRight: 8 }} /> {editingItemId ? 'Edit Line Item' : 'Add New Line Item'}
@@ -988,6 +973,60 @@ export default function BudgetTab() {
               </select>
             </div>
           </form>
+
+          {/* Budget to Ledger Linkage - Moved right below Item Form */}
+          <div style={{ marginTop: 20, marginBottom: 20, background: '#e3f2fd', padding: 20, borderRadius: 8, border: '1px solid #90caf9' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h3 style={{ color: '#1565c0', margin: 0 }}>Ledger Integration</h3>
+                <p style={{ color: '#1976d2', fontSize: '0.9rem', marginTop: 5 }}>Generate official finance expenses from approved budget items.</p>
+              </div>
+              <button onClick={handleGenerateExpenses} className="btn btn-primary" style={{ background: '#1565c0', border: 'none' }}>
+                <ArrowRightCircle size={18} style={{ marginRight: 6 }} /> Generate Ledger Items
+              </button>
+            </div>
+
+            {showExpenseReview && pendingLedgerExpenses.length > 0 && (
+              <div style={{ marginTop: 20, background: '#ffffff', padding: 15, borderRadius: 8, border: '1px solid #bbdefb' }}>
+                <h4 style={{ marginBottom: 15, color: '#0d47a1' }}>Pending Review: Generated Ledger Items</h4>
+                <div style={{ maxHeight: 300, overflowY: 'auto', overflowX: 'auto', width: '100%', marginBottom: 15 }}>
+                  <table className="table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.9rem' }}>
+                    <thead>
+                      <tr style={{ borderBottom: '2px solid #e0e0e0', textAlign: 'left' }}>
+                        <th style={{ padding: '8px 4px' }}>Approve</th>
+                        <th style={{ padding: '8px 4px' }}>Category</th>
+                        <th style={{ padding: '8px 4px' }}>Description</th>
+                        <th style={{ padding: '8px 4px' }}>Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {pendingLedgerExpenses.map(item => (
+                        <tr key={item.id} style={{ borderBottom: '1px solid #eeeeee' }}>
+                          <td style={{ padding: '8px 4px', textAlign: 'center' }}>
+                            <input 
+                              type="checkbox" 
+                              checked={selectedExpensesToSubmit[item.id] || false} 
+                              onChange={(e) => setSelectedExpensesToSubmit(prev => ({ ...prev, [item.id]: e.target.checked }))} 
+                              style={{ width: 18, height: 18, cursor: 'pointer' }}
+                            />
+                          </td>
+                          <td style={{ padding: '8px 4px' }}>{item.category}</td>
+                          <td style={{ padding: '8px 4px' }}>{item.description}</td>
+                          <td style={{ padding: '8px 4px', fontWeight: 'bold' }}>{item.currency === 'USD' ? '$' : 'L$'}{item.amount}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 10 }}>
+                  <button onClick={() => setShowExpenseReview(false)} className="btn" style={{ background: '#f5f5f5', color: '#333' }}>Cancel</button>
+                  <button onClick={handleSubmitExpensesToLedger} className="btn btn-primary" style={{ background: '#2e7d32', border: 'none' }}>
+                    Approve to Generate Expenses
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Filters Bar */}
           <div style={{ 
