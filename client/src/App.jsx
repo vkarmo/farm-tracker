@@ -1167,10 +1167,10 @@ export default function App() {
                     }}
                   >
                     {farmsList.length === 0 ? (
-                      <option value="default_farm" style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>NMK Farm</option>
+                      <option value="default_farm" style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>NMK FARM</option>
                     ) : (
                       farmsList.map(farm => (
-                        <option key={farm.id} value={farm.id} style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>{farm.name}</option>
+                        <option key={farm.id} value={farm.id} style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>{String(farm.name || '').toUpperCase()}</option>
                       ))
                     )}
                   </select>
