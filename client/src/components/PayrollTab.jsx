@@ -266,10 +266,11 @@ export default function PayrollTab() {
       let daysOff = 0;
 
       dateRange.forEach(dateStr => {
-        const status = empAttendance[dateStr] || '0';
+        const isNonWorkDay = numericNonWorkdays.includes(parseLocalDate(dateStr).getDay());
+        const status = isNonWorkDay ? '0' : (empAttendance[dateStr] || '1');
         if (status === '1') daysWorked++;
         else if (status === 'X') daysAbsent++;
-        else daysOff++;
+        else if (status === '0') daysOff++;
       });
 
       let rateDisplay = '';
