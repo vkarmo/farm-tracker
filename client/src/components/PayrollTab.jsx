@@ -31,6 +31,7 @@ export default function PayrollTab() {
   const budgets = useSelector(state => state.budgets?.list) || [];
   const activeBudget = budgets.find(b => b.status === 'Active') || {};
   const logo = useSelector(state => state.settings?.logo);
+  const nonWorkdays = useSelector(state => state.settings?.nonWorkdays) || [0];
 
   const generalManager = useMemo(() => {
     return employees.find(emp => {
@@ -119,6 +120,13 @@ export default function PayrollTab() {
   ]);
   const [attendance, setAttendance] = useState({});
 
+  const getMTWRFSUChar = (dateStr) => {
+    const date = new Date(dateStr);
+    const day = date.getDay();
+    const mapping = ['U', 'M', 'T', 'W', 'R', 'F', 'S'];
+    return mapping[day] || '';
+  };
+
   // Generate array of date objects within range
   const dateRange = useMemo(() => {
     const dates = [];
@@ -172,7 +180,7 @@ export default function PayrollTab() {
 
     setPulledEmployees(sorted);
 
-    // Initialize attendance: Sunday (0) as non-work day (0), all other days (including Saturday) as work day (1)
+    // Initialize attendance: default based on configured nonWorkdays setting
     const newAttendance = { ...attendance };
     sorted.forEach(emp => {
       if (!newAttendance[emp.id]) {
@@ -182,14 +190,14 @@ export default function PayrollTab() {
         if (newAttendance[emp.id][dateStr] === undefined) {
           const date = new Date(dateStr);
           const day = date.getDay();
-          newAttendance[emp.id][dateStr] = (day === 0) ? '0' : '1';
+          newAttendance[emp.id][dateStr] = nonWorkdays.includes(day) ? '0' : '1';
         }
       });
     });
     setAttendance(newAttendance);
   };
 
-  // Sync attendance slots if dates change (Saturdays default to 1, Sundays to 0)
+  // Sync attendance slots if dates change based on configured nonWorkdays setting
   useEffect(() => {
     if (pulledEmployees.length === 0) return;
     setAttendance(prev => {
@@ -200,13 +208,13 @@ export default function PayrollTab() {
           if (next[emp.id][dateStr] === undefined) {
             const date = new Date(dateStr);
             const day = date.getDay();
-            next[emp.id][dateStr] = (day === 0) ? '0' : '1';
+            next[emp.id][dateStr] = nonWorkdays.includes(day) ? '0' : '1';
           }
         });
       });
       return next;
     });
-  }, [dateRange, pulledEmployees]);
+  }, [dateRange, pulledEmployees, nonWorkdays]);
 
   const handleCycleStatus = (empId, dateStr) => {
     setAttendance(prev => {
@@ -923,10 +931,10 @@ export default function PayrollTab() {
                     {dateRange.map(dateStr => {
                       const parts = dateStr.split('-');
                       const label = `${parts[1]}/${parts[2]}`;
-                      const dayName = new Date(dateStr).toLocaleDateString('en-US', { weekday: 'short' });
+                      const dayName = getMTWRFSUChar(dateStr);
                       return (
                         <th key={dateStr} style={{ padding: '8px', textAlign: 'center', fontWeight: '700', color: '#475569', minWidth: '42px', borderLeft: '1px solid #f1f5f9' }} title={dateStr}>
-                          <div style={{ fontSize: '0.7rem', color: '#94a3b8', textTransform: 'uppercase' }}>{dayName}</div>
+                          <div style={{ fontSize: '0.75rem', color: '#475569', textTransform: 'uppercase', fontWeight: '800' }}>{dayName}</div>
                           <div>{label}</div>
                         </th>
                       );
@@ -1250,10 +1258,10 @@ export default function PayrollTab() {
                         {dateRange.map(dateStr => {
                           const parts = dateStr.split('-');
                           const label = `${parts[1]}/${parts[2]}`;
-                          const dayName = new Date(dateStr).toLocaleDateString('en-US', { weekday: 'short' });
+                          const dayName = getMTWRFSUChar(dateStr);
                           return (
                             <th key={dateStr} style={{ padding: '4px', textAlign: 'center', fontWeight: '700', color: '#475569', minWidth: '32px', borderLeft: '1px solid #f1f5f9' }}>
-                              <div style={{ fontSize: '0.6rem', color: '#94a3b8', textTransform: 'uppercase' }}>{dayName}</div>
+                              <div style={{ fontSize: '0.65rem', color: '#475569', textTransform: 'uppercase', fontWeight: '800' }}>{dayName}</div>
                               <div>{label}</div>
                             </th>
                           );

@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import Select from 'react-select';
 import { fetchFields } from './store/fieldsSlice';
-import { addUnit, removeUnit, addJobTitle, removeJobTitle, addExpenseCategory, removeExpenseCategory, addIncomeCategory, removeIncomeCategory, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold, setAppName, addAnimalType, removeAnimalType, saveSettings, setGeeClientEmail, setGeePrivateKey, setGeeProjectId, setGeeScale, setOwmApiKey, setThemeAppBgColor, setThemeCardBgColor, setThemeCardBorderColor, setThemeCardBorderThickness, setThemeAppBorderColor, setThemeAppBorderThickness, setThemeFontName, setThemeFontSizeBase, setThemeFontSizeCardTitle, setThemeFontSizeTabs, setThemeColorPrimary, setThemeColorCardTitle, setThemeColorTabsActiveBg, setThemeColorTabsActiveText, setThemeColorTabsInactiveBg, setThemeColorTabsInactiveText, setThemeFontAppName, setThemeFontSizeAppName, setThemeFontAppNameBold, setThemeFontAppNameCapitalize, setThemeFontSizeBaseBold, setThemeFontSizeBaseCapitalize, setThemeFontSizeCardTitleBold, setThemeFontSizeCardTitleCapitalize, setThemeFontSizeTabsBold, setThemeFontSizeTabsCapitalize, setThemeFontImager, setThemeFontSizeImager, setThemeFontImagerBold, setThemeFontImagerCapitalize, setMtnClientId, setMtnClientSecret, setMtnEnvironment, setSimulateHighWinds, setGoogleMapsApiKey, setGeminiApiKey, setClaudeApiKey, setAiProvider, setNeo4jUri, setNeo4jUser, setNeo4jPassword, setNeo4jDatabase, setWorkdayHours } from './store/settingsSlice';
+import { addUnit, removeUnit, addJobTitle, removeJobTitle, addExpenseCategory, removeExpenseCategory, addIncomeCategory, removeIncomeCategory, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold, setAppName, addAnimalType, removeAnimalType, saveSettings, setGeeClientEmail, setGeePrivateKey, setGeeProjectId, setGeeScale, setOwmApiKey, setThemeAppBgColor, setThemeCardBgColor, setThemeCardBorderColor, setThemeCardBorderThickness, setThemeAppBorderColor, setThemeAppBorderThickness, setThemeFontName, setThemeFontSizeBase, setThemeFontSizeCardTitle, setThemeFontSizeTabs, setThemeColorPrimary, setThemeColorCardTitle, setThemeColorTabsActiveBg, setThemeColorTabsActiveText, setThemeColorTabsInactiveBg, setThemeColorTabsInactiveText, setThemeFontAppName, setThemeFontSizeAppName, setThemeFontAppNameBold, setThemeFontAppNameCapitalize, setThemeFontSizeBaseBold, setThemeFontSizeBaseCapitalize, setThemeFontSizeCardTitleBold, setThemeFontSizeCardTitleCapitalize, setThemeFontSizeTabsBold, setThemeFontSizeTabsCapitalize, setThemeFontImager, setThemeFontSizeImager, setThemeFontImagerBold, setThemeFontImagerCapitalize, setMtnClientId, setMtnClientSecret, setMtnEnvironment, setSimulateHighWinds, setGoogleMapsApiKey, setGeminiApiKey, setClaudeApiKey, setAiProvider, setNeo4jUri, setNeo4jUser, setNeo4jPassword, setNeo4jDatabase, setWorkdayHours, setNonWorkdays } from './store/settingsSlice';
 import { addLocation } from './store/gpsSlice';
 import { queueAction, fetchInitialData, abortSync, clearAllData } from './store/syncSlice';
 import { MapSearchBox, MapFlyTo, FarmLocationButton } from './components/MapSearchBox';
@@ -356,6 +356,7 @@ export default function App() {
   const neo4jPassword = useSelector(state => state.settings?.neo4jPassword) || '';
   const neo4jDatabase = useSelector(state => state.settings?.neo4jDatabase) || '';
   const workdayHours = useSelector(state => state.settings?.workdayHours) ?? 7.0;
+  const nonWorkdays = useSelector(state => state.settings?.nonWorkdays) || [0];
   const employees = useSelector(state => state.employees?.list) || [];
   const themeAppBgColor = useSelector(state => state.settings?.themeAppBgColor) || '#eeeef1';
   const themeCardBgColor = useSelector(state => state.settings?.themeCardBgColor) || '#ffffff';
@@ -2839,6 +2840,47 @@ export default function App() {
                           />
                           <small style={{ display: 'block', marginTop: '6px', color: '#64748b' }}>
                             Specify the default number of hours in a single workday. Used for payroll worksheets and contract day tracking.
+                          </small>
+                        </div>
+
+                        <div style={{ marginBottom: 16, marginTop: 24 }}>
+                          <label style={{ fontWeight: '600', display: 'block', marginBottom: '8px' }}>Non-Work Days (Weekdays)</label>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '16px', marginTop: 12 }}>
+                            {[
+                              { val: 1, label: 'Monday (M)' },
+                              { val: 2, label: 'Tuesday (T)' },
+                              { val: 3, label: 'Wednesday (W)' },
+                              { val: 4, label: 'Thursday (R)' },
+                              { val: 5, label: 'Friday (F)' },
+                              { val: 6, label: 'Saturday (S)' },
+                              { val: 0, label: 'Sunday (U)' }
+                            ].map(dayObj => {
+                              const isChecked = nonWorkdays.includes(dayObj.val);
+                              return (
+                                <label key={dayObj.val} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer', fontSize: '0.9rem' }}>
+                                  <input
+                                    type="checkbox"
+                                    checked={isChecked}
+                                    disabled={currentUser?.role === 'Admin Viewer'}
+                                    onChange={() => {
+                                      let updated;
+                                      if (isChecked) {
+                                        updated = nonWorkdays.filter(d => d !== dayObj.val);
+                                      } else {
+                                        updated = [...nonWorkdays, dayObj.val];
+                                      }
+                                      dispatch(setNonWorkdays(updated));
+                                      dispatch(saveSettings());
+                                    }}
+                                    style={{ cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer' }}
+                                  />
+                                  {dayObj.label}
+                                </label>
+                              );
+                            })}
+                          </div>
+                          <small style={{ display: 'block', marginTop: '12px', color: '#64748b' }}>
+                            Check the days of the week that should default to non-work days (0) during payroll attendance initialization.
                           </small>
                         </div>
                       </div>
