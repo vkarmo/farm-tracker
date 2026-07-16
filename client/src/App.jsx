@@ -447,6 +447,8 @@ export default function App() {
   const [neo4jTesting, setNeo4jTesting] = useState(false);
   const [neo4jTestStatus, setNeo4jTestStatus] = useState(null);
   const [showNeo4jPassword, setShowNeo4jPassword] = useState(false);
+  const [hideDbInfo, setHideDbInfo] = useState(false);
+  const [dbVersion, setDbVersion] = useState('5.27-aura');
 
   const employeeOptions = useMemo(() => {
     return employees
@@ -473,6 +475,23 @@ export default function App() {
     };
     window.addEventListener('gee-status-change', handler);
     return () => window.removeEventListener('gee-status-change', handler);
+  }, []);
+
+  useEffect(() => {
+    const fetchDbVersion = async () => {
+      try {
+        const response = await fetch('/api/neo4j/server-credentials');
+        if (response.ok) {
+          const creds = await response.json();
+          if (creds.version) {
+            setDbVersion(creds.version);
+          }
+        }
+      } catch (err) {
+        console.error('Error fetching Neo4j version:', err);
+      }
+    };
+    fetchDbVersion();
   }, []);
 
   const handleTestGeeConnection = async () => {
@@ -1136,128 +1155,141 @@ export default function App() {
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               <h1 style={{ margin: 0, padding: 0 }}>{displayAppName}</h1>
               <span style={{ fontSize: '0.75rem', opacity: 0.8, marginTop: '2px' }}>Version: {CACHE_NAME}</span>
-              <div className="db-info" title="neo4j+s://3fa11aa8.databases.neo4j.io | User: 3fa11aa8" style={{ marginTop: '4px' }}>
-                <Database size={14} style={{ flexShrink: 0 }} /> <span>neo4j+s://3fa11aa8.databases.neo4j.io | User: 3fa11aa8</span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginTop: '4px', flexWrap: 'wrap' }}>
+                {isSyncing ? (
+                  <div className="status-indicator status-syncing header-status-indicator"><RefreshCw size={12} className="spin" /> Pushing to DB...</div>
+                ) : !isOnline ? (
+                  <div className="status-indicator status-offline header-status-indicator">
+                    <WifiOff size={12} /> Offline Cache Active
+                    {syncQueue.length > 0 && <span style={{ marginLeft: '4px' }}>({syncQueue.length})</span>}
+                  </div>
+                ) : !backendAvailable ? (
+                  <div className="status-indicator status-offline header-status-indicator" style={{ background: '#ffebee', color: '#c62828' }}>
+                    <WifiOff size={12} /> Offline
+                    {syncQueue.length > 0 && <span style={{ marginLeft: '4px' }}>({syncQueue.length})</span>}
+                  </div>
+                ) : (
+                  <div className="status-indicator status-online header-status-indicator"><Wifi size={12} /> Online</div>
+                )}
+                <div className="db-info" style={{ display: 'flex', alignItems: 'center', gap: '4px', margin: 0 }}>
+                  <Database size={14} style={{ flexShrink: 0 }} />
+                  {hideDbInfo ? (
+                    <span>Neo4j {dbVersion}</span>
+                  ) : (
+                    <span title={`${neo4jUri || 'neo4j+s://3fa11aa8.databases.neo4j.io'} | User: ${neo4jUser || '3fa11aa8'}`}>
+                      {neo4jUri || 'neo4j+s://3fa11aa8.databases.neo4j.io'} | User: {neo4jUser || '3fa11aa8'}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
           </div>
 
           <div className="header-right">
-            <div style={{ display: 'flex', gap: '16px', width: '100%', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
-              <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  <select
-                    value={activeFarmId}
-                    onChange={(e) => handleFarmChange(e.target.value)}
+            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: '6px', width: 'fit-content' }}>
+              <div style={{ display: 'flex', gap: '2px', background: '#f0f2f5', padding: '4px', borderRadius: '0', flexWrap: 'nowrap', justifyContent: 'flex-end', overflowX: 'auto', WebkitOverflowScrolling: 'touch', maxWidth: '100%' }}>
+                {hasModuleAccess('overview') && (
+                  <button onClick={() => handleModuleSwitch('overview')} className={`btn toolbar-btn ${activeModule === 'overview' && activeTab !== 'sync' ? 'btn-primary' : ''}`} style={{ background: activeModule === 'overview' && activeTab !== 'sync' ? '#2e7d32' : 'transparent', color: activeModule === 'overview' && activeTab !== 'sync' ? 'white' : '#555', borderColor: 'transparent' }} title="Overview Module">
+                    <Home size={18} />
+                  </button>
+                )}
+                {hasModuleAccess('agronomy') && (
+                  <button onClick={() => handleModuleSwitch('agronomy')} className={`btn toolbar-btn ${activeModule === 'agronomy' && activeTab !== 'sync' ? 'btn-primary' : ''}`} style={{ background: activeModule === 'agronomy' && activeTab !== 'sync' ? '#2e7d32' : 'transparent', color: activeModule === 'agronomy' && activeTab !== 'sync' ? 'white' : '#555', borderColor: 'transparent' }} title="Agronomy Module">
+                    <Leaf size={18} />
+                  </button>
+                )}
+                {hasModuleAccess('livestock') && (
+                  <button onClick={() => handleModuleSwitch('livestock')} className={`btn toolbar-btn ${activeModule === 'livestock' && activeTab !== 'sync' ? 'btn-primary' : ''}`} style={{ background: activeModule === 'livestock' && activeTab !== 'sync' ? '#2e7d32' : 'transparent', color: activeModule === 'livestock' && activeTab !== 'sync' ? 'white' : '#555', borderColor: 'transparent' }} title="Livestock Module">
+                    <Rabbit size={18} />
+                  </button>
+                )}
+                {hasModuleAccess('finance') && (
+                  <button onClick={() => handleModuleSwitch('finance')} className={`btn toolbar-btn ${activeModule === 'finance' && activeTab !== 'sync' ? 'btn-primary' : ''}`} style={{ background: activeModule === 'finance' && activeTab !== 'sync' ? '#2e7d32' : 'transparent', color: activeModule === 'finance' && activeTab !== 'sync' ? 'white' : '#555', borderColor: 'transparent' }} title="Financials Module">
+                    <DollarSign size={18} />
+                  </button>
+                )}
+                {hasModuleAccess('operations') && (
+                  <button onClick={() => handleModuleSwitch('operations')} className={`btn toolbar-btn ${activeModule === 'operations' && activeTab !== 'sync' ? 'btn-primary' : ''}`} style={{ background: activeModule === 'operations' && activeTab !== 'sync' ? '#2e7d32' : 'transparent', color: activeModule === 'operations' && activeTab !== 'sync' ? 'white' : '#555', borderColor: 'transparent' }} title="Operations Module">
+                    <Users size={18} />
+                  </button>
+                )}
+
+                <div style={{ width: '1px', background: '#ccc', margin: '4px 2px', flexShrink: 0 }}></div>
+
+                {hasAccess('messaging') && (
+                  <button onClick={() => { setActiveTab('messaging'); setActiveModule(null); }} className={`btn toolbar-btn ${activeTab === 'messaging' ? 'btn-primary' : ''}`} style={{ background: activeTab === 'messaging' ? '#2e7d32' : 'transparent', color: activeTab === 'messaging' ? 'white' : '#555', borderColor: 'transparent' }} title="Messaging">
+                    <MessageSquare size={18} />
+                  </button>
+                )}
+
+                <button onClick={() => setActiveTab('sync')} className={`btn toolbar-btn system-sync-btn ${activeTab === 'sync' ? 'btn-primary' : ''}`} style={{ background: activeTab === 'sync' ? (!backendAvailable ? '#d32f2f' : '#1565c0') : 'transparent', color: activeTab === 'sync' ? 'white' : (!backendAvailable ? '#d32f2f' : '#1565c0'), borderColor: 'transparent' }} title="System Sync">
+                  <RefreshCw size={18} />
+                </button>
+
+                {(currentUser?.role === 'Admin' || currentUser?.role === 'Admin Viewer') && (
+                  <button onClick={() => handleModuleSwitch('admin')} className={`btn toolbar-btn ${activeModule === 'admin' && activeTab !== 'sync' ? 'btn-primary' : ''}`} style={{ background: activeModule === 'admin' && activeTab !== 'sync' ? '#c62828' : 'transparent', color: activeModule === 'admin' && activeTab !== 'sync' ? 'white' : '#c62828', borderColor: 'transparent' }} title="Admin Module">
+                    <Settings size={18} />
+                  </button>
+                )}
+
+                <button onClick={() => { if (window.confirm('Sign out and lock offline data?')) dispatch(logout()) }} className="btn toolbar-btn" style={{ background: 'transparent', color: 'var(--color-primary-dark)', borderColor: 'transparent' }} title="Logout">
+                  <LogOut size={18} />
+                </button>
+              </div>
+
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', width: '100%', marginTop: '2px' }}>
+                <select
+                  value={activeFarmId}
+                  onChange={(e) => handleFarmChange(e.target.value)}
+                  style={{
+                    flex: 1,
+                    padding: '2px 3px',
+                    borderRadius: '2px',
+                    border: '1px solid #cbd5e1',
+                    background: 'white',
+                    color: '#334155',
+                    fontSize: '0.65rem',
+                    fontWeight: '600',
+                    cursor: 'pointer',
+                    outline: 'none',
+                    minWidth: '160px',
+                    whiteSpace: 'normal',
+                    wordBreak: 'break-word'
+                  }}
+                >
+                  {farmsList.length === 0 ? (
+                    <option value="default_farm" style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>NMK FARM</option>
+                  ) : (
+                    farmsList.map(farm => (
+                      <option key={farm.id} value={farm.id} style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>{String(farm.name || '').toUpperCase()}</option>
+                    ))
+                  )}
+                </select>
+                {currentUser?.email === 'vkarmo@gmail.com' && (
+                  <button
+                    onClick={handleCreateFarm}
+                    title="Create Farm"
                     style={{
-                      padding: '2px 3px',
-                      borderRadius: '2px',
-                      border: '1px solid #cbd5e1',
-                      background: 'white',
-                      color: '#334155',
-                      fontSize: '0.65rem',
-                      fontWeight: '600',
+                      width: '30px',
+                      height: '30px',
+                      borderRadius: '50%',
+                      border: 'none',
+                      background: '#2e7d32',
+                      color: 'white',
+                      fontSize: '1.25rem',
+                      fontWeight: 'bold',
                       cursor: 'pointer',
-                      outline: 'none',
-                      minWidth: '160px',
-                      maxWidth: '280px',
-                      width: 'auto',
-                      whiteSpace: 'normal',
-                      wordBreak: 'break-word'
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      lineHeight: 1,
+                      padding: 0
                     }}
                   >
-                    {farmsList.length === 0 ? (
-                      <option value="default_farm" style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>NMK FARM</option>
-                    ) : (
-                      farmsList.map(farm => (
-                        <option key={farm.id} value={farm.id} style={{ whiteSpace: 'normal', wordBreak: 'break-word' }}>{String(farm.name || '').toUpperCase()}</option>
-                      ))
-                    )}
-                  </select>
-                  {currentUser?.email === 'vkarmo@gmail.com' && (
-                    <button
-                      onClick={handleCreateFarm}
-                      style={{
-                        padding: '4px 8px',
-                        borderRadius: '4px',
-                        border: 'none',
-                        background: '#2e7d32',
-                        color: 'white',
-                        fontSize: '0.8rem',
-                        fontWeight: '600',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      + Create Farm
-                    </button>
-                  )}
-                </div>
+                    +
+                  </button>
+                )}
               </div>
-              {isSyncing ? (
-                <div className="status-indicator status-syncing header-status-indicator"><RefreshCw size={16} className="spin" /> Pushing to DB...</div>
-              ) : !isOnline ? (
-                <div className="status-indicator status-offline header-status-indicator">
-                  <WifiOff size={16} /> Offline Cache Active
-                  {syncQueue.length > 0 && <span style={{ marginLeft: '4px' }}>({syncQueue.length} pending writes)</span>}
-                </div>
-              ) : !backendAvailable ? (
-                <div className="status-indicator status-offline header-status-indicator" style={{ background: '#ffebee', color: '#c62828' }}>
-                  <WifiOff size={16} /> Offline
-                  {syncQueue.length > 0 && <span style={{ marginLeft: '4px' }}>({syncQueue.length} pending writes)</span>}
-                </div>
-              ) : (
-                <div className="status-indicator status-online header-status-indicator"><Wifi size={16} /> Online</div>
-              )}
-            </div>
-
-            <div style={{ display: 'flex', gap: '2px', background: '#f0f2f5', padding: '4px', borderRadius: '0', alignSelf: 'flex-end', flexWrap: 'nowrap', justifyContent: 'flex-end', overflowX: 'auto', WebkitOverflowScrolling: 'touch', maxWidth: '100%' }}>
-              {hasModuleAccess('overview') && (
-                <button onClick={() => handleModuleSwitch('overview')} className={`btn toolbar-btn ${activeModule === 'overview' && activeTab !== 'sync' ? 'btn-primary' : ''}`} style={{ background: activeModule === 'overview' && activeTab !== 'sync' ? '#2e7d32' : 'transparent', color: activeModule === 'overview' && activeTab !== 'sync' ? 'white' : '#555', borderColor: 'transparent' }} title="Overview Module">
-                  <Home size={18} />
-                </button>
-              )}
-              {hasModuleAccess('agronomy') && (
-                <button onClick={() => handleModuleSwitch('agronomy')} className={`btn toolbar-btn ${activeModule === 'agronomy' && activeTab !== 'sync' ? 'btn-primary' : ''}`} style={{ background: activeModule === 'agronomy' && activeTab !== 'sync' ? '#2e7d32' : 'transparent', color: activeModule === 'agronomy' && activeTab !== 'sync' ? 'white' : '#555', borderColor: 'transparent' }} title="Agronomy Module">
-                  <Leaf size={18} />
-                </button>
-              )}
-              {hasModuleAccess('livestock') && (
-                <button onClick={() => handleModuleSwitch('livestock')} className={`btn toolbar-btn ${activeModule === 'livestock' && activeTab !== 'sync' ? 'btn-primary' : ''}`} style={{ background: activeModule === 'livestock' && activeTab !== 'sync' ? '#2e7d32' : 'transparent', color: activeModule === 'livestock' && activeTab !== 'sync' ? 'white' : '#555', borderColor: 'transparent' }} title="Livestock Module">
-                  <Rabbit size={18} />
-                </button>
-              )}
-              {hasModuleAccess('finance') && (
-                <button onClick={() => handleModuleSwitch('finance')} className={`btn toolbar-btn ${activeModule === 'finance' && activeTab !== 'sync' ? 'btn-primary' : ''}`} style={{ background: activeModule === 'finance' && activeTab !== 'sync' ? '#2e7d32' : 'transparent', color: activeModule === 'finance' && activeTab !== 'sync' ? 'white' : '#555', borderColor: 'transparent' }} title="Financials Module">
-                  <DollarSign size={18} />
-                </button>
-              )}
-              {hasModuleAccess('operations') && (
-                <button onClick={() => handleModuleSwitch('operations')} className={`btn toolbar-btn ${activeModule === 'operations' && activeTab !== 'sync' ? 'btn-primary' : ''}`} style={{ background: activeModule === 'operations' && activeTab !== 'sync' ? '#2e7d32' : 'transparent', color: activeModule === 'operations' && activeTab !== 'sync' ? 'white' : '#555', borderColor: 'transparent' }} title="Operations Module">
-                  <Users size={18} />
-                </button>
-              )}
-
-              <div style={{ width: '1px', background: '#ccc', margin: '4px 2px', flexShrink: 0 }}></div>
-
-              {hasAccess('messaging') && (
-                <button onClick={() => { setActiveTab('messaging'); setActiveModule(null); }} className={`btn toolbar-btn ${activeTab === 'messaging' ? 'btn-primary' : ''}`} style={{ background: activeTab === 'messaging' ? '#2e7d32' : 'transparent', color: activeTab === 'messaging' ? 'white' : '#555', borderColor: 'transparent' }} title="Messaging">
-                  <MessageSquare size={18} />
-                </button>
-              )}
-
-              <button onClick={() => setActiveTab('sync')} className={`btn toolbar-btn system-sync-btn ${activeTab === 'sync' ? 'btn-primary' : ''}`} style={{ background: activeTab === 'sync' ? (!backendAvailable ? '#d32f2f' : '#1565c0') : 'transparent', color: activeTab === 'sync' ? 'white' : (!backendAvailable ? '#d32f2f' : '#1565c0'), borderColor: 'transparent' }} title="System Sync">
-                <RefreshCw size={18} />
-              </button>
-
-              {(currentUser?.role === 'Admin' || currentUser?.role === 'Admin Viewer') && (
-                <button onClick={() => handleModuleSwitch('admin')} className={`btn toolbar-btn ${activeModule === 'admin' && activeTab !== 'sync' ? 'btn-primary' : ''}`} style={{ background: activeModule === 'admin' && activeTab !== 'sync' ? '#c62828' : 'transparent', color: activeModule === 'admin' && activeTab !== 'sync' ? 'white' : '#c62828', borderColor: 'transparent' }} title="Admin Module">
-                  <Settings size={18} />
-                </button>
-              )}
-
-              <button onClick={() => { if (window.confirm('Sign out and lock offline data?')) dispatch(logout()) }} className="btn toolbar-btn" style={{ background: 'transparent', color: 'var(--color-primary-dark)', borderColor: 'transparent' }} title="Logout">
-                <LogOut size={18} />
-              </button>
             </div>
           </div>
         </header>
@@ -2711,7 +2743,7 @@ export default function App() {
                           Configure credentials for your Neo4j instance. These credentials will be stored in your global application settings.
                         </p>
 
-                        <div style={{ marginBottom: 20 }}>
+                        <div style={{ marginBottom: 20, display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
                           <button
                             type="button"
                             onClick={handleLoadDefaultNeo4jCredentials}
@@ -2720,6 +2752,22 @@ export default function App() {
                             style={{ background: '#37474f', color: 'white', padding: '6px 12px', fontSize: '0.85rem', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer' }}
                           >
                             Load Server Defaults
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setHideDbInfo(!hideDbInfo)}
+                            className="btn"
+                            style={{
+                              background: hideDbInfo ? '#0284c7' : '#475569',
+                              color: 'white',
+                              padding: '6px 12px',
+                              fontSize: '0.85rem',
+                              cursor: 'pointer',
+                              border: 'none',
+                              fontWeight: 600
+                            }}
+                          >
+                            {hideDbInfo ? 'Show Db credentials in App Header' : 'Hide Db credentials in App Header'}
                           </button>
                         </div>
 

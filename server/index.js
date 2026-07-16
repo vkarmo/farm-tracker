@@ -653,11 +653,24 @@ app.post('/api/neo4j/test-connection', async (req, res) => {
 
 // Retrieve server Neo4j credentials
 app.get('/api/neo4j/server-credentials', async (req, res) => {
+  let version = '5.27-aura';
+  try {
+    const session = driver.session();
+    const result = await session.run('CALL dbms.components() YIELD versions RETURN versions[0] AS version');
+    if (result.records.length > 0) {
+      version = result.records[0].get('version');
+    }
+    await session.close();
+  } catch (err) {
+    console.error('Failed to retrieve Neo4j version:', err);
+  }
+
   res.json({
     uri: process.env.NEO4J_URI || 'bolt://localhost:7687',
     username: process.env.NEO4J_USER || 'neo4j',
     password: process.env.NEO4J_PASSWORD || 'password',
-    database: process.env.NEO4J_DATABASE || ''
+    database: process.env.NEO4J_DATABASE || '',
+    version: version
   });
 });
 
