@@ -145,6 +145,7 @@ export default function DashboardTab() {
   const [activeDashboardTab, setActiveDashboardTab] = useState('assignments');
   const [primaryView, setPrimaryView] = useState('assignments_view');
   const [selectedNodeId, setSelectedNodeId] = useState(null);
+  const [collapsedColumns, setCollapsedColumns] = useState({});
   const [selectedCropIds, setSelectedCropIds] = useState([]);
   const [harvestFromDate, setHarvestFromDate] = useState('');
   const [harvestToDate, setHarvestToDate] = useState('');
@@ -358,6 +359,70 @@ export default function DashboardTab() {
       }}>
         {COLUMNS.map(col => {
           const colAssignments = assignments.filter(a => (a.reviewStatus || 'Pending Review') === col.status);
+          const isCollapsed = collapsedColumns[col.status];
+
+          if (isCollapsed) {
+            return (
+              <div
+                key={col.status}
+                style={{
+                  width: '45px',
+                  flexShrink: 0,
+                  background: '#f8fafc',
+                  borderRadius: '8px',
+                  border: '1px solid #cbd5e1',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  padding: '12px 4px',
+                  boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)',
+                  cursor: 'pointer'
+                }}
+                onClick={() => setCollapsedColumns(prev => ({ ...prev, [col.status]: false }))}
+                title={`Expand ${col.label}`}
+              >
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', width: '100%' }}>
+                  <button
+                    type="button"
+                    style={{
+                      border: 'none',
+                      background: 'transparent',
+                      cursor: 'pointer',
+                      color: col.color,
+                      fontWeight: 'bold',
+                      fontSize: '0.85rem',
+                      padding: '2px'
+                    }}
+                  >
+                    ▶
+                  </button>
+                  <span style={{
+                    fontSize: '0.75rem',
+                    fontWeight: 700,
+                    background: 'white',
+                    color: col.color,
+                    padding: '2px 6px',
+                    borderRadius: '10px',
+                    border: `1px solid ${col.color}`
+                  }}>
+                    {colAssignments.length}
+                  </span>
+                </div>
+                <div style={{
+                  marginTop: '20px',
+                  fontSize: '0.75rem',
+                  fontWeight: 800,
+                  color: col.color,
+                  writingMode: 'vertical-lr',
+                  textTransform: 'uppercase',
+                  letterSpacing: '1px',
+                  whiteSpace: 'nowrap'
+                }}>
+                  {col.label}
+                </div>
+              </div>
+            );
+          }
 
           return (
             <div
@@ -384,9 +449,33 @@ export default function DashboardTab() {
                 justifyContent: 'space-between',
                 alignItems: 'center'
               }}>
-                <span style={{ fontSize: '0.8rem', fontWeight: 800, color: col.color }}>
-                  {col.label}
-                </span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setCollapsedColumns(prev => ({ ...prev, [col.status]: true }));
+                    }}
+                    style={{
+                      border: 'none',
+                      background: 'transparent',
+                      cursor: 'pointer',
+                      color: col.color,
+                      fontWeight: 'bold',
+                      fontSize: '0.85rem',
+                      padding: '2px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}
+                    title="Collapse column"
+                  >
+                    ◀
+                  </button>
+                  <span style={{ fontSize: '0.8rem', fontWeight: 800, color: col.color }}>
+                    {col.label}
+                  </span>
+                </div>
                 <span style={{
                   fontSize: '0.75rem',
                   fontWeight: 700,
@@ -439,7 +528,7 @@ export default function DashboardTab() {
                           <span style={{ fontWeight: 700, color: '#0f172a', fontSize: '0.85rem', lineHeight: '1.2' }}>
                             {ass.task}
                           </span>
-                          <div style={{ display: 'flex', gap: '4px' }}>
+                          <div style={{ display: 'flex', gap: '4px', flexShrink: 0 }}>
                             <button
                               onClick={() => {
                                 dispatch(setEditingAssignmentId(ass.id));

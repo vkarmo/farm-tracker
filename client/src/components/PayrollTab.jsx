@@ -75,6 +75,7 @@ export default function PayrollTab() {
   const [editingId, setEditingId] = useState(null);
   const [showReportModal, setShowReportModal] = useState(false);
   const [generatedFile, setGeneratedFile] = useState(null);
+  const [showCancelConfirm, setShowCancelConfirm] = useState(false);
 
   // Responsive state
   const [isMobile, setIsMobile] = useState(window.innerWidth < 768);
@@ -749,12 +750,7 @@ export default function PayrollTab() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: isMobile ? 'stretch' : 'center', flexDirection: isMobile ? 'column' : 'row', gap: '14px', marginBottom: '20px', borderBottom: '1px solid #f1f5f9', paddingBottom: '14px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
               <button
-                onClick={() => {
-                  if (window.confirm('Cancel worksheet editor? Unsaved entries will be lost.')) {
-                    setViewMode('list');
-                    setEditingId(null);
-                  }
-                }}
+                onClick={() => setShowCancelConfirm(true)}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', alignItems: 'center', color: '#64748b' }}
               >
                 <ArrowLeft size={20} />
@@ -791,12 +787,7 @@ export default function PayrollTab() {
 
               <button
                 type="button"
-                onClick={() => {
-                  if (window.confirm('Cancel worksheet editor? Unsaved entries will be lost.')) {
-                    setViewMode('list');
-                    setEditingId(null);
-                  }
-                }}
+                onClick={() => setShowCancelConfirm(true)}
                 style={{
                   padding: '9px 14px',
                   backgroundColor: 'white',
@@ -1672,6 +1663,76 @@ export default function PayrollTab() {
                 style={{ width: '100%', padding: '10px', background: '#e2e8f0', color: '#475569', border: 'none', marginTop: '10px' }}
               >
                 Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showCancelConfirm && (
+        <div style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background: 'rgba(15, 23, 42, 0.65)',
+          backdropFilter: 'blur(4px)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 99999,
+          padding: '16px'
+        }}>
+          <div style={{
+            background: 'white',
+            borderRadius: '12px',
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+            width: '100%',
+            maxWidth: '400px',
+            padding: '24px',
+            textAlign: 'center'
+          }}>
+            <h4 style={{ margin: '0 0 10px 0', fontSize: '1.1rem', color: '#1e293b', fontWeight: '700' }}>Cancel Editing?</h4>
+            <p style={{ margin: '0 0 24px 0', fontSize: '0.85rem', color: '#64748b', lineHeight: '1.5' }}>
+              Are you sure you want to cancel the worksheet editor? Unsaved entries will be lost.
+            </p>
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+              <button
+                onClick={() => setShowCancelConfirm(false)}
+                style={{
+                  flex: 1,
+                  padding: '10px 16px',
+                  background: '#f1f5f9',
+                  color: '#475569',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: '6px',
+                  fontWeight: '600',
+                  fontSize: '0.85rem',
+                  cursor: 'pointer'
+                }}
+              >
+                No, Keep Editing
+              </button>
+              <button
+                onClick={() => {
+                  setShowCancelConfirm(false);
+                  setViewMode('list');
+                  setEditingId(null);
+                }}
+                style={{
+                  flex: 1,
+                  padding: '10px 16px',
+                  background: '#ef4444',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  fontWeight: '600',
+                  fontSize: '0.85rem',
+                  cursor: 'pointer'
+                }}
+              >
+                Yes, Cancel
               </button>
             </div>
           </div>
