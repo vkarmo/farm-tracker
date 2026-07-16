@@ -1326,7 +1326,7 @@ export default function App() {
           )}
         </nav>
 
-        <main className={`container ${['map', 'field', 'nursery', 'soilTests', 'equipment', 'gps', 'poi', 'settings', 'pest', 'livestock', 'livestockDiseases', 'payroll'].includes(activeTab) ? 'container-wide' : ''} ${currentUser?.role === 'Viewer' || currentUser?.role === 'Admin Viewer' ? 'role-viewer' : ''}`} style={{ marginTop: '20px' }}>
+        <main className={`container ${['dashboard', 'map', 'field', 'nursery', 'soilTests', 'equipment', 'gps', 'poi', 'settings', 'pest', 'livestock', 'livestockDiseases', 'payroll'].includes(activeTab) ? 'container-wide' : ''} ${currentUser?.role === 'Viewer' || currentUser?.role === 'Admin Viewer' ? 'role-viewer' : ''}`} style={{ marginTop: '20px' }}>
 
           {activeTab === 'dashboard' && <DashboardTab />}
           {activeTab === 'map' && (
