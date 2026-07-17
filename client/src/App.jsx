@@ -1360,42 +1360,42 @@ export default function App() {
 
         <main className={`container ${['dashboard', 'map', 'field', 'nursery', 'soilTests', 'equipment', 'gps', 'poi', 'settings', 'pest', 'livestock', 'livestockDiseases', 'payroll'].includes(activeTab) ? 'container-wide' : ''} ${currentUser?.role === 'Viewer' || currentUser?.role === 'Admin Viewer' ? 'role-viewer' : ''}`} style={{ marginTop: '20px' }}>
 
-          {activeTab === 'dashboard' && <DashboardTab />}
+          {activeTab === 'dashboard' && <DashboardTab key={activeFarmId} />}
           {activeTab === 'map' && (
-            <div className="card" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 180px)' }}>
+            <div key={activeFarmId} className="card" style={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 180px)' }}>
               <h2>Farm Overview Map</h2>
               <MapLayer fields={fields} nurseries={nurseries} equipment={equipment} />
             </div>
           )}
-          {activeTab === 'poi' && <PoiTab />}
+          {activeTab === 'poi' && <PoiTab key={activeFarmId} />}
 
           {/* Modular Entity CRUD Component Wrappers */}
-          {activeTab === 'field' && <FieldTab />}
-          {activeTab === 'nursery' && <NurseryTab />}
-          {activeTab === 'crop' && <CropTab />}
-          {activeTab === 'soilTests' && <SoilTestingTab />}
-          {activeTab === 'pest' && <PestTab />}
-          {/* {activeTab === 'activity' && <ActivityTab />} */}
-          {activeTab === 'deadline' && <DeadlineTab />}
-          {activeTab === 'incident' && <IncidentTab />}
-          {activeTab === 'harvest' && <HarvestTab />}
-          {activeTab === 'livestock' && <LivestockTab />}
-          {activeTab === 'kits' && <KitsTab />}
-          {activeTab === 'breeding' && <BreedingTab />}
-          {activeTab === 'livestockDiseases' && <LivestockDiseaseTab />}
-          {activeTab === 'employee' && <EmployeeTab />}
-          {activeTab === 'equipment' && <EquipmentTab />}
-          {activeTab === 'assignment' && <AssignmentTab />}
-          {activeTab === 'planning' && <PlanningTab />}
-          {activeTab === 'payroll' && <PayrollTab />}
-          {activeTab === 'finance' && <FinanceTab />}
-          {activeTab === 'sync' && <SyncTab />}
-          {activeTab === 'budget' && <BudgetTab />}
-          {activeTab === 'admin' && <AdminTab />}
-          {activeTab === 'access' && <AccessControlTab />}
-          {activeTab === 'audit' && <AuditTab />}
-          {activeTab === 'gps' && <GpsLogTab />}
-          {activeTab === 'messaging' && <MessagingTab />}
+          {activeTab === 'field' && <FieldTab key={activeFarmId} />}
+          {activeTab === 'nursery' && <NurseryTab key={activeFarmId} />}
+          {activeTab === 'crop' && <CropTab key={activeFarmId} />}
+          {activeTab === 'soilTests' && <SoilTestingTab key={activeFarmId} />}
+          {activeTab === 'pest' && <PestTab key={activeFarmId} />}
+          {/* {activeTab === 'activity' && <ActivityTab key={activeFarmId} />} */}
+          {activeTab === 'deadline' && <DeadlineTab key={activeFarmId} />}
+          {activeTab === 'incident' && <IncidentTab key={activeFarmId} />}
+          {activeTab === 'harvest' && <HarvestTab key={activeFarmId} />}
+          {activeTab === 'livestock' && <LivestockTab key={activeFarmId} />}
+          {activeTab === 'kits' && <KitsTab key={activeFarmId} />}
+          {activeTab === 'breeding' && <BreedingTab key={activeFarmId} />}
+          {activeTab === 'livestockDiseases' && <LivestockDiseaseTab key={activeFarmId} />}
+          {activeTab === 'employee' && <EmployeeTab key={activeFarmId} />}
+          {activeTab === 'equipment' && <EquipmentTab key={activeFarmId} />}
+          {activeTab === 'assignment' && <AssignmentTab key={activeFarmId} />}
+          {activeTab === 'planning' && <PlanningTab key={activeFarmId} />}
+          {activeTab === 'payroll' && <PayrollTab key={activeFarmId} />}
+          {activeTab === 'finance' && <FinanceTab key={activeFarmId} />}
+          {activeTab === 'sync' && <SyncTab key={activeFarmId} />}
+          {activeTab === 'budget' && <BudgetTab key={activeFarmId} />}
+          {activeTab === 'admin' && <AdminTab key={activeFarmId} />}
+          {activeTab === 'access' && <AccessControlTab key={activeFarmId} />}
+          {activeTab === 'audit' && <AuditTab key={activeFarmId} />}
+          {activeTab === 'gps' && <GpsLogTab key={activeFarmId} />}
+          {activeTab === 'messaging' && <MessagingTab key={activeFarmId} />}
 
           {activeTab === 'settings' && (currentUser?.role === 'Admin' || currentUser?.role === 'Admin Viewer') && (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>

@@ -1507,11 +1507,24 @@ export default function DashboardTab() {
 
       <div style={{ display: 'flex', flexDirection: 'column', gap: '0px' }}>
         {/* Sub-Tabs Selector */}
-        <div style={{ display: 'flex', gap: '4px', background: '#f1f5f9', padding: '3px', borderRadius: '8px', width: '100%', flexWrap: 'nowrap' }}>
+        <div
+          className="hide-scrollbar"
+          style={{
+            display: 'flex',
+            gap: '0px',
+            background: '#f1f5f9',
+            padding: '3px',
+            borderRadius: '8px',
+            width: '100%',
+            flexWrap: 'nowrap',
+            overflowX: 'auto',
+            WebkitOverflowScrolling: 'touch'
+          }}
+        >
           <button
             onClick={() => setActiveDashboardTab('assignments')}
             style={{
-              flex: 1,
+              flex: '1 0 auto',
               padding: '6px 12px',
               borderRadius: '6px',
               border: 'none',
@@ -1529,7 +1542,7 @@ export default function DashboardTab() {
           <button
             onClick={() => setActiveDashboardTab('incidents')}
             style={{
-              flex: 1,
+              flex: '1 0 auto',
               padding: '6px 12px',
               borderRadius: '6px',
               border: 'none',
@@ -1547,7 +1560,7 @@ export default function DashboardTab() {
           <button
             onClick={() => setActiveDashboardTab('deadlines')}
             style={{
-              flex: 1,
+              flex: '1 0 auto',
               padding: '6px 12px',
               borderRadius: '6px',
               border: 'none',
@@ -1565,7 +1578,7 @@ export default function DashboardTab() {
           <button
             onClick={() => setActiveDashboardTab('weather')}
             style={{
-              flex: 1,
+              flex: '1 0 auto',
               padding: '6px 12px',
               borderRadius: '6px',
               border: 'none',
@@ -1583,7 +1596,7 @@ export default function DashboardTab() {
           <button
             onClick={() => setActiveDashboardTab('harvests')}
             style={{
-              flex: 1,
+              flex: '1 0 auto',
               padding: '6px 12px',
               borderRadius: '6px',
               border: 'none',
@@ -1601,7 +1614,7 @@ export default function DashboardTab() {
           <button
             onClick={() => setActiveDashboardTab('financials')}
             style={{
-              flex: 1,
+              flex: '1 0 auto',
               padding: '6px 12px',
               borderRadius: '6px',
               border: 'none',
@@ -1953,7 +1966,20 @@ export default function DashboardTab() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
 
             {/* Top-level view selector */}
-            <div style={{ display: 'flex', gap: '8px', marginBottom: '0', background: '#f1f5f9', padding: '3px', borderRadius: '8px', width: '100%' }}>
+            <div
+              className="hide-scrollbar"
+              style={{
+                display: 'flex',
+                gap: '0px',
+                marginBottom: '0',
+                background: '#f1f5f9',
+                padding: '3px',
+                borderRadius: '8px',
+                width: '100%',
+                overflowX: 'auto',
+                WebkitOverflowScrolling: 'touch'
+              }}
+            >
               {[
                 { key: 'assignments_view', label: 'Assignments View' },
                 { key: 'tree', label: 'Planning Tree View' },
@@ -1965,7 +1991,7 @@ export default function DashboardTab() {
                   type="button"
                   onClick={() => setPrimaryView(tab.key)}
                   style={{
-                    flex: 1,
+                    flex: '1 0 auto',
                     padding: '4px 8px',
                     borderRadius: '6px',
                     border: 'none',

@@ -874,3 +874,11 @@ body.is-saved button[type="button"] {
 th, td {
   vertical-align: top;
 }
+
+.hide-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
