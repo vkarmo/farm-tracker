@@ -83,6 +83,7 @@ export default function App() {
   const [farmsList, setFarmsList] = useState([]);
   const [isFarmLoading, setIsFarmLoading] = useState(false);
   const [switchingToFarmId, setSwitchingToFarmId] = useState(null);
+  const [hasLoadedInitialFarm, setHasLoadedInitialFarm] = useState(false);
 
   // Clear active farm from localStorage if the logged-in user changes (including simulation mode)
   useEffect(() => {
@@ -93,12 +94,18 @@ export default function App() {
         localStorage.setItem('lastUserEmail', currentUser.email);
         setActiveFarmId('default_farm');
       }
+      setHasLoadedInitialFarm(false);
     } else {
       localStorage.removeItem('lastUserEmail');
+      setHasLoadedInitialFarm(false);
     }
   }, [currentUser]);
 
   const determineDefaultFarm = (farms) => {
+    if (currentUser && currentUser.email === 'vkarmo@gmail.com') {
+      return 'default_farm';
+    }
+
     if (!farms || farms.length === 0) return 'default_farm';
 
     // Helper to identify viewing rights (Viewer, Admin Viewer, or any role containing 'viewer' case-insensitively)
@@ -134,11 +141,17 @@ export default function App() {
 
         // Determine default farm
         const defaultFarmId = determineDefaultFarm(data);
-        const storedFarmId = localStorage.getItem('activeFarmId');
-        const isStoredValid = data.some(f => f.id === storedFarmId);
 
-        if (!storedFarmId || !isStoredValid) {
+        if (!hasLoadedInitialFarm) {
           handleFarmChange(defaultFarmId);
+          setHasLoadedInitialFarm(true);
+        } else {
+          // If we already loaded initial farm, but stored farm is no longer valid, fallback
+          const storedFarmId = localStorage.getItem('activeFarmId');
+          const isStoredValid = data.some(f => f.id === storedFarmId);
+          if (!isStoredValid) {
+            handleFarmChange(defaultFarmId);
+          }
         }
       }
     } catch (err) {
