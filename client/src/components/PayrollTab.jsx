@@ -485,7 +485,8 @@ export default function PayrollTab() {
     csvContent += `,,,Combined Total (LRD),,,,,${summaryTotals.combinedLRD.toFixed(2)} LRD\n`;
 
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const filename = `payroll_report_${fromDate}_to_${toDate}.csv`;
+    const todayStr = new Date().toISOString().split('T')[0];
+    const filename = `Payroll Report ${fromDate} to ${toDate} ${todayStr}.csv`;
     setGeneratedFile({ blob, name: filename, mimeType: 'text/csv' });
   };
 
@@ -511,7 +512,8 @@ export default function PayrollTab() {
       element.setAttribute('style', originalStyle);
       canvas.toBlob(blob => {
         if (blob) {
-          const filename = `payroll_report_${fromDate}_to_${toDate}.png`;
+          const todayStr = new Date().toISOString().split('T')[0];
+          const filename = `Payroll Report ${fromDate} to ${toDate} ${todayStr}.png`;
           setGeneratedFile({ blob, name: filename, mimeType: 'image/png' });
         } else {
           alert('Failed to generate PNG blob.');
@@ -556,7 +558,8 @@ export default function PayrollTab() {
 
       pdf.addImage(imgData, 'PNG', 0, 0, imgWidth, imgHeight);
       const blob = pdf.output('blob');
-      const filename = `payroll_report_${fromDate}_to_${toDate}.pdf`;
+      const todayStr = new Date().toISOString().split('T')[0];
+      const filename = `Payroll Report ${fromDate} to ${toDate} ${todayStr}.pdf`;
       setGeneratedFile({ blob, name: filename, mimeType: 'application/pdf' });
     }).catch(err => {
       element.setAttribute('style', originalStyle);

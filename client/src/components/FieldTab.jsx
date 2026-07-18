@@ -1,16 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { queueAction } from '../store/syncSlice';
 import { updateField, addField, deleteField } from '../store/fieldsSlice';
-import { CheckCircle2, Target, X, PlusCircle, Copy, Lightbulb } from 'lucide-react';
+import { CheckCircle2, Target, X, PlusCircle, Copy, Lightbulb, ClipboardList } from 'lucide-react';
 import CrudTable from './CrudTable';
 import RecommendationViewer from './RecommendationViewer';
-import { MapContainer, TileLayer, Polygon, Marker, Popup, useMapEvents } from 'react-leaflet';
+import { MapContainer, TileLayer, Polygon, Marker, Popup, useMapEvents, useMap } from 'react-leaflet';
 import FieldImageryOverlay, { getDeterministicSceneDate, getDeterministicCloudCover } from './FieldImageryOverlay';
 import ResizableMapWrapper, { MapResizer } from './ResizableMapWrapper';
 import { MapSearchBox, MapFlyTo, FarmLocationButton } from './MapSearchBox';
 import area from '@turf/area';
 import { polygon } from '@turf/helpers';
+import Select from 'react-select';
 import 'leaflet/dist/leaflet.css';
 
 
@@ -20,6 +21,34 @@ const ClickToDrawComponent = ({ polygon, setPolygon, setCenter }) => {
       setPolygon([...polygon, [e.latlng.lat, e.latlng.lng, Date.now()]]);
     }
   });
+  return null;
+};
+
+const FitSelectedFieldsBounds = ({ selectedFields }) => {
+  const map = useMap();
+  useEffect(() => {
+    if (!selectedFields || selectedFields.length === 0) return;
+    const bounds = [];
+    selectedFields.forEach(field => {
+      if (field.polygon) {
+        try {
+          const poly = typeof field.polygon === 'string' ? JSON.parse(field.polygon) : field.polygon;
+          let flat = poly;
+          if (Array.isArray(poly) && poly.length > 0 && Array.isArray(poly[0]) && Array.isArray(poly[0][0])) {
+            flat = poly[0];
+          }
+          if (Array.isArray(flat)) {
+            flat.forEach(pt => {
+              if (pt && pt.length >= 2) bounds.push([pt[0], pt[1]]);
+            });
+          }
+        } catch (e) {}
+      }
+    });
+    if (bounds.length > 0) {
+      map.fitBounds(bounds, { padding: [30, 30] });
+    }
+  }, [map, selectedFields]);
   return null;
 };
 
@@ -37,6 +66,7 @@ export default function FieldTab() {
   const mapZoom = useSelector(state => state.settings?.mapZoom) || 13;
   const themeFontImagerCapitalize = useSelector(state => state.settings?.themeFontImagerCapitalize) || false;
   const formatLabel = (txt) => themeFontImagerCapitalize ? txt.toUpperCase() : txt;
+  const allRecommendations = useSelector(state => state.recommendations?.data) || [];
 
   const [activeTab, setActiveTab] = useState('roster');
   const [formData, setFormData] = useState(INIT_STATE);
@@ -45,6 +75,10 @@ export default function FieldTab() {
   const [searchResultCenter, setSearchResultCenter] = useState(null);
   const [showRecommendations, setShowRecommendations] = useState(false);
   const [showRecAlert, setShowRecAlert] = useState(false);
+  const [selectedFieldIdsForRec, setSelectedFieldIdsForRec] = useState([]);
+  const [showRecResults, setShowRecResults] = useState(false);
+  const [activeRecFieldId, setActiveRecFieldId] = useState(null);
+  const [initialRecReportId, setInitialRecReportId] = useState('');
   const [fieldImagery, setFieldImagery] = useState({});
   const [fieldImageryOffsets, setFieldImageryOffsets] = useState({});
   const [geeStatus, setGeeStatus] = useState({});
@@ -170,6 +204,28 @@ export default function FieldTab() {
     })
     .map(obj => obj.pos);
 
+  const existingReportsForSelectedFields = useMemo(() => {
+    if (selectedFieldIdsForRec.length === 0) return [];
+    
+    const reportsList = [];
+    selectedFieldIdsForRec.forEach(fieldId => {
+      const fieldObj = fields.find(f => f.id === fieldId);
+      if (fieldObj) {
+        const linkedIds = fieldObj.recommendationIds || [];
+        const fieldReports = allRecommendations.filter(r => linkedIds.includes(r.id) && r.isAI);
+        fieldReports.forEach(report => {
+          reportsList.push({
+            report,
+            fieldName: fieldObj.name,
+            fieldId: fieldObj.id
+          });
+        });
+      }
+    });
+    
+    return reportsList.sort((a, b) => (b.report.createdAt || 0) - (a.report.createdAt || 0));
+  }, [selectedFieldIdsForRec, fields, allRecommendations]);
+
   const latLngs = sortedPositions.map(p => [p[0], p[1]]);
   return (
     <>
@@ -179,14 +235,14 @@ export default function FieldTab() {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
             <div style={{ display: 'flex', borderBottom: '1px solid var(--color-border-light)', background: '#f5f7fa' }}>
-              <button 
+              <button
                 type="button"
-                onClick={() => setActiveTab('roster')} 
-                style={{ 
-                  flex: 1, 
-                  padding: '12px 16px', 
-                  border: 'none', 
-                  background: activeTab === 'roster' ? 'white' : 'transparent', 
+                onClick={() => setActiveTab('roster')}
+                style={{
+                  flex: 1,
+                  padding: '12px 16px',
+                  border: 'none',
+                  background: activeTab === 'roster' ? 'white' : 'transparent',
                   borderBottom: activeTab === 'roster' ? '3px solid var(--color-primary)' : 'none',
                   color: activeTab === 'roster' ? 'var(--color-primary)' : 'var(--color-text-light)',
                   fontWeight: 600,
@@ -197,14 +253,35 @@ export default function FieldTab() {
               >
                 Field Sites
               </button>
-              <button 
+              <button
                 type="button"
-                onClick={() => setActiveTab('entry')} 
-                style={{ 
-                  flex: 1, 
-                  padding: '12px 16px', 
-                  border: 'none', 
-                  background: activeTab === 'entry' ? 'white' : 'transparent', 
+                onClick={() => {
+                  setActiveTab('recommendations');
+                  setShowRecResults(false);
+                }}
+                style={{
+                  flex: 1,
+                  padding: '12px 16px',
+                  border: 'none',
+                  background: activeTab === 'recommendations' ? 'white' : 'transparent',
+                  borderBottom: activeTab === 'recommendations' ? '3px solid var(--color-primary)' : 'none',
+                  color: activeTab === 'recommendations' ? 'var(--color-primary)' : 'var(--color-text-light)',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  fontSize: '0.95rem'
+                }}
+              >
+                Recommendations
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('entry')}
+                style={{
+                  flex: 1,
+                  padding: '12px 16px',
+                  border: 'none',
+                  background: activeTab === 'entry' ? 'white' : 'transparent',
                   borderBottom: activeTab === 'entry' ? '3px solid var(--color-primary)' : 'none',
                   color: activeTab === 'entry' ? 'var(--color-primary)' : 'var(--color-text-light)',
                   fontWeight: 600,
@@ -218,7 +295,7 @@ export default function FieldTab() {
             </div>
 
             <div style={{ padding: '20px' }}>
-              {activeTab === 'roster' ? (
+              {activeTab === 'roster' && (
                 <CrudTable activeRowId={editingId}
                   data={fields}
                   columns={columns}
@@ -226,7 +303,242 @@ export default function FieldTab() {
                   onDelete={handleDelete}
                   itemLabel="Field"
                 />
-              ) : (
+              )}
+
+              {activeTab === 'recommendations' && (
+                <div>
+                  {!showRecResults ? (
+                    <div style={{ display: 'flex', gap: '20px', flexDirection: 'row', flexWrap: 'wrap' }}>
+                      {/* Left: Input picker */}
+                      <div style={{ flex: '1 1 300px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
+                        <h3 style={{ margin: 0, color: '#334155', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          <Lightbulb size={24} color="#2e7d32" /> Get Crop & Soil Recommendations
+                        </h3>
+                        <p style={{ color: '#64748b', fontSize: '0.9rem', margin: 0 }}>
+                          Select one or more fields below to query the agricultural advisor for tailored soil management guidelines and crop suitability scores.
+                        </p>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          <label style={{ fontSize: '0.85rem', fontWeight: 600, color: '#475569' }}>Select Fields</label>
+                          <Select
+                            isMulti
+                            options={fields.map(f => ({ value: f.id, label: f.name }))}
+                            value={selectedFieldIdsForRec.map(id => {
+                              const f = fields.find(field => field.id === id);
+                              return f ? { value: f.id, label: f.name } : null;
+                            }).filter(Boolean)}
+                            onChange={(vals) => {
+                              setSelectedFieldIdsForRec((vals || []).map(v => v.value));
+                            }}
+                            placeholder="Select fields..."
+                            styles={{
+                              control: (base) => ({
+                                ...base,
+                                minHeight: '38px',
+                                borderRadius: '6px',
+                                borderColor: '#cbd5e1',
+                                fontSize: '0.85rem'
+                              }),
+                              menuPortal: (base) => ({ ...base, zIndex: 9999 })
+                            }}
+                            menuPortalTarget={document.body}
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (selectedFieldIdsForRec.length === 0) {
+                              alert("Please select at least one field.");
+                              return;
+                            }
+                            setInitialRecReportId('');
+                            setActiveRecFieldId(selectedFieldIdsForRec[0]);
+                            setShowRecResults(true);
+                          }}
+                          className="btn btn-primary"
+                          style={{
+                            background: 'var(--color-primary)',
+                            color: 'white',
+                            fontWeight: 600,
+                            fontSize: '0.95rem',
+                            padding: '10px 20px',
+                            borderRadius: '6px',
+                            border: 'none',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            gap: '8px',
+                            marginTop: '10px'
+                          }}
+                        >
+                          <Lightbulb size={18} /> Generate Recommendations
+                        </button>
+
+                        {selectedFieldIdsForRec.length > 0 && (
+                          <div style={{ marginTop: '20px', borderTop: '1px solid var(--color-border-light)', paddingTop: '15px' }}>
+                            <h4 style={{ margin: '0 0 10px 0', fontSize: '0.9rem', color: '#1e293b', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <ClipboardList size={16} /> Previously Saved Reports ({existingReportsForSelectedFields.length})
+                            </h4>
+                            {existingReportsForSelectedFields.length === 0 ? (
+                              <p style={{ margin: 0, fontSize: '0.8rem', color: '#64748b', fontStyle: 'italic' }}>
+                                No saved reports found for selected fields.
+                              </p>
+                            ) : (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', maxHeight: '200px', overflowY: 'auto' }}>
+                                {existingReportsForSelectedFields.map(({ report, fieldName, fieldId }) => {
+                                  const dateStr = new Date(report.createdAt || Date.now()).toLocaleDateString();
+                                  return (
+                                    <div
+                                      key={report.id}
+                                      onClick={() => {
+                                        setInitialRecReportId(report.id);
+                                        setActiveRecFieldId(fieldId);
+                                        setShowRecResults(true);
+                                      }}
+                                      style={{
+                                        padding: '10px',
+                                        background: '#f8fafc',
+                                        border: '1px solid #cbd5e1',
+                                        borderRadius: '6px',
+                                        cursor: 'pointer',
+                                        fontSize: '0.8rem',
+                                        display: 'flex',
+                                        justifyContent: 'space-between',
+                                        alignItems: 'center',
+                                        transition: 'background-color 0.15s'
+                                      }}
+                                      onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#f1f5f9'}
+                                      onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#f8fafc'}
+                                    >
+                                      <div>
+                                        <strong style={{ color: '#334155' }}>{fieldName}</strong>
+                                        <div style={{ fontSize: '0.72rem', color: '#64748b' }}>
+                                          Created: {dateStr}
+                                        </div>
+                                      </div>
+                                      <span style={{ fontSize: '0.75rem', color: '#2e7d32', fontWeight: 600 }}>Open &rarr;</span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Right: Map view */}
+                      <div style={{ flex: '1 1 400px', minHeight: '350px', position: 'relative' }}>
+                        <div style={{ height: '350px', width: '100%', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--color-border)' }}>
+                          <MapContainer center={mapCenter} zoom={mapZoom} maxZoom={24} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
+                            <MapResizer />
+                            <TileLayer attribution="Google Maps" url="https://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}&s=Ga" maxZoom={24} maxNativeZoom={20} />
+                            
+                            {/* Render selected fields */}
+                            {fields.filter(f => selectedFieldIdsForRec.includes(f.id)).map(field => {
+                              let positions = [];
+                              if (field.polygon) {
+                                try { positions = typeof field.polygon === 'string' ? JSON.parse(field.polygon) : field.polygon; } catch (e) { }
+                              }
+                              if (positions.length === 0) return null;
+                              return (
+                                <Polygon
+                                  key={field.id}
+                                  positions={positions}
+                                  pathOptions={{
+                                    color: field.drawColor || '#ff9800',
+                                    weight: 2,
+                                    opacity: 0.9,
+                                    fill: true,
+                                    fillOpacity: 0.35
+                                  }}
+                                >
+                                  <Popup>
+                                    <strong>{field.name}</strong><br />
+                                    Area: {field.area} ac<br />
+                                    Soil: {field.soil_type}
+                                  </Popup>
+                                </Polygon>
+                              );
+                            })}
+                            
+                            {/* Render non-selected fields as faint outlines for context */}
+                            {fields.filter(f => !selectedFieldIdsForRec.includes(f.id)).map(field => {
+                              let positions = [];
+                              if (field.polygon) {
+                                try { positions = typeof field.polygon === 'string' ? JSON.parse(field.polygon) : field.polygon; } catch (e) { }
+                              }
+                              if (positions.length === 0) return null;
+                              return (
+                                <Polygon
+                                  key={field.id}
+                                  positions={positions}
+                                  pathOptions={{
+                                    color: '#ffffff',
+                                    weight: 1,
+                                    opacity: 0.4,
+                                    fill: true,
+                                    fillOpacity: 0.05,
+                                    dashArray: '5,5'
+                                  }}
+                                >
+                                  <Popup>
+                                    <strong>{field.name}</strong> (Not Selected)
+                                  </Popup>
+                                </Polygon>
+                              );
+                            })}
+
+                            <FitSelectedFieldsBounds selectedFields={fields.filter(f => selectedFieldIdsForRec.includes(f.id))} />
+                          </MapContainer>
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div>
+                      {selectedFieldIdsForRec.length > 1 && (
+                        <div style={{ display: 'flex', gap: '8px', marginBottom: '15px', overflowX: 'auto', paddingBottom: '8px' }} className="hide-scrollbar">
+                          {selectedFieldIdsForRec.map(id => {
+                            const f = fields.find(field => field.id === id);
+                            if (!f) return null;
+                            const isActive = activeRecFieldId === id;
+                            return (
+                              <button
+                                key={id}
+                                type="button"
+                                onClick={() => setActiveRecFieldId(id)}
+                                className={`btn ${isActive ? 'btn-primary' : ''}`}
+                                style={{
+                                  background: isActive ? 'var(--color-primary)' : '#f1f5f9',
+                                  color: isActive ? 'white' : '#475569',
+                                  fontSize: '0.85rem',
+                                  padding: '6px 12px',
+                                  borderRadius: '6px',
+                                  border: 'none',
+                                  cursor: 'pointer',
+                                  fontWeight: 600,
+                                  transition: 'all 0.15s'
+                                }}
+                              >
+                                {f.name}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                      {activeRecFieldId && (
+                        <RecommendationViewer
+                          fieldId={activeRecFieldId}
+                          onToggleBack={() => setShowRecResults(false)}
+                          selectedFieldIds={selectedFieldIdsForRec}
+                          initialReportId={initialRecReportId}
+                        />
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {activeTab === 'entry' && (
                 <>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
                     <h2 style={{ margin: 0 }}>{editingId ? 'Edit Field Data' : 'Enter New Field Data'}</h2>
@@ -288,10 +600,10 @@ export default function FieldTab() {
                             ))}
                             {latLngs.length > 0 && (
                               <React.Fragment>
-                                <Polygon 
+                                <Polygon
                                   key="active-field-poly"
-                                  positions={latLngs} 
-                                  pathOptions={{ 
+                                  positions={latLngs}
+                                  pathOptions={{
                                     color: formData.drawColor || polygonColor,
                                     weight: 1.5,
                                     opacity: 0.6,
@@ -304,9 +616,9 @@ export default function FieldTab() {
                                       <strong>Active Field: {formData.name || 'Unnamed'}</strong>
                                       <div style={{ marginTop: '8px' }}>
                                         <label className="imager-select-label" style={{ display: 'block', marginBottom: '4px' }}>{formatLabel("Field Imagery:")}</label>
-                                        <select 
+                                        <select
                                           className="imager-select"
-                                          value={fieldImagery[editingId || 'active'] || 'none'} 
+                                          value={fieldImagery[editingId || 'active'] || 'none'}
                                           onChange={(e) => setFieldImagery(prev => ({ ...prev, [editingId || 'active']: e.target.value }))}
                                           style={{ padding: '4px', borderRadius: '4px', width: '100%', background: 'white' }}
                                         >
@@ -335,13 +647,13 @@ export default function FieldTab() {
                                         <div style={{ marginTop: '8px', padding: '6px', background: '#f1f8e9', borderRadius: '4px', border: '1px solid #c5e1a5', fontSize: '0.72rem', color: '#33691e' }}>
                                           <div style={{ fontWeight: 700, marginBottom: '2px' }}>
                                             {fieldImagery[editingId || 'active'] === 'GEE_Clouds' ? 'Weather: Clouds (GEE)' :
-                                             fieldImagery[editingId || 'active'] === 'GEE_Precip' ? 'Weather: Precipitation (GEE)' :
-                                             fieldImagery[editingId || 'active'] === 'GEE_Temp' ? 'Weather: Temperature (GEE)' :
-                                             fieldImagery[editingId || 'active'] === 'GEE_Wind' ? 'Weather: Wind Speed (GEE)' :
-                                             fieldImagery[editingId || 'active'] === 'GEE_Humidity' ? 'Weather: Relative Humidity (GEE)' :
-                                             fieldImagery[editingId || 'active'] === 'GEE_Pressure' ? 'Weather: Sea Level Pressure (GEE)' :
-                                             fieldImagery[editingId || 'active'] === 'CurrentSatellite' ? 'Current Satellite (High-Res)' :
-                                             fieldImagery[editingId || 'active'] === 'Elevation' ? 'Elevation (Topography)' : 'Sentinel-2 (10m Index)'}
+                                              fieldImagery[editingId || 'active'] === 'GEE_Precip' ? 'Weather: Precipitation (GEE)' :
+                                                fieldImagery[editingId || 'active'] === 'GEE_Temp' ? 'Weather: Temperature (GEE)' :
+                                                  fieldImagery[editingId || 'active'] === 'GEE_Wind' ? 'Weather: Wind Speed (GEE)' :
+                                                    fieldImagery[editingId || 'active'] === 'GEE_Humidity' ? 'Weather: Relative Humidity (GEE)' :
+                                                      fieldImagery[editingId || 'active'] === 'GEE_Pressure' ? 'Weather: Sea Level Pressure (GEE)' :
+                                                        fieldImagery[editingId || 'active'] === 'CurrentSatellite' ? 'Current Satellite (High-Res)' :
+                                                          fieldImagery[editingId || 'active'] === 'Elevation' ? 'Elevation (Topography)' : 'Sentinel-2 (10m Index)'}
                                           </div>
                                           {geeStatus[editingId || 'active'] && geeStatus[editingId || 'active'].status === 'failed' && (
                                             <div style={{ marginTop: '4px', color: '#c62828', fontWeight: 600, fontSize: '0.65rem', lineHeight: '1.2' }}>
@@ -362,37 +674,37 @@ export default function FieldTab() {
                                           {!['GEE_Temp', 'GEE_Precip', 'GEE_Wind', 'GEE_Humidity', 'GEE_Clouds', 'GEE_Pressure'].includes(fieldImagery[editingId || 'active']) && (
                                             <div>Cloud Cover: {getDeterministicCloudCover(editingId || 'active', fieldImageryOffsets[editingId || 'active'] || 0)}%</div>
                                           )}
-                                              
-                                              <div style={{ display: 'flex', marginTop: '6px', alignItems: 'center', justifyContent: 'space-between' }}>
-                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
-                                                  <span style={{ fontSize: '0.62rem', fontWeight: 600, color: '#558b2f' }}>Older</span>
-                                                  <button
-                                                    type="button"
-                                                    className="btn btn-secondary"
-                                                    style={{ padding: '2px 8px', fontSize: '0.75rem', cursor: 'pointer', marginTop: '2px', width: '100%', lineHeight: 1 }}
-                                                    onClick={() => setFieldImageryOffsets(prev => ({ ...prev, [editingId || 'active']: (prev[editingId || 'active'] || 0) - 30 }))}
-                                                  >
-                                                    ←
-                                                  </button>
-                                                </div>
-                                                
-                                                <span style={{ fontWeight: 700, fontSize: '0.68rem', margin: '0 8px', minWidth: '55px', textAlign: 'center', alignSelf: 'flex-end', marginBottom: '4px' }}>
-                                                  {(fieldImageryOffsets[editingId || 'active'] || 0) === 0 ? 'Latest' : `${Math.abs(fieldImageryOffsets[editingId || 'active'] || 0)}d ago`}
-                                                </span>
 
-                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
-                                                  <span style={{ fontSize: '0.62rem', fontWeight: 600, color: '#558b2f' }}>Newer</span>
-                                                  <button
-                                                    type="button"
-                                                    className="btn btn-secondary"
-                                                    style={{ padding: '2px 8px', fontSize: '0.75rem', cursor: 'pointer', marginTop: '2px', width: '100%', lineHeight: 1 }}
-                                                    disabled={(fieldImageryOffsets[editingId || 'active'] || 0) >= 0}
-                                                    onClick={() => setFieldImageryOffsets(prev => ({ ...prev, [editingId || 'active']: (prev[editingId || 'active'] || 0) + 30 }))}
-                                                  >
-                                                    →
-                                                  </button>
-                                                </div>
-                                              </div>
+                                          <div style={{ display: 'flex', marginTop: '6px', alignItems: 'center', justifyContent: 'space-between' }}>
+                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
+                                              <span style={{ fontSize: '0.62rem', fontWeight: 600, color: '#558b2f' }}>Older</span>
+                                              <button
+                                                type="button"
+                                                className="btn btn-secondary"
+                                                style={{ padding: '2px 8px', fontSize: '0.75rem', cursor: 'pointer', marginTop: '2px', width: '100%', lineHeight: 1 }}
+                                                onClick={() => setFieldImageryOffsets(prev => ({ ...prev, [editingId || 'active']: (prev[editingId || 'active'] || 0) - 30 }))}
+                                              >
+                                                ←
+                                              </button>
+                                            </div>
+
+                                            <span style={{ fontWeight: 700, fontSize: '0.68rem', margin: '0 8px', minWidth: '55px', textAlign: 'center', alignSelf: 'flex-end', marginBottom: '4px' }}>
+                                              {(fieldImageryOffsets[editingId || 'active'] || 0) === 0 ? 'Latest' : `${Math.abs(fieldImageryOffsets[editingId || 'active'] || 0)}d ago`}
+                                            </span>
+
+                                            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
+                                              <span style={{ fontSize: '0.62rem', fontWeight: 600, color: '#558b2f' }}>Newer</span>
+                                              <button
+                                                type="button"
+                                                className="btn btn-secondary"
+                                                style={{ padding: '2px 8px', fontSize: '0.75rem', cursor: 'pointer', marginTop: '2px', width: '100%', lineHeight: 1 }}
+                                                disabled={(fieldImageryOffsets[editingId || 'active'] || 0) >= 0}
+                                                onClick={() => setFieldImageryOffsets(prev => ({ ...prev, [editingId || 'active']: (prev[editingId || 'active'] || 0) + 30 }))}
+                                              >
+                                                →
+                                              </button>
+                                            </div>
+                                          </div>
 
                                         </div>
                                       )}
@@ -400,9 +712,9 @@ export default function FieldTab() {
                                   </Popup>
                                 </Polygon>
                                 {fieldImagery[editingId || 'active'] && fieldImagery[editingId || 'active'] !== 'none' && (
-                                  <FieldImageryOverlay 
-                                    polygon={latLngs} 
-                                    indexType={fieldImagery[editingId || 'active']} 
+                                  <FieldImageryOverlay
+                                    polygon={latLngs}
+                                    indexType={fieldImagery[editingId || 'active']}
                                     dateOffset={fieldImageryOffsets[editingId || 'active'] || 0}
                                     fieldId={editingId || 'active'}
                                   />
@@ -439,14 +751,14 @@ export default function FieldTab() {
                                   >
                                     <Popup>
                                       <div style={{ minWidth: '200px' }}>
-                                        <strong>{field.name}</strong><br/>
-                                        Area: {field.area} ac<br/>
+                                        <strong>{field.name}</strong><br />
+                                        Area: {field.area} ac<br />
                                         <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                           <div>
                                             <label className="imager-select-label" style={{ display: 'block', marginBottom: '4px' }}>{formatLabel("Field Imagery:")}</label>
-                                             <select 
+                                            <select
                                               className="imager-select"
-                                              value={fieldImagery[field.id] || 'none'} 
+                                              value={fieldImagery[field.id] || 'none'}
                                               onChange={(e) => setFieldImagery(prev => ({ ...prev, [field.id]: e.target.value }))}
                                               style={{ padding: '4px', borderRadius: '4px', width: '100%', background: 'white' }}
                                             >
@@ -475,13 +787,13 @@ export default function FieldTab() {
                                             <div style={{ padding: '6px', background: '#f1f8e9', borderRadius: '4px', border: '1px solid #c5e1a5', fontSize: '0.72rem', color: '#33691e', marginBottom: '8px' }}>
                                               <div style={{ fontWeight: 700, marginBottom: '2px' }}>
                                                 {fieldImagery[field.id] === 'GEE_Clouds' ? 'Weather: Clouds (GEE)' :
-                                                 fieldImagery[field.id] === 'GEE_Precip' ? 'Weather: Precipitation (GEE)' :
-                                                 fieldImagery[field.id] === 'GEE_Temp' ? 'Weather: Temperature (GEE)' :
-                                                 fieldImagery[field.id] === 'GEE_Wind' ? 'Weather: Wind Speed (GEE)' :
-                                                 fieldImagery[field.id] === 'GEE_Humidity' ? 'Weather: Relative Humidity (GEE)' :
-                                                 fieldImagery[field.id] === 'GEE_Pressure' ? 'Weather: Sea Level Pressure (GEE)' :
-                                                 fieldImagery[field.id] === 'CurrentSatellite' ? 'Current Satellite (High-Res)' :
-                                                 fieldImagery[field.id] === 'Elevation' ? 'Elevation (Topography)' : 'Sentinel-2 (10m Index)'}
+                                                  fieldImagery[field.id] === 'GEE_Precip' ? 'Weather: Precipitation (GEE)' :
+                                                    fieldImagery[field.id] === 'GEE_Temp' ? 'Weather: Temperature (GEE)' :
+                                                      fieldImagery[field.id] === 'GEE_Wind' ? 'Weather: Wind Speed (GEE)' :
+                                                        fieldImagery[field.id] === 'GEE_Humidity' ? 'Weather: Relative Humidity (GEE)' :
+                                                          fieldImagery[field.id] === 'GEE_Pressure' ? 'Weather: Sea Level Pressure (GEE)' :
+                                                            fieldImagery[field.id] === 'CurrentSatellite' ? 'Current Satellite (High-Res)' :
+                                                              fieldImagery[field.id] === 'Elevation' ? 'Elevation (Topography)' : 'Sentinel-2 (10m Index)'}
                                               </div>
                                               {geeStatus[field.id] && geeStatus[field.id].status === 'failed' && (
                                                 <div style={{ marginTop: '4px', color: '#c62828', fontWeight: 600, fontSize: '0.65rem', lineHeight: '1.2' }}>
@@ -502,44 +814,44 @@ export default function FieldTab() {
                                               {!['GEE_Temp', 'GEE_Precip', 'GEE_Wind', 'GEE_Humidity', 'GEE_Clouds', 'GEE_Pressure'].includes(fieldImagery[field.id]) && (
                                                 <div>Cloud Cover: {getDeterministicCloudCover(field.id, fieldImageryOffsets[field.id] || 0)}%</div>
                                               )}
-                                                  
-                                                  <div style={{ display: 'flex', marginTop: '6px', alignItems: 'center', justifyContent: 'space-between' }}>
-                                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
-                                                      <span style={{ fontSize: '0.62rem', fontWeight: 600, color: '#558b2f' }}>Older</span>
-                                                      <button
-                                                        type="button"
-                                                        className="btn btn-secondary"
-                                                        style={{ padding: '2px 8px', fontSize: '0.75rem', cursor: 'pointer', marginTop: '2px', width: '100%', lineHeight: 1 }}
-                                                        onClick={() => setFieldImageryOffsets(prev => ({ ...prev, [field.id]: (prev[field.id] || 0) - 30 }))}
-                                                      >
-                                                        ←
-                                                      </button>
-                                                    </div>
-                                                    
-                                                    <span style={{ fontWeight: 700, fontSize: '0.68rem', margin: '0 8px', minWidth: '55px', textAlign: 'center', alignSelf: 'flex-end', marginBottom: '4px' }}>
-                                                      {(fieldImageryOffsets[field.id] || 0) === 0 ? 'Latest' : `${Math.abs(fieldImageryOffsets[field.id] || 0)}d ago`}
-                                                    </span>
 
-                                                    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
-                                                      <span style={{ fontSize: '0.62rem', fontWeight: 600, color: '#558b2f' }}>Newer</span>
-                                                      <button
-                                                        type="button"
-                                                        className="btn btn-secondary"
-                                                        style={{ padding: '2px 8px', fontSize: '0.75rem', cursor: 'pointer', marginTop: '2px', width: '100%', lineHeight: 1 }}
-                                                        disabled={(fieldImageryOffsets[field.id] || 0) >= 0}
-                                                        onClick={() => setFieldImageryOffsets(prev => ({ ...prev, [field.id]: (prev[field.id] || 0) + 30 }))}
-                                                      >
-                                                        →
-                                                      </button>
-                                                    </div>
-                                                  </div>
+                                              <div style={{ display: 'flex', marginTop: '6px', alignItems: 'center', justifyContent: 'space-between' }}>
+                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
+                                                  <span style={{ fontSize: '0.62rem', fontWeight: 600, color: '#558b2f' }}>Older</span>
+                                                  <button
+                                                    type="button"
+                                                    className="btn btn-secondary"
+                                                    style={{ padding: '2px 8px', fontSize: '0.75rem', cursor: 'pointer', marginTop: '2px', width: '100%', lineHeight: 1 }}
+                                                    onClick={() => setFieldImageryOffsets(prev => ({ ...prev, [field.id]: (prev[field.id] || 0) - 30 }))}
+                                                  >
+                                                    ←
+                                                  </button>
+                                                </div>
+
+                                                <span style={{ fontWeight: 700, fontSize: '0.68rem', margin: '0 8px', minWidth: '55px', textAlign: 'center', alignSelf: 'flex-end', marginBottom: '4px' }}>
+                                                  {(fieldImageryOffsets[field.id] || 0) === 0 ? 'Latest' : `${Math.abs(fieldImageryOffsets[field.id] || 0)}d ago`}
+                                                </span>
+
+                                                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', flex: 1 }}>
+                                                  <span style={{ fontSize: '0.62rem', fontWeight: 600, color: '#558b2f' }}>Newer</span>
+                                                  <button
+                                                    type="button"
+                                                    className="btn btn-secondary"
+                                                    style={{ padding: '2px 8px', fontSize: '0.75rem', cursor: 'pointer', marginTop: '2px', width: '100%', lineHeight: 1 }}
+                                                    disabled={(fieldImageryOffsets[field.id] || 0) >= 0}
+                                                    onClick={() => setFieldImageryOffsets(prev => ({ ...prev, [field.id]: (prev[field.id] || 0) + 30 }))}
+                                                  >
+                                                    →
+                                                  </button>
+                                                </div>
+                                              </div>
 
                                             </div>
                                           )}
                                           {!isBg && (
-                                            <button 
-                                              type="button" 
-                                              className="btn" 
+                                            <button
+                                              type="button"
+                                              className="btn"
                                               style={{ padding: '4px 8px', fontSize: '0.85rem', width: '100%' }}
                                               onClick={() => handleEdit(field)}
                                             >
@@ -551,9 +863,9 @@ export default function FieldTab() {
                                     </Popup>
                                   </Polygon>
                                   {fieldImagery[field.id] && fieldImagery[field.id] !== 'none' && (
-                                    <FieldImageryOverlay 
-                                      polygon={positions} 
-                                      indexType={fieldImagery[field.id]} 
+                                    <FieldImageryOverlay
+                                      polygon={positions}
+                                      indexType={fieldImagery[field.id]}
                                       dateOffset={fieldImageryOffsets[field.id] || 0}
                                       fieldId={field.id}
                                     />
@@ -615,22 +927,22 @@ export default function FieldTab() {
                       </div>
                       <div className="form-group">
                         <label>Layout Rotation (Degrees)</label>
-                        <input 
-                          type="number" 
-                          min="0" 
-                          max="360" 
-                          value={formData.layoutRotation !== undefined && formData.layoutRotation !== null ? formData.layoutRotation : ''} 
-                          onChange={e => setFormData({ ...formData, layoutRotation: e.target.value === '' ? '' : parseInt(e.target.value) })} 
-                          placeholder="Auto-aligned" 
+                        <input
+                          type="number"
+                          min="0"
+                          max="360"
+                          value={formData.layoutRotation !== undefined && formData.layoutRotation !== null ? formData.layoutRotation : ''}
+                          onChange={e => setFormData({ ...formData, layoutRotation: e.target.value === '' ? '' : parseInt(e.target.value) })}
+                          placeholder="Auto-aligned"
                         />
                       </div>
                       <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '20px' }}>
-                        <input 
-                          type="checkbox" 
-                          id="includeInStats" 
-                          checked={formData.includeInStats !== false} 
-                          onChange={e => setFormData({ ...formData, includeInStats: e.target.checked })} 
-                          style={{ width: '18px', height: '18px', margin: 0, cursor: 'pointer' }} 
+                        <input
+                          type="checkbox"
+                          id="includeInStats"
+                          checked={formData.includeInStats !== false}
+                          onChange={e => setFormData({ ...formData, includeInStats: e.target.checked })}
+                          style={{ width: '18px', height: '18px', margin: 0, cursor: 'pointer' }}
                         />
                         <label htmlFor="includeInStats" style={{ margin: 0, fontWeight: 500, cursor: 'pointer' }}>Include in Dashboard Statistics</label>
                       </div>

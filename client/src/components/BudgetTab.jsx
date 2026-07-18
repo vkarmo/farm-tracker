@@ -287,7 +287,8 @@ export default function BudgetTab() {
       element.setAttribute('style', originalStyle);
       canvas.toBlob(blob => {
         if (blob) {
-          const filename = `${activeBudget.name.replace(/\s+/g, '_')}_Report.png`;
+          const todayStr = new Date().toISOString().split('T')[0];
+          const filename = `Budget Report ${todayStr}.png`;
           setGeneratedFile({ blob, name: filename, mimeType: 'image/png' });
         } else {
           alert('Failed to generate PNG blob.');
@@ -339,7 +340,8 @@ export default function BudgetTab() {
       
       pdf.addImage(imgData, 'PNG', 0, 0, width, height);
       const blob = pdf.output('blob');
-      const filename = `${activeBudget.name.replace(/\s+/g, '_')}_Report.pdf`;
+      const todayStr = new Date().toISOString().split('T')[0];
+      const filename = `Budget Report ${todayStr}.pdf`;
       setGeneratedFile({ blob, name: filename, mimeType: 'application/pdf' });
     }).catch(err => {
       element.setAttribute('style', originalStyle);
@@ -400,7 +402,8 @@ export default function BudgetTab() {
     csvContent += `Actually Sent Amount,,,,,$${totals.net.usd.toFixed(2)} USD,L$${totals.net.lrd.toFixed(2)}\r\n`;
     
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const filename = `${activeBudget.name.replace(/\s+/g, '_')}_Report.csv`;
+    const todayStr = new Date().toISOString().split('T')[0];
+    const filename = `Budget Report ${todayStr}.csv`;
     setGeneratedFile({ blob, name: filename, mimeType: 'text/csv' });
   };
 

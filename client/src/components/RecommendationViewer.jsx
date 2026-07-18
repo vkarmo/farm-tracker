@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { ArrowLeft, ExternalLink, Link as LinkIcon, Plus, Unlink, Sparkles, AlertCircle, Calendar, ClipboardList, Info, HelpCircle, Layers, CheckCircle, ChevronDown, ChevronUp, Trash2, Droplet, Sprout, Mountain, RefreshCw, DollarSign } from 'lucide-react';
+import { ArrowLeft, ExternalLink, Link as LinkIcon, Plus, Unlink, Sparkles, AlertCircle, Calendar, ClipboardList, Info, HelpCircle, Layers, CheckCircle, ChevronDown, ChevronUp, Trash2, Droplet, Sprout, Mountain, RefreshCw, DollarSign, FileText } from 'lucide-react';
 import { addRecommendation, deleteRecommendation } from '../store/recommendationsSlice';
 import { updateField } from '../store/fieldsSlice';
 import { queueAction } from '../store/syncSlice';
@@ -8,6 +8,39 @@ import { extractSpatialStats } from './CropRecommendationPanel';
 import { fetchGeoLocationInfo } from './PoiTab';
 import { setAiProvider, saveSettings } from '../store/settingsSlice';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
+import { MapContainer, TileLayer, Polygon, Popup, useMap } from 'react-leaflet';
+import { MapResizer } from './ResizableMapWrapper';
+import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
+import 'leaflet/dist/leaflet.css';
+
+const FitSelectedFieldsBounds = ({ selectedFields }) => {
+  const map = useMap();
+  useEffect(() => {
+    if (!selectedFields || selectedFields.length === 0) return;
+    const bounds = [];
+    selectedFields.forEach(field => {
+      if (field.polygon) {
+        try {
+          const poly = typeof field.polygon === 'string' ? JSON.parse(field.polygon) : field.polygon;
+          let flat = poly;
+          if (Array.isArray(poly) && poly.length > 0 && Array.isArray(poly[0]) && Array.isArray(poly[0][0])) {
+            flat = poly[0];
+          }
+          if (Array.isArray(flat)) {
+            flat.forEach(pt => {
+              if (pt && pt.length >= 2) bounds.push([pt[0], pt[1]]);
+            });
+          }
+        } catch (e) {}
+      }
+    });
+    if (bounds.length > 0) {
+      map.fitBounds(bounds, { padding: [30, 30] });
+    }
+  }, [map, selectedFields]);
+  return null;
+};
 
 const AGRI_TIPS = [
   "Analyzing regional topography and elevation variations...",
@@ -2304,7 +2337,7 @@ const GraphicalFieldLayout = ({ layout, area, field }) => {
   );
 };
 
-export default function RecommendationViewer({ fieldId, onToggleBack }) {
+export default function RecommendationViewer({ fieldId, onToggleBack, selectedFieldIds = [], initialReportId = '' }) {
   const dispatch = useDispatch();
   const allRecommendations = useSelector(state => state.recommendations?.data) || [];
   const fields = useSelector(state => state.fields.data) || [];
@@ -2315,6 +2348,8 @@ export default function RecommendationViewer({ fieldId, onToggleBack }) {
   const currentUser = useSelector(state => state.auth?.currentUser);
   const budgets = useSelector(state => state.budgets?.list) || [];
   const pois = useSelector(state => state.poi?.list) || [];
+  const mapCenter = useSelector(state => state.settings?.mapCenter) || [51.505, -0.09];
+  const mapZoom = useSelector(state => state.settings?.mapZoom) || 13;
 
   const currentField = fields.find(f => f.id === fieldId) || { recommendationIds: [] };
   const linkedIds = currentField.recommendationIds || [];
@@ -2354,7 +2389,7 @@ export default function RecommendationViewer({ fieldId, onToggleBack }) {
     }
     return list;
   }, [sortedRecommendations, deleteFilterFieldId, fields]);
-  const [leftActiveTab, setLeftActiveTab] = useState('request'); // 'request' or 'reports'
+  const [leftActiveTab, setLeftActiveTab] = useState(initialReportId ? 'reports' : 'request'); // 'request' or 'reports'
 
   // AI Input States
   const [season, setSeason] = useState('Rainy Season');
@@ -2371,8 +2406,15 @@ export default function RecommendationViewer({ fieldId, onToggleBack }) {
   const loadingTipTimer = useRef(null);
 
   // AI Active Run selections
-  const [selectedReportId, setSelectedReportId] = useState('');
+  const [selectedReportId, setSelectedReportId] = useState(initialReportId);
   const [selectedAiSubTab, setSelectedAiSubTab] = useState('');
+
+  useEffect(() => {
+    if (initialReportId) {
+      setSelectedReportId(initialReportId);
+      setLeftActiveTab('reports');
+    }
+  }, [initialReportId]);
 
   // Legacy links states
   const [selectedViewerRecId, setSelectedViewerRecId] = useState(
@@ -2543,6 +2585,13 @@ export default function RecommendationViewer({ fieldId, onToggleBack }) {
         id: 'field-layout',
         title: 'Field Layout',
         content: '### Recommended Field Layout\nThis layout maps the recommended crops and support structures (thatch kitchen, compost pit, ash pit) onto the field area.'
+      });
+    }
+    if (!tabs.some(t => t.id === 'field-map')) {
+      tabs.unshift({
+        id: 'field-map',
+        title: 'Field Map',
+        content: '### Selected Fields Location Map\nInteractive map indicating field boundaries.'
       });
     }
     return { ...rawActiveReport, responseTabs: tabs };
@@ -2827,6 +2876,52 @@ export default function RecommendationViewer({ fieldId, onToggleBack }) {
 
   const activeRecLink = linkedRecommendations.find(r => !r.isAI && r.id === selectedViewerRecId);
 
+  const handleExportPDF = () => {
+    const element = document.getElementById('recommendation-report-container');
+    if (!element) return;
+    
+    const originalStyle = element.getAttribute('style') || '';
+    
+    // Force styling for clear export layout
+    element.style.width = '800px';
+    element.style.minWidth = '800px';
+    element.style.maxWidth = '800px';
+    
+    html2canvas(element, {
+      backgroundColor: '#ffffff',
+      scale: 2,
+      useCORS: true,
+      logging: false,
+      windowWidth: 1024
+    }).then(canvas => {
+      element.setAttribute('style', originalStyle);
+      
+      const imgData = canvas.toDataURL('image/png');
+      const imgWidth = canvas.width;
+      const imgHeight = canvas.height;
+      const orientation = imgWidth > imgHeight ? 'l' : 'p';
+      
+      const pdf = new jsPDF({
+        orientation: orientation,
+        unit: 'mm',
+        format: 'a4'
+      });
+      
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const ratio = imgHeight / imgWidth;
+      const width = pdfWidth;
+      const height = pdfWidth * ratio;
+      
+      const todayStr = new Date().toISOString().split('T')[0];
+      const cleanFieldName = (currentField.name || 'Field').replace(/\s+/g, '_');
+      pdf.save(`Recommendations_${cleanFieldName}_${todayStr}.pdf`);
+    }).catch(err => {
+      element.setAttribute('style', originalStyle);
+      console.error('Failed to export PDF', err);
+      alert('Error generating PDF. Please try again.');
+    });
+  };
+
   return (
     <div className="card recommendation-viewer" style={{ padding: '24px', background: 'white', border: '1px solid var(--color-border)', borderRadius: '12px', boxShadow: '0 4px 20px rgba(0,0,0,0.06)' }}>
       {/* Header */}
@@ -2837,9 +2932,35 @@ export default function RecommendationViewer({ fieldId, onToggleBack }) {
           </h2>
           <span style={{ fontSize: '0.85rem', color: '#666' }}>Managing agronomy intelligence for <strong>{currentField.name}</strong></span>
         </div>
-        <button type="button" onClick={onToggleBack} className="btn" style={{ background: '#f5f5f5', color: '#333', display: 'flex', alignItems: 'center', gap: '6px', border: '1px solid #ddd', padding: '8px 14px', borderRadius: '6px', fontWeight: 600, cursor: 'pointer' }}>
-          <ArrowLeft size={16} /> Back to Field
-        </button>
+        <div style={{ display: 'flex', gap: '10px' }}>
+          {activeReport && (
+            <button
+              type="button"
+              onClick={handleExportPDF}
+              disabled={loading || !!streamingText}
+              className="btn"
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                border: '1px solid var(--color-primary)',
+                color: 'var(--color-primary)',
+                background: 'white',
+                padding: '8px 14px',
+                borderRadius: '6px',
+                fontWeight: 600,
+                cursor: (loading || streamingText) ? 'not-allowed' : 'pointer',
+                opacity: (loading || streamingText) ? 0.5 : 1,
+                transition: 'all 0.15s'
+              }}
+            >
+              <FileText size={16} /> Export PDF
+            </button>
+          )}
+          <button type="button" onClick={onToggleBack} className="btn" style={{ background: '#f5f5f5', color: '#333', display: 'flex', alignItems: 'center', gap: '6px', border: '1px solid #ddd', padding: '8px 14px', borderRadius: '6px', fontWeight: 600, cursor: 'pointer' }}>
+            <ArrowLeft size={16} /> Back to Field
+          </button>
+        </div>
       </div>
 
       {/* Main Tab Controls */}
@@ -3237,7 +3358,7 @@ export default function RecommendationViewer({ fieldId, onToggleBack }) {
               </div>
             ) : activeReport ? (
               // AI Report display
-              <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
+              <div id="recommendation-report-container" style={{ display: 'flex', flexDirection: 'column', height: '100%', background: 'white' }}>
                 {/* AI report Sub-Tabs Bar */}
                 <div style={{ display: 'flex', background: '#f8fafc', borderBottom: '1px solid #e2e8f0', overflowX: 'auto' }}>
                   {(activeReport.responseTabs || []).map(tab => (
@@ -3274,6 +3395,79 @@ export default function RecommendationViewer({ fieldId, onToggleBack }) {
                     const isChartTab = selectedAiSubTab && (selectedAiSubTab.toLowerCase().includes('revenue') || selectedAiSubTab.toLowerCase().includes('projection'));
                     const isLayoutTab = selectedAiSubTab && selectedAiSubTab.toLowerCase().includes('layout');
                     
+                    if (selectedAiSubTab === 'field-map') {
+                      const activeSelectedFieldIds = selectedFieldIds.length > 0 ? selectedFieldIds : [fieldId];
+                      return (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                          <h3 style={{ margin: 0, color: '#1b5e20' }}>Selected Fields Location Map</h3>
+                          <div style={{ height: '400px', width: '100%', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--color-border)' }}>
+                            <MapContainer center={mapCenter} zoom={mapZoom} maxZoom={24} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
+                              <MapResizer />
+                              <TileLayer attribution="Google Maps" url="https://mt0.google.com/vt/lyrs=y&hl=en&x={x}&y={y}&z={z}&s=Ga" maxZoom={24} maxNativeZoom={20} />
+                              
+                              {/* Render selected fields */}
+                              {fields.filter(f => activeSelectedFieldIds.includes(f.id)).map(field => {
+                                let positions = [];
+                                if (field.polygon) {
+                                  try { positions = typeof field.polygon === 'string' ? JSON.parse(field.polygon) : field.polygon; } catch (e) { }
+                                }
+                                if (positions.length === 0) return null;
+                                return (
+                                  <Polygon
+                                    key={field.id}
+                                    positions={positions}
+                                    pathOptions={{
+                                      color: field.drawColor || '#ff9800',
+                                      weight: 2,
+                                      opacity: 0.9,
+                                      fill: true,
+                                      fillOpacity: 0.35
+                                    }}
+                                  >
+                                    <Popup>
+                                      <strong>{field.name}</strong><br />
+                                      Area: {field.area} ac<br />
+                                      Soil: {field.soil_type}
+                                    </Popup>
+                                  </Polygon>
+                                );
+                              })}
+                              
+                              {/* Render non-selected fields as faint outlines */}
+                              {fields.filter(f => !activeSelectedFieldIds.includes(f.id)).map(field => {
+                                let positions = [];
+                                if (field.polygon) {
+                                  try { positions = typeof field.polygon === 'string' ? JSON.parse(field.polygon) : field.polygon; } catch (e) { }
+                                }
+                                if (positions.length === 0) return null;
+                                return (
+                                  <Polygon
+                                    key={field.id}
+                                    positions={positions}
+                                    pathOptions={{
+                                      color: '#ffffff',
+                                      weight: 1,
+                                      opacity: 0.4,
+                                      fill: true,
+                                      fillOpacity: 0.05,
+                                      dashArray: '5,5'
+                                    }}
+                                  >
+                                    <Popup>
+                                      <strong>{field.name}</strong> (Not Selected)
+                                    </Popup>
+                                  </Polygon>
+                                );
+                              })}
+
+                              <FitSelectedFieldsBounds selectedFields={fields.filter(f => activeSelectedFieldIds.includes(f.id))} />
+                            </MapContainer>
+                          </div>
+                          <div>{markdownContent}</div>
+                        </div>
+                      );
+                    }
+
                     if (isChartTab) {
                       return (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
