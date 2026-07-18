@@ -3863,6 +3863,29 @@ export default function RecommendationViewer({ fieldId, onToggleBack, selectedFi
         </div>
       )}
 
+      {/* Footer Back to Field Button */}
+      <div className="recommendation-footer-buttons" style={{ marginTop: '30px', display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid #f0f0f0', paddingTop: '20px' }}>
+        <button
+          type="button"
+          onClick={onToggleBack}
+          className="btn"
+          style={{
+            background: '#f5f5f5',
+            color: '#333',
+            display: 'flex',
+            alignItems: 'center',
+            gap: '6px',
+            border: '1px solid #ddd',
+            padding: '10px 20px',
+            borderRadius: '6px',
+            fontWeight: 600,
+            cursor: 'pointer'
+          }}
+        >
+          <ArrowLeft size={16} /> Back to Field
+        </button>
+      </div>
+
     </div>
   );
 }

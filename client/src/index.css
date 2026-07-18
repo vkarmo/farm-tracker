@@ -918,7 +918,22 @@ th, td {
   }
   .recommendation-header-buttons {
     width: 100% !important;
-    justify-content: space-between !important;
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 8px !important;
+  }
+  .recommendation-header-buttons button {
+    width: 100% !important;
+    justify-content: center !important;
+  }
+  .recommendation-footer-buttons {
+    width: 100% !important;
+    display: flex !important;
+    flex-direction: column !important;
+  }
+  .recommendation-footer-buttons button {
+    width: 100% !important;
+    justify-content: center !important;
   }
   .recommendation-layout-row {
     flex-direction: column !important;
