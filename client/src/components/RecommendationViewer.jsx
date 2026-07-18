@@ -2964,11 +2964,13 @@ export default function RecommendationViewer({ fieldId, onToggleBack, selectedFi
       </div>
 
       {/* Main Tab Controls */}
-      <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', background: '#f5f5f5', padding: '4px', borderRadius: '8px', border: '1px solid #e0e0e0', maxWidth: '480px' }}>
+      <div className="hide-scrollbar" style={{ display: 'flex', gap: '10px', marginBottom: '20px', background: '#f5f5f5', padding: '4px', borderRadius: '8px', border: '1px solid #e0e0e0', maxWidth: '100%', overflowX: 'auto', WebkitOverflowScrolling: 'touch' }}>
         <button
           onClick={() => setViewTab('ai')}
           style={{
             flex: 1,
+            flexShrink: 0,
+            whiteSpace: 'nowrap',
             padding: '8px 12px',
             border: 'none',
             borderRadius: '6px',
@@ -2991,6 +2993,8 @@ export default function RecommendationViewer({ fieldId, onToggleBack, selectedFi
           onClick={() => setViewTab('links')}
           style={{
             flex: 1,
+            flexShrink: 0,
+            whiteSpace: 'nowrap',
             padding: '8px 12px',
             border: 'none',
             borderRadius: '6px',
@@ -3013,6 +3017,8 @@ export default function RecommendationViewer({ fieldId, onToggleBack, selectedFi
           onClick={() => { setViewTab('group-delete'); setSelectedDeleteIds([]); }}
           style={{
             flex: 1,
+            flexShrink: 0,
+            whiteSpace: 'nowrap',
             padding: '8px 12px',
             border: 'none',
             borderRadius: '6px',
@@ -3035,10 +3041,10 @@ export default function RecommendationViewer({ fieldId, onToggleBack, selectedFi
 
       {/* AI ADVISOR CONTENT */}
       {viewTab === 'ai' && (
-        <div style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', alignItems: 'stretch' }}>
+        <div className="recommendation-layout-row" style={{ display: 'flex', gap: '24px', flexWrap: 'wrap', alignItems: 'stretch' }}>
           
           {/* Left Column: Form & History (Togglable Tabs) */}
-          <div style={{ flex: '1 1 350px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div className="recommendation-column-left" style={{ flex: '1 1 350px', display: 'flex', flexDirection: 'column', gap: '16px' }}>
             
             {/* Left Column Tab selector */}
             <div style={{ display: 'flex', gap: '8px', background: '#f1f5f9', padding: '4px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
@@ -3152,7 +3158,7 @@ export default function RecommendationViewer({ fieldId, onToggleBack, selectedFi
                 </p>
 
                 {/* Spatial Metadata Summary */}
-                <div style={{ background: '#f1f5f9', padding: '12px', borderRadius: '8px', fontSize: '0.82rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '16px', border: '1px solid #e2e8f0' }}>
+                <div className="rec-metadata-grid" style={{ background: '#f1f5f9', padding: '12px', borderRadius: '8px', fontSize: '0.82rem', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '16px', border: '1px solid #e2e8f0' }}>
                   <div><strong>Area:</strong> {currentField.area || 'Unknown'} acres</div>
                   <div><strong>Elevation:</strong> {stats.elevation}m</div>
                   <div><strong>Moisture:</strong> {stats.soilMoisture} m³/m³</div>
@@ -3319,7 +3325,7 @@ export default function RecommendationViewer({ fieldId, onToggleBack, selectedFi
           </div>
 
           {/* Right panel: Dynamic Tabs Output Viewer */}
-          <div style={{ flex: '2 1 450px', border: '1px solid #e2e8f0', borderRadius: '10px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+          <div className="recommendation-column-right" style={{ flex: '2 1 450px', border: '1px solid #e2e8f0', borderRadius: '10px', overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
             
             {loading && !streamingText ? (
               // Loading screen with agronomic tips
@@ -3384,7 +3390,7 @@ export default function RecommendationViewer({ fieldId, onToggleBack, selectedFi
                 </div>
 
                 {/* Sub tab content pane */}
-                <div style={{ padding: '24px', overflowY: 'auto', background: 'white', flex: 1, minHeight: '400px', maxHeight: 'calc(100vh - 320px)' }}>
+                <div className="recommendation-subtab-pane" style={{ padding: '24px', overflowY: 'auto', background: 'white', flex: 1, minHeight: '400px', maxHeight: 'calc(100vh - 320px)' }}>
                   {(() => {
                     const currentTabObj = (activeReport.responseTabs || []).find(t => t.id === selectedAiSubTab);
                     if (!currentTabObj) {

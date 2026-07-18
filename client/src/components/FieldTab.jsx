@@ -308,7 +308,7 @@ export default function FieldTab() {
               {activeTab === 'recommendations' && (
                 <div>
                   {!showRecResults ? (
-                    <div style={{ display: 'flex', gap: '20px', flexDirection: 'row', flexWrap: 'wrap' }}>
+                    <div className="rec-selection-layout" style={{ display: 'flex', gap: '20px', flexDirection: 'row', flexWrap: 'wrap' }}>
                       {/* Left: Input picker */}
                       <div style={{ flex: '1 1 300px', display: 'flex', flexDirection: 'column', gap: '15px' }}>
                         <h3 style={{ margin: 0, color: '#334155', display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -427,7 +427,7 @@ export default function FieldTab() {
                       </div>
 
                       {/* Right: Map view */}
-                      <div style={{ flex: '1 1 400px', minHeight: '350px', position: 'relative' }}>
+                      <div className="rec-selector-map" style={{ flex: '1 1 300px', minHeight: '350px', position: 'relative', width: '100%', maxWidth: '100%' }}>
                         <div style={{ height: '350px', width: '100%', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--color-border)' }}>
                           <MapContainer center={mapCenter} zoom={mapZoom} maxZoom={24} scrollWheelZoom={false} style={{ height: '100%', width: '100%' }}>
                             <MapResizer />
