@@ -1186,8 +1186,21 @@ export default function App() {
           </div>
 
           <div className="header-right">
-            <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: '6px', width: 'fit-content' }}>
-              <div style={{ display: 'flex', gap: '2px', background: '#f0f2f5', padding: '4px', borderRadius: '0', flexWrap: 'nowrap', justifyContent: 'flex-end', overflowX: 'auto', WebkitOverflowScrolling: 'touch', maxWidth: '100%' }}>
+            <div className="header-right-container" style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch', gap: '6px' }}>
+              <div 
+                className="app-toolbar hide-scrollbar"
+                style={{ 
+                  display: 'flex', 
+                  gap: '0px', 
+                  background: '#f0f2f5', 
+                  padding: '4px', 
+                  borderRadius: '0', 
+                  flexWrap: 'nowrap', 
+                  overflowX: 'auto', 
+                  WebkitOverflowScrolling: 'touch', 
+                  maxWidth: '100%' 
+                }}
+              >
                 {hasModuleAccess('overview') && (
                   <button onClick={() => handleModuleSwitch('overview')} className={`btn toolbar-btn ${activeModule === 'overview' && activeTab !== 'sync' ? 'btn-primary' : ''}`} style={{ background: activeModule === 'overview' && activeTab !== 'sync' ? '#2e7d32' : 'transparent', color: activeModule === 'overview' && activeTab !== 'sync' ? 'white' : '#555', borderColor: 'transparent' }} title="Overview Module">
                     <Home size={18} />

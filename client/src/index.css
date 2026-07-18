@@ -389,6 +389,14 @@ textarea[data-populated="true"]:not(:focus) {
     align-items: stretch;
   }
 
+  .header-right-container {
+    width: 100%;
+  }
+
+  .app-toolbar {
+    justify-content: flex-start !important;
+  }
+
   .db-info {
     max-width: 120px;
   }
@@ -651,6 +659,15 @@ textarea[data-populated="true"]:not(:focus) {
   flex-direction: column;
   align-items: flex-end;
   gap: 8px;
+}
+
+.header-right-container {
+  width: fit-content;
+  max-width: 100%;
+}
+
+.app-toolbar {
+  justify-content: flex-end;
 }
 
 .db-info {
