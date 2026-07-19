@@ -254,21 +254,15 @@ export default function FieldTab() {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-            <div style={{ display: 'flex', borderBottom: '1px solid var(--color-border-light)', background: '#f5f7fa' }}>
+            <div className="sub-tabs-container">
               <button
                 type="button"
                 onClick={() => setActiveTab('roster')}
+                className="sub-tab-btn"
                 style={{
-                  flex: 1,
-                  padding: '12px 16px',
-                  border: 'none',
                   background: activeTab === 'roster' ? 'white' : 'transparent',
                   borderBottom: activeTab === 'roster' ? '3px solid var(--color-primary)' : 'none',
                   color: activeTab === 'roster' ? 'var(--color-primary)' : 'var(--color-text-light)',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  transition: 'all 0.2s',
-                  fontSize: '0.95rem'
                 }}
               >
                 Field Sites
@@ -279,17 +273,11 @@ export default function FieldTab() {
                   setActiveTab('recommendations');
                   setShowRecResults(false);
                 }}
+                className="sub-tab-btn"
                 style={{
-                  flex: 1,
-                  padding: '12px 16px',
-                  border: 'none',
                   background: activeTab === 'recommendations' ? 'white' : 'transparent',
                   borderBottom: activeTab === 'recommendations' ? '3px solid var(--color-primary)' : 'none',
                   color: activeTab === 'recommendations' ? 'var(--color-primary)' : 'var(--color-text-light)',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  transition: 'all 0.2s',
-                  fontSize: '0.95rem'
                 }}
               >
                 Recommendations
@@ -297,17 +285,11 @@ export default function FieldTab() {
               <button
                 type="button"
                 onClick={() => setActiveTab('entry')}
+                className="sub-tab-btn"
                 style={{
-                  flex: 1,
-                  padding: '12px 16px',
-                  border: 'none',
                   background: activeTab === 'entry' ? 'white' : 'transparent',
                   borderBottom: activeTab === 'entry' ? '3px solid var(--color-primary)' : 'none',
                   color: activeTab === 'entry' ? 'var(--color-primary)' : 'var(--color-text-light)',
-                  fontWeight: 600,
-                  cursor: 'pointer',
-                  transition: 'all 0.2s',
-                  fontSize: '0.95rem'
                 }}
               >
                 {editingId ? 'Edit Configuration' : 'Register Field'}

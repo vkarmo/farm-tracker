@@ -1384,7 +1384,7 @@ export default function App() {
           )}
         </nav>
 
-        <main className={`container ${['dashboard', 'map', 'field', 'nursery', 'soilTests', 'equipment', 'gps', 'poi', 'settings', 'pest', 'livestock', 'livestockDiseases', 'payroll'].includes(activeTab) ? 'container-wide' : ''} ${currentUser?.role === 'Viewer' || currentUser?.role === 'Admin Viewer' ? 'role-viewer' : ''}`} style={{ marginTop: '20px' }}>
+        <main className={`container ${['dashboard', 'map', 'field', 'nursery', 'soilTests', 'equipment', 'gps', 'poi', 'settings', 'pest', 'crop', 'budget', 'livestock', 'livestockDiseases', 'payroll', 'incident', 'deadline', 'kits', 'breeding', 'employee', 'assignment', 'planning', 'finance', 'sync', 'admin', 'harvest', 'activity'].includes(activeTab) ? 'container-wide' : ''} ${currentUser?.role === 'Viewer' || currentUser?.role === 'Admin Viewer' ? 'role-viewer' : ''}`} style={{ marginTop: '20px' }}>
 
           {activeTab === 'dashboard' && <DashboardTab key={activeFarmId} />}
           {activeTab === 'map' && (

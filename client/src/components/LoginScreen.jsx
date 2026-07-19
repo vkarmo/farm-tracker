@@ -112,24 +112,26 @@ export default function LoginScreen() {
               <img src="https://upload.wikimedia.org/wikipedia/commons/5/53/Google_%22G%22_Logo.svg" alt="Google Logo" style={{ width: '20px', height: '20px' }} />
               Sign in with Google
             </button>
-            <button 
-              onClick={() => {
-                dispatch(login({
-                  id: 'u_dev',
-                  name: 'Developer Admin',
-                  email: 'vkarmo@gmail.com',
-                  role: 'Admin',
-                  profilePic: 'https://api.dicebear.com/7.x/initials/svg?seed=vkarmo@gmail.com',
-                  allowedTabs: null,
-                  canApprove: true
-                }));
-              }}
-              id="dev-bypass-btn"
-              className="btn"
-              style={{ padding: '8px 16px', fontSize: '0.9rem', background: '#388e3c', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', marginTop: '10px' }}
-            >
-              Bypass Login (Developer Mode)
-            </button>
+            {import.meta.env.DEV && (
+              <button 
+                onClick={() => {
+                  dispatch(login({
+                    id: 'u_dev',
+                    name: 'Developer Admin',
+                    email: 'vkarmo@gmail.com',
+                    role: 'Admin',
+                    profilePic: 'https://api.dicebear.com/7.x/initials/svg?seed=vkarmo@gmail.com',
+                    allowedTabs: null,
+                    canApprove: true
+                  }));
+                }}
+                id="dev-bypass-btn"
+                className="btn"
+                style={{ padding: '8px 16px', fontSize: '0.9rem', background: '#388e3c', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer', marginTop: '10px' }}
+              >
+                Bypass Login (Developer Mode)
+              </button>
+            )}
           </div>
         )}
         

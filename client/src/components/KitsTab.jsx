@@ -58,21 +58,15 @@ export default function KitsTab() {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        <div style={{ display: 'flex', borderBottom: '1px solid var(--color-border-light)', background: '#f5f7fa' }}>
+        <div className="sub-tabs-container">
           <button 
             type="button"
             onClick={() => setActiveTab('roster')} 
+            className="sub-tab-btn"
             style={{ 
-              flex: 1, 
-              padding: '12px 16px', 
-              border: 'none', 
               background: activeTab === 'roster' ? 'white' : 'transparent', 
               borderBottom: activeTab === 'roster' ? '3px solid var(--color-primary)' : 'none',
               color: activeTab === 'roster' ? 'var(--color-primary)' : 'var(--color-text-light)',
-              fontWeight: 600,
-              cursor: 'pointer',
-              transition: 'all 0.2s',
-              fontSize: '0.95rem'
             }}
           >
             Kit Records
@@ -80,17 +74,11 @@ export default function KitsTab() {
           <button 
             type="button"
             onClick={() => setActiveTab('entry')} 
+            className="sub-tab-btn"
             style={{ 
-              flex: 1, 
-              padding: '12px 16px', 
-              border: 'none', 
               background: activeTab === 'entry' ? 'white' : 'transparent', 
               borderBottom: activeTab === 'entry' ? '3px solid var(--color-primary)' : 'none',
               color: activeTab === 'entry' ? 'var(--color-primary)' : 'var(--color-text-light)',
-              fontWeight: 600,
-              cursor: 'pointer',
-              transition: 'all 0.2s',
-              fontSize: '0.95rem'
             }}
           >
             {editingId ? 'Edit Kit Record' : 'New Kit Record'}

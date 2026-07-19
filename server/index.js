@@ -2269,6 +2269,29 @@ app.get('/api/pests/relationships', async (req, res) => {
   }
 });
 
+// Get Crop-Pest-Remedy relationships matrix
+app.get('/api/crops/relationships', async (req, res) => {
+  const session = driver.session();
+  try {
+    const query = `
+      MATCH (c:Crop)--(p:Pest)--(r:Remedy) 
+      RETURN distinct c.name as cropName, p.name as pestName, collect(distinct r.name) as remedies 
+      ORDER BY c.name
+    `;
+    const result = await session.run(query);
+    const list = result.records.map(record => ({
+      cropName: record.get('cropName'),
+      pestName: record.get('pestName'),
+      remedies: record.get('remedies') || []
+    }));
+    res.json(list);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  } finally {
+    await session.close();
+  }
+});
+
 // AI Pest and Disease List Generator
 app.post('/api/pests/retrieve-ai', async (req, res) => {
   const { farmId, email, crop } = req.body;
