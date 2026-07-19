@@ -600,7 +600,47 @@ app.get('/api/fields', async (req, res) => {
   try {
     const result = await session.run('MATCH (f:Field) RETURN f');
     const fields = result.records.map(r => r.get('f').properties);
-    res.json(fields);
+
+    // Also fetch admin boundaries to expose them as virtual fields
+    let virtualFields = [];
+    try {
+      const boundariesResult = await session.run('MATCH (b:AdminBoundary) RETURN b');
+      virtualFields = boundariesResult.records.map(record => {
+        const b = record.get('b').properties;
+        let geojson = {};
+        try {
+          geojson = JSON.parse(b.geojson);
+        } catch (e) {}
+        
+        let polygonCoords = [];
+        if (geojson.geometry) {
+          const type = geojson.geometry.type;
+          const coords = geojson.geometry.coordinates;
+          if (type === 'Polygon' && Array.isArray(coords) && coords.length > 0) {
+            polygonCoords = coords[0].map(pt => [pt[1], pt[0]]);
+          } else if (type === 'MultiPolygon' && Array.isArray(coords) && coords.length > 0) {
+            polygonCoords = coords[0][0].map(pt => [pt[1], pt[0]]);
+          }
+        }
+        
+        return {
+          id: b.id,
+          name: `${b.level === 1 ? 'County' : 'District'}: ${b.name || 'Unnamed Boundary'}`,
+          area: 500,
+          soil_type: 'Clay Loam (Admin Boundary)',
+          irrigation: 'Rainfed',
+          status: 'Active',
+          year: 2026,
+          polygon: JSON.stringify(polygonCoords),
+          isVirtual: true,
+          adminLevel: b.level
+        };
+      });
+    } catch (e) {
+      console.warn('Failed to load boundaries for fields:', e.message);
+    }
+
+    res.json([...fields, ...virtualFields]);
   } catch (err) {
     res.status(500).json({ error: err.message });
   } finally {
@@ -2206,6 +2246,29 @@ Do not wrap the whole response in a JSON block or code blocks. Start directly wi
   }
 });
 
+// Get Pest-Crop-Remedy relationships matrix
+app.get('/api/pests/relationships', async (req, res) => {
+  const session = driver.session();
+  try {
+    const query = `
+      MATCH (c:Crop)--(p:Pest)--(r:Remedy) 
+      RETURN distinct p.name as pestName, collect(distinct r.name) as remedies, collect(distinct c.name) as crops 
+      ORDER BY p.name
+    `;
+    const result = await session.run(query);
+    const list = result.records.map(record => ({
+      pestName: record.get('pestName'),
+      remedies: record.get('remedies') || [],
+      crops: record.get('crops') || []
+    }));
+    res.json(list);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  } finally {
+    await session.close();
+  }
+});
+
 // AI Pest and Disease List Generator
 app.post('/api/pests/retrieve-ai', async (req, res) => {
   const { farmId, email, crop } = req.body;
@@ -2679,6 +2742,45 @@ app.get('/api/all-data', async (req, res) => {
            }
            return props;
        });
+    }
+
+    // Also fetch admin boundaries to expose them as virtual fields
+    try {
+      const boundariesResult = await session.run('MATCH (b:AdminBoundary) RETURN b');
+      const virtualFields = boundariesResult.records.map(record => {
+        const b = record.get('b').properties;
+        let geojson = {};
+        try {
+          geojson = JSON.parse(b.geojson);
+        } catch (e) {}
+        
+        let polygonCoords = [];
+        if (geojson.geometry) {
+          const type = geojson.geometry.type;
+          const coords = geojson.geometry.coordinates;
+          if (type === 'Polygon' && Array.isArray(coords) && coords.length > 0) {
+            polygonCoords = coords[0].map(pt => [pt[1], pt[0]]);
+          } else if (type === 'MultiPolygon' && Array.isArray(coords) && coords.length > 0) {
+            polygonCoords = coords[0][0].map(pt => [pt[1], pt[0]]);
+          }
+        }
+        
+        return {
+          id: b.id,
+          name: `${b.level === 1 ? 'County' : 'District'}: ${b.name || 'Unnamed Boundary'}`,
+          area: 500,
+          soil_type: 'Clay Loam (Admin Boundary)',
+          irrigation: 'Rainfed',
+          status: 'Active',
+          year: 2026,
+          polygon: polygonCoords, // parsed array (since data loader parses strings back to objects)
+          isVirtual: true,
+          adminLevel: b.level
+        };
+      });
+      data.fields = [...(data.fields || []), ...virtualFields];
+    } catch (e) {
+      console.warn('Failed to load boundaries for all-data:', e.message);
     }
 
     res.json(data);
@@ -3608,6 +3710,33 @@ app.post('/api/sync', async (req, res) => {
   } catch (err) {
     console.warn('Sync queue failed:', err.message);
     res.status(200).json({ ok: false, error: 'DATABASE_UNAVAILABLE', details: err.message });
+  } finally {
+    await session.close();
+  }
+});
+
+// GET Admin Boundaries GeoJSON Endpoint
+app.get('/api/admin-boundaries', async (req, res) => {
+  const session = driver.session();
+  try {
+    const result = await session.run(`
+      MATCH (b:AdminBoundary)
+      RETURN b.geojson AS geojson
+    `);
+    const features = result.records.map(record => {
+      try {
+        return JSON.parse(record.get('geojson'));
+      } catch (e) {
+        return null;
+      }
+    }).filter(Boolean);
+    res.json({
+      type: "FeatureCollection",
+      features
+    });
+  } catch (err) {
+    console.error('[API Error] Failed to fetch admin boundaries:', err);
+    res.status(500).json({ error: 'Failed to fetch admin boundaries' });
   } finally {
     await session.close();
   }

@@ -8,7 +8,7 @@ import { extractSpatialStats } from './CropRecommendationPanel';
 import { fetchGeoLocationInfo } from './PoiTab';
 import { setAiProvider, saveSettings } from '../store/settingsSlice';
 import { ResponsiveContainer, PieChart, Pie, Cell, Tooltip, Legend, BarChart, Bar, XAxis, YAxis, CartesianGrid } from 'recharts';
-import { MapContainer, TileLayer, Polygon, Popup, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Polygon, Popup, useMap, GeoJSON } from 'react-leaflet';
 import { MapResizer } from './ResizableMapWrapper';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
@@ -2434,6 +2434,17 @@ export default function RecommendationViewer({ fieldId, onToggleBack, selectedFi
   }, [budgets]);
 
   const [liveRate, setLiveRate] = useState(null);
+  const [adminBoundaries, setAdminBoundaries] = useState(null);
+
+  useEffect(() => {
+    fetch('/api/admin-boundaries')
+      .then(res => {
+        if (!res.ok) throw new Error('Failed to fetch admin boundaries');
+        return res.json();
+      })
+      .then(data => setAdminBoundaries(data))
+      .catch(err => console.error('[RecommendationViewer] Failed to fetch boundaries:', err));
+  }, []);
 
   useEffect(() => {
     let mounted = true;
@@ -2925,14 +2936,14 @@ export default function RecommendationViewer({ fieldId, onToggleBack, selectedFi
   return (
     <div className="card recommendation-viewer" style={{ padding: '24px', background: 'white', border: '1px solid var(--color-border)', borderRadius: '12px', boxShadow: '0 4px 20px rgba(0,0,0,0.06)' }}>
       {/* Header */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', borderBottom: '1px solid #f0f0f0', paddingBottom: '16px' }}>
+      <div className="recommendation-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '24px', borderBottom: '1px solid #f0f0f0', paddingBottom: '16px' }}>
         <div>
           <h2 style={{ margin: 0, fontSize: '1.4rem', color: '#1b5e20', display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Sparkles size={24} color="#2e7d32" /> Recommendations Center
           </h2>
           <span style={{ fontSize: '0.85rem', color: '#666' }}>Managing agronomy intelligence for <strong>{currentField.name}</strong></span>
         </div>
-        <div style={{ display: 'flex', gap: '10px' }}>
+        <div className="recommendation-header-buttons" style={{ display: 'flex', gap: '10px' }}>
           {activeReport && (
             <button
               type="button"
@@ -3465,6 +3476,26 @@ export default function RecommendationViewer({ fieldId, onToggleBack, selectedFi
                                   </Polygon>
                                 );
                               })}
+
+                              {/* Render Liberia Administrative Boundaries */}
+                              {adminBoundaries && (
+                                <GeoJSON
+                                  key={`admin_boundaries_${JSON.stringify(adminBoundaries)}`}
+                                  data={adminBoundaries}
+                                  style={(feature) => {
+                                    const level = feature?.properties?.admin_level || feature?.properties?.level || 1;
+                                    return {
+                                      color: level === 1 ? '#d32f2f' : '#1976d2',
+                                      weight: level === 1 ? 2.5 : 1,
+                                      opacity: 0.6,
+                                      fillColor: level === 1 ? '#ffcdd2' : '#bbdefb',
+                                      fillOpacity: 0.05,
+                                      dashArray: level === 1 ? 'none' : '3, 3'
+                                    };
+                                  }}
+                                  interactive={false}
+                                />
+                              )}
 
                               <FitSelectedFieldsBounds selectedFields={fields.filter(f => activeSelectedFieldIds.includes(f.id))} />
                             </MapContainer>

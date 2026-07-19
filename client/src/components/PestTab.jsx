@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import { savePest, removePest } from '../store/pestsSlice';
 import { queueAction } from '../store/syncSlice';
 import CrudTable from './CrudTable';
 import { setAiProvider, saveSettings } from '../store/settingsSlice';
-import { Bug, X, Sparkles, ShieldAlert } from 'lucide-react';
+import { Bug, X, Sparkles, ShieldAlert, Search, HeartHandshake, Sprout } from 'lucide-react';
 
 
 const INIT_STATE = { name: '', type: 'Pest', description: '', treatment: '' };
@@ -19,6 +19,46 @@ export default function PestTab() {
   const [editingId, setEditingId] = useState(null);
   const [activeTab, setActiveTab] = useState('roster');
   const [isRetrieving, setIsRetrieving] = useState(false);
+
+  const [matrixData, setMatrixData] = useState([]);
+  const [loadingMatrix, setLoadingMatrix] = useState(false);
+  const [matrixError, setMatrixError] = useState(null);
+  const [matrixSearch, setMatrixSearch] = useState('');
+
+  useEffect(() => {
+    if (activeTab === 'matrix') {
+      setLoadingMatrix(true);
+      setMatrixError(null);
+      fetch('/api/pests/relationships')
+        .then(res => {
+          if (!res.ok) throw new Error('Failed to fetch treatment matrix');
+          return res.json();
+        })
+        .then(data => {
+          setMatrixData(data);
+          setLoadingMatrix(false);
+        })
+        .catch(err => {
+          console.error(err);
+          setMatrixError(err.message);
+          setLoadingMatrix(false);
+        });
+    }
+  }, [activeTab]);
+
+  const filteredMatrix = (matrixData || []).filter(item => {
+    if (!item) return false;
+    const q = (matrixSearch || '').toLowerCase();
+    const pestName = (item.pestName || '').toLowerCase();
+    const remedies = Array.isArray(item.remedies) ? item.remedies : [];
+    const crops = Array.isArray(item.crops) ? item.crops : [];
+    
+    return (
+      pestName.includes(q) ||
+      remedies.some(r => r && r.toLowerCase().includes(q)) ||
+      crops.some(c => c && c.toLowerCase().includes(q))
+    );
+  });
 
   const resetForm = () => {
     setFormData(INIT_STATE);
@@ -168,6 +208,24 @@ export default function PestTab() {
           </button>
           <button 
             type="button"
+            onClick={() => setActiveTab('matrix')} 
+            style={{ 
+              flex: 1, 
+              padding: '12px 16px', 
+              border: 'none', 
+              background: activeTab === 'matrix' ? 'white' : 'transparent', 
+              borderBottom: activeTab === 'matrix' ? '3px solid var(--color-primary)' : 'none',
+              color: activeTab === 'matrix' ? 'var(--color-primary)' : 'var(--color-text-light)',
+              fontWeight: 600,
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+              fontSize: '0.95rem'
+            }}
+          >
+            Treatment Matrix
+          </button>
+          <button 
+            type="button"
             onClick={() => setActiveTab('entry')} 
             style={{ 
               flex: 1, 
@@ -187,7 +245,7 @@ export default function PestTab() {
         </div>
 
         <div style={{ padding: '20px' }}>
-          {activeTab === 'roster' ? (
+          {activeTab === 'roster' && (
             <>
               <div style={{ 
                 display: 'flex', 
@@ -249,7 +307,87 @@ export default function PestTab() {
                 defaultSort={{ key: 'name', direction: 'asc' }}
               />
             </>
-          ) : (
+          )}
+
+          {activeTab === 'matrix' && (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+              {/* Search Bar */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: 'white', padding: '10px 14px', borderRadius: '6px', border: '1px solid var(--color-border, #ccc)' }}>
+                <Search size={16} color="#666" />
+                <input
+                  type="text"
+                  placeholder="Search by pest, crop, or remedy..."
+                  value={matrixSearch}
+                  onChange={(e) => setMatrixSearch(e.target.value)}
+                  style={{ border: 'none', width: '100%', outline: 'none', fontSize: '0.9rem' }}
+                />
+                {matrixSearch && (
+                  <button type="button" onClick={() => setMatrixSearch('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#888' }}>
+                    <X size={16} />
+                  </button>
+                )}
+              </div>
+
+              {loadingMatrix ? (
+                <div style={{ padding: '40px', textAlign: 'center', color: '#666' }}>
+                  Loading treatment relationships...
+                </div>
+              ) : matrixError ? (
+                <div style={{ padding: '20px', textAlign: 'center', color: '#c62828', background: '#ffebee', borderRadius: '6px' }}>
+                  Error loading treatment matrix: {matrixError}
+                </div>
+              ) : filteredMatrix.length === 0 ? (
+                <div style={{ padding: '40px', textAlign: 'center', color: '#666', background: '#f8fafc', borderRadius: '6px', border: '1px dashed #cbd5e1' }}>
+                  No relationship mapping found matching your search.
+                </div>
+              ) : (
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '16px' }}>
+                  {filteredMatrix.map((item, idx) => (
+                    <div key={idx} className="card" style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '16px', background: '#ffffff', borderRadius: '8px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)', border: '1px solid #e2e8f0' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', borderBottom: '1px solid #f1f5f9', paddingBottom: '8px' }}>
+                        <Bug size={18} color="#e65100" />
+                        <h4 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: '#1e293b' }}>{item.pestName}</h4>
+                      </div>
+                      
+                      {/* Crops Section */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <Sprout size={12} /> Affected Crops
+                        </span>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '2px' }}>
+                          {item.crops && item.crops.length > 0 ? (
+                            item.crops.map((c, i) => (
+                              <span key={i} style={{ background: '#e8f5e9', color: '#2e7d32', padding: '3px 8px', borderRadius: '12px', fontSize: '0.7rem', fontWeight: 600 }}>{c}</span>
+                            ))
+                          ) : (
+                            <span style={{ fontSize: '0.72rem', fontStyle: 'italic', color: '#94a3b8' }}>None linked</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Remedies Section */}
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                        <span style={{ fontSize: '0.72rem', fontWeight: 700, color: '#64748b', display: 'flex', alignItems: 'center', gap: '4px' }}>
+                          <HeartHandshake size={12} /> Target Remedies
+                        </span>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginTop: '2px' }}>
+                          {item.remedies && item.remedies.length > 0 ? (
+                            item.remedies.map((r, i) => (
+                              <span key={i} style={{ background: '#fff3e0', color: '#e65100', padding: '3px 8px', borderRadius: '12px', fontSize: '0.7rem', fontWeight: 600 }}>{r}</span>
+                            ))
+                          ) : (
+                            <span style={{ fontSize: '0.72rem', fontStyle: 'italic', color: '#94a3b8' }}>None linked</span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'entry' && (
             <form onSubmit={handleSubmit}>
               <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', justifyContent: 'flex-end' }}>
                 {editingId && (

@@ -5,7 +5,7 @@ import { updateField, addField, deleteField } from '../store/fieldsSlice';
 import { CheckCircle2, Target, X, PlusCircle, Copy, Lightbulb, ClipboardList } from 'lucide-react';
 import CrudTable from './CrudTable';
 import RecommendationViewer from './RecommendationViewer';
-import { MapContainer, TileLayer, Polygon, Marker, Popup, useMapEvents, useMap } from 'react-leaflet';
+import { MapContainer, TileLayer, Polygon, Marker, Popup, useMapEvents, useMap, GeoJSON } from 'react-leaflet';
 import FieldImageryOverlay, { getDeterministicSceneDate, getDeterministicCloudCover } from './FieldImageryOverlay';
 import ResizableMapWrapper, { MapResizer } from './ResizableMapWrapper';
 import { MapSearchBox, MapFlyTo, FarmLocationButton } from './MapSearchBox';
@@ -82,11 +82,22 @@ export default function FieldTab() {
   const [fieldImagery, setFieldImagery] = useState({});
   const [fieldImageryOffsets, setFieldImageryOffsets] = useState({});
   const [geeStatus, setGeeStatus] = useState({});
+  const [adminBoundaries, setAdminBoundaries] = useState(null);
 
   const activeId = editingId || 'active';
   const showActiveImagery = fieldImagery[activeId] && fieldImagery[activeId] !== 'none';
   const isActiveLoaded = geeStatus[activeId]?.status === 'success' || geeStatus[activeId]?.status === 'failed';
   const makeActiveTransparent = showActiveImagery && isActiveLoaded;
+
+  useEffect(() => {
+    fetch('/api/admin-boundaries')
+      .then(res => {
+        if (!res.ok) throw new Error('Failed to fetch admin boundaries');
+        return res.json();
+      })
+      .then(data => setAdminBoundaries(data))
+      .catch(err => console.error('[FieldTab] Failed to fetch boundaries:', err));
+  }, []);
 
 
   useEffect(() => {
@@ -155,6 +166,10 @@ export default function FieldTab() {
   };
 
   const handleEdit = (row) => {
+    if (row.isVirtual) {
+      alert("Administrative district fields are read-only.");
+      return;
+    }
     setFormData(row);
     setEditingId(row.id);
     if (row.polygon) {
@@ -172,6 +187,11 @@ export default function FieldTab() {
   };
 
   const handleDelete = (id) => {
+    const fObj = fields.find(f => f.id === id);
+    if (fObj && fObj.isVirtual) {
+      alert("Administrative district fields cannot be deleted.");
+      return;
+    }
     if (window.confirm("Permanently delete this field profile?")) {
       dispatch(deleteField(id));
       dispatch(queueAction({ type: 'core/deleteNode', payload: { id }, meta: { id: Date.now() } }));
@@ -230,7 +250,7 @@ export default function FieldTab() {
   return (
     <>
       {showRecommendations && editingId ? (
-        <RecommendationViewer fieldId={editingId} onToggleBack={() => setShowRecommendations(false)} />
+        <RecommendationViewer fieldId={editingId} onToggleBack={() => { setShowRecommendations(false); window.scrollTo({ top: 0, behavior: 'smooth' }); }} />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
           <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
@@ -488,6 +508,26 @@ export default function FieldTab() {
                               );
                             })}
 
+                            {/* Render Liberia Administrative Boundaries */}
+                            {adminBoundaries && (
+                              <GeoJSON
+                                key={`admin_boundaries_${JSON.stringify(adminBoundaries)}`}
+                                data={adminBoundaries}
+                                style={(feature) => {
+                                  const level = feature?.properties?.admin_level || feature?.properties?.level || 1;
+                                  return {
+                                    color: level === 1 ? '#d32f2f' : '#1976d2',
+                                    weight: level === 1 ? 2.5 : 1,
+                                    opacity: 0.6,
+                                    fillColor: level === 1 ? '#ffcdd2' : '#bbdefb',
+                                    fillOpacity: 0.05,
+                                    dashArray: level === 1 ? 'none' : '3, 3'
+                                  };
+                                }}
+                                interactive={false}
+                              />
+                            )}
+
                             <FitSelectedFieldsBounds selectedFields={fields.filter(f => selectedFieldIdsForRec.includes(f.id))} />
                           </MapContainer>
                         </div>
@@ -528,7 +568,10 @@ export default function FieldTab() {
                       {activeRecFieldId && (
                         <RecommendationViewer
                           fieldId={activeRecFieldId}
-                          onToggleBack={() => setShowRecResults(false)}
+                          onToggleBack={() => {
+                            setShowRecResults(false);
+                            window.scrollTo({ top: 0, behavior: 'smooth' });
+                          }}
                           selectedFieldIds={selectedFieldIdsForRec}
                           initialReportId={initialRecReportId}
                         />

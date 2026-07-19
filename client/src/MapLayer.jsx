@@ -720,10 +720,22 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
   const weatherFetchCache = useRef(new Set());
   const [waterways, setWaterways] = useState(null);
   const [showWaterways, setShowWaterways] = useState(true);
+  const [adminBoundaries, setAdminBoundaries] = useState(null);
+  const [showAdminBoundaries, setShowAdminBoundaries] = useState(true);
 
   const anyFieldHasCropLayout = useMemo(() => {
     return Object.values(fieldImagery).some(val => val && val.startsWith('CropLayout'));
   }, [fieldImagery]);
+
+  useEffect(() => {
+    fetch('/api/admin-boundaries')
+      .then(res => {
+        if (!res.ok) throw new Error('Failed to fetch admin boundaries');
+        return res.json();
+      })
+      .then(data => setAdminBoundaries(data))
+      .catch(err => console.error('[Map] Failed to fetch boundaries:', err));
+  }, []);
 
   useEffect(() => {
     fetch('/api/lisgis/waterways')
@@ -840,6 +852,15 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
     }
   });
 
+  const [nurseriesFilterMode, setNurseriesFilterMode] = useState(() => localStorage.getItem('map_nurseries_filter_mode') || 'all');
+  const [selectedNurseries, setSelectedNurseries] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('map_selected_nurseries')) || [];
+    } catch (e) {
+      return [];
+    }
+  });
+
   // Sync to localStorage
   useEffect(() => {
     localStorage.setItem('map_filter_panel_open', String(isFilterPanelOpen));
@@ -876,6 +897,14 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
   useEffect(() => {
     localStorage.setItem('map_selected_soil_tests', JSON.stringify(selectedSoilTests));
   }, [selectedSoilTests]);
+
+  useEffect(() => {
+    localStorage.setItem('map_nurseries_filter_mode', nurseriesFilterMode);
+  }, [nurseriesFilterMode]);
+
+  useEffect(() => {
+    localStorage.setItem('map_selected_nurseries', JSON.stringify(selectedNurseries));
+  }, [selectedNurseries]);
 
   useEffect(() => {
     const handler = (e) => {
@@ -1037,6 +1066,7 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
   const fieldOptions = fields.map(f => ({ value: f.id, label: f.name || 'Unnamed Field' }));
   const poiOptions = pois.map(p => ({ value: p.id, label: `${p.name || 'Unnamed POI'} (${p.type || 'N/A'})` }));
   const equipmentOptions = equipment.map(e => ({ value: e.id, label: `${e.name || 'Unnamed Asset'} (${e.type || 'N/A'})` }));
+  const nurseryOptions = nurseries.map(n => ({ value: n.id, label: n.name || 'Unnamed Nursery' }));
   const soilTestOptions = soilTests.map(t => {
     const relatedField = fields.find(f => f.id === t.fieldId);
     const dateStr = t.date || t.testResults?.[0]?.date || 'No Date';
@@ -1058,7 +1088,11 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
   });
 
   const displayedNurseries = nurseries.filter(bed => {
-    return visibleMapLayers.includes('nurseries');
+    if (!visibleMapLayers.includes('nurseries')) return false;
+    if (nurseriesFilterMode === 'specific') {
+      return selectedNurseries.some(opt => opt.value === bed.id);
+    }
+    return true;
   });
 
   const displayedPois = pois.filter(poi => {
@@ -1175,7 +1209,10 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
             <div style={{ display: 'flex', gap: '2px', background: '#eaeaea', borderRadius: '4px', padding: '2px' }}>
               <button
                 type="button"
-                onClick={() => setFilterMode('all')}
+                onClick={() => {
+                  setFilterMode('all');
+                  setSelectedVals([]);
+                }}
                 style={{
                   border: 'none',
                   background: filterMode === 'all' ? '#ffffff' : 'transparent',
@@ -1191,7 +1228,10 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
               </button>
               <button
                 type="button"
-                onClick={() => setFilterMode('specific')}
+                onClick={() => {
+                  setFilterMode('specific');
+                  setSelectedVals([]);
+                }}
                 style={{
                   border: 'none',
                   background: filterMode === 'specific' ? '#ffffff' : 'transparent',
@@ -1351,7 +1391,7 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
           </div>
 
           {/* Global Options */}
-          <div style={{ background: '#f5f7fa', padding: '10px', borderRadius: '6px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+          <div style={{ background: '#e2e8f0', borderTop: '1px solid #cbd5e1', borderBottom: '1px solid #cbd5e1', padding: '12px 16px', margin: '0 -16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
               <label className="imager-select-label" style={{ fontSize: '0.75rem', fontWeight: 600, margin: 0 }}>Global Overlay:</label>
               <select 
@@ -1469,7 +1509,7 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
               </div>
             )}
 
-            <div style={{ display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginTop: '4px' }}>
+            <div style={{ display: 'flex', justifyContent: 'flex-start', flexWrap: 'wrap', gap: '16px', marginTop: '4px' }}>
               <label style={{ display: 'flex', alignItems: 'center', gap: '4px', fontSize: '0.75rem', cursor: 'pointer', margin: 0 }}>
                 <input 
                   type="checkbox" 
@@ -1538,36 +1578,44 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
               'Select tests...'
             )}
 
-            {/* Nurseries Layer (simple toggle) */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 0' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', margin: 0 }}>
-                <input 
-                  type="checkbox" 
-                  checked={visibleMapLayers.includes('nurseries')}
-                  onChange={() => {
-                    const newLayers = visibleMapLayers.includes('nurseries') 
-                      ? visibleMapLayers.filter(l => l !== 'nurseries') 
-                      : [...visibleMapLayers, 'nurseries'];
-                    dispatch(setVisibleMapLayers(newLayers));
-                    dispatch(saveSettings());
-                  }}
-                  style={{ width: '15px', height: '15px', margin: 0 }}
-                />
-                Nurseries
-              </label>
-            </div>
+            {renderLayerFilterItem(
+              'nurseries',
+              'Nurseries',
+              nurseriesFilterMode,
+              setNurseriesFilterMode,
+              selectedNurseries,
+              setSelectedNurseries,
+              nurseryOptions,
+              'Select nurseries...'
+            )}
 
-            {/* LISGIS Waterways Layer (simple toggle) */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '4px 0' }}>
-              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', margin: 0 }}>
-                <input 
-                  type="checkbox" 
-                  checked={showWaterways}
-                  onChange={(e) => setShowWaterways(e.target.checked)}
-                  style={{ width: '15px', height: '15px', margin: 0 }}
-                />
-                LISGIS Waterways (Creek)
-              </label>
+            {/* LISGIS and Admin Boundaries Box */}
+            <div style={{ background: '#e2e8f0', borderTop: '1px solid #cbd5e1', borderBottom: '1px solid #cbd5e1', padding: '12px 16px', margin: '8px -16px 0 -16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+              {/* LISGIS Waterways Layer (simple toggle) */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', margin: 0 }}>
+                  <input 
+                    type="checkbox" 
+                    checked={showWaterways}
+                    onChange={(e) => setShowWaterways(e.target.checked)}
+                    style={{ width: '15px', height: '15px', margin: 0 }}
+                  />
+                  LISGIS Waterways (Creek)
+                </label>
+              </div>
+
+              {/* Admin Boundaries Layer (simple toggle) */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', margin: 0 }}>
+                  <input 
+                    type="checkbox" 
+                    checked={showAdminBoundaries}
+                    onChange={(e) => setShowAdminBoundaries(e.target.checked)}
+                    style={{ width: '15px', height: '15px', margin: 0 }}
+                  />
+                  Admin Boundaries
+                </label>
+              </div>
             </div>
           </div>
         </div>
@@ -1635,6 +1683,41 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
               }}
             />
           </>
+        )}
+
+        {/* Render Liberia Administrative Boundaries */}
+        {showAdminBoundaries && adminBoundaries && (
+          <GeoJSON
+            key={`admin_boundaries_${JSON.stringify(adminBoundaries)}`}
+            data={adminBoundaries}
+            style={(feature) => {
+              const level = feature?.properties?.admin_level || feature?.properties?.level || 1;
+              return {
+                color: level === 1 ? '#d32f2f' : '#1976d2',
+                weight: level === 1 ? 3 : 1.5,
+                opacity: 0.75,
+                fillColor: level === 1 ? '#ffcdd2' : '#bbdefb',
+                fillOpacity: 0.1,
+                dashArray: level === 1 ? 'none' : '4, 4'
+              };
+            }}
+            onEachFeature={(feature, layer) => {
+              const props = feature.properties || {};
+              const name = props.name || props.NAME_1 || props.NAME_2 || props.ADM1_EN || props.ADM2_EN || props.county || 'Unnamed Boundary';
+              const level = props.admin_level || props.level || 1;
+              layer.bindPopup(`
+                <div style="font-family: var(--font-family); font-size: 0.8rem; line-height: 1.4; min-width: 150px;">
+                  <strong style="color: var(--color-primary-dark); font-size: 0.9rem; display: block; border-bottom: 1px solid #e0e0e0; padding-bottom: 4px; margin-bottom: 6px;">
+                    Administrative Boundary
+                  </strong>
+                  <strong>Name:</strong> ${name}<br/>
+                  <strong>Admin Level:</strong> ${level === 1 ? 'County (Level 1)' : `Level ${level}`}<br/>
+                  ${props.ADM1_PCODE ? `<strong>County Code:</strong> ${props.ADM1_PCODE}<br/>` : ''}
+                  ${props.ADM2_PCODE ? `<strong>District Code:</strong> ${props.ADM2_PCODE}<br/>` : ''}
+                </div>
+              `);
+            }}
+          />
         )}
 
         {/* Render Equipment (Hard Assets) as Markers */}
