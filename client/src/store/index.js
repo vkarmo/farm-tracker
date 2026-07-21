@@ -59,12 +59,13 @@ const appReducer = combineReducers({
 
 const rootReducer = (state, action) => {
   if (action.type === 'sync/clearAllData') {
-    const { auth, sync } = state || {};
+    const { auth, sync, settings } = state || {};
     const cleanState = appReducer(undefined, { type: '@@INIT' });
     state = {
       ...cleanState,
       auth,
-      sync: sync ? { ...cleanState.sync, offlineActionQueue: sync.offlineActionQueue, lastSynced: sync.lastSynced } : cleanState.sync
+      sync: sync ? { ...cleanState.sync, offlineActionQueue: sync.offlineActionQueue, lastSynced: sync.lastSynced } : cleanState.sync,
+      settings: settings ? { ...cleanState.settings, byFarm: settings.byFarm || {} } : cleanState.settings
     };
   }
   return appReducer(state, action);

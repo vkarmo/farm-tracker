@@ -236,10 +236,15 @@ export const settingsSlice = createSlice({
         if (!payload.logo || payload.logo === 'RESET' || payload.logo === 'DEFAULT') {
           payload.logo = null;
         }
+      } else {
+        const cachedLogo = state.byFarm?.[activeFarmId]?.logo;
+        if (cachedLogo) {
+          payload.logo = cachedLogo;
+        }
       }
 
       const updatedSettings = { ...initialState, ...state, ...payload };
-      if (!updatedSettings.byFarm) updatedSettings.byFarm = {};
+      if (!updatedSettings.byFarm) updatedSettings.byFarm = state.byFarm || {};
       updatedSettings.byFarm[activeFarmId] = { ...updatedSettings };
 
       return updatedSettings;
@@ -423,8 +428,20 @@ export const settingsSlice = createSlice({
 export const { addUnit, removeUnit, addJobTitle, removeJobTitle, addExpenseCategory, removeExpenseCategory, addIncomeCategory, removeIncomeCategory, addKmlUrl, removeKmlUrl, setLogo, loadFarmSettingsFromCache, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold, setAppName, addAnimalType, removeAnimalType, setAllSettings, setVisibleMapLayers, setSnapGap, setGeeClientEmail, setGeePrivateKey, setGeeProjectId, setGeeScale, setOwmApiKey, setThemeAppBgColor, setThemeCardBgColor, setThemeCardBorderColor, setThemeCardBorderThickness, setThemeAppBorderColor, setThemeAppBorderThickness, setThemeFontName, setThemeFontSizeBase, setThemeFontSizeCardTitle, setThemeFontSizeTabs, setThemeColorPrimary, setThemeColorCardTitle, setThemeColorTabsActiveBg, setThemeColorTabsActiveText, setThemeColorTabsInactiveBg, setThemeColorTabsInactiveText, setThemeFontAppName, setThemeFontSizeAppName, setThemeFontAppNameBold, setThemeFontAppNameItalic, setThemeFontAppNameCapitalize, setThemeFontSizeBaseBold, setThemeFontSizeBaseItalic, setThemeFontSizeBaseCapitalize, setThemeFontSizeCardTitleBold, setThemeFontSizeCardTitleItalic, setThemeFontSizeCardTitleCapitalize, setThemeFontSizeTabsBold, setThemeFontSizeTabsItalic, setThemeFontSizeTabsCapitalize, setThemeFontImager, setThemeFontSizeImager, setThemeFontImagerBold, setThemeFontImagerItalic, setThemeFontImagerCapitalize, setMtnClientId, setMtnClientSecret, setMtnEnvironment, setSimulateHighWinds, setGoogleMapsApiKey, setGeminiApiKey, setClaudeApiKey, setAiProvider, setNeo4jUri, setNeo4jUser, setNeo4jPassword, setNeo4jDatabase, setWorkdayHours, setWorkdays } = settingsSlice.actions;
 
 export const saveSettings = () => (dispatch, getState) => {
-  const settings = getState().settings;
-  dispatch(queueAction({ type: 'settings/updateGlobal', payload: settings, meta: { id: Date.now() } }));
+  const state = getState();
+  const settings = state.settings;
+  const activeFarmId = localStorage.getItem('activeFarmId') || (import.meta.env.DEV ? 'dev_farm' : 'default_farm');
+
+  // Safeguard: Preserve existing cached logo for active farm if Redux state is temporarily null
+  const cachedLogo = settings.byFarm?.[activeFarmId]?.logo;
+  const logoToSave = settings.logo || cachedLogo || null;
+
+  const payload = {
+    ...settings,
+    logo: logoToSave
+  };
+
+  dispatch(queueAction({ type: 'settings/updateGlobal', payload, farmId: activeFarmId, meta: { id: Date.now() } }));
   dispatch(flushQueue(true));
 };
 

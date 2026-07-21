@@ -4083,7 +4083,9 @@ app.post('/api/sync', async (req, res) => {
           }
 
           await session.run(`
+            MERGE (f:Farm {id: $targetFarmId})
             MERGE (p:Payroll {id: $id})
+            MERGE (p)-[:BELONGS_TO]->(f)
             SET p.fromDate = $fromDate, p.toDate = $toDate, p.exchangeRate = toFloat($exchangeRate),
                 p.attendance = $attendance, p.pulledEmployees = $pulledEmployees, p.customRates = $customRates, p.totals = $totals
             SET p.lastUpdatedBy = $userEmail
@@ -4095,7 +4097,7 @@ app.post('/api/sync', async (req, res) => {
             FOREACH (ignore IN CASE WHEN e IS NOT NULL THEN [1] ELSE [] END | MERGE (p)-[:INCLUDES_EMPLOYEE]->(e))
             RETURN p
           `, { 
-            userEmail, id, fromDate, toDate, exchangeRate, 
+            targetFarmId, userEmail, id, fromDate, toDate, exchangeRate, 
             attendance: typeof attendance === 'string' ? attendance : JSON.stringify(attendance), 
             pulledEmployees: typeof pulledEmployees === 'string' ? pulledEmployees : JSON.stringify(pulledEmployees), 
             customRates: typeof customRates === 'string' ? customRates : JSON.stringify(customRates || {}),
@@ -4159,6 +4161,17 @@ app.post('/api/sync', async (req, res) => {
           `, { id, activeCdIds });
 
           updatedIds.push(id);
+          results.push({ actionId: action.meta?.id, status: 'success' });
+        }
+        else if (action.type === 'payroll/deletePayroll') {
+          const id = typeof action.payload === 'string' ? action.payload : action.payload?.id;
+          if (id) {
+            await session.run(`
+              MATCH (p:Payroll {id: $id})
+              OPTIONAL MATCH (cd:ContractDay)-[:FOR_PAYROLL]->(p)
+              DETACH DELETE cd, p
+            `, { id });
+          }
           results.push({ actionId: action.meta?.id, status: 'success' });
         }
         else if (action.type === 'core/createRelationship') {

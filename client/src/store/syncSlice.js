@@ -35,7 +35,7 @@ export const syncSlice = createSlice({
       const actionPayload = action.payload || {};
       const actionWithFarm = {
         ...actionPayload,
-        farmId: activeFarmId
+        farmId: actionPayload.farmId || activeFarmId
       };
       state.offlineActionQueue.push(actionWithFarm);
       
