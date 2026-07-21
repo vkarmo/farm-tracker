@@ -3,7 +3,7 @@ import { useSelector, useDispatch } from 'react-redux';
 import Select from 'react-select';
 import { fetchFields } from './store/fieldsSlice';
 import { sanitizeFontName, getFontFamilyCSS } from './utils/fontUtils';
-import { addUnit, removeUnit, addJobTitle, removeJobTitle, addExpenseCategory, removeExpenseCategory, addIncomeCategory, removeIncomeCategory, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold, setAppName, addAnimalType, removeAnimalType, saveSettings, setGeeClientEmail, setGeePrivateKey, setGeeProjectId, setGeeScale, setOwmApiKey, setThemeAppBgColor, setThemeCardBgColor, setThemeCardBorderColor, setThemeCardBorderThickness, setThemeAppBorderColor, setThemeAppBorderThickness, setThemeFontName, setThemeFontSizeBase, setThemeFontSizeCardTitle, setThemeFontSizeTabs, setThemeColorPrimary, setThemeColorCardTitle, setThemeColorTabsActiveBg, setThemeColorTabsActiveText, setThemeColorTabsInactiveBg, setThemeColorTabsInactiveText, setThemeFontAppName, setThemeFontSizeAppName, setThemeFontAppNameBold, setThemeFontAppNameItalic, setThemeFontAppNameCapitalize, setThemeFontSizeBaseBold, setThemeFontSizeBaseItalic, setThemeFontSizeBaseCapitalize, setThemeFontSizeCardTitleBold, setThemeFontSizeCardTitleItalic, setThemeFontSizeCardTitleCapitalize, setThemeFontSizeTabsBold, setThemeFontSizeTabsItalic, setThemeFontSizeTabsCapitalize, setThemeFontImager, setThemeFontSizeImager, setThemeFontImagerBold, setThemeFontImagerItalic, setThemeFontImagerCapitalize, setMtnClientId, setMtnClientSecret, setMtnEnvironment, setSimulateHighWinds, setGoogleMapsApiKey, setGeminiApiKey, setClaudeApiKey, setAiProvider, setNeo4jUri, setNeo4jUser, setNeo4jPassword, setNeo4jDatabase, setWorkdayHours, setWorkdays } from './store/settingsSlice';
+import { addUnit, removeUnit, addJobTitle, removeJobTitle, addExpenseCategory, removeExpenseCategory, addIncomeCategory, removeIncomeCategory, addKmlUrl, removeKmlUrl, setLogo, loadFarmSettingsFromCache, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold, setAppName, addAnimalType, removeAnimalType, saveSettings, setGeeClientEmail, setGeePrivateKey, setGeeProjectId, setGeeScale, setOwmApiKey, setThemeAppBgColor, setThemeCardBgColor, setThemeCardBorderColor, setThemeCardBorderThickness, setThemeAppBorderColor, setThemeAppBorderThickness, setThemeFontName, setThemeFontSizeBase, setThemeFontSizeCardTitle, setThemeFontSizeTabs, setThemeColorPrimary, setThemeColorCardTitle, setThemeColorTabsActiveBg, setThemeColorTabsActiveText, setThemeColorTabsInactiveBg, setThemeColorTabsInactiveText, setThemeFontAppName, setThemeFontSizeAppName, setThemeFontAppNameBold, setThemeFontAppNameItalic, setThemeFontAppNameCapitalize, setThemeFontSizeBaseBold, setThemeFontSizeBaseItalic, setThemeFontSizeBaseCapitalize, setThemeFontSizeCardTitleBold, setThemeFontSizeCardTitleItalic, setThemeFontSizeCardTitleCapitalize, setThemeFontSizeTabsBold, setThemeFontSizeTabsItalic, setThemeFontSizeTabsCapitalize, setThemeFontImager, setThemeFontSizeImager, setThemeFontImagerBold, setThemeFontImagerItalic, setThemeFontImagerCapitalize, setMtnClientId, setMtnClientSecret, setMtnEnvironment, setSimulateHighWinds, setGoogleMapsApiKey, setGeminiApiKey, setClaudeApiKey, setAiProvider, setNeo4jUri, setNeo4jUser, setNeo4jPassword, setNeo4jDatabase, setWorkdayHours, setWorkdays } from './store/settingsSlice';
 import { addLocation } from './store/gpsSlice';
 import { queueAction, fetchInitialData, abortSync, clearAllData } from './store/syncSlice';
 import { MapSearchBox, MapFlyTo, FarmLocationButton } from './components/MapSearchBox';
@@ -191,6 +191,7 @@ export default function App() {
     dispatch(clearAllData());
     localStorage.setItem('activeFarmId', farmId);
     setActiveFarmId(farmId);
+    dispatch(loadFarmSettingsFromCache(farmId));
     
     try {
       await dispatch(fetchInitialData());
@@ -1085,22 +1086,21 @@ export default function App() {
     const isInitialMount = React.useRef(true);
 
     useEffect(() => {
-      const timer = setTimeout(() => { isInitialMount.current = false; }, 800);
+      isInitialMount.current = true;
+      const timer = setTimeout(() => { isInitialMount.current = false; }, 1200);
       return () => clearTimeout(timer);
-    }, []);
+    }, [activeFarmId]);
 
     useMapEvents({
       click(e) {
-        if (currentUser?.role === 'Admin Viewer') return;
+        if (currentUser?.role === 'Admin Viewer' || isFarmLoading || isInitialMount.current) return;
         dispatch(setMapCenter([e.latlng.lat, e.latlng.lng]));
         dispatch(saveSettings());
       },
       zoomend(e) {
-        if (currentUser?.role === 'Admin Viewer') return;
+        if (currentUser?.role === 'Admin Viewer' || isFarmLoading || isInitialMount.current) return;
         dispatch(setMapZoom(e.target.getZoom()));
-        if (!isInitialMount.current) {
-          dispatch(saveSettings());
-        }
+        dispatch(saveSettings());
       }
     });
     return null;

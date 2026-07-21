@@ -125,11 +125,27 @@ export const settingsSlice = createSlice({
     },
     setLogo: (state, action) => {
       const val = action.payload;
+      const activeFarmId = localStorage.getItem('activeFarmId') || (import.meta.env.DEV ? 'dev_farm' : 'default_farm');
       if (val === 'RESET' || val === 'DEFAULT' || val === null || val === undefined || val === '') {
         state.logo = null;
       } else {
         state.logo = val;
       }
+      if (!state.byFarm) state.byFarm = {};
+      state.byFarm[activeFarmId] = { ...(state.byFarm[activeFarmId] || {}), logo: state.logo };
+    },
+    loadFarmSettingsFromCache: (state, action) => {
+      const farmId = action.payload || localStorage.getItem('activeFarmId') || (import.meta.env.DEV ? 'dev_farm' : 'default_farm');
+      if (!state.byFarm) state.byFarm = {};
+      const cached = state.byFarm[farmId];
+      if (cached) {
+        return {
+          ...initialState,
+          ...cached,
+          byFarm: state.byFarm
+        };
+      }
+      return state;
     },
     setPolygonColor: (state, action) => {
       state.polygonColor = action.payload;
@@ -157,6 +173,7 @@ export const settingsSlice = createSlice({
       state.animalTypes = state.animalTypes.filter(t => t !== action.payload);
     },
     setAllSettings: (state, action) => {
+      const activeFarmId = localStorage.getItem('activeFarmId') || (import.meta.env.DEV ? 'dev_farm' : 'default_farm');
       const payload = { ...action.payload };
 
       if (payload.appName) {
@@ -221,7 +238,11 @@ export const settingsSlice = createSlice({
         }
       }
 
-      return { ...initialState, ...payload };
+      const updatedSettings = { ...initialState, ...state, ...payload };
+      if (!updatedSettings.byFarm) updatedSettings.byFarm = {};
+      updatedSettings.byFarm[activeFarmId] = { ...updatedSettings };
+
+      return updatedSettings;
     },
     setVisibleMapLayers: (state, action) => {
       state.visibleMapLayers = action.payload;
@@ -399,7 +420,7 @@ export const settingsSlice = createSlice({
   }
 });
 
-export const { addUnit, removeUnit, addJobTitle, removeJobTitle, addExpenseCategory, removeExpenseCategory, addIncomeCategory, removeIncomeCategory, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold, setAppName, addAnimalType, removeAnimalType, setAllSettings, setVisibleMapLayers, setSnapGap, setGeeClientEmail, setGeePrivateKey, setGeeProjectId, setGeeScale, setOwmApiKey, setThemeAppBgColor, setThemeCardBgColor, setThemeCardBorderColor, setThemeCardBorderThickness, setThemeAppBorderColor, setThemeAppBorderThickness, setThemeFontName, setThemeFontSizeBase, setThemeFontSizeCardTitle, setThemeFontSizeTabs, setThemeColorPrimary, setThemeColorCardTitle, setThemeColorTabsActiveBg, setThemeColorTabsActiveText, setThemeColorTabsInactiveBg, setThemeColorTabsInactiveText, setThemeFontAppName, setThemeFontSizeAppName, setThemeFontAppNameBold, setThemeFontAppNameItalic, setThemeFontAppNameCapitalize, setThemeFontSizeBaseBold, setThemeFontSizeBaseItalic, setThemeFontSizeBaseCapitalize, setThemeFontSizeCardTitleBold, setThemeFontSizeCardTitleItalic, setThemeFontSizeCardTitleCapitalize, setThemeFontSizeTabsBold, setThemeFontSizeTabsItalic, setThemeFontSizeTabsCapitalize, setThemeFontImager, setThemeFontSizeImager, setThemeFontImagerBold, setThemeFontImagerItalic, setThemeFontImagerCapitalize, setMtnClientId, setMtnClientSecret, setMtnEnvironment, setSimulateHighWinds, setGoogleMapsApiKey, setGeminiApiKey, setClaudeApiKey, setAiProvider, setNeo4jUri, setNeo4jUser, setNeo4jPassword, setNeo4jDatabase, setWorkdayHours, setWorkdays } = settingsSlice.actions;
+export const { addUnit, removeUnit, addJobTitle, removeJobTitle, addExpenseCategory, removeExpenseCategory, addIncomeCategory, removeIncomeCategory, addKmlUrl, removeKmlUrl, setLogo, loadFarmSettingsFromCache, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold, setAppName, addAnimalType, removeAnimalType, setAllSettings, setVisibleMapLayers, setSnapGap, setGeeClientEmail, setGeePrivateKey, setGeeProjectId, setGeeScale, setOwmApiKey, setThemeAppBgColor, setThemeCardBgColor, setThemeCardBorderColor, setThemeCardBorderThickness, setThemeAppBorderColor, setThemeAppBorderThickness, setThemeFontName, setThemeFontSizeBase, setThemeFontSizeCardTitle, setThemeFontSizeTabs, setThemeColorPrimary, setThemeColorCardTitle, setThemeColorTabsActiveBg, setThemeColorTabsActiveText, setThemeColorTabsInactiveBg, setThemeColorTabsInactiveText, setThemeFontAppName, setThemeFontSizeAppName, setThemeFontAppNameBold, setThemeFontAppNameItalic, setThemeFontAppNameCapitalize, setThemeFontSizeBaseBold, setThemeFontSizeBaseItalic, setThemeFontSizeBaseCapitalize, setThemeFontSizeCardTitleBold, setThemeFontSizeCardTitleItalic, setThemeFontSizeCardTitleCapitalize, setThemeFontSizeTabsBold, setThemeFontSizeTabsItalic, setThemeFontSizeTabsCapitalize, setThemeFontImager, setThemeFontSizeImager, setThemeFontImagerBold, setThemeFontImagerItalic, setThemeFontImagerCapitalize, setMtnClientId, setMtnClientSecret, setMtnEnvironment, setSimulateHighWinds, setGoogleMapsApiKey, setGeminiApiKey, setClaudeApiKey, setAiProvider, setNeo4jUri, setNeo4jUser, setNeo4jPassword, setNeo4jDatabase, setWorkdayHours, setWorkdays } = settingsSlice.actions;
 
 export const saveSettings = () => (dispatch, getState) => {
   const settings = getState().settings;
