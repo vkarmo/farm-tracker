@@ -147,6 +147,13 @@ export const settingsSlice = createSlice({
     },
     setAllSettings: (state, action) => {
       const payload = { ...action.payload };
+
+      // Parse JSON strings back to arrays/objects if needed
+      ['units', 'jobTitles', 'kmlUrls', 'mapCenter', 'expenseCategories', 'incomeCategories', 'animalTypes', 'nonWorkdays', 'workdays', 'visibleMapLayers'].forEach(key => {
+        if (payload[key] && typeof payload[key] === 'string') {
+          try { payload[key] = JSON.parse(payload[key]); } catch(e) {}
+        }
+      });
       
       // Backward compatibility: If workdays is undefined but nonWorkdays is present
       if (payload.workdays === undefined) {
@@ -187,10 +194,9 @@ export const settingsSlice = createSlice({
             payload.workdays = [];
           }
         }
-      } else {
-        payload.workdays = state.workdays !== undefined ? state.workdays : ['1', '2', '3', '4', '5', '6', '0'];
       }
-      return { ...state, ...payload };
+
+      return { ...initialState, ...payload };
     },
     setVisibleMapLayers: (state, action) => {
       state.visibleMapLayers = action.payload;

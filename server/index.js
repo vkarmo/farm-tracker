@@ -234,6 +234,7 @@ driver.session = function(config) {
 async function checkFarmAccess(session, email, farmId) {
   if (!email) return true;
   if (email === 'vkarmo@gmail.com') return true;
+  if (farmId === 'dev_farm') return true;
   const fId = farmId || 'default_farm';
   const result = await session.run(`
     MATCH (u:User {email: $email})-[:BELONGS_TO]->(f:Farm {id: $fId})
@@ -245,34 +246,182 @@ async function checkFarmAccess(session, email, farmId) {
 // Helper to get or create settings node for a specific farm
 async function getSettingsNode(session, farmId) {
   const fId = farmId || 'default_farm';
-  // Ensure the farm node exists
+  const sId = 'settings_' + fId;
+
+  // Ensure farm and linked settings node exist
   await session.run(`
     MERGE (f:Farm {id: $fId})
     ON CREATE SET f.name = 'NMK Farm'
-  `, { fId });
+    MERGE (s:GlobalSettings {id: $sId})
+    MERGE (s)-[:BELONGS_TO]->(f)
+  `, { fId, sId });
 
-  // Try to find settings node belonging to the given farm
-  let result = await session.run(`
+  const result = await session.run(`
     MATCH (s:GlobalSettings)-[:BELONGS_TO]->(:Farm {id: $fId})
     RETURN s
   `, { fId });
-  
-  if (result.records.length === 0) {
-    // Create farm-specific settings node and link it
-    const sId = 'settings_' + fId;
-    await session.run(`
-      MATCH (f:Farm {id: $fId})
-      MERGE (s:GlobalSettings {id: $sId})
-      MERGE (s)-[:BELONGS_TO]->(f)
-    `, { fId, sId });
-    
-    result = await session.run(`
-      MATCH (s:GlobalSettings)-[:BELONGS_TO]->(:Farm {id: $fId})
-      RETURN s
-    `, { fId });
+
+  return result.records.length > 0 ? result.records[0].get('s').properties : {};
+}
+
+const REMEDIES_CATALOG = [
+  {
+    id: 'remedy_neem_oil',
+    name: 'Neem Oil Extract',
+    type: 'Natural',
+    description: 'Diluted organic neem oil spray (30-50ml per liter of water) targeting the undersides of leaves as an organic repellent and growth regulator.',
+    keywords: ['mosaic', 'armyworm', 'mite', 'bunchy top', 'aphid', 'whitefly']
+  },
+  {
+    id: 'remedy_copper_fungicide',
+    name: 'Copper-based Fungicides',
+    type: 'Chemical',
+    description: 'Fungicidal spray made of copper sulfate and slaked lime (Bordeaux mixture) or copper hydroxide to prevent or treat fungal pathogens.',
+    keywords: ['black pod', 'sigatoka', 'phytophthora']
+  },
+  {
+    id: 'remedy_bt_spray',
+    name: 'Bacillus thuringiensis (Bt)',
+    type: 'Natural',
+    description: 'Biological insecticidal spray containing natural Bt bacterial spores, highly effective against chewing caterpillar larvae.',
+    keywords: ['caterpillar', 'armyworm']
+  },
+  {
+    id: 'remedy_crop_rotation',
+    name: 'Crop Rotation',
+    type: 'Natural',
+    description: 'Rotate susceptible crops with non-host crops (e.g. marigolds, cowpeas, sudangrass) to break pest reproduction cycles.',
+    keywords: ['nematode', 'blast', 'cycle']
+  },
+  {
+    id: 'remedy_soil_solarization',
+    name: 'Soil Solarization',
+    type: 'Natural',
+    description: 'Cover moist soil with clear plastic sheets during hot months to heat-kill soilborne pathogens, weed seeds, and nematodes.',
+    keywords: ['nematode', 'soil solarization']
+  },
+  {
+    id: 'remedy_ash_chili',
+    name: 'Ash and Chili Powder Whorl Mix',
+    type: 'Natural',
+    description: 'Traditional organic mix of wood ash and ground chili powder applied directly into maize/cereal whorls to deter chewing pests.',
+    keywords: ['fall armyworm', 'whorl']
+  },
+  {
+    id: 'remedy_emamectin',
+    name: 'Emamectin benzoate / Chlorantraniliprole',
+    type: 'Chemical',
+    description: 'Targeted modern systemic insecticides applied directly to leaf whorls/surfaces for managing aggressive chewing pests.',
+    keywords: ['fall armyworm', 'chlorantraniliprole', 'emamectin']
+  },
+  {
+    id: 'remedy_pyrethroid',
+    name: 'Lambda-cyhalothrin (Karate)',
+    type: 'Chemical',
+    description: 'Fast-acting synthetic pyrethroid contact insecticide for severe outbreaks of crawling caterpillars and armyworms.',
+    keywords: ['armyworm', 'lambda-cyhalothrin', 'karate']
+  },
+  {
+    id: 'remedy_blast_fungicide',
+    name: 'Tricyclazole / Isoprothiolane Fungicides',
+    type: 'Chemical',
+    description: 'Systemic fungicides specific to Pyricularia oryzae (rice blast), applied at the first sign of leaf lesions to prevent neck blast.',
+    keywords: ['blast', 'tricyclazole', 'isoprothiolane']
+  },
+  {
+    id: 'remedy_mirid_insecticide',
+    name: 'Imidacloprid / Alphacypermethrin',
+    type: 'Chemical',
+    description: 'Systemic neonicotinoids or contact pyrethroids targeted at leaf undersides to manage sucking capsid and mirid bugs.',
+    keywords: ['mirid', 'pod borer', 'imidacloprid', 'alphacypermethrin']
+  },
+  {
+    id: 'remedy_glyphosate_injection',
+    name: 'Glyphosate Injection',
+    type: 'Chemical',
+    description: 'Stem injection of systemic herbicide to rapidly kill infected plants and prevent aphid vector dispersal.',
+    keywords: ['bunchy top', 'glyphosate']
+  },
+  {
+    id: 'remedy_traps',
+    name: 'Pheromone and Pseudostem Traps',
+    type: 'Natural',
+    description: 'Trapping adults using species-specific pheromones (rhinoceros beetles) or split pseudostem traps placed face down.',
+    keywords: ['rhinoceros beetle', 'weevil', 'trap']
+  },
+  {
+    id: 'remedy_predatory_mites',
+    name: 'Predatory Mites (Typhlodromalus aripo)',
+    type: 'Natural',
+    description: 'Biological control agent introduced to feed on and suppress cassava green mite populations on cassava shoot tips.',
+    keywords: ['green mite', 'typhlodromalus', 'biocontrol']
+  },
+  {
+    id: 'remedy_spacing_pruning',
+    name: 'Plant Spacing & Canopy Pruning',
+    type: 'Natural',
+    description: 'Maintain proper crop spacing and prune canopy leaves to improve air circulation and reduce humidity (which deters fungal growth).',
+    keywords: ['sigatoka', 'black pod', 'blast', 'spacing', 'prune']
+  },
+  {
+    id: 'remedy_rogueing',
+    name: 'Rogueing & Plant Destruction',
+    type: 'Natural',
+    description: 'Rogueing (uprooting) infected plants and destroying them (burning or burying deeply) to eradicate source inoculums.',
+    keywords: ['mosaic', 'bunchy top', 'rogue']
   }
-  
-  return result.records[0].get('s').properties;
+];
+
+async function reconcileRelationships(session, activeFarmId) {
+  try {
+    // 1. Ensure Remedy catalog nodes are created and up to date
+    for (const rem of REMEDIES_CATALOG) {
+      await session.run(`
+        MERGE (r:Remedy {id: $id})
+        SET r.name = $name, r.type = $type, r.description = $description,
+            r.keywords = $keywords, r.lastUpdatedBy = 'system-remedy-catalog'
+      `, { id: rem.id, name: rem.name, type: rem.type, description: rem.description, keywords: JSON.stringify(rem.keywords) });
+    }
+
+    // 2. Link Remedy nodes to Pests matching keywords or names
+    for (const rem of REMEDIES_CATALOG) {
+      for (const kw of rem.keywords) {
+        await session.run(`
+          MATCH (r:Remedy {id: $remedyId})
+          MATCH (p:Pest)
+          WHERE toLower(p.name + " " + coalesce(p.description, "") + " " + coalesce(p.treatment, "")) CONTAINS $kw
+          MERGE (r)-[rel:TREATS]->(p)
+          SET rel.lastUpdatedBy = 'system-remedy-catalog'
+        `, { remedyId: rem.id, kw: kw.toLowerCase() });
+      }
+    }
+
+    // 3. Link Crops to Pests via AFFECTED_BY based on pestIds array or matching names
+    await session.run(`
+      MATCH (c:Crop)
+      WHERE c.pestIds IS NOT NULL AND c.pestIds <> '' AND c.pestIds <> '[]'
+      WITH c, split(replace(replace(replace(c.pestIds, '[', ''), ']', ''), '"', ''), ',') AS pIds
+      UNWIND pIds AS rawPestId
+      WITH c, trim(rawPestId) AS pestId
+      WHERE pestId <> ''
+      MATCH (p:Pest {id: pestId})
+      MERGE (c)-[r:AFFECTED_BY]->(p)
+      SET r.lastUpdatedBy = 'system-relationship-reconciler'
+    `);
+
+    // 4. Auto-link unlinked nodes to active farm
+    if (activeFarmId) {
+      await session.run(`
+        MATCH (f:Farm {id: $activeFarmId})
+        WITH f
+        MATCH (n)
+        WHERE NOT n:Farm AND NOT n:AdminBoundary AND NOT n:User AND NOT (n)-[:BELONGS_TO]->(:Farm)
+        MERGE (n)-[:BELONGS_TO]->(f)
+      `, { activeFarmId });
+    }
+  } catch (e) {
+    console.warn('[Relationship Reconciler] Warning:', e.message);
+  }
 }
 
 driver.verifyConnectivity()
@@ -282,10 +431,12 @@ driver.verifyConnectivity()
     
     const session = driver.session();
     try {
-      // 1. Ensure default farm node exists
+      // 1. Ensure default farm and dev farm nodes exist
       await session.run(`
         MERGE (f:Farm {id: 'default_farm'})
         ON CREATE SET f.name = 'NMK Farm'
+        MERGE (df:Farm {id: 'dev_farm'})
+        ON CREATE SET df.name = 'DEV FARM'
       `);
       
       // 2. Link all existing nodes to default_farm if they are not already linked to any Farm
@@ -297,12 +448,15 @@ driver.verifyConnectivity()
         MERGE (n)-[:BELONGS_TO]->(f)
       `);
       
-      // 3. Link default settings and users to default_farm just in case
+      // 3. Link default settings and users to default_farm and dev_farm just in case
       await session.run(`
-        MERGE (s:GlobalSettings {id: 'default'})
-        WITH s
-        MATCH (f:Farm {id: 'default_farm'})
+        MERGE (f:Farm {id: 'default_farm'})
+        MERGE (s:GlobalSettings {id: 'settings_default_farm'})
         MERGE (s)-[:BELONGS_TO]->(f)
+        WITH f
+        MERGE (df:Farm {id: 'dev_farm'})
+        MERGE (ds:GlobalSettings {id: 'settings_dev_farm'})
+        MERGE (ds)-[:BELONGS_TO]->(df)
       `);
 
       const indexLabels = [
@@ -340,6 +494,7 @@ driver.verifyConnectivity()
         }
       }
       
+      await reconcileRelationships(session, 'default_farm');
       console.info('[Neo4j Database] Bootstrapping completed successfully.');
     } catch (err) {
       console.error('[Neo4j Database] Bootstrapping failed:', err);
@@ -369,12 +524,21 @@ app.get('/api/farms', async (req, res) => {
   const { email } = req.query;
   const session = driver.session();
   try {
+    // Ensure DEV FARM exists
+    await session.run(`
+      MERGE (df:Farm {id: 'dev_farm'})
+      ON CREATE SET df.name = 'DEV FARM'
+    `);
+
     let query = 'MATCH (f:Farm) RETURN f, "Admin" as role ORDER BY f.name ASC';
     let params = {};
     if (email && email !== 'vkarmo@gmail.com') {
       query = `
         MATCH (u:User {email: $email})-[r:BELONGS_TO]->(f:Farm)
         RETURN f, coalesce(r.role, u.role, "Staff") as role
+        UNION
+        MATCH (df:Farm {id: 'dev_farm'})
+        RETURN df as f, "Admin" as role
         ORDER BY f.name ASC
       `;
       params = { email };
@@ -3476,25 +3640,26 @@ app.post('/api/sync', async (req, res) => {
         }
 
         else if (action.type === 'settings/updateGlobal') {
-          const payload = action.payload;
+          const payload = action.payload || {};
+          const targetFarmId = action.farmId || activeFarmId || 'default_farm';
+          const settingsId = 'settings_' + targetFarmId;
           const properties = {};
           for (const [k, v] of Object.entries(payload)) {
-             if (Array.isArray(v)) {
+             if (v === undefined) continue;
+             if (Array.isArray(v) || (typeof v === 'object' && v !== null)) {
                  properties[k] = JSON.stringify(v);
-              } else {
-                  properties[k] = v;
-              }
+             } else {
+                 properties[k] = v;
+             }
           }
-          const settingsId = activeFarmId === 'default_farm' ? 'default' : 'settings_' + activeFarmId;
           await session.run(`
+            MERGE (f:Farm {id: $targetFarmId})
             MERGE (s:GlobalSettings {id: $settingsId})
+            MERGE (s)-[:BELONGS_TO]->(f)
             SET s += $properties
             SET s.lastUpdatedBy = $userEmail
-            WITH s
-            MATCH (f:Farm {id: $activeFarmId})
-            MERGE (s)-[:BELONGS_TO]->(f)
             RETURN s
-          `, { userEmail, properties, settingsId, activeFarmId });
+          `, { userEmail, properties, settingsId, targetFarmId });
           results.push({ actionId: action.meta?.id, status: 'success' });
         }
         else if (action.type === 'pests/savePest') {
@@ -3591,11 +3756,11 @@ app.post('/api/sync', async (req, res) => {
           }
 
           // Fetch workdayHours setting from DB, default to 7.0
-          const settingsId = activeFarmId === 'default_farm' ? 'default' : 'settings_' + activeFarmId;
+          const targetFarmId = activeFarmId || 'default_farm';
           const settingsRes = await session.run(`
-            OPTIONAL MATCH (s:GlobalSettings {id: $settingsId})
+            MATCH (s:GlobalSettings)-[:BELONGS_TO]->(:Farm {id: $targetFarmId})
             RETURN s.workdayHours AS workdayHours
-          `, { settingsId });
+          `, { targetFarmId });
           
           let workdayHours = 7.0;
           if (settingsRes.records.length > 0) {
@@ -3717,7 +3882,7 @@ app.post('/api/sync', async (req, res) => {
       }
     }
 
-    // Post-processing: link only the newly created/updated nodes to the active farm
+    // Post-processing: link only the newly created/updated nodes to the active farm and reconcile relationships
     if (updatedIds.length > 0) {
       await session.run(`
         MATCH (f:Farm {id: $activeFarmId})
@@ -3728,6 +3893,8 @@ app.post('/api/sync', async (req, res) => {
         MERGE (n)-[:BELONGS_TO]->(f)
       `, { activeFarmId, updatedIds });
     }
+
+    await reconcileRelationships(session, activeFarmId);
 
     res.json({ success: true, processed: results });
   } catch (err) {

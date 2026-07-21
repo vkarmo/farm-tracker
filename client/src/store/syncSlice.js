@@ -31,7 +31,7 @@ export const syncSlice = createSlice({
   },
   reducers: {
     queueAction: (state, action) => {
-      const activeFarmId = localStorage.getItem('activeFarmId') || 'default_farm';
+      const activeFarmId = localStorage.getItem('activeFarmId') || (import.meta.env.DEV ? 'dev_farm' : 'default_farm');
       const actionPayload = action.payload || {};
       const actionWithFarm = {
         ...actionPayload,
@@ -101,7 +101,7 @@ export const flushQueue = (forceSync = false) => async (dispatch, getState) => {
   if (!navigator.onLine) return;
   if (isSyncing) return;
 
-  const activeFarmId = localStorage.getItem('activeFarmId') || 'default_farm';
+  const activeFarmId = localStorage.getItem('activeFarmId') || (import.meta.env.DEV ? 'dev_farm' : 'default_farm');
   const farmActions = offlineActionQueue.filter(a => !a.farmId || a.farmId === activeFarmId);
 
   if (farmActions.length === 0) return;
@@ -185,14 +185,14 @@ export const flushQueue = (forceSync = false) => async (dispatch, getState) => {
 
 export const fetchInitialData = () => async (dispatch, getState) => {
   const { offlineActionQueue } = getState().sync;
-  const activeFarmId = localStorage.getItem('activeFarmId') || 'default_farm';
+  const activeFarmId = localStorage.getItem('activeFarmId') || (import.meta.env.DEV ? 'dev_farm' : 'default_farm');
   const farmActions = offlineActionQueue.filter(a => a.farmId === activeFarmId);
 
   // Conflict Resolution: Only pull if no pending offline actions for this farm
   if (farmActions.length > 0) return;
 
   try {
-    const activeFarmId = localStorage.getItem('activeFarmId') || 'default_farm';
+    const activeFarmId = localStorage.getItem('activeFarmId') || (import.meta.env.DEV ? 'dev_farm' : 'default_farm');
     const currentUser = getState().auth?.currentUser;
     const emailParam = currentUser ? `&email=${encodeURIComponent(currentUser.email)}` : '';
     const response = await fetch(`/api/all-data?farmId=${activeFarmId}${emailParam}`, {
@@ -229,7 +229,11 @@ export const fetchInitialData = () => async (dispatch, getState) => {
     if (data.gps) dispatch(setLocations(data.gps));
     if (data.audit) dispatch(setLogs(data.audit));
     if (data.users) dispatch(setUsersList(data.users));
-    if (data.settings && data.settings.length > 0) dispatch(setAllSettings(data.settings[0]));
+    if (data.settings && data.settings.length > 0) {
+      dispatch(setAllSettings(data.settings[0]));
+    } else {
+      dispatch(setAllSettings({}));
+    }
     if (data.poi) dispatch(setPoiData(data.poi));
     if (data.goals) dispatch(setGoals(data.goals));
     if (data.objectives) dispatch(setObjectives(data.objectives));

@@ -79,7 +79,10 @@ export default function App() {
   const originalAdmin = useSelector(state => state.auth?.originalAdmin);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
 
-  const [activeFarmId, setActiveFarmId] = useState(localStorage.getItem('activeFarmId') || 'default_farm');
+  const isDevMode = import.meta.env.DEV;
+  const defaultFarmIdForEnv = isDevMode ? 'dev_farm' : 'default_farm';
+
+  const [activeFarmId, setActiveFarmId] = useState(localStorage.getItem('activeFarmId') || defaultFarmIdForEnv);
   const [farmsList, setFarmsList] = useState([]);
   const [isFarmLoading, setIsFarmLoading] = useState(false);
   const [switchingToFarmId, setSwitchingToFarmId] = useState(null);
@@ -92,7 +95,7 @@ export default function App() {
       if (lastEmail !== currentUser.email) {
         localStorage.removeItem('activeFarmId');
         localStorage.setItem('lastUserEmail', currentUser.email);
-        setActiveFarmId('default_farm');
+        setActiveFarmId(defaultFarmIdForEnv);
       }
       setHasLoadedInitialFarm(false);
     } else {
@@ -102,11 +105,15 @@ export default function App() {
   }, [currentUser]);
 
   const determineDefaultFarm = (farms) => {
+    if (isDevMode) {
+      return 'dev_farm';
+    }
+
     if (currentUser && currentUser.email === 'vkarmo@gmail.com') {
       return 'default_farm';
     }
 
-    if (!farms || farms.length === 0) return 'default_farm';
+    if (!farms || farms.length === 0) return defaultFarmIdForEnv;
 
     // Helper to identify viewing rights (Viewer, Admin Viewer, or any role containing 'viewer' case-insensitively)
     const isViewerRole = (role) => {
@@ -343,6 +350,7 @@ export default function App() {
     if (isFarmLoading && switchingToFarmId) {
       const farm = farmsList.find(f => f.id === switchingToFarmId);
       if (farm) return farm.name;
+      if (switchingToFarmId === 'dev_farm') return 'DEV FARM';
       if (switchingToFarmId === 'default_farm') return 'NMK Farm';
     }
     return displayAppName;

@@ -78,7 +78,7 @@ export const { login, logout, setUsersList, removeUserOffline, updateUserAccess,
 export const fetchAllUsers = () => async (dispatch) => {
   if (!navigator.onLine) return;
   try {
-    const farmId = localStorage.getItem('activeFarmId') || 'default_farm';
+    const farmId = localStorage.getItem('activeFarmId') || (import.meta.env.DEV ? 'dev_farm' : 'default_farm');
     const res = await fetch(`/api/users?farmId=${farmId}`);
     if (res.ok) {
       const users = await res.json();
