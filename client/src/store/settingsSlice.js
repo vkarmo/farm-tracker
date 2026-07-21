@@ -1,5 +1,5 @@
 import { createSlice } from '@reduxjs/toolkit';
-import { queueAction } from './syncSlice';
+import { queueAction, flushQueue } from './syncSlice';
 
 export const settingsSlice = createSlice({
   name: 'settings',
@@ -364,6 +364,7 @@ export const { addUnit, removeUnit, addJobTitle, removeJobTitle, addExpenseCateg
 export const saveSettings = () => (dispatch, getState) => {
   const settings = getState().settings;
   dispatch(queueAction({ type: 'settings/updateGlobal', payload: settings, meta: { id: Date.now() } }));
+  dispatch(flushQueue(true));
 };
 
 export default settingsSlice.reducer;

@@ -462,15 +462,18 @@ driver.verifyConnectivity()
         MERGE (n)-[:BELONGS_TO]->(f)
       `);
       
-      // 3. Link default settings and users to default_farm and dev_farm just in case
+      // 3. Delete legacy 'default' settings nodes and ensure canonical settings_<farmId> node exists for each farm
       await session.run(`
-        MERGE (f:Farm {id: 'default_farm'})
-        MERGE (s:GlobalSettings {id: 'settings_default_farm'})
+        MATCH (s:GlobalSettings) WHERE s.id = 'default' DETACH DELETE s
+      `);
+
+      await session.run(`
+        MATCH (f:Farm)
+        MERGE (s:GlobalSettings {id: 'settings_' + f.id})
         MERGE (s)-[:BELONGS_TO]->(f)
-        WITH f
-        MERGE (df:Farm {id: 'dev_farm'})
-        MERGE (ds:GlobalSettings {id: 'settings_dev_farm'})
-        MERGE (ds)-[:BELONGS_TO]->(df)
+        WITH f, s
+        WHERE s.appName IS NULL OR s.appName = ''
+        SET s.appName = f.name
       `);
 
       const indexLabels = [
@@ -591,6 +594,7 @@ app.post('/api/farms', async (req, res) => {
       ON CREATE SET f.name = $name
       MERGE (s:GlobalSettings {id: $settingsId})
       MERGE (s)-[:BELONGS_TO]->(f)
+      ON CREATE SET s.appName = $name
     `, { farmId, name: name.trim(), settingsId: 'settings_' + farmId });
     res.json({ success: true, farm: { id: farmId, name: name.trim() } });
   } catch (err) {
@@ -644,7 +648,49 @@ app.post('/api/farms/dev-farm/reset-from-source', async (req, res) => {
       DETACH DELETE cd, n
     `);
 
-    sendProgress(32, 'Querying source farm nodes and graph labels...');
+    sendProgress(28, `Cloning global settings configuration from ${sourceFarmName}...`);
+    // 3b. Fetch canonical GlobalSettings node properties linked to sourceFarmId and clone onto settings_dev_farm
+    let sourceSettingsRes = await session.run(`
+      MATCH (s:GlobalSettings {id: 'settings_' + $sourceFarmId})-[:BELONGS_TO]->(f:Farm {id: $sourceFarmId})
+      RETURN properties(s) AS props
+    `, { sourceFarmId });
+
+    if (sourceSettingsRes.records.length === 0) {
+      sourceSettingsRes = await session.run(`
+        MATCH (s:GlobalSettings)-[:BELONGS_TO]->(f:Farm {id: $sourceFarmId})
+        RETURN properties(s) AS props LIMIT 1
+      `, { sourceFarmId });
+    }
+
+    let sourceSettingsProps = {};
+    if (sourceSettingsRes.records.length > 0) {
+      sourceSettingsProps = sourceSettingsRes.records[0].get('props') || {};
+    }
+    delete sourceSettingsProps.id;
+    delete sourceSettingsProps._id;
+
+    // Format app name setting and farm name with " (DEV)" (space before left parenthesis)
+    const rawAppName = (sourceSettingsProps.appName || sourceFarmName || 'Farm Tracker').replace(/\s*\(DEV\)\s*$/i, '').trim();
+    const devAppName = `${rawAppName} (DEV)`;
+    const cleanSourceFarmName = sourceFarmName.replace(/\s*\(DEV\)\s*$/i, '').trim();
+    const devFarmName = `${cleanSourceFarmName} (DEV)`;
+
+    const clonedSettingsProps = {
+      ...sourceSettingsProps,
+      appName: devAppName,
+      id: 'settings_dev_farm',
+      lastUpdatedBy: 'system-dev-farm-reset'
+    };
+
+    await session.run(`
+      MERGE (df:Farm {id: 'dev_farm'})
+      SET df.name = $devFarmName
+      MERGE (ds:GlobalSettings {id: 'settings_dev_farm'})
+      MERGE (ds)-[:BELONGS_TO]->(df)
+      SET ds = $clonedSettingsProps
+    `, { devFarmName, clonedSettingsProps });
+
+    sendProgress(35, 'Querying source farm entity nodes and graph labels...');
     // 4. Query all nodes belonging to sourceFarmId
     const sourceNodesRes = await session.run(`
       MATCH (n)-[:BELONGS_TO]->(f:Farm {id: $sourceFarmId})
@@ -654,96 +700,150 @@ app.post('/api/farms/dev-farm/reset-from-source', async (req, res) => {
 
     const idMap = new Map(); // oldId -> newId
     const totalNodes = sourceNodesRes.records.length;
-    let processedCount = 0;
 
-    sendProgress(40, `Cloning ${totalNodes} source farm entity nodes...`);
+    sendProgress(40, `Cloning ${totalNodes} source farm entity nodes via parallel batch processing...`);
 
-    // 5. Clone each node for dev_farm
+    // Group nodes by label combination for bulk UNWIND parallel creation
+    const nodesByLabel = new Map();
+
     for (const record of sourceNodesRes.records) {
       const oldNode = record.get('n');
       const labels = record.get('labels') || [];
       const props = { ...oldNode.properties };
       const oldId = props.id;
 
-      processedCount++;
+      if (labels.includes('GlobalSettings')) {
+        if (oldId) idMap.set(oldId, 'settings_dev_farm');
+        continue;
+      }
+
       if (!oldId) continue;
 
-      const isSettings = labels.includes('GlobalSettings');
-      const newId = isSettings ? 'settings_dev_farm' : `${oldId}_dev_${Math.random().toString(36).substr(2, 6)}`;
+      const newId = `${oldId}_dev_${Math.random().toString(36).substr(2, 6)}`;
       idMap.set(oldId, newId);
 
-      const primaryLabel = labels.find(l => l !== 'Farm' && l !== 'GlobalSettings') || labels[0] || 'Entity';
-      const pct = Math.min(68, Math.floor(40 + (processedCount / (totalNodes || 1)) * 28));
-      const entityName = props.name || props.title || props.id || 'record';
-      sendProgress(pct, `Cloning ${primaryLabel} (${processedCount}/${totalNodes}): ${entityName}`);
-
       const clonedProps = { ...props, id: newId, lastUpdatedBy: 'system-dev-farm-reset' };
-
-      if (isSettings) {
-        await session.run(`
-          MATCH (ds:GlobalSettings {id: 'settings_dev_farm'})
-          SET ds += $clonedProps
-        `, { clonedProps });
-      } else {
-        const labelString = labels.join(':');
-        await session.run(`
-          MATCH (df:Farm {id: 'dev_farm'})
-          CREATE (n:${labelString} $clonedProps)
-          CREATE (n)-[:BELONGS_TO]->(df)
-        `, { clonedProps });
+      const labelString = labels.join(':');
+      if (!nodesByLabel.has(labelString)) {
+        nodesByLabel.set(labelString, []);
       }
+      nodesByLabel.get(labelString).push(clonedProps);
     }
 
-    sendProgress(72, 'Cloning intra-farm graph relationships...');
-    // 6. Clone intra-farm relationships between cloned nodes
-    for (const [oldId, newId] of idMap.entries()) {
-      if (oldId === 'settings_' + sourceFarmId) continue;
-      const relsRes = await session.run(`
-        MATCH (n {id: $oldId})-[r]->(target)
-        WHERE NOT target:Farm AND type(r) <> 'BELONGS_TO'
-        RETURN type(r) AS relType, target.id AS targetId, properties(r) AS relProps
-      `, { oldId });
+    let processedCount = 0;
+    const labelEntries = Array.from(nodesByLabel.entries());
 
-      for (const relRec of relsRes.records) {
-        const relType = relRec.get('relType');
-        const oldTargetId = relRec.get('targetId');
-        const relProps = relRec.get('relProps') || {};
-        const newTargetId = idMap.get(oldTargetId);
+    await Promise.all(labelEntries.map(async ([labelString, items]) => {
+      const workerSession = driver.session();
+      try {
+        const batchSize = 100;
+        for (let i = 0; i < items.length; i += batchSize) {
+          const chunk = items.slice(i, i + batchSize);
+          await workerSession.run(`
+            MATCH (df:Farm {id: 'dev_farm'})
+            UNWIND $chunk AS item
+            CREATE (n:${labelString})
+            SET n = item
+            CREATE (n)-[:BELONGS_TO]->(df)
+          `, { chunk });
 
-        if (newTargetId) {
-          const safeType = /^[A-Z0-9_]+$/i.test(relType) ? relType : 'RELATED_TO';
-          await session.run(`
-            MATCH (src {id: $newId})
-            MATCH (tgt {id: $newTargetId})
-            MERGE (src)-[r:${safeType}]->(tgt)
-            SET r += $relProps
-          `, { newId, newTargetId, relProps });
+          processedCount += chunk.length;
+          const pct = Math.min(68, Math.floor(40 + (processedCount / (totalNodes || 1)) * 28));
+          const cleanLabel = labelString.replace(/GlobalSettings|Farm/g, '').replace(/^:|:$/g, '') || 'Entity';
+          sendProgress(pct, `Cloning ${cleanLabel} nodes (${processedCount}/${totalNodes})...`);
         }
+      } finally {
+        await workerSession.close();
+      }
+    }));
+
+    sendProgress(70, 'Cloning intra-farm graph relationships via bulk parallel queries...');
+
+    // 6. Bulk query all intra-farm relationships for source farm in a single query
+    const allRelsRes = await session.run(`
+      MATCH (sf:Farm {id: $sourceFarmId})
+      MATCH (src)-[r]->(tgt)
+      WHERE (src)-[:BELONGS_TO]->(sf)
+        AND (tgt)-[:BELONGS_TO]->(sf)
+        AND type(r) <> 'BELONGS_TO'
+      RETURN src.id AS srcId, type(r) AS relType, tgt.id AS tgtId, properties(r) AS relProps
+    `, { sourceFarmId });
+
+    const relsByType = new Map();
+    for (const record of allRelsRes.records) {
+      const srcId = record.get('srcId');
+      const tgtId = record.get('tgtId');
+      const relType = record.get('relType');
+      const relProps = record.get('relProps') || {};
+
+      const newSrcId = idMap.get(srcId);
+      const newTgtId = idMap.get(tgtId);
+
+      if (newSrcId && newTgtId) {
+        const safeType = /^[A-Z0-9_]+$/i.test(relType) ? relType : 'RELATED_TO';
+        if (!relsByType.has(safeType)) {
+          relsByType.set(safeType, []);
+        }
+        relsByType.get(safeType).push({ newSrcId, newTgtId, relProps });
       }
     }
 
-    sendProgress(84, 'Updating foreign key references across cloned nodes...');
-    // 7. Update foreign key string properties (e.g. fieldId, motherId, fatherId, cropId, goalId)
-    const clonedIds = Array.from(idMap.values()).filter(id => id !== 'settings_dev_farm');
-    if (clonedIds.length > 0) {
-      const nodesToUpdateRes = await session.run(`
-        UNWIND $clonedIds AS cId
-        MATCH (n {id: cId})
-        RETURN n.id AS id, properties(n) AS props
-      `, { clonedIds });
+    const relEntries = Array.from(relsByType.entries());
+    let relsProcessed = 0;
+    const totalRels = allRelsRes.records.length;
 
-      for (const rec of nodesToUpdateRes.records) {
-        const nodeId = rec.get('id');
-        const props = rec.get('props') || {};
+    for (const [relType, items] of relEntries) {
+      const batchSize = 200;
+      for (let i = 0; i < items.length; i += batchSize) {
+        const chunk = items.slice(i, i + batchSize);
+        await session.run(`
+          UNWIND $chunk AS item
+          MATCH (src {id: item.newSrcId})
+          MATCH (tgt {id: item.newTgtId})
+          MERGE (src)-[r:${relType}]->(tgt)
+          SET r += item.relProps
+        `, { chunk });
+
+        relsProcessed += chunk.length;
+        const pct = Math.min(82, Math.floor(70 + (relsProcessed / (totalRels || 1)) * 12));
+        sendProgress(pct, `Cloning ${relType} graph relationships (${relsProcessed}/${totalRels})...`);
+      }
+    }
+
+    sendProgress(84, 'Updating foreign key references across cloned nodes in parallel...');
+
+    // 7. Bulk update foreign key string properties (e.g. fieldId, motherId, fatherId, cropId, goalId)
+    const fkUpdates = [];
+    const fkKeys = ['fieldId', 'motherId', 'fatherId', 'cropId', 'goalId', 'parentGoalId', 'equipmentId', 'assetId', 'targetId', 'budgetId'];
+
+    for (const record of sourceNodesRes.records) {
+      const oldNode = record.get('n');
+      const oldProps = oldNode.properties || {};
+      const oldId = oldProps.id;
+      const newId = idMap.get(oldId);
+
+      if (newId && newId !== 'settings_dev_farm') {
         const updates = {};
-        ['fieldId', 'motherId', 'fatherId', 'cropId', 'goalId', 'parentGoalId', 'equipmentId', 'assetId', 'targetId', 'budgetId'].forEach(fk => {
-          if (props[fk] && idMap.has(props[fk])) {
-            updates[fk] = idMap.get(props[fk]);
+        fkKeys.forEach(fk => {
+          if (oldProps[fk] && idMap.has(oldProps[fk])) {
+            updates[fk] = idMap.get(oldProps[fk]);
           }
         });
         if (Object.keys(updates).length > 0) {
-          await session.run(`MATCH (n {id: $nodeId}) SET n += $updates`, { nodeId, updates });
+          fkUpdates.push({ nodeId: newId, updates });
         }
+      }
+    }
+
+    if (fkUpdates.length > 0) {
+      const batchSize = 100;
+      for (let i = 0; i < fkUpdates.length; i += batchSize) {
+        const chunk = fkUpdates.slice(i, i + batchSize);
+        await session.run(`
+          UNWIND $chunk AS item
+          MATCH (n {id: item.nodeId})
+          SET n += item.updates
+        `, { chunk });
       }
     }
 
@@ -3020,7 +3120,7 @@ app.get('/api/all-data', async (req, res) => {
        harvests: 'MATCH (n:Harvest)-[:BELONGS_TO]->(:Farm {id: $farmId}) RETURN n',
        kits: 'MATCH (n:LivestockKit)-[:BELONGS_TO]->(:Farm {id: $farmId}) RETURN n',
        breeding: 'MATCH (n:BreedingEvent)-[:BELONGS_TO]->(:Farm {id: $farmId}) RETURN n',
-       settings: "MATCH (n:GlobalSettings)-[:BELONGS_TO]->(:Farm {id: $farmId}) RETURN n",
+       settings: "MATCH (n:GlobalSettings)-[:BELONGS_TO]->(:Farm {id: $farmId}) RETURN n ORDER BY CASE WHEN n.id = 'settings_' + $farmId THEN 0 ELSE 1 END LIMIT 1",
        pests: 'MATCH (n:Pest)-[:BELONGS_TO]->(:Farm {id: $farmId}) RETURN n',
        soilTests: 'MATCH (n:SoilTest)-[:BELONGS_TO]->(:Farm {id: $farmId}) RETURN n',
        goals: 'MATCH (n:Goal)-[:BELONGS_TO]->(:Farm {id: $farmId}) RETURN n',
@@ -3549,7 +3649,9 @@ app.post('/api/sync', async (req, res) => {
         else if (action.type === 'assignments/upsertAssignment') {
           const { id, taskName, assignedTo, priority, dueDate, status, fieldId, equipmentId, workerIds, workerCount, workers, hours, task, assignmentDate, completedDate, planningId, reviewStatus } = action.payload;
           await session.run(`
+            MATCH (farm:Farm {id: $activeFarmId})
             MERGE (a:TaskAssignment {id: $id})
+            MERGE (a)-[:BELONGS_TO]->(farm)
             SET a.taskName = $taskName, a.assignedTo = $assignedTo, a.priority = $priority,
                 a.dueDate = $dueDate, a.status = $status, a.fieldId = $fieldId, a.equipmentId = $equipmentId,
                 a.workerIds = $workerIds, a.workerCount = toInteger($workerCount), a.workers = $workers,
@@ -3577,27 +3679,31 @@ app.post('/api/sync', async (req, res) => {
             OPTIONAL MATCH (w:Employee {id: wId})
             FOREACH (ignore IN CASE WHEN w IS NOT NULL THEN [1] ELSE [] END | MERGE (a)-[rel_new:ASSIGNED_TO]->(w) SET rel_new.lastUpdatedBy = $userEmail)
             SET a.lastUpdatedBy = $userEmail RETURN DISTINCT a
-          `, { userEmail, id, taskName, assignedTo, priority, dueDate, status, fieldId: fieldId || null, equipmentId: equipmentId || null, workerIds: workerIds ? JSON.stringify(workerIds) : '[]', workerIdList: workerIds || [], workerCount: workerCount || 0, workers: workers || '', hours: hours || 0, task: task || '', assignmentDate: assignmentDate || '', completedDate: completedDate || '', planningId: planningId || null, reviewStatus: reviewStatus || null });
+          `, { activeFarmId, userEmail, id, taskName, assignedTo, priority, dueDate, status, fieldId: fieldId || null, equipmentId: equipmentId || null, workerIds: workerIds ? JSON.stringify(workerIds) : '[]', workerIdList: workerIds || [], workerCount: workerCount || 0, workers: workers || '', hours: hours || 0, task: task || '', assignmentDate: assignmentDate || '', completedDate: completedDate || '', planningId: planningId || null, reviewStatus: reviewStatus || null });
           results.push({ actionId: action.meta?.id, status: 'success' });
         }
         else if (action.type === 'incidents/upsertIncident') {
           const { id, title, type, date, severity, associatedAsset, resolutionStatus, notes } = action.payload;
           await session.run(`
+            MATCH (farm:Farm {id: $activeFarmId})
             MERGE (i:Incident {id: $id})
+            MERGE (i)-[:BELONGS_TO]->(farm)
             SET i.title = $title, i.type = $type, i.date = $date, i.severity = $severity,
                 i.associatedAsset = $associatedAsset, i.resolutionStatus = $resolutionStatus, i.notes = $notes
             SET i.lastUpdatedBy = $userEmail RETURN i
-          `, { userEmail, id, title, type, date, severity, associatedAsset, resolutionStatus, notes });
+          `, { activeFarmId, userEmail, id, title, type, date, severity, associatedAsset, resolutionStatus, notes });
           results.push({ actionId: action.meta?.id, status: 'success' });
         }
         else if (action.type === 'deadlines/upsertDeadline') {
           const { id, category, targetDate, title, status, autoAlert, notes } = action.payload;
           await session.run(`
+            MATCH (farm:Farm {id: $activeFarmId})
             MERGE (d:Deadline {id: $id})
+            MERGE (d)-[:BELONGS_TO]->(farm)
             SET d.category = $category, d.targetDate = $targetDate, d.title = $title,
                 d.status = $status, d.autoAlert = $autoAlert, d.notes = $notes
             SET d.lastUpdatedBy = $userEmail RETURN d
-          `, { userEmail, id, category, targetDate, title, status, autoAlert, notes });
+          `, { activeFarmId, userEmail, id, category, targetDate, title, status, autoAlert, notes });
           results.push({ actionId: action.meta?.id, status: 'success' });
         }
         else if (action.type === 'employees/upsertEmployee') {
@@ -3873,23 +3979,25 @@ app.post('/api/sync', async (req, res) => {
         else if (action.type === 'planning/saveGoal') {
           const { id, title, fromDate, toDate, workerIds, parentGoalId, estimatedHours, actualHours, startDate, completionDate } = action.payload;
           await session.run(`
+            MATCH (farm:Farm {id: $activeFarmId})
             MERGE (g:Goal {id: $id})
+            MERGE (g)-[:BELONGS_TO]->(farm)
             SET g.title = $title, g.fromDate = $fromDate, g.toDate = $toDate, g.workerIds = $workerIds, g.parentGoalId = $parentGoalId,
                 g.estimatedHours = $estimatedHours, g.actualHours = $actualHours, g.startDate = $startDate, g.completionDate = $completionDate
-            WITH g
+            WITH g, farm
             OPTIONAL MATCH (g)-[r1:PARENT_GOAL]->() DELETE r1
-            WITH g
+            WITH g, farm
             OPTIONAL MATCH (p:Goal {id: $parentGoalId})
             FOREACH (ignore IN CASE WHEN p IS NOT NULL THEN [1] ELSE [] END | MERGE (g)-[rel_new:PARENT_GOAL]->(p) SET rel_new.lastUpdatedBy = $userEmail)
-            WITH g
+            WITH g, farm
             OPTIONAL MATCH (g)-[r2:ASSIGNED_TO]->() DELETE r2
-            WITH g
+            WITH g, farm
             UNWIND (CASE WHEN size($workerIdList) > 0 THEN $workerIdList ELSE [null] END) AS wId
             OPTIONAL MATCH (w:Employee {id: wId})
             FOREACH (ignore IN CASE WHEN w IS NOT NULL THEN [1] ELSE [] END | MERGE (g)-[rel_new:ASSIGNED_TO]->(w) SET rel_new.lastUpdatedBy = $userEmail)
             SET g.lastUpdatedBy = $userEmail RETURN DISTINCT g
           `, { 
-            userEmail, id, title, fromDate, toDate, workerIds: workerIds ? JSON.stringify(workerIds) : '[]', workerIdList: workerIds || [], parentGoalId: parentGoalId || null,
+            activeFarmId, userEmail, id, title, fromDate, toDate, workerIds: workerIds ? JSON.stringify(workerIds) : '[]', workerIdList: workerIds || [], parentGoalId: parentGoalId || null,
             estimatedHours: estimatedHours || null, actualHours: actualHours || null, startDate: startDate || null, completionDate: completionDate || null
           });
           results.push({ actionId: action.meta?.id, status: 'success' });
@@ -3897,23 +4005,25 @@ app.post('/api/sync', async (req, res) => {
         else if (action.type === 'planning/saveObjective') {
           const { id, goalId, title, fromDate, toDate, workerIds, estimatedHours, actualHours, startDate, completionDate } = action.payload;
           await session.run(`
+            MATCH (farm:Farm {id: $activeFarmId})
             MERGE (o:Objective {id: $id})
+            MERGE (o)-[:BELONGS_TO]->(farm)
             SET o.goalId = $goalId, o.title = $title, o.fromDate = $fromDate, o.toDate = $toDate, o.workerIds = $workerIds,
                 o.estimatedHours = $estimatedHours, o.actualHours = $actualHours, o.startDate = $startDate, o.completionDate = $completionDate
-            WITH o
+            WITH o, farm
             OPTIONAL MATCH ()-[r1:HAS_OBJECTIVE]->(o) DELETE r1
-            WITH o
+            WITH o, farm
             OPTIONAL MATCH (g:Goal {id: $goalId})
             FOREACH (ignore IN CASE WHEN g IS NOT NULL THEN [1] ELSE [] END | MERGE (g)-[rel_new:HAS_OBJECTIVE]->(o) SET rel_new.lastUpdatedBy = $userEmail)
-            WITH o
+            WITH o, farm
             OPTIONAL MATCH (o)-[r2:ASSIGNED_TO]->() DELETE r2
-            WITH o
+            WITH o, farm
             UNWIND (CASE WHEN size($workerIdList) > 0 THEN $workerIdList ELSE [null] END) AS wId
             OPTIONAL MATCH (w:Employee {id: wId})
             FOREACH (ignore IN CASE WHEN w IS NOT NULL THEN [1] ELSE [] END | MERGE (o)-[rel_new:ASSIGNED_TO]->(w) SET rel_new.lastUpdatedBy = $userEmail)
             SET o.lastUpdatedBy = $userEmail RETURN DISTINCT o
           `, { 
-            userEmail, id, goalId, title, fromDate, toDate, workerIds: workerIds ? JSON.stringify(workerIds) : '[]', workerIdList: workerIds || [],
+            activeFarmId, userEmail, id, goalId, title, fromDate, toDate, workerIds: workerIds ? JSON.stringify(workerIds) : '[]', workerIdList: workerIds || [],
             estimatedHours: estimatedHours || null, actualHours: actualHours || null, startDate: startDate || null, completionDate: completionDate || null
           });
           results.push({ actionId: action.meta?.id, status: 'success' });
@@ -3921,10 +4031,12 @@ app.post('/api/sync', async (req, res) => {
         else if (action.type === 'livestockDiseases/saveDisease') {
           const { id, name, description, treatment, animalTypes } = action.payload;
           await session.run(`
+            MATCH (farm:Farm {id: $activeFarmId})
             MERGE (d:LivestockDisease {id: $id})
+            MERGE (d)-[:BELONGS_TO]->(farm)
             SET d.name = $name, d.description = $description, d.treatment = $treatment, d.animalTypes = $animalTypes
             SET d.lastUpdatedBy = $userEmail RETURN d
-          `, { userEmail, id, name, description, treatment, animalTypes: animalTypes ? JSON.stringify(animalTypes) : '[]' });
+          `, { activeFarmId, userEmail, id, name, description, treatment, animalTypes: animalTypes ? JSON.stringify(animalTypes) : '[]' });
           results.push({ actionId: action.meta?.id, status: 'success' });
         }
         else if (action.type === 'payroll/savePayroll') {

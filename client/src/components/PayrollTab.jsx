@@ -1324,11 +1324,7 @@ export default function PayrollTab() {
               }}>
                 {/* Letterhead Header */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '16px', borderBottom: '3px solid var(--color-primary-dark, #1b5e20)', paddingBottom: '12px' }}>
-                  {logo ? (
-                    <img src={logo} alt="Company Logo" style={{ maxHeight: '90px', maxWidth: '240px', objectFit: 'contain' }} />
-                  ) : (
-                    <NmkLogo size={90} />
-                  )}
+                  <img src={logo || '/nmk-farm-tracker-app-default-logo.png'} alt="Company Logo" style={{ maxHeight: '110px', maxWidth: '280px', objectFit: 'contain' }} />
                   <div style={{ flex: 1 }}>
                     <h1 style={{ margin: 0, color: 'var(--color-primary-dark, #1b5e20)', fontSize: '1.25rem', fontWeight: 800, textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                       Payroll & Attendance Log

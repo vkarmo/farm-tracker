@@ -85,15 +85,9 @@ export default function LoginScreen() {
       
       <div style={{ background: 'white', padding: '40px', borderRadius: '16px', boxShadow: '0 10px 25px rgba(0,0,0,0.1)', textAlign: 'center', width: 'fit-content', minWidth: 'min(400px, 90%)', maxWidth: '90%' }}>
         
-        {logo ? (
-          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
-            <img src={logo} alt="NMK Logo" style={{ maxWidth: '200px', maxHeight: '100px', objectFit: 'contain' }} />
-          </div>
-        ) : (
-          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
-            <NmkLogo size={70} color="var(--color-primary)" textColor="white" />
-          </div>
-        )}
+        <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '10px' }}>
+          <img src={logo || '/nmk-farm-tracker-app-default-logo.png'} alt="NMK Logo" style={{ maxWidth: '300px', maxHeight: '160px', objectFit: 'contain' }} />
+        </div>
 
         <h1 style={{ fontSize: '1.5rem', marginBottom: '10px', color: '#2e7d32', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', width: '100%' }} title={displayAppName}>{displayAppName}</h1>
         <p style={{ color: '#666', fontSize: '0.9rem', marginBottom: '30px' }}>

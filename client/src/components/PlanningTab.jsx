@@ -187,28 +187,60 @@ export default function PlanningTab() {
 
   const renderGoalsTree = (parentId) => {
     const childrenGoals = goals.filter(g => (g.parentGoalId || '') === parentId);
-    return childrenGoals.map(goal => (
-      <TreeNode
-        key={goal.id}
-        label={goal.title}
-        icon={Target}
-        isSelected={selectedNodeId === goal.id}
-        onSelect={() => setSelectedNodeId(goal.id)}
-        onEdit={() => {
-          setActiveView('goals');
-          setGoalData(goal);
-          setEditingGoalId(goal.id);
-          setSelectedNodeId(goal.id);
-          setActiveTab('entry');
-          window.scrollTo({ top: 0, behavior: 'smooth' });
-        }}
-      >
-        {renderGoalsTree(goal.id)}
+    return (
+      <>
+        {childrenGoals.map(goal => (
+          <TreeNode
+            key={goal.id}
+            label={goal.title}
+            icon={Target}
+            isSelected={selectedNodeId === goal.id}
+            onSelect={() => setSelectedNodeId(goal.id)}
+            onEdit={() => {
+              setActiveView('goals');
+              setGoalData(goal);
+              setEditingGoalId(goal.id);
+              setSelectedNodeId(goal.id);
+              setActiveTab('entry');
+              window.scrollTo({ top: 0, behavior: 'smooth' });
+            }}
+          >
+            {renderGoalsTree(goal.id)}
 
-        {objectives.filter(o => o.goalId === goal.id).map(obj => (
+            {objectives.filter(o => o.goalId === goal.id).map(obj => (
+              <TreeNode
+                key={obj.id}
+                label={obj.title}
+                icon={ClipboardList}
+                isSelected={selectedNodeId === obj.id}
+                onSelect={() => setSelectedNodeId(obj.id)}
+                onEdit={() => {
+                  setActiveView('objectives');
+                  setObjectiveData(obj);
+                  setEditingObjId(obj.id);
+                  setSelectedNodeId(obj.id);
+                  setActiveTab('entry');
+                  window.scrollTo({ top: 0, behavior: 'smooth' });
+                }}
+              >
+                {assignments.filter(a => a.planningId === obj.id).sort((a, b) => (b.assignmentDate || '').localeCompare(a.assignmentDate || '')).map(ass => (
+                  <TreeNode
+                    key={ass.id}
+                    label={`${ass.task} (Assigned: ${ass.workers || renderWorkerNames(ass.workerIds)})`}
+                    icon={List}
+                    isSelected={selectedNodeId === ass.id}
+                    onSelect={() => setSelectedNodeId(ass.id)}
+                  />
+                ))}
+              </TreeNode>
+            ))}
+          </TreeNode>
+        ))}
+
+        {parentId === '' && objectives.filter(o => !o.goalId || !goals.some(g => g.id === o.goalId)).map(obj => (
           <TreeNode
             key={obj.id}
-            label={obj.title}
+            label={`${obj.title} (Unlinked Objective)`}
             icon={ClipboardList}
             isSelected={selectedNodeId === obj.id}
             onSelect={() => setSelectedNodeId(obj.id)}
@@ -232,8 +264,8 @@ export default function PlanningTab() {
             ))}
           </TreeNode>
         ))}
-      </TreeNode>
-    ));
+      </>
+    );
   };
 
   const renderObjectivesTree = () => {

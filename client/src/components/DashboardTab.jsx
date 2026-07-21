@@ -142,7 +142,7 @@ export default function DashboardTab() {
   }, [geeWeatherData, simulateHighWinds]);
   const [activeWeatherTab, setActiveWeatherTab] = useState('current');
   const [showRainProbability, setShowRainProbability] = useState(false);
-  const [activeDashboardTab, setActiveDashboardTab] = useState('assignments');
+  const [activeDashboardTab, setActiveDashboardTab] = useState('weather');
   const [primaryView, setPrimaryView] = useState('assignments_view');
   const [selectedNodeId, setSelectedNodeId] = useState(null);
   const [collapsedColumns, setCollapsedColumns] = useState({});
@@ -291,20 +291,26 @@ export default function DashboardTab() {
 
   const getHierarchicalList = () => {
     const list = [];
+    const addedGoalIds = new Set();
+    const addedObjIds = new Set();
+    const addedAssIds = new Set();
 
     const addGoalAndChildren = (parentId, depth) => {
       const matchingGoals = goals.filter(g => (g.parentGoalId || '') === parentId);
       matchingGoals.forEach(goal => {
+        addedGoalIds.add(goal.id);
         list.push({ type: 'Goal', data: goal, depth });
 
         // Objectives for this goal
         const goalObjectives = objectives.filter(o => o.goalId === goal.id);
         goalObjectives.forEach(obj => {
+          addedObjIds.add(obj.id);
           list.push({ type: 'Objective', data: obj, depth: depth + 1 });
 
           // Assignments for this objective
           const objAssignments = assignments.filter(a => a.planningId === obj.id);
           objAssignments.forEach(ass => {
+            addedAssIds.add(ass.id);
             list.push({ type: 'Assignment', data: ass, depth: depth + 2 });
           });
         });
@@ -315,6 +321,43 @@ export default function DashboardTab() {
     };
 
     addGoalAndChildren('', 0);
+
+    // Append unlinked/orphan goals
+    goals.forEach(goal => {
+      if (!addedGoalIds.has(goal.id)) {
+        addedGoalIds.add(goal.id);
+        list.push({ type: 'Goal', data: goal, depth: 0 });
+        const goalObj = objectives.filter(o => o.goalId === goal.id);
+        goalObj.forEach(obj => {
+          addedObjIds.add(obj.id);
+          list.push({ type: 'Objective', data: obj, depth: 1 });
+          const objAss = assignments.filter(a => a.planningId === obj.id);
+          objAss.forEach(ass => {
+            addedAssIds.add(ass.id);
+            list.push({ type: 'Assignment', data: ass, depth: 2 });
+          });
+        });
+      }
+    });
+
+    // Append unlinked/orphan objectives
+    const orphanObjectives = objectives.filter(o => !addedObjIds.has(o.id));
+    orphanObjectives.forEach(obj => {
+      addedObjIds.add(obj.id);
+      list.push({ type: 'Objective', data: obj, depth: 0 });
+      const objAss = assignments.filter(a => a.planningId === obj.id);
+      objAss.forEach(ass => {
+        addedAssIds.add(ass.id);
+        list.push({ type: 'Assignment', data: ass, depth: 1 });
+      });
+    });
+
+    // Append unlinked/orphan assignments
+    const orphanAssignments = assignments.filter(a => !addedAssIds.has(a.id));
+    orphanAssignments.forEach(ass => {
+      list.push({ type: 'Assignment', data: ass, depth: 0 });
+    });
+
     return list;
   };
 
@@ -1511,172 +1554,104 @@ export default function DashboardTab() {
           className="hide-scrollbar"
           style={{
             display: 'flex',
-            gap: '0px',
-            background: '#f1f5f9',
-            padding: '3px',
-            borderRadius: '8px',
+            gap: '4px',
+            background: '#e2e8f0',
+            padding: '5px',
+            borderRadius: '10px',
             width: '100%',
             flexWrap: 'nowrap',
             overflowX: 'auto',
-            WebkitOverflowScrolling: 'touch'
+            WebkitOverflowScrolling: 'touch',
+            marginBottom: '0px'
           }}
         >
-          <button
-            onClick={() => setActiveDashboardTab('assignments')}
-            style={{
-              flex: '1 0 auto',
-              padding: '6px 12px',
-              borderRadius: '6px',
-              border: 'none',
-              background: activeDashboardTab === 'assignments' ? 'white' : 'transparent',
-              color: activeDashboardTab === 'assignments' ? '#2e7d32' : '#64748b',
-              fontWeight: 700,
-              fontSize: '0.85rem',
-              boxShadow: activeDashboardTab === 'assignments' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease'
-            }}
-          >
-            ASSIGNMENTS
-          </button>
-          <button
-            onClick={() => setActiveDashboardTab('incidents')}
-            style={{
-              flex: '1 0 auto',
-              padding: '6px 12px',
-              borderRadius: '6px',
-              border: 'none',
-              background: activeDashboardTab === 'incidents' ? 'white' : 'transparent',
-              color: activeDashboardTab === 'incidents' ? '#2e7d32' : '#64748b',
-              fontWeight: 700,
-              fontSize: '0.85rem',
-              boxShadow: activeDashboardTab === 'incidents' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease'
-            }}
-          >
-            INCIDENTS
-          </button>
-          <button
-            onClick={() => setActiveDashboardTab('deadlines')}
-            style={{
-              flex: '1 0 auto',
-              padding: '6px 12px',
-              borderRadius: '6px',
-              border: 'none',
-              background: activeDashboardTab === 'deadlines' ? 'white' : 'transparent',
-              color: activeDashboardTab === 'deadlines' ? '#2e7d32' : '#64748b',
-              fontWeight: 700,
-              fontSize: '0.85rem',
-              boxShadow: activeDashboardTab === 'deadlines' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease'
-            }}
-          >
-            DEADLINES
-          </button>
-          <button
-            onClick={() => setActiveDashboardTab('weather')}
-            style={{
-              flex: '1 0 auto',
-              padding: '6px 12px',
-              borderRadius: '6px',
-              border: 'none',
-              background: activeDashboardTab === 'weather' ? 'white' : 'transparent',
-              color: activeDashboardTab === 'weather' ? '#2e7d32' : '#64748b',
-              fontWeight: 700,
-              fontSize: '0.85rem',
-              boxShadow: activeDashboardTab === 'weather' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease'
-            }}
-          >
-            WEATHER
-          </button>
-          <button
-            onClick={() => setActiveDashboardTab('harvests')}
-            style={{
-              flex: '1 0 auto',
-              padding: '6px 12px',
-              borderRadius: '6px',
-              border: 'none',
-              background: activeDashboardTab === 'harvests' ? 'white' : 'transparent',
-              color: activeDashboardTab === 'harvests' ? '#2e7d32' : '#64748b',
-              fontWeight: 700,
-              fontSize: '0.85rem',
-              boxShadow: activeDashboardTab === 'harvests' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease'
-            }}
-          >
-            HARVESTS
-          </button>
-          <button
-            onClick={() => setActiveDashboardTab('financials')}
-            style={{
-              flex: '1 0 auto',
-              padding: '6px 12px',
-              borderRadius: '6px',
-              border: 'none',
-              background: activeDashboardTab === 'financials' ? 'white' : 'transparent',
-              color: activeDashboardTab === 'financials' ? '#2e7d32' : '#64748b',
-              fontWeight: 700,
-              fontSize: '0.85rem',
-              boxShadow: activeDashboardTab === 'financials' ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
-              cursor: 'pointer',
-              transition: 'all 0.2s ease'
-            }}
-          >
-            FINANCIALS
-          </button>
+          {[
+            { key: 'weather', label: 'WEATHER' },
+            { key: 'assignments', label: 'ASSIGNMENTS' },
+            { key: 'incidents', label: 'INCIDENTS' },
+            { key: 'deadlines', label: 'DEADLINES' },
+            { key: 'harvests', label: 'HARVESTS' },
+            { key: 'financials', label: 'FINANCIALS' }
+          ].map(tab => (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => setActiveDashboardTab(tab.key)}
+              style={{
+                flex: '1 0 auto',
+                padding: '12px 20px',
+                minHeight: '48px',
+                borderRadius: '8px',
+                border: 'none',
+                background: activeDashboardTab === tab.key ? 'white' : 'transparent',
+                color: activeDashboardTab === tab.key ? '#1b5e20' : '#475569',
+                fontFamily: "'Montserrat', -apple-system, sans-serif",
+                fontWeight: 800,
+                fontSize: '0.95rem',
+                textTransform: 'uppercase',
+                letterSpacing: '0.6px',
+                boxShadow: activeDashboardTab === tab.key ? '0 2px 6px rgba(0,0,0,0.08)' : 'none',
+                cursor: 'pointer',
+                transition: 'all 0.2s ease',
+                display: 'flex',
+                alignItems: 'center',
+                justify: 'center'
+              }}
+            >
+              {tab.label}
+            </button>
+          ))}
         </div>
 
         {/* Agricultural Impact Analysis (placed globally below the sub-tabs selector) */}
-        {effectiveGeeWeatherData && (
-          <div style={{ display: 'flex', flexDirection: 'row', gap: '12px', flexWrap: 'wrap', width: '100%', marginBottom: '20px' }}>
-            {(() => {
-              const alerts = [];
-              const w = effectiveGeeWeatherData;
+        {(() => {
+          if (!effectiveGeeWeatherData) return null;
+          const alerts = [];
+          const w = effectiveGeeWeatherData;
 
-              if (w.windSpeed > 15.0) {
-                alerts.push({
-                  type: 'danger',
-                  title: 'Severe High Winds Warning',
-                  text: `Dangerous winds detected (${Math.round(w.windSpeed * 3.6)} km/h / ${w.windSpeed} m/s). High risk of crop flattening, nursery damage, and minor structural damage. Secure covers and loose gear.`,
-                  color: '#c62828',
-                  bg: '#ffebee'
-                });
-              }
+          if (w.windSpeed > 15.0) {
+            alerts.push({
+              type: 'danger',
+              title: 'Severe High Winds Warning',
+              text: `Dangerous winds detected (${Math.round(w.windSpeed * 3.6)} km/h / ${w.windSpeed} m/s). High risk of crop flattening, nursery damage, and minor structural damage. Secure covers and loose gear.`,
+              color: '#c62828',
+              bg: '#ffebee'
+            });
+          }
 
-              if (w.temperature < 2.0) {
-                alerts.push({
-                  type: 'danger',
-                  title: 'Frost Alert',
-                  text: `Low temp (${Math.round(w.temperature * 1.8 + 32)}°F / ${w.temperature}°C). Cover sensitive crops & nurseries.`,
-                  color: '#c62828',
-                  bg: '#ffebee'
-                });
-              } else if (w.temperature > 32.0) {
-                alerts.push({
-                  type: 'danger',
-                  title: 'Heat Alert',
-                  text: `High temp (${Math.round(w.temperature * 1.8 + 32)}°F / ${w.temperature}°C). Elevate crop irrigation frequency.`,
-                  color: '#c62828',
-                  bg: '#ffebee'
-                });
-              }
+          if (w.temperature < 2.0) {
+            alerts.push({
+              type: 'danger',
+              title: 'Frost Alert',
+              text: `Low temp (${Math.round(w.temperature * 1.8 + 32)}°F / ${w.temperature}°C). Cover sensitive crops & nurseries.`,
+              color: '#c62828',
+              bg: '#ffebee'
+            });
+          } else if (w.temperature > 32.0) {
+            alerts.push({
+              type: 'danger',
+              title: 'Heat Alert',
+              text: `High temp (${Math.round(w.temperature * 1.8 + 32)}°F / ${w.temperature}°C). Elevate crop irrigation frequency.`,
+              color: '#c62828',
+              bg: '#ffebee'
+            });
+          }
 
-              if (w.humidity < 35.0) {
-                alerts.push({
-                  type: 'warning',
-                  title: 'Dry Air Alert',
-                  text: `Humidity is low (${w.humidity}%). Monitor soil moisture profiles.`,
-                  color: '#e65100',
-                  bg: '#fff8e1'
-                });
-              }
+          if (w.humidity < 35.0) {
+            alerts.push({
+              type: 'warning',
+              title: 'Dry Air Alert',
+              text: `Humidity is low (${w.humidity}%). Monitor soil moisture profiles.`,
+              color: '#e65100',
+              bg: '#fff8e1'
+            });
+          }
 
-              return alerts.map((alert, idx) => (
+          if (alerts.length === 0) return null;
+
+          return (
+            <div style={{ display: 'flex', flexDirection: 'row', gap: '12px', flexWrap: 'wrap', width: '100%', marginBottom: '20px' }}>
+              {alerts.map((alert, idx) => (
                 <div
                   key={idx}
                   style={{
@@ -1708,10 +1683,10 @@ export default function DashboardTab() {
                     {alert.text}
                   </div>
                 </div>
-              ));
-            })()}
-          </div>
-        )}
+              ))}
+            </div>
+          );
+        })()}
 
         {activeDashboardTab === 'weather' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -1963,7 +1938,7 @@ export default function DashboardTab() {
         )}
 
         {activeDashboardTab === 'assignments' && (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0px' }}>
 
             {/* Top-level view selector */}
             <div
@@ -1971,9 +1946,9 @@ export default function DashboardTab() {
               style={{
                 display: 'flex',
                 gap: '0px',
-                marginBottom: '0',
+                marginBottom: '0px',
                 background: '#f1f5f9',
-                padding: '3px',
+                padding: '4px',
                 borderRadius: '8px',
                 width: '100%',
                 overflowX: 'auto',
@@ -1981,10 +1956,10 @@ export default function DashboardTab() {
               }}
             >
               {[
-                { key: 'assignments_view', label: 'Assignments View' },
-                { key: 'tree', label: 'Planning Tree View' },
-                { key: 'board', label: 'Project Board View' },
-                { key: 'taskList', label: 'Project Task List' }
+                { key: 'assignments_view', label: 'ASSIGNMENTS VIEW' },
+                { key: 'tree', label: 'PLANNING TREE VIEW' },
+                { key: 'board', label: 'PROJECT BOARD VIEW' },
+                { key: 'taskList', label: 'PROJECT TASK LIST' }
               ].map(tab => (
                 <button
                   key={tab.key}
@@ -1992,15 +1967,18 @@ export default function DashboardTab() {
                   onClick={() => setPrimaryView(tab.key)}
                   style={{
                     flex: '1 0 auto',
-                    padding: '4px 8px',
+                    padding: '8px 16px',
                     borderRadius: '6px',
                     border: 'none',
                     background: primaryView === tab.key ? 'white' : 'transparent',
                     color: primaryView === tab.key ? 'var(--color-primary)' : '#475569',
-                    fontWeight: 600,
+                    fontFamily: "'Montserrat', -apple-system, sans-serif",
+                    fontWeight: 800,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.5px',
                     boxShadow: primaryView === tab.key ? '0 1px 3px rgba(0,0,0,0.1)' : 'none',
                     cursor: 'pointer',
-                    fontSize: '0.75rem',
+                    fontSize: '0.82rem',
                     transition: 'all 0.15s ease'
                   }}
                 >
@@ -2012,10 +1990,7 @@ export default function DashboardTab() {
             {primaryView === 'assignments_view' && (
               <CollapsibleCard title="Assignments Progress" forceFullGrid>
                 {(() => {
-                  const activeGoalIds = new Set(goals.filter(g => !g.completionDate).map(g => g.id));
-                  const activeObjIds = new Set(objectives.filter(o => !o.completionDate).map(o => o.id));
-                  const activePlanAssignments = assignments.filter(a => a.planningId && (activeGoalIds.has(a.planningId) || activeObjIds.has(a.planningId)));
-                  const sortedActivePlanAssignments = [...activePlanAssignments].sort((a, b) => (b.assignmentDate || '').localeCompare(a.assignmentDate || ''));
+                  const sortedActivePlanAssignments = [...assignments].sort((a, b) => (b.assignmentDate || '').localeCompare(a.assignmentDate || ''));
 
                   const totalTasks = sortedActivePlanAssignments.length;
                   const totalHours = sortedActivePlanAssignments.reduce((sum, a) => sum + (parseFloat(a.hours) || 0), 0);

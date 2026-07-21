@@ -184,13 +184,6 @@ export const flushQueue = (forceSync = false) => async (dispatch, getState) => {
 };
 
 export const fetchInitialData = () => async (dispatch, getState) => {
-  const { offlineActionQueue } = getState().sync;
-  const activeFarmId = localStorage.getItem('activeFarmId') || (import.meta.env.DEV ? 'dev_farm' : 'default_farm');
-  const farmActions = offlineActionQueue.filter(a => a.farmId === activeFarmId);
-
-  // Conflict Resolution: Only pull if no pending offline actions for this farm
-  if (farmActions.length > 0) return;
-
   try {
     const activeFarmId = localStorage.getItem('activeFarmId') || (import.meta.env.DEV ? 'dev_farm' : 'default_farm');
     const currentUser = getState().auth?.currentUser;

@@ -547,7 +547,6 @@ export default function App() {
   const [neo4jTesting, setNeo4jTesting] = useState(false);
   const [neo4jTestStatus, setNeo4jTestStatus] = useState(null);
   const [showNeo4jPassword, setShowNeo4jPassword] = useState(false);
-  const [hideDbInfo, setHideDbInfo] = useState(false);
   const [dbVersion, setDbVersion] = useState('5.27-aura');
 
   const employeeOptions = useMemo(() => {
@@ -1247,11 +1246,7 @@ export default function App() {
         )}
         <header>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            {logo ? (
-              <img src={logo} alt="Company Logo" style={{ maxHeight: '70px', maxWidth: '185px', objectFit: 'contain' }} />
-            ) : (
-              <NmkLogo size={32} color="transparent" textColor="white" />
-            )}
+            <img src={logo || '/nmk-farm-tracker-app-default-logo.png'} alt="Company Logo" style={{ maxHeight: '80px', maxWidth: '220px', objectFit: 'contain', padding: '2px' }} />
             <div style={{ display: 'flex', flexDirection: 'column' }}>
               <h1 style={{ margin: 0, padding: 0 }}>{displayAppName}</h1>
               <span style={{ fontSize: '0.75rem', opacity: 0.8, marginTop: '2px' }}>Version: {CACHE_NAME}</span>
@@ -1273,13 +1268,7 @@ export default function App() {
                 )}
                 <div className="db-info" style={{ display: 'flex', alignItems: 'center', gap: '4px', margin: 0 }}>
                   <Database size={14} style={{ flexShrink: 0 }} />
-                  {hideDbInfo ? (
-                    <span>Neo4j {dbVersion}</span>
-                  ) : (
-                    <span title={`${neo4jUri || 'neo4j+s://3fa11aa8.databases.neo4j.io'} | User: ${neo4jUser || '3fa11aa8'}`}>
-                      {neo4jUri || 'neo4j+s://3fa11aa8.databases.neo4j.io'} | User: {neo4jUser || '3fa11aa8'}
-                    </span>
-                  )}
+                  <span>Neo4j {dbVersion}</span>
                 </div>
               </div>
             </div>
@@ -1547,13 +1536,15 @@ export default function App() {
                     <div style={{ marginBottom: 20 }}>
                       <h3 style={{ marginTop: 0 }}>Company Logo</h3>
                       <div style={{ marginBottom: 16 }}>
-                        {logo && (
-                          <div style={{ marginBottom: 10 }}>
-                            <img src={logo} alt="Current Logo" style={{ maxHeight: '60px', borderRadius: '4px', border: '1px solid var(--color-border)' }} />
-                            <br />
-                            <button onClick={() => { if (currentUser?.role !== 'Admin Viewer') { dispatch(setLogo(null)); dispatch(saveSettings()); } }} className="btn" style={{ marginTop: 8, background: '#ffebee', color: '#c62828', padding: '4px 8px', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer' }} disabled={currentUser?.role === 'Admin Viewer'}>Remove Logo</button>
-                          </div>
-                        )}
+                        <div style={{ marginBottom: 10 }}>
+                          <img src={logo || '/nmk-farm-tracker-app-default-logo.png'} alt="Current Logo" style={{ maxHeight: '90px', maxWidth: '240px', borderRadius: '4px', border: '1px solid var(--color-border)', objectFit: 'contain' }} />
+                          {logo && (
+                            <>
+                              <br />
+                              <button onClick={() => { if (currentUser?.role !== 'Admin Viewer') { dispatch(setLogo(null)); dispatch(saveSettings()); } }} className="btn" style={{ marginTop: 8, background: '#ffebee', color: '#c62828', padding: '4px 8px', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer' }} disabled={currentUser?.role === 'Admin Viewer'}>Reset to Default Logo</button>
+                            </>
+                          )}
+                        </div>
                         <input type="file" accept="image/*" onChange={handleLogoUpload} className="btn" style={{ padding: '6px', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer' }} disabled={currentUser?.role === 'Admin Viewer'} />
                       </div>
                     </div>
@@ -2972,22 +2963,6 @@ export default function App() {
                             style={{ background: '#37474f', color: 'white', padding: '6px 12px', fontSize: '0.85rem', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer' }}
                           >
                             Load Server Defaults
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setHideDbInfo(!hideDbInfo)}
-                            className="btn"
-                            style={{
-                              background: hideDbInfo ? '#0284c7' : '#475569',
-                              color: 'white',
-                              padding: '6px 12px',
-                              fontSize: '0.85rem',
-                              cursor: 'pointer',
-                              border: 'none',
-                              fontWeight: 600
-                            }}
-                          >
-                            {hideDbInfo ? 'Show Db credentials in App Header' : 'Hide Db credentials in App Header'}
                           </button>
                         </div>
 
