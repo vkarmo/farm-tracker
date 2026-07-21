@@ -431,6 +431,20 @@ driver.verifyConnectivity()
     
     const session = driver.session();
     try {
+      // 0. Deduplicate any duplicate farm nodes (e.g. dev_farm)
+      await session.run(`
+        MATCH (f:Farm)
+        WITH f.id AS farmId, collect(f) AS nodes
+        WHERE farmId IS NOT NULL AND size(nodes) > 1
+        WITH farmId, nodes[0] AS keep, nodes[1..] AS dupes
+        UNWIND dupes AS d
+        OPTIONAL MATCH (n)-[r:BELONGS_TO]->(d)
+        FOREACH (x IN CASE WHEN n IS NOT NULL THEN [1] ELSE [] END |
+          MERGE (n)-[:BELONGS_TO]->(keep)
+        )
+        DETACH DELETE d
+      `);
+
       // 1. Ensure default farm and dev farm nodes exist
       await session.run(`
         MERGE (f:Farm {id: 'default_farm'})
@@ -544,10 +558,15 @@ app.get('/api/farms', async (req, res) => {
       params = { email };
     }
     const result = await session.run(query, params);
-    const farms = result.records.map(r => ({
-      ...r.get('f').properties,
-      role: r.get('role')
-    }));
+    const farmsMap = new Map();
+    result.records.forEach(r => {
+      const fProps = r.get('f').properties;
+      const role = r.get('role');
+      if (fProps && fProps.id && !farmsMap.has(fProps.id)) {
+        farmsMap.set(fProps.id, { ...fProps, role });
+      }
+    });
+    const farms = Array.from(farmsMap.values());
     res.json(farms);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -580,7 +599,171 @@ app.post('/api/farms', async (req, res) => {
     await session.close();
   }
 });
+app.post('/api/farms/dev-farm/reset-from-source', async (req, res) => {
+  const { sourceFarmId } = req.body;
+  if (!sourceFarmId || sourceFarmId === 'dev_farm') {
+    return res.status(400).json({ error: 'Please select a valid source farm to seed from.' });
+  }
 
+  res.setHeader('Content-Type', 'application/json');
+  res.setHeader('Transfer-Encoding', 'chunked');
+
+  const sendProgress = (percent, text, extra = {}) => {
+    try {
+      res.write(JSON.stringify({ percent, text, ...extra }) + '\n');
+    } catch (e) {}
+  };
+
+  const session = driver.session();
+  try {
+    sendProgress(5, 'Verifying source farm data...');
+
+    // 1. Verify source farm exists
+    const sourceRes = await session.run('MATCH (f:Farm {id: $sourceFarmId}) RETURN f', { sourceFarmId });
+    if (sourceRes.records.length === 0) {
+      sendProgress(0, 'Source farm not found', { error: 'Source farm not found.', success: false });
+      return res.end();
+    }
+    const sourceFarmName = sourceRes.records[0].get('f').properties.name || sourceFarmId;
+
+    sendProgress(12, 'Initializing DEV FARM target workspace...');
+    // 2. Ensure dev_farm node and settings node exist
+    await session.run(`
+      MERGE (df:Farm {id: 'dev_farm'})
+      ON CREATE SET df.name = 'DEV FARM'
+      MERGE (ds:GlobalSettings {id: 'settings_dev_farm'})
+      MERGE (ds)-[:BELONGS_TO]->(df)
+    `);
+
+    sendProgress(20, 'Clearing existing DEV FARM records & contract days...');
+    // 3. Delete all non-Farm nodes currently linked to dev_farm
+    await session.run(`
+      MATCH (n)-[r:BELONGS_TO]->(df:Farm {id: 'dev_farm'})
+      WHERE NOT n:Farm
+      OPTIONAL MATCH (n)<-[:FOR_PAYROLL]-(cd:ContractDay)
+      DETACH DELETE cd, n
+    `);
+
+    sendProgress(32, 'Querying source farm nodes and graph labels...');
+    // 4. Query all nodes belonging to sourceFarmId
+    const sourceNodesRes = await session.run(`
+      MATCH (n)-[:BELONGS_TO]->(f:Farm {id: $sourceFarmId})
+      WHERE NOT n:Farm
+      RETURN n, labels(n) AS labels
+    `, { sourceFarmId });
+
+    const idMap = new Map(); // oldId -> newId
+    const totalNodes = sourceNodesRes.records.length;
+    let processedCount = 0;
+
+    sendProgress(40, `Cloning ${totalNodes} source farm entity nodes...`);
+
+    // 5. Clone each node for dev_farm
+    for (const record of sourceNodesRes.records) {
+      const oldNode = record.get('n');
+      const labels = record.get('labels') || [];
+      const props = { ...oldNode.properties };
+      const oldId = props.id;
+
+      processedCount++;
+      if (!oldId) continue;
+
+      const isSettings = labels.includes('GlobalSettings');
+      const newId = isSettings ? 'settings_dev_farm' : `${oldId}_dev_${Math.random().toString(36).substr(2, 6)}`;
+      idMap.set(oldId, newId);
+
+      const primaryLabel = labels.find(l => l !== 'Farm' && l !== 'GlobalSettings') || labels[0] || 'Entity';
+      const pct = Math.min(68, Math.floor(40 + (processedCount / (totalNodes || 1)) * 28));
+      const entityName = props.name || props.title || props.id || 'record';
+      sendProgress(pct, `Cloning ${primaryLabel} (${processedCount}/${totalNodes}): ${entityName}`);
+
+      const clonedProps = { ...props, id: newId, lastUpdatedBy: 'system-dev-farm-reset' };
+
+      if (isSettings) {
+        await session.run(`
+          MATCH (ds:GlobalSettings {id: 'settings_dev_farm'})
+          SET ds += $clonedProps
+        `, { clonedProps });
+      } else {
+        const labelString = labels.join(':');
+        await session.run(`
+          MATCH (df:Farm {id: 'dev_farm'})
+          CREATE (n:${labelString} $clonedProps)
+          CREATE (n)-[:BELONGS_TO]->(df)
+        `, { clonedProps });
+      }
+    }
+
+    sendProgress(72, 'Cloning intra-farm graph relationships...');
+    // 6. Clone intra-farm relationships between cloned nodes
+    for (const [oldId, newId] of idMap.entries()) {
+      if (oldId === 'settings_' + sourceFarmId) continue;
+      const relsRes = await session.run(`
+        MATCH (n {id: $oldId})-[r]->(target)
+        WHERE NOT target:Farm AND type(r) <> 'BELONGS_TO'
+        RETURN type(r) AS relType, target.id AS targetId, properties(r) AS relProps
+      `, { oldId });
+
+      for (const relRec of relsRes.records) {
+        const relType = relRec.get('relType');
+        const oldTargetId = relRec.get('targetId');
+        const relProps = relRec.get('relProps') || {};
+        const newTargetId = idMap.get(oldTargetId);
+
+        if (newTargetId) {
+          const safeType = /^[A-Z0-9_]+$/i.test(relType) ? relType : 'RELATED_TO';
+          await session.run(`
+            MATCH (src {id: $newId})
+            MATCH (tgt {id: $newTargetId})
+            MERGE (src)-[r:${safeType}]->(tgt)
+            SET r += $relProps
+          `, { newId, newTargetId, relProps });
+        }
+      }
+    }
+
+    sendProgress(84, 'Updating foreign key references across cloned nodes...');
+    // 7. Update foreign key string properties (e.g. fieldId, motherId, fatherId, cropId, goalId)
+    const clonedIds = Array.from(idMap.values()).filter(id => id !== 'settings_dev_farm');
+    if (clonedIds.length > 0) {
+      const nodesToUpdateRes = await session.run(`
+        UNWIND $clonedIds AS cId
+        MATCH (n {id: cId})
+        RETURN n.id AS id, properties(n) AS props
+      `, { clonedIds });
+
+      for (const rec of nodesToUpdateRes.records) {
+        const nodeId = rec.get('id');
+        const props = rec.get('props') || {};
+        const updates = {};
+        ['fieldId', 'motherId', 'fatherId', 'cropId', 'goalId', 'parentGoalId', 'equipmentId', 'assetId', 'targetId', 'budgetId'].forEach(fk => {
+          if (props[fk] && idMap.has(props[fk])) {
+            updates[fk] = idMap.get(props[fk]);
+          }
+        });
+        if (Object.keys(updates).length > 0) {
+          await session.run(`MATCH (n {id: $nodeId}) SET n += $updates`, { nodeId, updates });
+        }
+      }
+    }
+
+    sendProgress(94, 'Reconciling pest, crop, and remedy matrix links...');
+    // 8. Reconcile relationships for dev_farm
+    await reconcileRelationships(session, 'dev_farm');
+
+    sendProgress(100, `DEV FARM successfully reset and seeded from ${sourceFarmName}!`, {
+      success: true,
+      message: `DEV FARM data successfully reset and seeded from ${sourceFarmName}.`
+    });
+    res.end();
+  } catch (err) {
+    console.error('Failed to reset DEV FARM data from source:', err);
+    sendProgress(0, 'Cloning failed', { success: false, error: err.message || 'Failed to reset DEV FARM data.' });
+    res.end();
+  } finally {
+    await session.close();
+  }
+});
 app.get('/api/farms/:farmId/summary', async (req, res) => {
   const { farmId } = req.params;
   const { email } = req.query;

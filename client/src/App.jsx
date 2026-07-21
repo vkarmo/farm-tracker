@@ -105,6 +105,13 @@ export default function App() {
   }, [currentUser]);
 
   const determineDefaultFarm = (farms) => {
+    // 1. If an active farm is explicitly selected & stored in localStorage, respect it in both Dev & Production modes
+    const storedFarmId = localStorage.getItem('activeFarmId');
+    if (storedFarmId && farms && farms.some(f => f.id === storedFarmId)) {
+      return storedFarmId;
+    }
+
+    // 2. If no explicit farm selection is saved, default to dev_farm in development mode
     if (isDevMode) {
       return 'dev_farm';
     }
@@ -452,7 +459,79 @@ export default function App() {
       window.removeEventListener('navigate-tab', handleNavigate);
     };
   }, []);
-  const [openSettings, setOpenSettings] = useState({ general: true, dropdown: false, map: false, units: false, jobs: false, animals: false, ledgers: false, gee: false, mtn: false, owm: false, theme: false, typography: false, simulation: false, ai: false, neo4j: false, businessDefaults: false, deleteFarm: false });
+  const [openSettings, setOpenSettings] = useState({ general: true, devFarmReset: true, dropdown: false, map: false, units: false, jobs: false, animals: false, ledgers: false, gee: false, mtn: false, owm: false, theme: false, typography: false, simulation: false, ai: false, neo4j: false, businessDefaults: false, deleteFarm: false });
+  const [selectedSourceFarmId, setSelectedSourceFarmId] = useState('default_farm');
+  const [isResettingDevFarm, setIsResettingDevFarm] = useState(false);
+  const [devFarmResetStatus, setDevFarmResetStatus] = useState(null);
+  const [resetProgress, setResetProgress] = useState({ percent: 0, text: '' });
+
+  const handleResetDevFarmFromSource = async () => {
+    const sourceFarm = farmsList.find(f => f.id === selectedSourceFarmId) || { name: selectedSourceFarmId };
+    const farmName = sourceFarm.name || (selectedSourceFarmId === 'default_farm' ? 'NMK Farm' : selectedSourceFarmId);
+    const confirmed = window.confirm(`Are you sure you want to completely reset DEV FARM data and seed it with a fresh clone of "${farmName}"?`);
+    if (!confirmed) return;
+
+    setIsResettingDevFarm(true);
+    setDevFarmResetStatus(null);
+    setResetProgress({ percent: 0, text: 'Starting DEV FARM reset...' });
+
+    try {
+      const response = await fetch('/api/farms/dev-farm/reset-from-source', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sourceFarmId: selectedSourceFarmId, userEmail: currentUser?.email })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Server returned HTTP ${response.status}`);
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+      let isSuccess = false;
+      let finalMsg = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop();
+
+        for (const line of lines) {
+          if (!line.trim()) continue;
+          try {
+            const update = JSON.parse(line.trim());
+            if (update.percent !== undefined && update.text !== undefined) {
+              setResetProgress({ percent: update.percent, text: update.text });
+            }
+            if (update.success !== undefined) {
+              isSuccess = update.success;
+              finalMsg = update.message || update.error || '';
+            }
+          } catch (e) {
+            console.warn('Progress parse error:', e);
+          }
+        }
+      }
+
+      if (isSuccess) {
+        setDevFarmResetStatus({ type: 'success', message: finalMsg || 'DEV FARM successfully reset and seeded!' });
+        if (activeFarmId === 'dev_farm') {
+          dispatch(clearAllData());
+          await dispatch(fetchInitialData());
+        }
+      } else if (finalMsg) {
+        setDevFarmResetStatus({ type: 'error', message: finalMsg });
+      }
+    } catch (err) {
+      setDevFarmResetStatus({ type: 'error', message: err.message || 'Server connection error during reset.' });
+    } finally {
+      setIsResettingDevFarm(false);
+    }
+  };
+
   const [selectedDeleteFarmId, setSelectedDeleteFarmId] = useState('');
   const [deleteSummary, setDeleteSummary] = useState(null);
   const [deleteConfirmationText, setDeleteConfirmationText] = useState('');
@@ -1477,6 +1556,113 @@ export default function App() {
                         )}
                         <input type="file" accept="image/*" onChange={handleLogoUpload} className="btn" style={{ padding: '6px', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer' }} disabled={currentUser?.role === 'Admin Viewer'} />
                       </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* DEV FARM Data Reset & Seeding Card */}
+              <div className="card" style={{ padding: 0, overflow: 'hidden', marginBottom: 0, border: '1px solid #90caf9', background: '#e3f2fd' }}>
+                <button
+                  onClick={() => setOpenSettings({ ...openSettings, devFarmReset: !openSettings.devFarmReset })}
+                  type="button"
+                  style={{ width: '100%', padding: '15px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: '#bbdefb', border: 'none', cursor: 'pointer', fontWeight: 600, fontSize: '1.1rem', color: '#0d47a1' }}
+                >
+                  <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <RefreshCw size={20} />
+                    DEV FARM Data Reset & Seeding
+                  </span>
+                  {openSettings.devFarmReset ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
+                </button>
+
+                {openSettings.devFarmReset && (
+                  <div style={{ padding: '20px', background: '#ffffff' }}>
+                    <h3 style={{ marginTop: 0, color: '#0d47a1' }}>Reset DEV FARM with Selected Farm Data</h3>
+                    <p style={{ fontSize: '0.85rem', color: '#555', marginBottom: 16 }}>
+                      Reset all data inside the isolated <strong>DEV FARM</strong> dataset and seed it with a complete fresh clone of data from a selected source farm (such as NMK Farm).
+                    </p>
+
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', maxWidth: '520px' }}>
+                      <div>
+                        <label style={{ fontWeight: 600, fontSize: '0.9rem', color: '#333' }}>Select Source Farm to Clone</label>
+                        <select
+                          value={selectedSourceFarmId}
+                          onChange={(e) => setSelectedSourceFarmId(e.target.value)}
+                          className="btn"
+                          style={{ display: 'block', width: '100%', marginTop: 6, padding: '10px', background: '#fff', border: '1px solid #ccc', borderRadius: '4px', fontSize: '0.95rem' }}
+                        >
+                          {farmsList.filter(f => f.id !== 'dev_farm').map(farm => (
+                            <option key={farm.id} value={farm.id}>
+                              {farm.name || farm.id} ({farm.id === 'default_farm' ? 'NMK FARM System Default' : farm.id})
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={handleResetDevFarmFromSource}
+                        disabled={isResettingDevFarm || !selectedSourceFarmId}
+                        className="btn"
+                        style={{
+                          background: isResettingDevFarm ? '#90caf9' : '#1976d2',
+                          color: '#ffffff',
+                          fontWeight: 600,
+                          padding: '12px 16px',
+                          borderRadius: '4px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: '8px',
+                          cursor: isResettingDevFarm ? 'not-allowed' : 'pointer'
+                        }}
+                      >
+                        <RefreshCw size={18} className={isResettingDevFarm ? 'spin' : ''} />
+                        {isResettingDevFarm ? 'Resetting & Seeding DEV FARM...' : 'Reset & Seed DEV FARM from Selected Farm'}
+                      </button>
+
+                      {isResettingDevFarm && (
+                        <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.85rem', fontWeight: 600, color: '#0d47a1' }}>
+                            <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '82%' }}>
+                              {resetProgress.text || 'Cloning in progress...'}
+                            </span>
+                            <span>{resetProgress.percent}%</span>
+                          </div>
+                          
+                          {/* Animated Live Progress Bar Container */}
+                          <div style={{
+                            width: '100%',
+                            height: '14px',
+                            background: '#e0e0e0',
+                            borderRadius: '7px',
+                            overflow: 'hidden',
+                            boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.1)'
+                          }}>
+                            <div style={{
+                              width: `${resetProgress.percent}%`,
+                              height: '100%',
+                              background: 'linear-gradient(90deg, #1976d2, #42a5f5)',
+                              borderRadius: '7px',
+                              transition: 'width 0.25s ease-in-out',
+                              boxShadow: '0 0 8px rgba(25, 118, 210, 0.5)'
+                            }} />
+                          </div>
+                        </div>
+                      )}
+
+                      {devFarmResetStatus && (
+                        <div style={{
+                          padding: '10px 14px',
+                          borderRadius: '4px',
+                          fontSize: '0.85rem',
+                          background: devFarmResetStatus.type === 'success' ? '#e8f5e9' : '#ffebee',
+                          color: devFarmResetStatus.type === 'success' ? '#2e7d32' : '#c62828',
+                          border: `1px solid ${devFarmResetStatus.type === 'success' ? '#a5d6a7' : '#ef9a9a'}`
+                        }}>
+                          {devFarmResetStatus.message}
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
