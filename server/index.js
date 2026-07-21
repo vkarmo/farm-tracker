@@ -3947,8 +3947,14 @@ app.post('/api/sync', async (req, res) => {
             properties.appName = properties.appName.toUpperCase();
           }
 
-          // Protect existing base64 logo from being overwritten with null when saving other settings
-          if (properties.logo === null || properties.logo === undefined) {
+          // Protect existing base64 logo from being overwritten with null or empty string when saving other settings
+          if (properties.logo === 'RESET' || properties.logo === 'DEFAULT') {
+            await session.run(`
+              MATCH (s:GlobalSettings {id: $settingsId})
+              REMOVE s.logo
+            `, { settingsId });
+            delete properties.logo;
+          } else if (!properties.logo || typeof properties.logo !== 'string' || !properties.logo.trim()) {
             delete properties.logo;
           }
           await session.run(`

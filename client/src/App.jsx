@@ -1571,7 +1571,7 @@ export default function App() {
                           {logo && (
                             <>
                               <br />
-                              <button onClick={() => { if (currentUser?.role !== 'Admin Viewer') { dispatch(setLogo('')); dispatch(saveSettings()); } }} className="btn" style={{ marginTop: 8, background: '#ffebee', color: '#c62828', padding: '4px 8px', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer' }} disabled={currentUser?.role === 'Admin Viewer'}>Reset to Default Logo</button>
+                              <button onClick={() => { if (currentUser?.role !== 'Admin Viewer') { dispatch(setLogo('RESET')); dispatch(saveSettings()); } }} className="btn" style={{ marginTop: 8, background: '#ffebee', color: '#c62828', padding: '4px 8px', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer' }} disabled={currentUser?.role === 'Admin Viewer'}>Reset to Default Logo</button>
                             </>
                           )}
                         </div>

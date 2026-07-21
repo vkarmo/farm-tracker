@@ -124,7 +124,12 @@ export const settingsSlice = createSlice({
       state.kmlUrls = state.kmlUrls.filter(u => u !== action.payload);
     },
     setLogo: (state, action) => {
-      state.logo = action.payload;
+      const val = action.payload;
+      if (val === 'RESET' || val === 'DEFAULT' || val === null || val === undefined || val === '') {
+        state.logo = null;
+      } else {
+        state.logo = val;
+      }
     },
     setPolygonColor: (state, action) => {
       state.polygonColor = action.payload;
@@ -209,6 +214,12 @@ export const settingsSlice = createSlice({
       if (payload.themeFontName) payload.themeFontName = sanitizeFontName(payload.themeFontName);
       if (payload.themeFontAppName) payload.themeFontAppName = sanitizeFontName(payload.themeFontAppName);
       if (payload.themeFontImager) payload.themeFontImager = sanitizeFontName(payload.themeFontImager);
+
+      if (payload.logo !== undefined) {
+        if (!payload.logo || payload.logo === 'RESET' || payload.logo === 'DEFAULT') {
+          payload.logo = null;
+        }
+      }
 
       return { ...initialState, ...payload };
     },
