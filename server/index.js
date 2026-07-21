@@ -3941,11 +3941,15 @@ app.post('/api/sync', async (req, res) => {
                  properties[k] = v;
              }
           }
+          if (!properties.appName || !properties.appName.trim()) {
+            delete properties.appName;
+          }
           await session.run(`
             MERGE (f:Farm {id: $targetFarmId})
             MERGE (s:GlobalSettings {id: $settingsId})
             MERGE (s)-[:BELONGS_TO]->(f)
             SET s += $properties
+            SET s.appName = COALESCE(s.appName, f.name)
             SET s.lastUpdatedBy = $userEmail
             RETURN s
           `, { userEmail, properties, settingsId, targetFarmId });
