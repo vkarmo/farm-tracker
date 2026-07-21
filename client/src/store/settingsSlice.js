@@ -1,5 +1,6 @@
 import { createSlice } from '@reduxjs/toolkit';
 import { queueAction, flushQueue } from './syncSlice';
+import { sanitizeFontName } from '../utils/fontUtils';
 
 export const settingsSlice = createSlice({
   name: 'settings',
@@ -42,16 +43,21 @@ export const settingsSlice = createSlice({
     themeFontAppName: 'System Default',
     themeFontSizeAppName: '1.5rem',
     themeFontAppNameBold: true,
+    themeFontAppNameItalic: false,
     themeFontAppNameCapitalize: false,
     themeFontSizeBaseBold: false,
+    themeFontSizeBaseItalic: false,
     themeFontSizeBaseCapitalize: false,
     themeFontSizeCardTitleBold: true,
+    themeFontSizeCardTitleItalic: false,
     themeFontSizeCardTitleCapitalize: false,
     themeFontSizeTabsBold: false,
+    themeFontSizeTabsItalic: false,
     themeFontSizeTabsCapitalize: false,
     themeFontImager: 'Roboto',
     themeFontSizeImager: '0.72rem',
     themeFontImagerBold: false,
+    themeFontImagerItalic: false,
     themeFontImagerCapitalize: true,
     mtnClientId: '',
     mtnClientSecret: '',
@@ -133,7 +139,7 @@ export const settingsSlice = createSlice({
       state.gpsDistanceThreshold = action.payload;
     },
     setAppName: (state, action) => {
-      state.appName = action.payload;
+      state.appName = (action.payload || '').toUpperCase();
     },
     addAnimalType: (state, action) => {
       if (!state.animalTypes) state.animalTypes = [];
@@ -147,6 +153,10 @@ export const settingsSlice = createSlice({
     },
     setAllSettings: (state, action) => {
       const payload = { ...action.payload };
+
+      if (payload.appName) {
+        payload.appName = payload.appName.toUpperCase();
+      }
 
       // Parse JSON strings back to arrays/objects if needed
       ['units', 'jobTitles', 'kmlUrls', 'mapCenter', 'expenseCategories', 'incomeCategories', 'animalTypes', 'nonWorkdays', 'workdays', 'visibleMapLayers'].forEach(key => {
@@ -196,6 +206,10 @@ export const settingsSlice = createSlice({
         }
       }
 
+      if (payload.themeFontName) payload.themeFontName = sanitizeFontName(payload.themeFontName);
+      if (payload.themeFontAppName) payload.themeFontAppName = sanitizeFontName(payload.themeFontAppName);
+      if (payload.themeFontImager) payload.themeFontImager = sanitizeFontName(payload.themeFontImager);
+
       return { ...initialState, ...payload };
     },
     setVisibleMapLayers: (state, action) => {
@@ -238,7 +252,7 @@ export const settingsSlice = createSlice({
       state.themeAppBorderThickness = action.payload;
     },
     setThemeFontName: (state, action) => {
-      state.themeFontName = action.payload;
+      state.themeFontName = sanitizeFontName(action.payload);
     },
     setThemeFontSizeBase: (state, action) => {
       state.themeFontSizeBase = action.payload;
@@ -268,7 +282,7 @@ export const settingsSlice = createSlice({
       state.themeColorTabsInactiveText = action.payload;
     },
     setThemeFontAppName: (state, action) => {
-      state.themeFontAppName = action.payload;
+      state.themeFontAppName = sanitizeFontName(action.payload);
     },
     setThemeFontSizeAppName: (state, action) => {
       state.themeFontSizeAppName = action.payload;
@@ -276,11 +290,17 @@ export const settingsSlice = createSlice({
     setThemeFontAppNameBold: (state, action) => {
       state.themeFontAppNameBold = action.payload;
     },
+    setThemeFontAppNameItalic: (state, action) => {
+      state.themeFontAppNameItalic = action.payload;
+    },
     setThemeFontAppNameCapitalize: (state, action) => {
       state.themeFontAppNameCapitalize = action.payload;
     },
     setThemeFontSizeBaseBold: (state, action) => {
       state.themeFontSizeBaseBold = action.payload;
+    },
+    setThemeFontSizeBaseItalic: (state, action) => {
+      state.themeFontSizeBaseItalic = action.payload;
     },
     setThemeFontSizeBaseCapitalize: (state, action) => {
       state.themeFontSizeBaseCapitalize = action.payload;
@@ -288,23 +308,32 @@ export const settingsSlice = createSlice({
     setThemeFontSizeCardTitleBold: (state, action) => {
       state.themeFontSizeCardTitleBold = action.payload;
     },
+    setThemeFontSizeCardTitleItalic: (state, action) => {
+      state.themeFontSizeCardTitleItalic = action.payload;
+    },
     setThemeFontSizeCardTitleCapitalize: (state, action) => {
       state.themeFontSizeCardTitleCapitalize = action.payload;
     },
     setThemeFontSizeTabsBold: (state, action) => {
       state.themeFontSizeTabsBold = action.payload;
     },
+    setThemeFontSizeTabsItalic: (state, action) => {
+      state.themeFontSizeTabsItalic = action.payload;
+    },
     setThemeFontSizeTabsCapitalize: (state, action) => {
       state.themeFontSizeTabsCapitalize = action.payload;
     },
     setThemeFontImager: (state, action) => {
-      state.themeFontImager = action.payload;
+      state.themeFontImager = sanitizeFontName(action.payload);
     },
     setThemeFontSizeImager: (state, action) => {
       state.themeFontSizeImager = action.payload;
     },
     setThemeFontImagerBold: (state, action) => {
       state.themeFontImagerBold = action.payload;
+    },
+    setThemeFontImagerItalic: (state, action) => {
+      state.themeFontImagerItalic = action.payload;
     },
     setThemeFontImagerCapitalize: (state, action) => {
       state.themeFontImagerCapitalize = action.payload;
@@ -359,7 +388,7 @@ export const settingsSlice = createSlice({
   }
 });
 
-export const { addUnit, removeUnit, addJobTitle, removeJobTitle, addExpenseCategory, removeExpenseCategory, addIncomeCategory, removeIncomeCategory, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold, setAppName, addAnimalType, removeAnimalType, setAllSettings, setVisibleMapLayers, setSnapGap, setGeeClientEmail, setGeePrivateKey, setGeeProjectId, setGeeScale, setOwmApiKey, setThemeAppBgColor, setThemeCardBgColor, setThemeCardBorderColor, setThemeCardBorderThickness, setThemeAppBorderColor, setThemeAppBorderThickness, setThemeFontName, setThemeFontSizeBase, setThemeFontSizeCardTitle, setThemeFontSizeTabs, setThemeColorPrimary, setThemeColorCardTitle, setThemeColorTabsActiveBg, setThemeColorTabsActiveText, setThemeColorTabsInactiveBg, setThemeColorTabsInactiveText, setThemeFontAppName, setThemeFontSizeAppName, setThemeFontAppNameBold, setThemeFontAppNameCapitalize, setThemeFontSizeBaseBold, setThemeFontSizeBaseCapitalize, setThemeFontSizeCardTitleBold, setThemeFontSizeCardTitleCapitalize, setThemeFontSizeTabsBold, setThemeFontSizeTabsCapitalize, setThemeFontImager, setThemeFontSizeImager, setThemeFontImagerBold, setThemeFontImagerCapitalize, setMtnClientId, setMtnClientSecret, setMtnEnvironment, setSimulateHighWinds, setGoogleMapsApiKey, setGeminiApiKey, setClaudeApiKey, setAiProvider, setNeo4jUri, setNeo4jUser, setNeo4jPassword, setNeo4jDatabase, setWorkdayHours, setWorkdays } = settingsSlice.actions;
+export const { addUnit, removeUnit, addJobTitle, removeJobTitle, addExpenseCategory, removeExpenseCategory, addIncomeCategory, removeIncomeCategory, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold, setAppName, addAnimalType, removeAnimalType, setAllSettings, setVisibleMapLayers, setSnapGap, setGeeClientEmail, setGeePrivateKey, setGeeProjectId, setGeeScale, setOwmApiKey, setThemeAppBgColor, setThemeCardBgColor, setThemeCardBorderColor, setThemeCardBorderThickness, setThemeAppBorderColor, setThemeAppBorderThickness, setThemeFontName, setThemeFontSizeBase, setThemeFontSizeCardTitle, setThemeFontSizeTabs, setThemeColorPrimary, setThemeColorCardTitle, setThemeColorTabsActiveBg, setThemeColorTabsActiveText, setThemeColorTabsInactiveBg, setThemeColorTabsInactiveText, setThemeFontAppName, setThemeFontSizeAppName, setThemeFontAppNameBold, setThemeFontAppNameItalic, setThemeFontAppNameCapitalize, setThemeFontSizeBaseBold, setThemeFontSizeBaseItalic, setThemeFontSizeBaseCapitalize, setThemeFontSizeCardTitleBold, setThemeFontSizeCardTitleItalic, setThemeFontSizeCardTitleCapitalize, setThemeFontSizeTabsBold, setThemeFontSizeTabsItalic, setThemeFontSizeTabsCapitalize, setThemeFontImager, setThemeFontSizeImager, setThemeFontImagerBold, setThemeFontImagerItalic, setThemeFontImagerCapitalize, setMtnClientId, setMtnClientSecret, setMtnEnvironment, setSimulateHighWinds, setGoogleMapsApiKey, setGeminiApiKey, setClaudeApiKey, setAiProvider, setNeo4jUri, setNeo4jUser, setNeo4jPassword, setNeo4jDatabase, setWorkdayHours, setWorkdays } = settingsSlice.actions;
 
 export const saveSettings = () => (dispatch, getState) => {
   const settings = getState().settings;

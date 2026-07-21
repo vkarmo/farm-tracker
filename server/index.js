@@ -3943,6 +3943,13 @@ app.post('/api/sync', async (req, res) => {
           }
           if (!properties.appName || !properties.appName.trim()) {
             delete properties.appName;
+          } else {
+            properties.appName = properties.appName.toUpperCase();
+          }
+
+          // Protect existing base64 logo from being overwritten with null when saving other settings
+          if (properties.logo === null || properties.logo === undefined) {
+            delete properties.logo;
           }
           await session.run(`
             MERGE (f:Farm {id: $targetFarmId})

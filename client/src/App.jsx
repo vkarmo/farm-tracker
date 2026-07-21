@@ -2,7 +2,8 @@ import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
 import Select from 'react-select';
 import { fetchFields } from './store/fieldsSlice';
-import { addUnit, removeUnit, addJobTitle, removeJobTitle, addExpenseCategory, removeExpenseCategory, addIncomeCategory, removeIncomeCategory, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold, setAppName, addAnimalType, removeAnimalType, saveSettings, setGeeClientEmail, setGeePrivateKey, setGeeProjectId, setGeeScale, setOwmApiKey, setThemeAppBgColor, setThemeCardBgColor, setThemeCardBorderColor, setThemeCardBorderThickness, setThemeAppBorderColor, setThemeAppBorderThickness, setThemeFontName, setThemeFontSizeBase, setThemeFontSizeCardTitle, setThemeFontSizeTabs, setThemeColorPrimary, setThemeColorCardTitle, setThemeColorTabsActiveBg, setThemeColorTabsActiveText, setThemeColorTabsInactiveBg, setThemeColorTabsInactiveText, setThemeFontAppName, setThemeFontSizeAppName, setThemeFontAppNameBold, setThemeFontAppNameCapitalize, setThemeFontSizeBaseBold, setThemeFontSizeBaseCapitalize, setThemeFontSizeCardTitleBold, setThemeFontSizeCardTitleCapitalize, setThemeFontSizeTabsBold, setThemeFontSizeTabsCapitalize, setThemeFontImager, setThemeFontSizeImager, setThemeFontImagerBold, setThemeFontImagerCapitalize, setMtnClientId, setMtnClientSecret, setMtnEnvironment, setSimulateHighWinds, setGoogleMapsApiKey, setGeminiApiKey, setClaudeApiKey, setAiProvider, setNeo4jUri, setNeo4jUser, setNeo4jPassword, setNeo4jDatabase, setWorkdayHours, setWorkdays } from './store/settingsSlice';
+import { sanitizeFontName, getFontFamilyCSS } from './utils/fontUtils';
+import { addUnit, removeUnit, addJobTitle, removeJobTitle, addExpenseCategory, removeExpenseCategory, addIncomeCategory, removeIncomeCategory, addKmlUrl, removeKmlUrl, setLogo, setPolygonColor, setMapCenter, setMapZoom, setGpsDistanceThreshold, setAppName, addAnimalType, removeAnimalType, saveSettings, setGeeClientEmail, setGeePrivateKey, setGeeProjectId, setGeeScale, setOwmApiKey, setThemeAppBgColor, setThemeCardBgColor, setThemeCardBorderColor, setThemeCardBorderThickness, setThemeAppBorderColor, setThemeAppBorderThickness, setThemeFontName, setThemeFontSizeBase, setThemeFontSizeCardTitle, setThemeFontSizeTabs, setThemeColorPrimary, setThemeColorCardTitle, setThemeColorTabsActiveBg, setThemeColorTabsActiveText, setThemeColorTabsInactiveBg, setThemeColorTabsInactiveText, setThemeFontAppName, setThemeFontSizeAppName, setThemeFontAppNameBold, setThemeFontAppNameItalic, setThemeFontAppNameCapitalize, setThemeFontSizeBaseBold, setThemeFontSizeBaseItalic, setThemeFontSizeBaseCapitalize, setThemeFontSizeCardTitleBold, setThemeFontSizeCardTitleItalic, setThemeFontSizeCardTitleCapitalize, setThemeFontSizeTabsBold, setThemeFontSizeTabsItalic, setThemeFontSizeTabsCapitalize, setThemeFontImager, setThemeFontSizeImager, setThemeFontImagerBold, setThemeFontImagerItalic, setThemeFontImagerCapitalize, setMtnClientId, setMtnClientSecret, setMtnEnvironment, setSimulateHighWinds, setGoogleMapsApiKey, setGeminiApiKey, setClaudeApiKey, setAiProvider, setNeo4jUri, setNeo4jUser, setNeo4jPassword, setNeo4jDatabase, setWorkdayHours, setWorkdays } from './store/settingsSlice';
 import { addLocation } from './store/gpsSlice';
 import { queueAction, fetchInitialData, abortSync, clearAllData } from './store/syncSlice';
 import { MapSearchBox, MapFlyTo, FarmLocationButton } from './components/MapSearchBox';
@@ -423,16 +424,21 @@ export default function App() {
   const themeFontAppName = useSelector(state => state.settings?.themeFontAppName) || 'System Default';
   const themeFontSizeAppName = useSelector(state => state.settings?.themeFontSizeAppName) || '1.5rem';
   const themeFontAppNameBold = useSelector(state => state.settings?.themeFontAppNameBold) !== false;
+  const themeFontAppNameItalic = useSelector(state => state.settings?.themeFontAppNameItalic) || false;
   const themeFontAppNameCapitalize = useSelector(state => state.settings?.themeFontAppNameCapitalize) || false;
   const themeFontSizeBaseBold = useSelector(state => state.settings?.themeFontSizeBaseBold) || false;
+  const themeFontSizeBaseItalic = useSelector(state => state.settings?.themeFontSizeBaseItalic) || false;
   const themeFontSizeBaseCapitalize = useSelector(state => state.settings?.themeFontSizeBaseCapitalize) || false;
   const themeFontSizeCardTitleBold = useSelector(state => state.settings?.themeFontSizeCardTitleBold) !== false;
+  const themeFontSizeCardTitleItalic = useSelector(state => state.settings?.themeFontSizeCardTitleItalic) || false;
   const themeFontSizeCardTitleCapitalize = useSelector(state => state.settings?.themeFontSizeCardTitleCapitalize) || false;
   const themeFontSizeTabsBold = useSelector(state => state.settings?.themeFontSizeTabsBold) || false;
+  const themeFontSizeTabsItalic = useSelector(state => state.settings?.themeFontSizeTabsItalic) || false;
   const themeFontSizeTabsCapitalize = useSelector(state => state.settings?.themeFontSizeTabsCapitalize) || false;
   const themeFontImager = useSelector(state => state.settings?.themeFontImager) || 'System Default';
   const themeFontSizeImager = useSelector(state => state.settings?.themeFontSizeImager) || '0.72rem';
   const themeFontImagerBold = useSelector(state => state.settings?.themeFontImagerBold) || false;
+  const themeFontImagerItalic = useSelector(state => state.settings?.themeFontImagerItalic) || false;
   const themeFontImagerCapitalize = useSelector(state => state.settings?.themeFontImagerCapitalize) || false;
   const simulateHighWinds = useSelector(state => state.settings?.simulateHighWinds) || false;
   const formatImagerLabel = (txt) => themeFontImagerCapitalize ? txt.toUpperCase() : txt;
@@ -459,6 +465,28 @@ export default function App() {
       window.removeEventListener('navigate-tab', handleNavigate);
     };
   }, []);
+
+  // Dynamically inject Google Font stylesheets into document.head
+  useEffect(() => {
+    const fontNames = [
+      sanitizeFontName(themeFontName),
+      sanitizeFontName(themeFontAppName),
+      sanitizeFontName(themeFontImager)
+    ].filter(f => f && f !== 'System Default');
+
+    const uniqueFonts = [...new Set(fontNames)];
+
+    uniqueFonts.forEach(font => {
+      const linkId = `google-font-${font.replace(/\s+/g, '-').toLowerCase()}`;
+      if (!document.getElementById(linkId)) {
+        const link = document.createElement('link');
+        link.id = linkId;
+        link.rel = 'stylesheet';
+        link.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(font).replace(/%20/g, '+')}:wght@300;400;500;600;700;800;900&display=swap`;
+        document.head.appendChild(link);
+      }
+    });
+  }, [themeFontName, themeFontAppName, themeFontImager]);
   const [openSettings, setOpenSettings] = useState({ general: true, devFarmReset: true, dropdown: false, map: false, units: false, jobs: false, animals: false, ledgers: false, gee: false, mtn: false, owm: false, theme: false, typography: false, simulation: false, ai: false, neo4j: false, businessDefaults: false, deleteFarm: false });
   const [selectedSourceFarmId, setSelectedSourceFarmId] = useState('default_farm');
   const [isResettingDevFarm, setIsResettingDevFarm] = useState(false);
@@ -1085,10 +1113,6 @@ export default function App() {
   return (
     <>
       <style>{`
-        ${themeFontName && themeFontName !== 'System Default' ? `@import url('https://fonts.googleapis.com/css2?family=${themeFontName.replace(/ /g, '+')}:wght@300;400;500;600;700&display=swap');` : ''}
-        ${themeFontAppName && themeFontAppName !== 'System Default' && themeFontAppName !== themeFontName ? `@import url('https://fonts.googleapis.com/css2?family=${themeFontAppName.replace(/ /g, '+')}:wght@300;400;500;600;700&display=swap');` : ''}
-        ${themeFontImager && themeFontImager !== 'System Default' && themeFontImager !== themeFontName && themeFontImager !== themeFontAppName ? `@import url('https://fonts.googleapis.com/css2?family=${themeFontImager.replace(/ /g, '+')}:wght@300;400;500;600;700&display=swap');` : ''}
-
         :root {
           --color-primary: ${themeColorPrimary} !important;
           --color-primary-dark: ${themeColorPrimary} !important;
@@ -1099,23 +1123,25 @@ export default function App() {
           --color-border: ${themeAppBorderColor} !important;
         }
         body {
-          font-family: ${themeFontName && themeFontName !== 'System Default' ? `'${themeFontName}', sans-serif` : `'-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'`} !important;
+          font-family: ${getFontFamilyCSS(themeFontName)} !important;
           font-size: ${themeFontSizeBase} !important;
           font-weight: ${themeFontSizeBaseBold ? 'bold' : 'normal'} !important;
+          font-style: ${themeFontSizeBaseItalic ? 'italic' : 'normal'} !important;
           text-transform: ${themeFontSizeBaseCapitalize ? 'uppercase' : 'none'} !important;
           background-color: var(--color-bg) !important;
         }
         input, select, textarea, button {
-          font-family: ${themeFontName && themeFontName !== 'System Default' ? `'${themeFontName}', sans-serif` : `'-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'`} !important;
+          font-family: ${getFontFamilyCSS(themeFontName)} !important;
           font-size: inherit !important;
           font-weight: inherit !important;
           text-transform: inherit !important;
         }
         header h1 {
-          font-family: ${themeFontAppName && themeFontAppName !== 'System Default' ? `'${themeFontAppName}', sans-serif` : `'-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'`} !important;
+          font-family: ${getFontFamilyCSS(themeFontAppName)} !important;
           font-size: ${themeFontSizeAppName} !important;
           font-weight: ${themeFontAppNameBold ? 'bold' : 'normal'} !important;
-          text-transform: ${themeFontAppNameCapitalize ? 'uppercase' : 'none'} !important;
+          font-style: ${themeFontAppNameItalic ? 'italic' : 'normal'} !important;
+          text-transform: uppercase !important;
         }
         .card {
           background: var(--color-surface) !important;
@@ -1125,11 +1151,13 @@ export default function App() {
           color: ${themeColorCardTitle} !important;
           font-size: ${themeFontSizeCardTitle} !important;
           font-weight: ${themeFontSizeCardTitleBold ? 'bold' : 'normal'} !important;
+          font-style: ${themeFontSizeCardTitleItalic ? 'italic' : 'normal'} !important;
           text-transform: ${themeFontSizeCardTitleCapitalize ? 'uppercase' : 'none'} !important;
         }
         .tab-nav button {
           font-size: ${themeFontSizeTabs} !important;
           font-weight: ${themeFontSizeTabsBold ? 'bold' : 'normal'} !important;
+          font-style: ${themeFontSizeTabsItalic ? 'italic' : 'normal'} !important;
           text-transform: ${themeFontSizeTabsCapitalize ? 'uppercase' : 'none'} !important;
           background-color: ${themeColorTabsInactiveBg} !important;
           color: ${themeColorTabsInactiveText} !important;
@@ -1161,17 +1189,19 @@ export default function App() {
           border-bottom: ${themeAppBorderThickness} solid var(--color-border) !important;
         }
         .imager-select-label {
-          font-family: ${themeFontImager && themeFontImager !== 'System Default' ? `'${themeFontImager}', sans-serif` : `'-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'`} !important;
+          font-family: ${getFontFamilyCSS(themeFontImager)} !important;
           font-size: ${themeFontSizeImager} !important;
           font-weight: ${themeFontImagerBold ? 'bold' : 'normal'} !important;
+          font-style: ${themeFontImagerItalic ? 'italic' : 'normal'} !important;
           text-transform: ${themeFontImagerCapitalize ? 'uppercase' : 'none'} !important;
         }
         .imager-select,
         .imager-select option,
         .imager-select optgroup {
-          font-family: ${themeFontImager && themeFontImager !== 'System Default' ? `'${themeFontImager}', sans-serif` : `'-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'`} !important;
+          font-family: ${getFontFamilyCSS(themeFontImager)} !important;
           font-size: ${themeFontSizeImager} !important;
           font-weight: ${themeFontImagerBold ? 'bold' : 'normal'} !important;
+          font-style: ${themeFontImagerItalic ? 'italic' : 'normal'} !important;
           text-transform: ${themeFontImagerCapitalize ? 'uppercase' : 'none'} !important;
         }
       `}</style>
@@ -1522,14 +1552,14 @@ export default function App() {
                         <label>App Name</label>
                         <input
                           type="text"
-                          value={appName || ''}
-                          onChange={(e) => { dispatch(setAppName(e.target.value)); dispatch(saveSettings()); }}
-                          placeholder={packageJson.name}
+                          value={appName ? appName.toUpperCase() : ''}
+                          onChange={(e) => { dispatch(setAppName(e.target.value.toUpperCase())); dispatch(saveSettings()); }}
+                          placeholder="NMK FARM TRACKER"
                           disabled={currentUser?.role === 'Admin Viewer'}
                           className="btn"
-                          style={{ display: 'block', marginTop: 8, padding: '8px', minWidth: '200px', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'text', background: '#fff', border: '1px solid #ccc' }}
+                          style={{ display: 'block', marginTop: 8, padding: '8px', minWidth: '200px', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'text', background: '#fff', border: '1px solid #ccc', textTransform: 'uppercase' }}
                         />
-                        <span style={{ fontSize: '0.8rem', color: '#666', display: 'block', marginTop: 4 }}>Custom name for your application instance. Leave blank to use default.</span>
+                        <span style={{ fontSize: '0.8rem', color: '#666', display: 'block', marginTop: 4 }}>Custom name for your application instance. Always formatted uppercase.</span>
                       </div>
                     </div>
                     <hr style={{ border: 'none', borderTop: '1px solid var(--color-border)', margin: '20px 0' }} />
@@ -1541,7 +1571,7 @@ export default function App() {
                           {logo && (
                             <>
                               <br />
-                              <button onClick={() => { if (currentUser?.role !== 'Admin Viewer') { dispatch(setLogo(null)); dispatch(saveSettings()); } }} className="btn" style={{ marginTop: 8, background: '#ffebee', color: '#c62828', padding: '4px 8px', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer' }} disabled={currentUser?.role === 'Admin Viewer'}>Reset to Default Logo</button>
+                              <button onClick={() => { if (currentUser?.role !== 'Admin Viewer') { dispatch(setLogo('')); dispatch(saveSettings()); } }} className="btn" style={{ marginTop: 8, background: '#ffebee', color: '#c62828', padding: '4px 8px', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer' }} disabled={currentUser?.role === 'Admin Viewer'}>Reset to Default Logo</button>
                             </>
                           )}
                         </div>
@@ -1838,7 +1868,7 @@ export default function App() {
                         <div className="form-group">
                           <label style={{ fontWeight: '600' }}>App Name Font Name</label>
                           <select
-                            value={themeFontAppName}
+                            value={sanitizeFontName(themeFontAppName)}
                             onChange={(e) => { dispatch(setThemeFontAppName(e.target.value)); dispatch(saveSettings()); }}
                             disabled={currentUser?.role === 'Admin Viewer'}
                             style={{ display: 'block', marginTop: 8, padding: '8px', width: '100%', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer', background: '#fff', border: '1px solid #ccc', borderRadius: '4px' }}
@@ -1888,6 +1918,16 @@ export default function App() {
                             <label style={{ display: 'flex', alignItems: 'center', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer', fontSize: '0.85rem', fontWeight: '500' }}>
                               <input
                                 type="checkbox"
+                                checked={themeFontAppNameItalic}
+                                onChange={(e) => { dispatch(setThemeFontAppNameItalic(e.target.checked)); dispatch(saveSettings()); }}
+                                disabled={currentUser?.role === 'Admin Viewer'}
+                                style={{ width: '16px', height: '16px', margin: '0 8px 0 0', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer' }}
+                              />
+                              Italic
+                            </label>
+                            <label style={{ display: 'flex', alignItems: 'center', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer', fontSize: '0.85rem', fontWeight: '500' }}>
+                              <input
+                                type="checkbox"
                                 checked={themeFontAppNameCapitalize}
                                 onChange={(e) => { dispatch(setThemeFontAppNameCapitalize(e.target.checked)); dispatch(saveSettings()); }}
                                 disabled={currentUser?.role === 'Admin Viewer'}
@@ -1912,7 +1952,7 @@ export default function App() {
                         <div className="form-group">
                           <label style={{ fontWeight: '600' }}>App Base Font Name</label>
                           <select
-                            value={themeFontName}
+                            value={sanitizeFontName(themeFontName)}
                             onChange={(e) => { dispatch(setThemeFontName(e.target.value)); dispatch(saveSettings()); }}
                             disabled={currentUser?.role === 'Admin Viewer'}
                             style={{ display: 'block', marginTop: 8, padding: '8px', width: '100%', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer', background: '#fff', border: '1px solid #ccc', borderRadius: '4px' }}
@@ -1961,6 +2001,16 @@ export default function App() {
                             <label style={{ display: 'flex', alignItems: 'center', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer', fontSize: '0.85rem', fontWeight: '500' }}>
                               <input
                                 type="checkbox"
+                                checked={themeFontSizeBaseItalic}
+                                onChange={(e) => { dispatch(setThemeFontSizeBaseItalic(e.target.checked)); dispatch(saveSettings()); }}
+                                disabled={currentUser?.role === 'Admin Viewer'}
+                                style={{ width: '16px', height: '16px', margin: '0 8px 0 0', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer' }}
+                              />
+                              Italic
+                            </label>
+                            <label style={{ display: 'flex', alignItems: 'center', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer', fontSize: '0.85rem', fontWeight: '500' }}>
+                              <input
+                                type="checkbox"
                                 checked={themeFontSizeBaseCapitalize}
                                 onChange={(e) => { dispatch(setThemeFontSizeBaseCapitalize(e.target.checked)); dispatch(saveSettings()); }}
                                 disabled={currentUser?.role === 'Admin Viewer'}
@@ -2002,6 +2052,16 @@ export default function App() {
                             <label style={{ display: 'flex', alignItems: 'center', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer', fontSize: '0.85rem', fontWeight: '500' }}>
                               <input
                                 type="checkbox"
+                                checked={themeFontSizeCardTitleItalic}
+                                onChange={(e) => { dispatch(setThemeFontSizeCardTitleItalic(e.target.checked)); dispatch(saveSettings()); }}
+                                disabled={currentUser?.role === 'Admin Viewer'}
+                                style={{ width: '16px', height: '16px', margin: '0 8px 0 0', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer' }}
+                              />
+                              Italic
+                            </label>
+                            <label style={{ display: 'flex', alignItems: 'center', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer', fontSize: '0.85rem', fontWeight: '500' }}>
+                              <input
+                                type="checkbox"
                                 checked={themeFontSizeCardTitleCapitalize}
                                 onChange={(e) => { dispatch(setThemeFontSizeCardTitleCapitalize(e.target.checked)); dispatch(saveSettings()); }}
                                 disabled={currentUser?.role === 'Admin Viewer'}
@@ -2039,6 +2099,16 @@ export default function App() {
                                 style={{ width: '16px', height: '16px', margin: '0 8px 0 0', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer' }}
                               />
                               Bold
+                            </label>
+                            <label style={{ display: 'flex', alignItems: 'center', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer', fontSize: '0.85rem', fontWeight: '500' }}>
+                              <input
+                                type="checkbox"
+                                checked={themeFontSizeTabsItalic}
+                                onChange={(e) => { dispatch(setThemeFontSizeTabsItalic(e.target.checked)); dispatch(saveSettings()); }}
+                                disabled={currentUser?.role === 'Admin Viewer'}
+                                style={{ width: '16px', height: '16px', margin: '0 8px 0 0', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer' }}
+                              />
+                              Italic
                             </label>
                             <label style={{ display: 'flex', alignItems: 'center', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer', fontSize: '0.85rem', fontWeight: '500' }}>
                               <input
@@ -2102,6 +2172,16 @@ export default function App() {
                                 style={{ width: '16px', height: '16px', margin: '0 8px 0 0', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer' }}
                               />
                               Bold
+                            </label>
+                            <label style={{ display: 'flex', alignItems: 'center', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer', fontSize: '0.85rem', fontWeight: '500' }}>
+                              <input
+                                type="checkbox"
+                                checked={themeFontImagerItalic}
+                                onChange={(e) => { dispatch(setThemeFontImagerItalic(e.target.checked)); dispatch(saveSettings()); }}
+                                disabled={currentUser?.role === 'Admin Viewer'}
+                                style={{ width: '16px', height: '16px', margin: '0 8px 0 0', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer' }}
+                              />
+                              Italic
                             </label>
                             <label style={{ display: 'flex', alignItems: 'center', cursor: currentUser?.role === 'Admin Viewer' ? 'not-allowed' : 'pointer', fontSize: '0.85rem', fontWeight: '500' }}>
                               <input
