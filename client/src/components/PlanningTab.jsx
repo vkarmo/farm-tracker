@@ -1,6 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { saveGoal, removeGoal, saveObjective, removeObjective, setEditingGoalIdRedux, setEditingObjectiveIdRedux } from '../store/planningSlice';
+import { saveGoal, removeGoal, saveObjective, removeObjective, setEditingGoalIdRedux, setEditingObjectiveIdRedux, setGoals, setObjectives } from '../store/planningSlice';
 import { saveAssignment, removeAssignment, setEditingAssignmentId } from '../store/assignmentSlice';
 import { queueAction } from '../store/syncSlice';
 import CrudTable from './CrudTable';
@@ -61,11 +61,52 @@ const TreeNode = ({ label, children, icon: Icon, defaultExpanded = true, onEdit,
 
 export default function PlanningTab() {
   const dispatch = useDispatch();
-  const goals = useSelector(state => state.planning?.goals) || [];
-  const objectives = useSelector(state => state.planning?.objectives) || [];
+  const rawGoals = useSelector(state => state.planning?.goals) || [];
+  const rawObjectives = useSelector(state => state.planning?.objectives) || [];
+
+  const goals = useMemo(() => {
+    return rawGoals.filter(g => g && g.id);
+  }, [rawGoals]);
+
+  const objectives = useMemo(() => {
+    return rawObjectives.filter(o => o && o.id);
+  }, [rawObjectives]);
+
   const employeesList = useSelector(state => state.employees?.list) || [];
   const assignments = useSelector(state => state.assignments?.list) || [];
   const fields = useSelector(state => state.fields?.data) || [];
+
+  const currentUser = useSelector(state => state.auth?.currentUser);
+  const [isSyncingFromDb, setIsSyncingFromDb] = useState(false);
+
+  const handleSyncFromDb = async () => {
+    setIsSyncingFromDb(true);
+    try {
+      const activeFarmId = localStorage.getItem('activeFarmId') || (import.meta.env.DEV ? 'dev_farm' : 'default_farm');
+      const emailParam = currentUser ? `&email=${encodeURIComponent(currentUser.email)}` : '';
+      const res = await fetch(`/api/all-data?farmId=${activeFarmId}${emailParam}&t=${Date.now()}`, {
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      });
+      if (!res.ok) throw new Error(`HTTP Error status ${res.status}`);
+      const data = await res.json();
+      const goalsCount = data.goals?.length || 0;
+      const objectivesCount = data.objectives?.length || 0;
+      console.log('[PlanningTab Debug] Raw API response goals/objectives count:', goalsCount, objectivesCount);
+      
+      dispatch(setGoals(data.goals || []));
+      dispatch(setObjectives(data.objectives || []));
+      
+      alert(`Successfully recovered and loaded ${goalsCount} Goal(s) and ${objectivesCount} Objective(s) directly from the database!`);
+    } catch (e) {
+      alert('Error fetching planning data: ' + e.message);
+    } finally {
+      setIsSyncingFromDb(false);
+    }
+  };
 
   const [activeView, setActiveView] = useState('goals'); // goals or objectives
 
@@ -1000,7 +1041,17 @@ export default function PlanningTab() {
               {activeView === 'goals' ? (
                 <div style={{ padding: '15px', background: '#fafafa', borderRadius: '8px', border: '1px solid #eee' }}>
                   {goals.filter(g => !g.parentGoalId).length === 0 ? (
-                    <p style={{ color: '#888', fontStyle: 'italic' }}>No goals have been created yet.</p>
+                    <div style={{ textAlign: 'center', padding: '20px 0' }}>
+                      <p style={{ color: '#888', fontStyle: 'italic', marginBottom: '10px' }}>No goals have been created yet.</p>
+                      <button
+                        onClick={handleSyncFromDb}
+                        disabled={isSyncingFromDb}
+                        className="btn btn-primary"
+                        style={{ padding: '6px 12px', fontSize: '0.8rem' }}
+                      >
+                        {isSyncingFromDb ? 'Syncing...' : 'Sync & Recover Goals & Objectives from Neo4j'}
+                      </button>
+                    </div>
                   ) : (
                     renderGoalsTree('')
                   )}
@@ -1008,7 +1059,17 @@ export default function PlanningTab() {
               ) : (
                 <div style={{ padding: '15px', background: '#fafafa', borderRadius: '8px', border: '1px solid #eee' }}>
                   {objectives.length === 0 ? (
-                    <p style={{ color: '#888', fontStyle: 'italic' }}>No objectives have been created yet.</p>
+                    <div style={{ textAlign: 'center', padding: '20px 0' }}>
+                      <p style={{ color: '#888', fontStyle: 'italic', marginBottom: '10px' }}>No objectives have been created yet.</p>
+                      <button
+                        onClick={handleSyncFromDb}
+                        disabled={isSyncingFromDb}
+                        className="btn btn-primary"
+                        style={{ padding: '6px 12px', fontSize: '0.8rem' }}
+                      >
+                        {isSyncingFromDb ? 'Syncing...' : 'Sync & Recover Goals & Objectives from Neo4j'}
+                      </button>
+                    </div>
                   ) : (
                     renderObjectivesTree()
                   )}

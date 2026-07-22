@@ -2,78 +2,94 @@ import { createSlice } from '@reduxjs/toolkit';
 import { queueAction, flushQueue } from './syncSlice';
 import { sanitizeFontName } from '../utils/fontUtils';
 
+const initialState = {
+  appName: '',
+  units: ['lbs', 'kg', 'bushels', 'crates', 'tons'],
+  kmlUrls: [],
+  logo: null,
+  polygonColor: '#2e7d32',
+  mapCenter: [51.505, -0.09],
+  mapZoom: 13,
+  gpsDistanceThreshold: 10,
+  jobTitles: ['Foreman', 'Harvester', 'Tractor Operator', 'Security', 'General Manager'],
+  expenseCategories: ['Equipment Maintenance', 'Fertilizer', 'Fuel', 'Labor', 'Seed'],
+  incomeCategories: ['Crop Sale', 'Livestock Sale', 'Subsidy'],
+  animalTypes: ['Cattle', 'Goat', 'Poultry', 'Sheep', 'Swine'],
+  visibleMapLayers: ['fields', 'nurseries', 'pois', 'equipment', 'soilTests'],
+  snapGap: 5,
+  geeClientEmail: '',
+  geePrivateKey: '',
+  geeProjectId: '',
+  geeScale: 3,
+  owmApiKey: '',
+  themeAppBgColor: '#eeeef1',
+  themeCardBgColor: '#ffffff',
+  themeCardBorderColor: '#e0e0e0',
+  themeCardBorderThickness: '0.50px',
+  themeAppBorderColor: '#363535',
+  themeAppBorderThickness: '0.50px',
+  themeFontName: 'System Default',
+  themeFontSizeBase: '14px',
+  themeFontSizeCardTitle: '1.25rem',
+  themeFontSizeTabs: '0.9rem',
+  themeColorPrimary: '#2e7d32',
+  themeColorCardTitle: '#2e7d32',
+  themeColorTabsActiveBg: '#2e7d32',
+  themeColorTabsActiveText: '#ffffff',
+  themeColorTabsInactiveBg: '#ffffff',
+  themeColorTabsInactiveText: '#6a6a6a',
+  themeFontAppName: 'System Default',
+  themeFontSizeAppName: '1.5rem',
+  themeFontAppNameBold: true,
+  themeFontAppNameItalic: false,
+  themeFontAppNameCapitalize: false,
+  themeFontSizeBaseBold: false,
+  themeFontSizeBaseItalic: false,
+  themeFontSizeBaseCapitalize: false,
+  themeFontSizeCardTitleBold: true,
+  themeFontSizeCardTitleItalic: false,
+  themeFontSizeCardTitleCapitalize: false,
+  themeFontSizeTabsBold: false,
+  themeFontSizeTabsItalic: false,
+  themeFontSizeTabsCapitalize: false,
+  themeFontImager: 'Roboto',
+  themeFontSizeImager: '0.72rem',
+  themeFontImagerBold: false,
+  themeFontImagerItalic: false,
+  themeFontImagerCapitalize: true,
+  mtnClientId: '',
+  mtnClientSecret: '',
+  mtnEnvironment: 'sandbox',
+  simulateHighWinds: false,
+  googleMapsApiKey: '',
+  geminiApiKey: '',
+  claudeApiKey: '',
+  aiProvider: 'gemini',
+  neo4jUri: '',
+  neo4jUser: '',
+  neo4jPassword: '',
+  neo4jDatabase: '',
+  workdayHours: 7.0,
+  workdays: ['1', '2', '3', '4', '5', '6', '0'],
+  byFarm: {}
+};
+
+const getSafeByFarm = (byFarm) => {
+  if (!byFarm) return {};
+  if (typeof byFarm === 'string') {
+    try {
+      const parsed = JSON.parse(byFarm);
+      return (parsed && typeof parsed === 'object') ? parsed : {};
+    } catch (e) {
+      return {};
+    }
+  }
+  return { ...byFarm };
+};
+
 export const settingsSlice = createSlice({
   name: 'settings',
-  initialState: {
-    appName: '',
-    units: ['lbs', 'kg', 'bushels', 'crates', 'tons'],
-    kmlUrls: [],
-    logo: null,
-    polygonColor: '#2e7d32',
-    mapCenter: [51.505, -0.09],
-    mapZoom: 13,
-    gpsDistanceThreshold: 10,
-    jobTitles: ['Foreman', 'Harvester', 'Tractor Operator', 'Security', 'General Manager'],
-    expenseCategories: ['Equipment Maintenance', 'Fertilizer', 'Fuel', 'Labor', 'Seed'],
-    incomeCategories: ['Crop Sale', 'Livestock Sale', 'Subsidy'],
-    animalTypes: ['Cattle', 'Goat', 'Poultry', 'Sheep', 'Swine'],
-    visibleMapLayers: ['fields', 'nurseries', 'pois', 'equipment', 'soilTests'],
-    snapGap: 5,
-    geeClientEmail: '',
-    geePrivateKey: '',
-    geeProjectId: '',
-    geeScale: 3,
-    owmApiKey: '',
-    themeAppBgColor: '#eeeef1',
-    themeCardBgColor: '#ffffff',
-    themeCardBorderColor: '#e0e0e0',
-    themeCardBorderThickness: '0.50px',
-    themeAppBorderColor: '#363535',
-    themeAppBorderThickness: '0.50px',
-    themeFontName: 'System Default',
-    themeFontSizeBase: '14px',
-    themeFontSizeCardTitle: '1.25rem',
-    themeFontSizeTabs: '0.9rem',
-    themeColorPrimary: '#2e7d32',
-    themeColorCardTitle: '#2e7d32',
-    themeColorTabsActiveBg: '#2e7d32',
-    themeColorTabsActiveText: '#ffffff',
-    themeColorTabsInactiveBg: '#ffffff',
-    themeColorTabsInactiveText: '#6a6a6a',
-    themeFontAppName: 'System Default',
-    themeFontSizeAppName: '1.5rem',
-    themeFontAppNameBold: true,
-    themeFontAppNameItalic: false,
-    themeFontAppNameCapitalize: false,
-    themeFontSizeBaseBold: false,
-    themeFontSizeBaseItalic: false,
-    themeFontSizeBaseCapitalize: false,
-    themeFontSizeCardTitleBold: true,
-    themeFontSizeCardTitleItalic: false,
-    themeFontSizeCardTitleCapitalize: false,
-    themeFontSizeTabsBold: false,
-    themeFontSizeTabsItalic: false,
-    themeFontSizeTabsCapitalize: false,
-    themeFontImager: 'Roboto',
-    themeFontSizeImager: '0.72rem',
-    themeFontImagerBold: false,
-    themeFontImagerItalic: false,
-    themeFontImagerCapitalize: true,
-    mtnClientId: '',
-    mtnClientSecret: '',
-    mtnEnvironment: 'sandbox',
-    simulateHighWinds: false,
-    googleMapsApiKey: '',
-    geminiApiKey: '',
-    claudeApiKey: '',
-    aiProvider: 'gemini',
-    neo4jUri: '',
-    neo4jUser: '',
-    neo4jPassword: '',
-    neo4jDatabase: '',
-    workdayHours: 7.0,
-    workdays: ['1', '2', '3', '4', '5', '6', '0'],
-  },
+  initialState,
   reducers: {
     addUnit: (state, action) => {
       if (!state.units.includes(action.payload)) {
@@ -131,18 +147,25 @@ export const settingsSlice = createSlice({
       } else {
         state.logo = val;
       }
-      if (!state.byFarm) state.byFarm = {};
-      state.byFarm[activeFarmId] = { ...(state.byFarm[activeFarmId] || {}), logo: state.logo };
+      const safeByFarm = getSafeByFarm(state.byFarm);
+      safeByFarm[activeFarmId] = { ...(safeByFarm[activeFarmId] || {}), logo: state.logo };
+      state.byFarm = safeByFarm;
     },
     loadFarmSettingsFromCache: (state, action) => {
       const farmId = action.payload || localStorage.getItem('activeFarmId') || (import.meta.env.DEV ? 'dev_farm' : 'default_farm');
-      if (!state.byFarm) state.byFarm = {};
-      const cached = state.byFarm[farmId];
+      const safeByFarm = getSafeByFarm(state.byFarm);
+      const cached = safeByFarm[farmId];
       if (cached) {
+        const safeCached = { ...cached };
+        ['units', 'jobTitles', 'kmlUrls', 'mapCenter', 'expenseCategories', 'incomeCategories', 'animalTypes', 'nonWorkdays', 'workdays', 'visibleMapLayers'].forEach(key => {
+          if (safeCached[key] && typeof safeCached[key] === 'string') {
+            try { safeCached[key] = JSON.parse(safeCached[key]); } catch(e) {}
+          }
+        });
         return {
           ...initialState,
-          ...cached,
-          byFarm: state.byFarm
+          ...safeCached,
+          byFarm: safeByFarm
         };
       }
       return state;
@@ -174,7 +197,11 @@ export const settingsSlice = createSlice({
     },
     setAllSettings: (state, action) => {
       const activeFarmId = localStorage.getItem('activeFarmId') || (import.meta.env.DEV ? 'dev_farm' : 'default_farm');
-      const payload = { ...action.payload };
+      let rawPayload = action.payload || {};
+      if (Array.isArray(rawPayload)) {
+        rawPayload = rawPayload[0] || {};
+      }
+      const payload = { ...rawPayload };
 
       if (payload.appName) {
         payload.appName = payload.appName.toUpperCase();
@@ -237,15 +264,21 @@ export const settingsSlice = createSlice({
           payload.logo = null;
         }
       } else {
-        const cachedLogo = state.byFarm?.[activeFarmId]?.logo;
+        const safeByFarm = getSafeByFarm(state.byFarm);
+        const cachedLogo = safeByFarm[activeFarmId]?.logo;
         if (cachedLogo) {
           payload.logo = cachedLogo;
         }
       }
 
       const updatedSettings = { ...initialState, ...state, ...payload };
-      if (!updatedSettings.byFarm) updatedSettings.byFarm = state.byFarm || {};
-      updatedSettings.byFarm[activeFarmId] = { ...updatedSettings };
+      const safeByFarm = getSafeByFarm(updatedSettings.byFarm || state.byFarm);
+      
+      const nestedSettings = { ...updatedSettings };
+      delete nestedSettings.byFarm;
+      
+      safeByFarm[activeFarmId] = nestedSettings;
+      updatedSettings.byFarm = safeByFarm;
 
       return updatedSettings;
     },

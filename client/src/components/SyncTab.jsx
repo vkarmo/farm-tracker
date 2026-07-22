@@ -101,7 +101,7 @@ const getAllRecords = (state) => {
   // 9. gps
   addItems(state.gps?.locations, 'GpsLog', 'id');
   // 10. soilTests
-  addItems(state.soilTests?.list, 'SoilTest', 'id');
+  addItems(state.soilTests?.tests, 'SoilTest', 'id');
   // 11. auth
   addItems(state.auth?.usersList, 'User', 'email');
   // 12. budgets

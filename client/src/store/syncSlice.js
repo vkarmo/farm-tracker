@@ -18,6 +18,7 @@ import { setRecommendations } from './recommendationsSlice';
 import { setPests } from './pestsSlice';
 import { setDiseases } from './livestockDiseasesSlice';
 import { setPayrolls } from './payrollSlice';
+import { setSoilTests } from './soilTestsSlice';
 
 export const syncSlice = createSlice({
   name: 'sync',
@@ -188,7 +189,7 @@ export const fetchInitialData = () => async (dispatch, getState) => {
     const activeFarmId = localStorage.getItem('activeFarmId') || (import.meta.env.DEV ? 'dev_farm' : 'default_farm');
     const currentUser = getState().auth?.currentUser;
     const emailParam = currentUser ? `&email=${encodeURIComponent(currentUser.email)}` : '';
-    const response = await fetch(`/api/all-data?farmId=${activeFarmId}${emailParam}`, {
+    const response = await fetch(`/api/all-data?farmId=${activeFarmId}${emailParam}&t=${Date.now()}`, {
       headers: {
         'Cache-Control': 'no-cache, no-store, must-revalidate',
         'Pragma': 'no-cache',
@@ -233,19 +234,30 @@ export const fetchInitialData = () => async (dispatch, getState) => {
     if (data.recommendations) dispatch(setRecommendations(data.recommendations));
     if (data.pests) dispatch(setPests(data.pests));
     if (data.livestockDiseases) dispatch(setDiseases(data.livestockDiseases));
+    if (data.soilTests) dispatch(setSoilTests(data.soilTests));
     if (data.payroll) {
-      const parsedPayrolls = data.payroll.map(p => ({
-        ...p,
-        attendance: typeof p.attendance === 'string' ? JSON.parse(p.attendance) : p.attendance || {},
-        pulledEmployees: typeof p.pulledEmployees === 'string' ? JSON.parse(p.pulledEmployees) : p.pulledEmployees || [],
-        customRates: typeof p.customRates === 'string' ? JSON.parse(p.customRates) : p.customRates || {},
-        totals: typeof p.totals === 'string' ? JSON.parse(p.totals) : p.totals || {}
-      }));
+      console.log('[Sync] Payroll records received from API:', data.payroll.length);
+      const parsedPayrolls = [];
+      data.payroll.forEach(p => {
+        try {
+          parsedPayrolls.push({
+            ...p,
+            attendance: typeof p.attendance === 'string' ? JSON.parse(p.attendance) : p.attendance || {},
+            pulledEmployees: typeof p.pulledEmployees === 'string' ? JSON.parse(p.pulledEmployees) : p.pulledEmployees || [],
+            customRates: typeof p.customRates === 'string' ? JSON.parse(p.customRates) : p.customRates || {},
+            totals: typeof p.totals === 'string' ? JSON.parse(p.totals) : p.totals || {}
+          });
+          console.log(`[Sync] Successfully parsed payroll node: ${p.id}`);
+        } catch (e) {
+          console.error(`[Sync] Error parsing individual payroll node ${p.id}:`, e.message);
+        }
+      });
+      console.log('[Sync] Dispatching parsed payrolls to store. Count:', parsedPayrolls.length);
       dispatch(setPayrolls(parsedPayrolls));
     }
 
   } catch (err) {
-    console.warn('Backend unreachable — falling back to offline cache.', err.message);
+    console.error('Backend unreachable or initial data sync failed:', err.stack || err.message || err);
   }
 };
 

@@ -3,7 +3,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { DollarSign, Users, Calendar, Filter, FileText, Check, X, Plus, Trash2, ArrowLeft, Save } from 'lucide-react';
 import Select from 'react-select';
 import { queueAction } from '../store/syncSlice';
-import { savePayroll, deletePayroll } from '../store/payrollSlice';
+import { savePayroll, deletePayroll, setPayrolls } from '../store/payrollSlice';
 import NmkLogo from './NmkLogo';
 import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
@@ -27,7 +27,11 @@ const getRankIndex = (jobTitle) => {
 export default function PayrollTab() {
   const dispatch = useDispatch();
   const employees = useSelector(state => state.employees?.list) || [];
-  const savedPayrolls = useSelector(state => state.payroll?.list) || [];
+  const rawPayrolls = useSelector(state => state.payroll?.list) || [];
+  const savedPayrolls = useMemo(() => {
+    return rawPayrolls.filter(sheet => sheet && sheet.id);
+  }, [rawPayrolls]);
+  console.log('[PayrollTab] Render. savedPayrolls in Redux store:', savedPayrolls);
   const budgets = useSelector(state => state.budgets?.list) || [];
   const activeBudget = budgets.find(b => b.status === 'Active') || {};
   const logo = useSelector(state => state.settings?.logo);
@@ -69,6 +73,44 @@ export default function PayrollTab() {
 
   const gmName = generalManager ? `${generalManager.firstName} ${generalManager.lastName}` : '';
   const amName = assistantManager ? `${assistantManager.firstName} ${assistantManager.lastName}` : '';
+
+  const currentUser = useSelector(state => state.auth?.currentUser);
+  const [isSyncingFromDb, setIsSyncingFromDb] = useState(false);
+
+  const handleSyncFromDb = async () => {
+    setIsSyncingFromDb(true);
+    try {
+      const activeFarmId = localStorage.getItem('activeFarmId') || (import.meta.env.DEV ? 'dev_farm' : 'default_farm');
+      const emailParam = currentUser ? `&email=${encodeURIComponent(currentUser.email)}` : '';
+      const res = await fetch(`/api/all-data?farmId=${activeFarmId}${emailParam}&t=${Date.now()}`, {
+        headers: {
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      });
+      if (!res.ok) throw new Error(`HTTP Error status ${res.status}`);
+      const data = await res.json();
+      console.log('[PayrollTab Debug] Raw direct API response payroll count:', data.payroll?.length);
+      if (data.payroll && data.payroll.length > 0) {
+        const parsed = data.payroll.map(p => ({
+          ...p,
+          attendance: typeof p.attendance === 'string' ? JSON.parse(p.attendance) : p.attendance || {},
+          pulledEmployees: typeof p.pulledEmployees === 'string' ? JSON.parse(p.pulledEmployees) : p.pulledEmployees || [],
+          customRates: typeof p.customRates === 'string' ? JSON.parse(p.customRates) : p.customRates || {},
+          totals: typeof p.totals === 'string' ? JSON.parse(p.totals) : p.totals || {}
+        }));
+        dispatch(setPayrolls(parsed));
+        alert(`Successfully recovered and loaded ${data.payroll.length} payroll worksheet(s) directly from the database!`);
+      } else {
+        alert(`API returned 0 payroll worksheets for Farm ID: ${activeFarmId}. Please check that the database node relationships match.`);
+      }
+    } catch (e) {
+      alert('Error fetching payroll data: ' + e.message);
+    } finally {
+      setIsSyncingFromDb(false);
+    }
+  };
 
   // View state: 'list' or 'form'
   const [viewMode, setViewMode] = useState('list');
@@ -600,10 +642,20 @@ export default function PayrollTab() {
           </div>
 
           {savedPayrolls.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '50px 20px', border: '1px dashed #cbd5e1', borderRadius: '8px', color: '#64748b' }}>
-              <DollarSign size={40} color="#cbd5e1" style={{ margin: '0 auto 12px auto' }} />
-              <p style={{ margin: 0, fontWeight: '600', fontSize: '0.95rem' }}>No payroll sheets saved yet.</p>
-              <p style={{ margin: '4px 0 0 0', fontSize: '0.8rem' }}>Click the button above to log and save a new pay period worksheet.</p>
+            <div style={{ textAlign: 'center', padding: '50px 20px', border: '1px dashed #cbd5e1', borderRadius: '8px', color: '#64748b', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '12px' }}>
+              <DollarSign size={40} color="#cbd5e1" style={{ margin: '0 auto' }} />
+              <div>
+                <p style={{ margin: 0, fontWeight: '600', fontSize: '0.95rem' }}>No payroll sheets saved yet.</p>
+                <p style={{ margin: '4px 0 0 0', fontSize: '0.8rem' }}>Click the button above to log and save a new pay period worksheet.</p>
+              </div>
+              <button
+                onClick={handleSyncFromDb}
+                disabled={isSyncingFromDb}
+                className="btn btn-primary"
+                style={{ marginTop: '10px', display: 'flex', alignItems: 'center', gap: '8px' }}
+              >
+                {isSyncingFromDb ? 'Syncing...' : 'Sync & Recover Worksheets From Neo4j Database'}
+              </button>
             </div>
           ) : isMobile ? (
             /* Mobile saved worksheets card list */

@@ -18,9 +18,12 @@ const soilTestsSlice = createSlice({
     },
     removeSoilTest: (state, action) => {
       state.tests = state.tests.filter(t => t.id !== action.payload);
+    },
+    setSoilTests: (state, action) => {
+      state.tests = action.payload || [];
     }
   }
 });
 
-export const { saveSoilTest, removeSoilTest } = soilTestsSlice.actions;
+export const { saveSoilTest, removeSoilTest, setSoilTests } = soilTestsSlice.actions;
 export default soilTestsSlice.reducer;
