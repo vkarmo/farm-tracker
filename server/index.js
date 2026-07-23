@@ -2397,13 +2397,11 @@ app.post('/api/gee/find-waterways', async (req, res) => {
   }
 });
 
-});
-
 // GEE Flood Risk Analysis and Drainage Planning Endpoint
 app.post('/api/gee/flood-drainage-analysis', async (req, res) => {
   const session = driver.session();
   try {
-    const { farmId, email } = req.body;
+    const { farmId, email, fieldIds } = req.body;
     if (email && !(await checkFarmAccess(session, email, farmId))) {
       return res.status(403).json({ error: 'Forbidden. You do not have access to this farm.' });
     }
@@ -2423,14 +2421,23 @@ app.post('/api/gee/flood-drainage-analysis', async (req, res) => {
     await initializeGee(creds);
 
     // Retrieve fields
-    const fieldsRes = await session.run(`
-      MATCH (f:Field)-[:BELONGS_TO]->(:Farm {id: $farmId})
-      RETURN f
-    `, { farmId });
+    let fieldsRes;
+    if (Array.isArray(fieldIds) && fieldIds.length > 0) {
+      fieldsRes = await session.run(`
+        MATCH (f:Field)-[:BELONGS_TO]->(:Farm {id: $farmId})
+        WHERE f.id IN $fieldIds
+        RETURN f
+      `, { farmId, fieldIds });
+    } else {
+      fieldsRes = await session.run(`
+        MATCH (f:Field)-[:BELONGS_TO]->(:Farm {id: $farmId})
+        RETURN f
+      `, { farmId });
+    }
 
     const fields = fieldsRes.records.map(r => r.get('f').properties);
     if (fields.length === 0) {
-      return res.status(400).json({ error: 'No fields found for this farm. Please create fields/crop blocks first.' });
+      return res.status(400).json({ error: 'No matching fields found for this farm.' });
     }
 
     // Load waterway POIs to find nearest waterway
@@ -2463,8 +2470,9 @@ app.post('/api/gee/flood-drainage-analysis', async (req, res) => {
 
     fields.forEach(field => {
       let boundary = [];
+      const polyVal = field.polygon || field.boundary;
       try {
-        boundary = typeof field.boundary === 'string' ? JSON.parse(field.boundary) : field.boundary;
+        boundary = typeof polyVal === 'string' ? JSON.parse(polyVal) : polyVal;
       } catch (e) {}
 
       if (!Array.isArray(boundary) || boundary.length === 0) return;
@@ -2597,12 +2605,26 @@ app.post('/api/gee/flood-drainage-analysis', async (req, res) => {
 
           let maxBoundaryPt = null;
           let maxUpa = -Infinity;
+          
           fieldData.boundary.forEach(pt => {
-            if (pt.upa > maxUpa) {
-              maxUpa = pt.upa;
-              maxBoundaryPt = pt;
+            const upslopePt = fieldData.upslope.find(u => u.index === pt.index);
+            if (upslopePt) {
+              const isInlet = (upslopePt.elevation || 0) > (pt.elevation || 0);
+              if (isInlet && pt.upa > maxUpa) {
+                maxUpa = pt.upa;
+                maxBoundaryPt = pt;
+              }
             }
           });
+
+          if (!maxBoundaryPt) {
+            fieldData.boundary.forEach(pt => {
+              if (pt.upa > maxUpa) {
+                maxUpa = pt.upa;
+                maxBoundaryPt = pt;
+              }
+            });
+          }
 
           let maxUpslopeSlope = 0;
           fieldData.upslope.forEach(pt => {
@@ -2635,8 +2657,8 @@ app.post('/api/gee/flood-drainage-analysis', async (req, res) => {
             const channelDepth = flowDepth * 1.2;
             const bottomWidth = flowDepth * 1.5;
 
-            const widthCm = Math.max(30, Math.round(bottomWidth * 100));
-            const depthCm = Math.max(20, Math.round(channelDepth * 100));
+            const widthIn = Math.max(12, Math.round(bottomWidth * 39.3701));
+            const depthIn = Math.max(8, Math.round(channelDepth * 39.3701));
 
             let nearestWaterway = null;
             let minDist = Infinity;
@@ -2674,13 +2696,13 @@ app.post('/api/gee/flood-drainage-analysis', async (req, res) => {
 
             const recId = `poi_drainage_${fieldId}_${Date.now()}`;
             const recName = `Interception Channel - ${fieldMeta.name}`;
-            const desc = `Recommended interception channel to protect ${fieldMeta.name}. Sized for a 10-year design storm in Bomi County. Dimensions: ${widthCm}cm wide x ${depthCm}cm deep. Route water toward: ${routingDirection} (nearest waterway).`;
+            const desc = `Recommended interception channel to protect ${fieldMeta.name}. Sized for a 10-year design storm in Bomi County. Dimensions: ${widthIn} inches wide x ${depthIn} inches deep. Route water toward: ${routingDirection} (nearest waterway).`;
 
             const metadataObj = {
               fieldProtected: fieldMeta.name,
               fieldId,
-              widthCm,
-              depthCm,
+              widthIn,
+              depthIn,
               direction: routingDirection,
               peakFlow: Q.toFixed(3),
               upslopeArea: areaM2.toFixed(0),
@@ -2689,14 +2711,22 @@ app.post('/api/gee/flood-drainage-analysis', async (req, res) => {
               hasConvergence
             };
 
+            const boundaryCount = fieldMeta.boundary.length;
+            const inletIndex = maxBoundaryPt.index;
+            const channelCoords = [
+              fieldMeta.boundary[(inletIndex - 1 + boundaryCount) % boundaryCount],
+              [maxBoundaryPt.lat, maxBoundaryPt.lng],
+              fieldMeta.boundary[(inletIndex + 1) % boundaryCount]
+            ];
+
             const newPoi = {
               id: recId,
               name: recName,
               type: 'Drainage Recommendation',
               description: desc,
-              points: JSON.stringify([[maxBoundaryPt.lat, maxBoundaryPt.lng]]),
+              points: JSON.stringify(channelCoords),
               drawColor: '#0288d1',
-              isLine: false,
+              isLine: true,
               createdBy: 'SYSTEM',
               createdAt: new Date().toISOString()
             };
@@ -2733,8 +2763,8 @@ app.post('/api/gee/flood-drainage-analysis', async (req, res) => {
               isLine: newPoi.isLine,
               createdBy: newPoi.createdBy,
               fieldProtected: fieldMeta.name,
-              width: widthCm,
-              depth: depthCm,
+              width: widthIn,
+              depth: depthIn,
               direction: routingDirection,
               peakFlow: Q,
               upslopeArea: areaM2,
@@ -2747,8 +2777,8 @@ app.post('/api/gee/flood-drainage-analysis', async (req, res) => {
               lat: maxBoundaryPt.lat,
               lng: maxBoundaryPt.lng,
               fieldProtected: fieldMeta.name,
-              widthCm,
-              depthCm,
+              widthIn,
+              depthIn,
               direction: routingDirection,
               peakFlow: Q.toFixed(3),
               upslopeArea: areaM2.toFixed(0)
@@ -2808,35 +2838,49 @@ function isPointInPolygon(lng, lat, polygon) {
 app.post('/api/gee/detect-charcoal', async (req, res) => {
   const session = driver.session();
   try {
-    const { farmId, email } = req.body;
+    const { farmId, email, fieldIds } = req.body;
     if (email && !(await checkFarmAccess(session, email, farmId))) {
       return res.status(403).json({ error: 'Forbidden. You do not have access to this farm.' });
     }
 
-    // 1. Fetch NMK Property boundary polygon
-    const fieldRes = await session.run(`
-      MATCH (f:Field)
-      WHERE f.name = "NMK Property" OR f.name CONTAINS "NMK Property"
-      RETURN f LIMIT 1
-    `);
-
-    let polygon = null;
-    if (fieldRes.records.length > 0) {
-      const pStr = fieldRes.records[0].get('f').properties.polygon;
-      polygon = typeof pStr === 'string' ? JSON.parse(pStr) : pStr;
-    }
-
-    if (!polygon) {
-      // Fallback: try to find any field or fallback to a default bbox for Bomi County NMK Property
-      const fallbackRes = await session.run(`MATCH (f:Field) RETURN f`);
-      if (fallbackRes.records.length > 0) {
-        const pStr = fallbackRes.records[0].get('f').properties.polygon;
-        polygon = typeof pStr === 'string' ? JSON.parse(pStr) : pStr;
+    let polygons = [];
+    if (Array.isArray(fieldIds) && fieldIds.length > 0) {
+      const fieldRes = await session.run(`
+        MATCH (f:Field)-[:BELONGS_TO]->(:Farm {id: $farmId})
+        WHERE f.id IN $fieldIds
+        RETURN f
+      `, { farmId, fieldIds });
+      polygons = fieldRes.records.map(rec => {
+        const pStr = rec.get('f').properties.polygon;
+        return typeof pStr === 'string' ? JSON.parse(pStr) : pStr;
+      }).filter(Boolean);
+    } else {
+      const fieldRes = await session.run(`
+        MATCH (f:Field)-[:BELONGS_TO]->(:Farm {id: $farmId})
+        WHERE f.name = "NMK Property" OR f.name CONTAINS "NMK Property"
+        RETURN f LIMIT 1
+      `, { farmId });
+      if (fieldRes.records.length > 0) {
+        const pStr = fieldRes.records[0].get('f').properties.polygon;
+        const p = typeof pStr === 'string' ? JSON.parse(pStr) : pStr;
+        if (p) polygons.push(p);
       }
     }
 
-    if (!polygon || !Array.isArray(polygon) || polygon.length < 3) {
-      return res.status(400).json({ error: 'NMK Property polygon could not be resolved in database.' });
+    if (polygons.length === 0) {
+      // Try to find any fields
+      const fallbackRes = await session.run(`
+        MATCH (f:Field)-[:BELONGS_TO]->(:Farm {id: $farmId})
+        RETURN f LIMIT 3
+      `, { farmId });
+      polygons = fallbackRes.records.map(rec => {
+        const pStr = rec.get('f').properties.polygon;
+        return typeof pStr === 'string' ? JSON.parse(pStr) : pStr;
+      }).filter(Boolean);
+    }
+
+    if (polygons.length === 0) {
+      return res.status(400).json({ error: 'No field boundary polygons could be resolved.' });
     }
 
     const props = await getSettingsNode(session, farmId);
@@ -2853,11 +2897,24 @@ app.post('/api/gee/detect-charcoal', async (req, res) => {
 
     await initializeGee(creds);
 
-    const geeCoords = polygon.map(p => [p[1], p[0]]);
-    if (geeCoords[0][0] !== geeCoords[geeCoords.length - 1][0] || geeCoords[0][1] !== geeCoords[geeCoords.length - 1][1]) {
-      geeCoords.push(geeCoords[0]);
+    let boundaryGeometry;
+    if (polygons.length === 1) {
+      const p = polygons[0];
+      const geeCoords = p.map(pt => [pt[1], pt[0]]);
+      if (geeCoords[0][0] !== geeCoords[geeCoords.length - 1][0] || geeCoords[0][1] !== geeCoords[geeCoords.length - 1][1]) {
+        geeCoords.push(geeCoords[0]);
+      }
+      boundaryGeometry = ee.Geometry.Polygon([geeCoords]);
+    } else {
+      const eePolys = polygons.map(p => {
+        const geeCoords = p.map(pt => [pt[1], pt[0]]);
+        if (geeCoords[0][0] !== geeCoords[geeCoords.length - 1][0] || geeCoords[0][1] !== geeCoords[geeCoords.length - 1][1]) {
+          geeCoords.push(geeCoords[0]);
+        }
+        return ee.Geometry.Polygon([geeCoords]);
+      });
+      boundaryGeometry = ee.Geometry.MultiPolygon(eePolys);
     }
-    const boundaryGeometry = ee.Geometry.Polygon([geeCoords]);
 
     const baseDate = new Date('2026-06-07T12:00:00-04:00');
     // Recent collection: last 45 days (larger window to guarantee cloud-free imagery fallback)
@@ -2912,10 +2969,10 @@ app.post('/api/gee/detect-charcoal', async (req, res) => {
 
     // Map each to its centroid and confidence property
     const highList = highVectors.map(function(f) {
-      return ee.Feature(f.geometry().centroid(), { confidence: 'High' });
+      return ee.Feature(f.geometry().centroid(1), { confidence: 'High' });
     });
     const lowList = lowVectors.map(function(f) {
-      return ee.Feature(f.geometry().centroid(), { confidence: 'Low' });
+      return ee.Feature(f.geometry().centroid(1), { confidence: 'Low' });
     });
 
     const combinedFC = highList.merge(lowList);
@@ -4166,10 +4223,10 @@ app.post('/api/sync', async (req, res) => {
           }
         }
         if (action.type === 'fields/addField') {
-          const { id, name, area, soil_type, irrigation, status, year, polygon, drawColor, updatedAt } = action.payload;
+          const { id, name, area, soil_type, irrigation, status, year, polygon, drawColor, isOverallMap, updatedAt } = action.payload;
           // Merge so we don't recreate if it exists somehow
           await session.run(
-            'MERGE (f:Field {id: $id}) SET f.name = $name, f.area = $area, f.soil_type = $soil_type, f.irrigation = $irrigation, f.status = $status, f.year = $year, f.polygon = $polygon, f.drawColor = $drawColor, f.updatedAt = toInteger($updatedAt) RETURN f', { userEmail, id, name, area, soil_type, irrigation, status, year, polygon: (typeof polygon === 'string') ? polygon : (polygon ? JSON.stringify(polygon) : null), drawColor: drawColor || null, updatedAt: updatedAt || Date.now() }
+            'MERGE (f:Field {id: $id}) SET f.name = $name, f.area = $area, f.soil_type = $soil_type, f.irrigation = $irrigation, f.status = $status, f.year = $year, f.polygon = $polygon, f.drawColor = $drawColor, f.isOverallMap = $isOverallMap, f.updatedAt = toInteger($updatedAt) RETURN f', { userEmail, id, name, area, soil_type, irrigation, status, year, polygon: (typeof polygon === 'string') ? polygon : (polygon ? JSON.stringify(polygon) : null), drawColor: drawColor || null, isOverallMap: isOverallMap === true || isOverallMap === 'true', updatedAt: updatedAt || Date.now() }
           );
           results.push({ actionId: action.meta?.id, status: 'success' });
         }

@@ -52,7 +52,7 @@ const FitSelectedFieldsBounds = ({ selectedFields }) => {
   return null;
 };
 
-const INIT_STATE = { name: '', area: '', year: String(new Date().getFullYear()), soil_type: 'Loam', irrigation: 'None', status: 'Fallow', gps: '', drawColor: '', includeInStats: true, layoutRotation: '' };
+const INIT_STATE = { name: '', area: '', year: String(new Date().getFullYear()), soil_type: 'Loam', irrigation: 'None', status: 'Fallow', gps: '', drawColor: '', includeInStats: true, layoutRotation: '', isOverallMap: false };
 const INIT_TEST_STATE = { date: new Date().toISOString().split('T')[0], ph: '', nitrogen: '', phosphorus: '', potassium: '', notes: '' };
 
 export default function FieldTab() {
@@ -148,6 +148,21 @@ export default function FieldTab() {
     if (!formData.name || !formData.area) return;
 
     const finalData = { ...formData, polygon: JSON.stringify(polygonPositions) };
+
+    // If this field is set as the overall map, reset all other fields' isOverallMap to false
+    if (finalData.isOverallMap === true || finalData.isOverallMap === 'true') {
+      fields.forEach(otherField => {
+        if (otherField.id !== editingId && (otherField.isOverallMap === true || otherField.isOverallMap === 'true')) {
+          const updatedOther = { ...otherField, isOverallMap: false };
+          dispatch(updateField(updatedOther));
+          dispatch(queueAction({
+            type: 'core/updateNode',
+            payload: { id: otherField.id, properties: { isOverallMap: false } },
+            meta: { id: Date.now() + Math.floor(Math.random() * 1000) }
+          }));
+        }
+      });
+    }
 
     if (editingId) {
       // UPDATE
@@ -1021,6 +1036,16 @@ export default function FieldTab() {
                           style={{ width: '18px', height: '18px', margin: 0, cursor: 'pointer' }}
                         />
                         <label htmlFor="includeInStats" style={{ margin: 0, fontWeight: 500, cursor: 'pointer' }}>Include in Dashboard Statistics</label>
+                      </div>
+                      <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '10px' }}>
+                        <input
+                          type="checkbox"
+                          id="isOverallMap"
+                          checked={formData.isOverallMap === true}
+                          onChange={e => setFormData({ ...formData, isOverallMap: e.target.checked })}
+                          style={{ width: '18px', height: '18px', margin: 0, cursor: 'pointer' }}
+                        />
+                        <label htmlFor="isOverallMap" style={{ margin: 0, fontWeight: 500, cursor: 'pointer' }}>Is Overall Property Boundary / Map</label>
                       </div>
                     </div>
                   </form>

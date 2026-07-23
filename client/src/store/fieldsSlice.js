@@ -7,23 +7,47 @@ export const fieldsSlice = createSlice({
   },
   reducers: {
     addField: (state, action) => {
-      // Look for update
-      const idx = state.data.findIndex(f => f.id === action.payload.id);
+      const field = action.payload;
+      const isNmk = field && field.name && (field.name === 'NMK Property' || field.name.includes('NMK Property'));
+      const sanitizedField = {
+        ...field,
+        isOverallMap: field && field.isOverallMap !== undefined
+          ? (field.isOverallMap === true || field.isOverallMap === 'true')
+          : !!isNmk
+      };
+      const idx = state.data.findIndex(f => f.id === sanitizedField.id);
       if (idx !== -1) {
-        state.data[idx] = action.payload;
+        state.data[idx] = sanitizedField;
       } else {
-        state.data.push(action.payload);
+        state.data.push(sanitizedField);
       }
     },
     updateField: (state, action) => {
       const idx = state.data.findIndex(f => f.id === action.payload.id);
-      if (idx !== -1) state.data[idx] = { ...state.data[idx], ...action.payload };
+      if (idx !== -1) {
+        const updated = { ...state.data[idx], ...action.payload };
+        const isNmk = updated.name && (updated.name === 'NMK Property' || updated.name.includes('NMK Property'));
+        state.data[idx] = {
+          ...updated,
+          isOverallMap: updated.isOverallMap !== undefined
+            ? (updated.isOverallMap === true || updated.isOverallMap === 'true')
+            : !!isNmk
+        };
+      }
     },
     deleteField: (state, action) => {
       state.data = state.data.filter(f => f.id !== action.payload);
     },
     setFields: (state, action) => {
-      state.data = action.payload;
+      state.data = (action.payload || []).map(f => {
+        const isNmk = f.name && (f.name === 'NMK Property' || f.name.includes('NMK Property'));
+        return {
+          ...f,
+          isOverallMap: f.isOverallMap !== undefined
+            ? (f.isOverallMap === true || f.isOverallMap === 'true')
+            : !!isNmk
+        };
+      });
     }
   }
 });

@@ -174,10 +174,23 @@ export const settingsSlice = createSlice({
       state.polygonColor = action.payload;
     },
     setMapCenter: (state, action) => {
-      state.mapCenter = action.payload;
+      let center = action.payload;
+      if (typeof center === 'string') {
+        try { center = JSON.parse(center); } catch(e) {}
+      }
+      if (Array.isArray(center) && center.length >= 2) {
+        const lat = parseFloat(center[0]);
+        const lng = parseFloat(center[1]);
+        if (!isNaN(lat) && !isNaN(lng)) {
+          state.mapCenter = [lat, lng];
+          return;
+        }
+      }
+      state.mapCenter = [6.75, -10.8];
     },
     setMapZoom: (state, action) => {
-      state.mapZoom = action.payload;
+      const zoom = Number(action.payload);
+      state.mapZoom = isNaN(zoom) || zoom <= 0 ? 13 : zoom;
     },
     setGpsDistanceThreshold: (state, action) => {
       state.gpsDistanceThreshold = action.payload;
@@ -213,6 +226,35 @@ export const settingsSlice = createSlice({
           try { payload[key] = JSON.parse(payload[key]); } catch(e) {}
         }
       });
+
+      // Sanitize mapCenter inside setAllSettings
+      if (payload.mapCenter !== undefined) {
+        let center = payload.mapCenter;
+        if (typeof center === 'string') {
+          try { center = JSON.parse(center); } catch(e) {}
+        }
+        if (Array.isArray(center) && center.length >= 2) {
+          const lat = parseFloat(center[0]);
+          const lng = parseFloat(center[1]);
+          if (!isNaN(lat) && !isNaN(lng)) {
+            payload.mapCenter = [lat, lng];
+          } else {
+            payload.mapCenter = [6.75, -10.8];
+          }
+        } else {
+          payload.mapCenter = [6.75, -10.8];
+        }
+      } else {
+        payload.mapCenter = [6.75, -10.8];
+      }
+
+      // Sanitize mapZoom inside setAllSettings
+      if (payload.mapZoom !== undefined) {
+        const zoom = Number(payload.mapZoom);
+        payload.mapZoom = isNaN(zoom) || zoom <= 0 ? 13 : zoom;
+      } else {
+        payload.mapZoom = 13;
+      }
       
       // Backward compatibility: If workdays is undefined but nonWorkdays is present
       if (payload.workdays === undefined) {

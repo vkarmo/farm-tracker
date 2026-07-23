@@ -75,6 +75,15 @@ const MapEventsHelper = ({ setMapInstance }) => {
   return null;
 };
 
+export const formatDescription = (desc) => {
+  if (!desc) return '';
+  return desc.replace(/(\d+)\s*cm\b/gi, (match, p1) => {
+    const cm = parseInt(p1, 10);
+    const inches = Math.round(cm / 2.54);
+    return `${inches} inches`;
+  });
+};
+
 const LAYER_OPTIONS = [
   { value: 'fields', label: 'Fields' },
   { value: 'nurseries', label: 'Nurseries' },
@@ -118,13 +127,24 @@ const FieldLayoutMapOverlay = ({ field, recommendations, selectedRecId }) => {
         return [];
       }
     }
+    let rawPts = [];
     if (Array.isArray(poly) && poly.length > 0) {
       if (Array.isArray(poly[0]) && Array.isArray(poly[0][0])) {
-        return poly[0];
+        rawPts = poly[0];
+      } else {
+        rawPts = poly;
       }
-      return poly;
     }
-    return [];
+    return rawPts.map(pt => {
+      if (Array.isArray(pt)) {
+        return [parseFloat(pt[0]), parseFloat(pt[1])];
+      } else if (pt && typeof pt === 'object') {
+        const lat = parseFloat(pt.lat !== undefined ? pt.lat : pt.latitude);
+        const lng = parseFloat(pt.lng !== undefined ? pt.lng : pt.longitude);
+        return [lat, lng];
+      }
+      return [NaN, NaN];
+    }).filter(pt => !isNaN(pt[0]) && !isNaN(pt[1]));
   }, [field]);
 
   const bounds = useMemo(() => {
@@ -727,8 +747,23 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
   const [loadingWaterway, setLoadingWaterway] = useState(false);
   const kmlUrls = useSelector(state => state.settings.kmlUrls);
   const polygonColor = useSelector(state => state.settings?.polygonColor) || '#ffffff';
-  const mapCenter = useSelector(state => state.settings?.mapCenter) || [51.505, -0.09];
-  const mapZoom = useSelector(state => state.settings?.mapZoom) || 13;
+  const mapCenterRaw = useSelector(state => state.settings?.mapCenter);
+  const mapCenter = useMemo(() => {
+    if (Array.isArray(mapCenterRaw) && mapCenterRaw.length >= 2) {
+      const lat = parseFloat(mapCenterRaw[0]);
+      const lng = parseFloat(mapCenterRaw[1]);
+      if (!isNaN(lat) && !isNaN(lng)) {
+        return [lat, lng];
+      }
+    }
+    return [6.75, -10.8];
+  }, [mapCenterRaw]);
+
+  const mapZoomRaw = useSelector(state => state.settings?.mapZoom);
+  const mapZoom = useMemo(() => {
+    const parsed = Number(mapZoomRaw);
+    return isNaN(parsed) || parsed <= 0 ? 13 : parsed;
+  }, [mapZoomRaw]);
   const pois = useSelector(state => state.poi?.list) || [];
   const soilTests = useSelector(state => state.soilTests?.tests) || [];
   const charcoalAlerts = useSelector(state => state.charcoal?.list) || [];
@@ -852,60 +887,36 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
     return localStorage.getItem('map_filter_panel_open') === 'true';
   });
 
+  // Helper for safe array retrieval from localStorage
+  const getArrayFromLocalStorage = (key) => {
+    try {
+      const item = localStorage.getItem(key);
+      if (!item) return [];
+      const parsed = JSON.parse(item);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (e) {
+      return [];
+    }
+  };
+
   // Granular picking states
   const [fieldsFilterMode, setFieldsFilterMode] = useState(() => localStorage.getItem('map_fields_filter_mode') || 'all');
-  const [selectedFields, setSelectedFields] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem('map_selected_fields')) || [];
-    } catch (e) {
-      return [];
-    }
-  });
+  const [selectedFields, setSelectedFields] = useState(() => getArrayFromLocalStorage('map_selected_fields'));
 
   const [poisFilterMode, setPoisFilterMode] = useState(() => localStorage.getItem('map_pois_filter_mode') || 'all');
-  const [selectedPois, setSelectedPois] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem('map_selected_pois')) || [];
-    } catch (e) {
-      return [];
-    }
-  });
+  const [selectedPois, setSelectedPois] = useState(() => getArrayFromLocalStorage('map_selected_pois'));
 
   const [equipmentFilterMode, setEquipmentFilterMode] = useState(() => localStorage.getItem('map_equipment_filter_mode') || 'all');
-  const [selectedEquipment, setSelectedEquipment] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem('map_selected_equipment')) || [];
-    } catch (e) {
-      return [];
-    }
-  });
+  const [selectedEquipment, setSelectedEquipment] = useState(() => getArrayFromLocalStorage('map_selected_equipment'));
 
   const [soilTestsFilterMode, setSoilTestsFilterMode] = useState(() => localStorage.getItem('map_soil_tests_filter_mode') || 'all');
-  const [selectedSoilTests, setSelectedSoilTests] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem('map_selected_soil_tests')) || [];
-    } catch (e) {
-      return [];
-    }
-  });
+  const [selectedSoilTests, setSelectedSoilTests] = useState(() => getArrayFromLocalStorage('map_selected_soil_tests'));
 
   const [nurseriesFilterMode, setNurseriesFilterMode] = useState(() => localStorage.getItem('map_nurseries_filter_mode') || 'all');
-  const [selectedNurseries, setSelectedNurseries] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem('map_selected_nurseries')) || [];
-    } catch (e) {
-      return [];
-    }
-  });
+  const [selectedNurseries, setSelectedNurseries] = useState(() => getArrayFromLocalStorage('map_selected_nurseries'));
 
   const [charcoalFilterMode, setCharcoalFilterMode] = useState(() => localStorage.getItem('map_charcoal_filter_mode') || 'all');
-  const [selectedCharcoalAlerts, setSelectedCharcoalAlerts] = useState(() => {
-    try {
-      return JSON.parse(localStorage.getItem('map_selected_charcoal')) || [];
-    } catch (e) {
-      return [];
-    }
-  });
+  const [selectedCharcoalAlerts, setSelectedCharcoalAlerts] = useState(() => getArrayFromLocalStorage('map_selected_charcoal'));
 
   // Sync to localStorage
   useEffect(() => {
@@ -1171,16 +1182,19 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
     });
   }, [fields, fieldImagery, fieldImageryOffsets]);
 
-  const visibleMapLayers = useSelector(state => state.settings?.visibleMapLayers) || ['fields', 'nurseries', 'pois', 'equipment', 'soilTests', 'charcoalAlerts'];
+  const rawVisibleLayers = useSelector(state => state.settings?.visibleMapLayers);
+  const visibleMapLayers = Array.isArray(rawVisibleLayers)
+    ? rawVisibleLayers
+    : ['fields', 'nurseries', 'pois', 'equipment', 'soilTests', 'charcoalAlerts'];
 
   // Formatting options for select dropdowns
-  const fieldOptions = fields.map(f => ({ value: f.id, label: f.name || 'Unnamed Field' }));
-  const poiOptions = pois.map(p => ({ value: p.id, label: `${p.name || 'Unnamed POI'} (${p.type || 'N/A'})` }));
-  const equipmentOptions = equipment.map(e => ({ value: e.id, label: `${e.name || 'Unnamed Asset'} (${e.type || 'N/A'})` }));
-  const nurseryOptions = nurseries.map(n => ({ value: n.id, label: n.name || 'Unnamed Nursery' }));
-  const charcoalOptions = charcoalAlerts.map(a => ({ value: a.id, label: `${a.fieldName} - ${a.confidence} Conf (${new Date(a.detectedAt).toLocaleDateString()})` }));
-  const soilTestOptions = soilTests.map(t => {
-    const relatedField = fields.find(f => f.id === t.fieldId);
+  const fieldOptions = (fields || []).filter(Boolean).map(f => ({ value: f.id, label: f.name || 'Unnamed Field' }));
+  const poiOptions = (pois || []).filter(Boolean).map(p => ({ value: p.id, label: `${p.name || 'Unnamed POI'} (${p.type || 'N/A'})` }));
+  const equipmentOptions = (equipment || []).filter(Boolean).map(e => ({ value: e.id, label: `${e.name || 'Unnamed Asset'} (${e.type || 'N/A'})` }));
+  const nurseryOptions = (nurseries || []).filter(Boolean).map(n => ({ value: n.id, label: n.name || 'Unnamed Nursery' }));
+  const charcoalOptions = (charcoalAlerts || []).filter(Boolean).map(a => ({ value: a.id, label: `${a.fieldName || 'Unknown Field'} - ${a.confidence || 'Low'} Conf (${a.detectedAt ? new Date(a.detectedAt).toLocaleDateString() : 'N/A'})` }));
+  const soilTestOptions = (soilTests || []).filter(Boolean).map(t => {
+    const relatedField = (fields || []).find(f => f && f.id === t.fieldId);
     const dateStr = t.date || t.testResults?.[0]?.date || 'No Date';
     const fieldStr = relatedField ? `(${relatedField.name})` : '';
     const descStr = t.description ? `- ${t.description}` : '';
@@ -1194,7 +1208,7 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
   const displayedFields = fields.filter(field => {
     if (!visibleMapLayers.includes('fields')) return false;
     if (fieldsFilterMode === 'specific') {
-      return selectedFields.some(opt => opt.value === field.id);
+      return Array.isArray(selectedFields) && selectedFields.some(opt => opt && opt.value === field.id);
     }
     return true;
   });
@@ -1202,7 +1216,7 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
   const displayedNurseries = nurseries.filter(bed => {
     if (!visibleMapLayers.includes('nurseries')) return false;
     if (nurseriesFilterMode === 'specific') {
-      return selectedNurseries.some(opt => opt.value === bed.id);
+      return Array.isArray(selectedNurseries) && selectedNurseries.some(opt => opt && opt.value === bed.id);
     }
     return true;
   });
@@ -1211,7 +1225,7 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
     if (poi.type === 'Drainage Recommendation') return false;
     if (!visibleMapLayers.includes('pois')) return false;
     if (poisFilterMode === 'specific') {
-      return selectedPois.some(opt => opt.value === poi.id);
+      return Array.isArray(selectedPois) && selectedPois.some(opt => opt && opt.value === poi.id);
     }
     return true;
   });
@@ -1219,7 +1233,7 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
   const displayedEquipment = equipment.filter(item => {
     if (!visibleMapLayers.includes('equipment')) return false;
     if (equipmentFilterMode === 'specific') {
-      return selectedEquipment.some(opt => opt.value === item.id);
+      return Array.isArray(selectedEquipment) && selectedEquipment.some(opt => opt && opt.value === item.id);
     }
     return true;
   });
@@ -1227,7 +1241,7 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
   const displayedSoilTests = soilTests.filter(test => {
     if (!visibleMapLayers.includes('soilTests')) return false;
     if (soilTestsFilterMode === 'specific') {
-      return selectedSoilTests.some(opt => opt.value === test.id);
+      return Array.isArray(selectedSoilTests) && selectedSoilTests.some(opt => opt && opt.value === test.id);
     }
     return true;
   });
@@ -1235,7 +1249,7 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
   const displayedCharcoalAlerts = charcoalAlerts.filter(alert => {
     if (!visibleMapLayers.includes('charcoalAlerts')) return false;
     if (charcoalFilterMode === 'specific') {
-      return selectedCharcoalAlerts.some(opt => opt.value === alert.id);
+      return Array.isArray(selectedCharcoalAlerts) && selectedCharcoalAlerts.some(opt => opt && opt.value === alert.id);
     }
     return true;
   });
@@ -1909,11 +1923,25 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
 
         {/* Render Nurseries as green Polygons */}
         {displayedNurseries.map(bed => {
-          let positions = [];
+          let rawPositions = [];
           if (bed.polygon) {
-            try { positions = typeof bed.polygon === 'string' ? JSON.parse(bed.polygon) : bed.polygon; } catch(e) {}
+            try { rawPositions = typeof bed.polygon === 'string' ? JSON.parse(bed.polygon) : bed.polygon; } catch(e) {}
           }
-          if (!Array.isArray(positions) || positions.length === 0) return null;
+          if (!Array.isArray(rawPositions) || rawPositions.length === 0) return null;
+          
+          const positions = rawPositions.map(pt => {
+            if (Array.isArray(pt)) {
+              return [parseFloat(pt[0]), parseFloat(pt[1])];
+            } else if (pt && typeof pt === 'object') {
+              const lat = parseFloat(pt.lat !== undefined ? pt.lat : pt.latitude);
+              const lng = parseFloat(pt.lng !== undefined ? pt.lng : pt.longitude);
+              return [lat, lng];
+            }
+            return [NaN, NaN];
+          }).filter(pt => !isNaN(pt[0]) && !isNaN(pt[1]));
+
+          if (positions.length < 3) return null;
+
           return (
             <Polygon 
               key={bed.id} 
@@ -1936,13 +1964,26 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
 
         {/* Render Fields */}
         {displayedFields.map(field => {
-          let positions = [];
+          let rawPositions = [];
           if (field.polygon) {
             try {
-              positions = typeof field.polygon === 'string' ? JSON.parse(field.polygon) : field.polygon;
+              rawPositions = typeof field.polygon === 'string' ? JSON.parse(field.polygon) : field.polygon;
             } catch (e) {}
           }
-          if (!Array.isArray(positions) || positions.length === 0) return null;
+          if (!Array.isArray(rawPositions) || rawPositions.length === 0) return null;
+
+          const positions = rawPositions.map(pt => {
+            if (Array.isArray(pt)) {
+              return [parseFloat(pt[0]), parseFloat(pt[1])];
+            } else if (pt && typeof pt === 'object') {
+              const lat = parseFloat(pt.lat !== undefined ? pt.lat : pt.latitude);
+              const lng = parseFloat(pt.lng !== undefined ? pt.lng : pt.longitude);
+              return [lat, lng];
+            }
+            return [NaN, NaN];
+          }).filter(pt => !isNaN(pt[0]) && !isNaN(pt[1]));
+
+          if (positions.length < 3) return null;
           
           const linkedIds = field.recommendationIds || [];
           const linkedAiRecs = (recommendations || []).filter(r => r.isAI && linkedIds.includes(r.id));
@@ -2312,12 +2353,24 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
 
         {/* Render POIs */}
         {displayedPois.map(poi => {
-          let positions = [];
+          let rawPositions = [];
           if (poi.points) {
-            try { positions = typeof poi.points === 'string' ? JSON.parse(poi.points) : poi.points; } catch(e) {}
+            try { rawPositions = typeof poi.points === 'string' ? JSON.parse(poi.points) : poi.points; } catch(e) {}
           }
-          if (!Array.isArray(positions) || positions.length === 0) return null;
-          const mappedPts = positions.map(pt => [pt[0], pt[1]]);
+          if (!Array.isArray(rawPositions) || rawPositions.length === 0) return null;
+
+          const mappedPts = rawPositions.map(pt => {
+            if (Array.isArray(pt)) {
+              return [parseFloat(pt[0]), parseFloat(pt[1])];
+            } else if (pt && typeof pt === 'object') {
+              const lat = parseFloat(pt.lat !== undefined ? pt.lat : pt.latitude);
+              const lng = parseFloat(pt.lng !== undefined ? pt.lng : pt.longitude);
+              return [lat, lng];
+            }
+            return [NaN, NaN];
+          }).filter(pt => !isNaN(pt[0]) && !isNaN(pt[1]));
+
+          if (mappedPts.length === 0) return null;
           const isPolyline = poi.isLine || poi.drawType === 'polyline' || mappedPts.length === 2;
 
           if (isPolyline && mappedPts.length > 1) {
@@ -2380,7 +2433,17 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
           if (poi.points) {
             try { coords = typeof poi.points === 'string' ? JSON.parse(poi.points) : poi.points; } catch(e) {}
           }
-          const mappedPts = coords.map(pt => [pt[0], pt[1]]);
+          const mappedPts = coords.map(pt => {
+            if (Array.isArray(pt)) {
+              return [parseFloat(pt[0]), parseFloat(pt[1])];
+            } else if (pt && typeof pt === 'object') {
+              const lat = parseFloat(pt.lat !== undefined ? pt.lat : pt.latitude);
+              const lng = parseFloat(pt.lng !== undefined ? pt.lng : pt.longitude);
+              return [lat, lng];
+            }
+            return [NaN, NaN];
+          }).filter(pt => !isNaN(pt[0]) && !isNaN(pt[1]));
+
           if (mappedPts.length === 0) return null;
 
           let flowPathCoords = null;
@@ -2393,29 +2456,79 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
             }
           } catch(e) {}
 
+          // Compute channel line points (with perpendicular fallback if only 1 coordinate exists)
+          let channelPts = mappedPts;
+          if (mappedPts.length === 1 && flowPathCoords) {
+            try {
+              const lat = mappedPts[0][0];
+              const lng = mappedPts[0][1];
+              const dy = flowPathCoords[1][0] - flowPathCoords[0][0];
+              const dx = flowPathCoords[1][1] - flowPathCoords[0][1];
+              const len = Math.sqrt(dx * dx + dy * dy) || 0.0001;
+              const py = -dx / len;
+              const px = dy / len;
+              const scale = 0.00025; // ~25 meters
+              channelPts = [
+                [lat - py * scale, lng - px * scale],
+                [lat, lng],
+                [lat + py * scale, lng + px * scale]
+              ];
+            } catch(e) {}
+          }
+
+          const markerPos = channelPts.length >= 3 ? channelPts[1] : mappedPts[0];
+
           return (
             <React.Fragment key={`flood_group_${poi.id}`}>
-              {/* Traced flow path line */}
+              {/* Traced flow path line (render predicted flow direction in vibrant neon orange) */}
               {flowPathCoords && (
                 <Polyline
                   positions={flowPathCoords}
                   pathOptions={{
-                    color: '#06b6d4',
+                    color: '#ff6d00', // Saturated orange for predicted water flow
                     weight: 3.5,
                     dashArray: '8, 8',
-                    opacity: 0.9,
+                    opacity: 0.95,
                     className: 'animated-flow-path'
                   }}
                 />
               )}
 
-              {/* Recommendation Marker */}
-              <Marker position={mappedPts[0]} icon={blueIcon}>
+              {/* Linear Drainage Channel - Outer Border/Casing */}
+              {channelPts.length >= 2 && (
+                <Polyline
+                  positions={channelPts}
+                  pathOptions={{
+                    color: '#0f172a', // Slate gray casing
+                    weight: 8,
+                    opacity: 0.8,
+                    lineCap: 'round',
+                    lineJoin: 'round'
+                  }}
+                />
+              )}
+
+              {/* Linear Drainage Channel - Inner Water Fill */}
+              {channelPts.length >= 2 && (
+                <Polyline
+                  positions={channelPts}
+                  pathOptions={{
+                    color: '#38bdf8', // Sky blue ditch fill
+                    weight: 4,
+                    opacity: 1.0,
+                    lineCap: 'round',
+                    lineJoin: 'round'
+                  }}
+                />
+              )}
+
+              {/* Recommendation Info Pin */}
+              <Marker position={markerPos} icon={blueIcon}>
                 <Popup>
                   <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.85rem' }}>
                     <strong style={{ color: '#0288d1' }}>{poi.name}</strong><br/>
                     <span style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', fontWeight: 700 }}>Drainage Recommendation</span>
-                    <div style={{ marginTop: '6px', fontSize: '0.8rem', lineHeight: '1.4' }}>{poi.description}</div>
+                    <div style={{ marginTop: '6px', fontSize: '0.8rem', lineHeight: '1.4' }}>{formatDescription(poi.description)}</div>
                   </div>
                 </Popup>
               </Marker>
