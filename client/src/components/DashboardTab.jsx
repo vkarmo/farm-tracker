@@ -1462,18 +1462,7 @@ export default function DashboardTab() {
           </div>
 
           {totalAnomalies > 0 && (
-            <div className="metric-card" style={{ 
-              gridColumn: 'span 4', 
-              background: 'linear-gradient(to right, #fff5f5, #fffcf9)', 
-              borderColor: '#fca5a5', 
-              boxShadow: '0 4px 15px -3px rgba(239, 68, 68, 0.08)',
-              padding: '20px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '24px',
-              minHeight: '110px'
-            }}>
+            <div className="anomalies-dashboard-card">
               {/* Left Side Total Stats */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexShrink: 0 }}>
                 <div style={{ 
@@ -1497,8 +1486,8 @@ export default function DashboardTab() {
                 </div>
               </div>
 
-              {/* Vertical Divider */}
-              <div style={{ width: '1px', alignSelf: 'stretch', background: '#fca5a5', opacity: 0.6 }} />
+              {/* Divider */}
+              <div className="anomalies-card-divider" />
 
               {/* Right Side Categories Grid */}
               <div style={{ 
@@ -1916,11 +1905,10 @@ export default function DashboardTab() {
                         </div>
                       ) : effectiveGeeWeatherData ? (
                         <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-
-                          {/* Metrics Grid Row 1 (Temp, Rain, Wind) */}
-                          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px' }}>
+                          {/* Weather Metrics Grid */}
+                          <div className="weather-advisory-metrics-container">
                             {/* Temp Card */}
-                            <div style={{ background: 'white', border: '1px solid #ffcc80', padding: '16px 12px', borderRadius: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', boxShadow: '0 2px 8px rgba(230,81,0,0.03)' }}>
+                            <div className="weather-metric-card-item" style={{ border: '1px solid #ffcc80', boxShadow: '0 2px 8px rgba(230,81,0,0.03)' }}>
                               <Thermometer size={32} color="#e65100" />
                               <span style={{ fontSize: '0.75rem', color: '#8c3d00', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Temp</span>
                               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1.1 }}>
@@ -1930,14 +1918,14 @@ export default function DashboardTab() {
                             </div>
 
                             {/* Rain Card */}
-                            <div style={{ background: 'white', border: '1px solid #90caf9', padding: '16px 12px', borderRadius: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', justifyContent: 'center', boxShadow: '0 2px 8px rgba(21,101,192,0.03)' }}>
+                            <div className="weather-metric-card-item" style={{ border: '1px solid #90caf9', boxShadow: '0 2px 8px rgba(21,101,192,0.03)' }}>
                               <CloudRain size={32} color="#1565c0" />
                               <span style={{ fontSize: '0.75rem', color: '#0d47a1', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Rain</span>
                               <span style={{ fontSize: '1rem', fontWeight: 800, color: '#1565c0' }}>{effectiveGeeWeatherData.precipitation} mm</span>
                             </div>
 
                             {/* Wind Card */}
-                            <div style={{ background: 'white', border: '1px solid #81d4fa', padding: '16px 12px', borderRadius: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', boxShadow: '0 2px 8px rgba(2,136,209,0.03)' }}>
+                            <div className="weather-metric-card-item" style={{ border: '1px solid #81d4fa', boxShadow: '0 2px 8px rgba(2,136,209,0.03)' }}>
                               <Wind size={32} color="#0288d1" />
                               <span style={{ fontSize: '0.75rem', color: '#01579b', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Wind</span>
                               <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', lineHeight: 1.1 }}>
@@ -1945,19 +1933,16 @@ export default function DashboardTab() {
                                 <span style={{ fontSize: '0.75rem', color: '#757575', fontWeight: 500 }}>{effectiveGeeWeatherData.windSpeed} m/s</span>
                               </div>
                             </div>
-                          </div>
 
-                          {/* Metrics Grid Row 2 (Humidity, Clouds centered) */}
-                          <div style={{ display: 'flex', justifyContent: 'center', gap: '12px', width: '100%', marginTop: '4px' }}>
                             {/* Humidity Card */}
-                            <div style={{ flex: '0 1 calc((100% - 24px) / 3)', background: 'white', border: '1px solid #80deea', padding: '16px 12px', borderRadius: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', justifyContent: 'center', boxShadow: '0 2px 8px rgba(0,172,193,0.03)' }}>
+                            <div className="weather-metric-card-item" style={{ border: '1px solid #80deea', boxShadow: '0 2px 8px rgba(0,172,193,0.03)' }}>
                               <Droplet size={32} color="#00acc1" />
                               <span style={{ fontSize: '0.75rem', color: '#006064', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Humidity</span>
                               <span style={{ fontSize: '1rem', fontWeight: 800, color: '#00acc1' }}>{effectiveGeeWeatherData.humidity}%</span>
                             </div>
 
                             {/* Clouds Card */}
-                            <div style={{ flex: '0 1 calc((100% - 24px) / 3)', background: 'white', border: '1px solid #b0bec5', padding: '16px 12px', borderRadius: '12px', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '8px', justifyContent: 'center', boxShadow: '0 2px 8px rgba(84,110,122,0.03)' }}>
+                            <div className="weather-metric-card-item" style={{ border: '1px solid #b0bec5', boxShadow: '0 2px 8px rgba(84,110,122,0.03)' }}>
                               <Cloud size={32} color="#546e7a" />
                               <span style={{ fontSize: '0.75rem', color: '#263238', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Clouds</span>
                               <span style={{ fontSize: '1rem', fontWeight: 800, color: '#546e7a' }}>{effectiveGeeWeatherData.clouds}%</span>
