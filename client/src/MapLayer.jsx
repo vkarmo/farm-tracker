@@ -2512,7 +2512,7 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
           } else if (mappedPts.length === 1) {
             const isDrainage = poi.type === 'Drainage Recommendation';
             return (
-              <Marker key={poi.id} position={mappedPts[0]} icon={isDrainage ? blueIcon : undefined}>
+              <Marker key={poi.id} position={mappedPts[0]} icon={isDrainage ? blueIcon : orangeIcon}>
                 <Popup>
                   <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.85rem' }}>
                     <strong style={{ color: isDrainage ? '#0288d1' : 'inherit' }}>{poi.name}</strong><br/>
