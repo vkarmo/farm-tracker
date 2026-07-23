@@ -124,7 +124,7 @@ export default function MessagingTab() {
             isMulti
             options={employeeOptions}
             value={selectedRecipients}
-            onChange={setSelectedRecipients}
+            onChange={(val) => setSelectedRecipients(val || [])}
             placeholder="Search and select employees..."
             styles={{
               control: (base, state) => ({

@@ -655,8 +655,8 @@ export default function FieldImageryOverlay({ polygon, indexType, dateOffset = 0
       bounds={dataUrlAndBounds.bounds}
       url={dataUrlAndBounds.url}
       opacity={1.0}
-      interactive={true}
-      bubblingMouseEvents={true}
+      interactive={false}
+      pane="shadowPane"
     />
   );
 }

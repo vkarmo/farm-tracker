@@ -5,7 +5,7 @@ import { saveGoal, removeGoal, saveObjective, removeObjective, setEditingGoalIdR
 import { queueAction } from '../store/syncSlice';
 import Select from 'react-select';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, Legend, PieChart, Pie, Cell, LineChart, Line } from 'recharts';
-import { TrendingUp, Layers, Rabbit, DollarSign, Sun, CloudRain, Cloud, CloudLightning, Snowflake, CloudFog, MapPin, Droplets, Wind, ThermometerSun, CloudSun, Droplet, Clock, AlertTriangle, ShieldCheck, AlertCircle, Info, Thermometer, Target, ClipboardList, List, ChevronRight, ChevronDown, Edit, Trash2, User, Users, Calendar } from 'lucide-react';
+import { TrendingUp, Layers, Rabbit, DollarSign, Sun, CloudRain, Cloud, CloudLightning, Snowflake, CloudFog, MapPin, Droplets, Wind, ThermometerSun, CloudSun, Droplet, Clock, AlertTriangle, ShieldCheck, AlertCircle, Info, Thermometer, Target, ClipboardList, List, ChevronRight, ChevronDown, Edit, Trash2, User, Users, Calendar, AlertOctagon, Trees, Home, Flame } from 'lucide-react';
 import CrudTable from './CrudTable';
 import area from '@turf/area';
 import { polygon } from '@turf/helpers';
@@ -96,6 +96,7 @@ export default function DashboardTab() {
   const objectives = useSelector(state => state.planning?.objectives) || [];
   const assignments = useSelector(state => state.assignments?.list) || [];
   const employeesList = useSelector(state => state.employees?.list) || [];
+  const charcoalAlerts = useSelector(state => state.charcoal?.list || []);
 
   const mapCenter = useSelector(state => state.settings?.mapCenter) || [51.505, -0.09];
   const simulateHighWinds = useSelector(state => state.settings?.simulateHighWinds) || false;
@@ -1418,6 +1419,13 @@ export default function DashboardTab() {
     );
   };
 
+  const highConfCount = charcoalAlerts.filter(a => a.confidence === 'High').length;
+  const clearingCount = charcoalAlerts.filter(a => a.confidence === 'Clearing').length;
+  const thatchCount = charcoalAlerts.filter(a => a.confidence === 'Thatch Kitchen').length;
+  const coalBayCount = charcoalAlerts.filter(a => a.confidence === 'Coal Bay').length;
+  const lowConfCount = charcoalAlerts.filter(a => a.confidence === 'Low').length;
+  const totalAnomalies = charcoalAlerts.length;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
 
@@ -1452,6 +1460,111 @@ export default function DashboardTab() {
               <div className="metric-card-value">{activeCrops.length}</div>
             </div>
           </div>
+
+          {totalAnomalies > 0 && (
+            <div className="metric-card" style={{ 
+              gridColumn: 'span 4', 
+              background: 'linear-gradient(to right, #fff5f5, #fffcf9)', 
+              borderColor: '#fca5a5', 
+              boxShadow: '0 4px 15px -3px rgba(239, 68, 68, 0.08)',
+              padding: '20px',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: '24px',
+              minHeight: '110px'
+            }}>
+              {/* Left Side Total Stats */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexShrink: 0 }}>
+                <div style={{ 
+                  background: '#ef4444', 
+                  borderRadius: '12px', 
+                  width: '48px', 
+                  height: '48px', 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'center',
+                  boxShadow: '0 4px 8px -2px rgba(239, 68, 68, 0.3)'
+                }}>
+                  <AlertOctagon size={24} color="white" />
+                </div>
+                <div>
+                  <div style={{ fontSize: '0.8rem', color: '#7f1d1d', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.05em' }}>DETECTED ANOMALIES</div>
+                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
+                    <div style={{ fontSize: '2.5rem', fontWeight: '800', color: '#b91c1c', lineHeight: 1 }}>{totalAnomalies}</div>
+                    <span style={{ fontSize: '0.9rem', color: '#7f1d1d', fontWeight: '600' }}>Active alerts require verification</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Vertical Divider */}
+              <div style={{ width: '1px', alignSelf: 'stretch', background: '#fca5a5', opacity: 0.6 }} />
+
+              {/* Right Side Categories Grid */}
+              <div style={{ 
+                flexGrow: 1,
+                display: 'grid',
+                gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+                gap: '12px 24px'
+              }}>
+                {highConfCount > 0 && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ background: '#fecaca', borderRadius: '8px', padding: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <AlertOctagon size={22} color="#ef4444" />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: '600' }}>High Conf</div>
+                      <div style={{ fontSize: '1.1rem', fontWeight: '700', color: '#ef4444' }}>{highConfCount}</div>
+                    </div>
+                  </div>
+                )}
+                {clearingCount > 0 && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ background: '#dcfce7', borderRadius: '8px', padding: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Trees size={22} color="#22c55e" />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: '600' }}>Clearings</div>
+                      <div style={{ fontSize: '1.1rem', fontWeight: '700', color: '#22c55e' }}>{clearingCount}</div>
+                    </div>
+                  </div>
+                )}
+                {thatchCount > 0 && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ background: '#fdf2ff', borderRadius: '8px', padding: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Home size={22} color="#d946ef" />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: '600' }}>Thatch Kitchens</div>
+                      <div style={{ fontSize: '1.1rem', fontWeight: '700', color: '#d946ef' }}>{thatchCount}</div>
+                    </div>
+                  </div>
+                )}
+                {coalBayCount > 0 && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ background: '#f3f4f6', borderRadius: '8px', padding: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Flame size={22} color="#374151" />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: '600' }}>Coal Bays</div>
+                      <div style={{ fontSize: '1.1rem', fontWeight: '700', color: '#374151' }}>{coalBayCount}</div>
+                    </div>
+                  </div>
+                )}
+                {lowConfCount > 0 && (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <div style={{ background: '#fef3c7', borderRadius: '8px', padding: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <AlertTriangle size={22} color="#f59e0b" />
+                    </div>
+                    <div>
+                      <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: '600' }}>Low Conf</div>
+                      <div style={{ fontSize: '1.1rem', fontWeight: '700', color: '#f59e0b' }}>{lowConfCount}</div>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

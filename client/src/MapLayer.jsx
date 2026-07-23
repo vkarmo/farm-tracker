@@ -17,52 +17,94 @@ import { CurrentLocationButton, MapFlyTo } from './components/MapSearchBox';
 import { Tractor, Sliders, X, Sun, Cloud, CloudRain, Wind, Thermometer, Droplet, Clock, AlertTriangle, ShieldCheck, AlertCircle, Info, ChevronDown, ChevronUp, Compass } from 'lucide-react';
 import Select from 'react-select';
 
-// Create a custom orange icon for Hard Assets
-const orangeIcon = new L.Icon({
-  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-orange.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41]
+// Custom inline SVG icons to prevent any network image load errors (offline-ready)
+const orangeIcon = L.divIcon({
+  html: `<svg width="30" height="42" viewBox="0 0 30 42" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M15 0C6.71573 0 0 6.71573 0 15C0 26.25 15 42 15 42C15 42 30 26.25 30 15C30 6.71573 23.2843 0 15 0Z" fill="#f97316"/>
+    <circle cx="15" cy="15" r="5" fill="#ffffff"/>
+  </svg>`,
+  iconSize: [30, 42],
+  iconAnchor: [15, 42],
+  popupAnchor: [0, -40],
+  className: ''
 });
 
-// Create a custom brown icon for Soil Tests
-const brownIcon = new L.Icon({
-  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-gold.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41]
+const brownIcon = L.divIcon({
+  html: `<svg width="30" height="42" viewBox="0 0 30 42" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M15 0C6.71573 0 0 6.71573 0 15C0 26.25 15 42 15 42C15 42 30 26.25 30 15C30 6.71573 23.2843 0 15 0Z" fill="#d97706"/>
+    <circle cx="15" cy="15" r="5" fill="#ffffff"/>
+  </svg>`,
+  iconSize: [30, 42],
+  iconAnchor: [15, 42],
+  popupAnchor: [0, -40],
+  className: ''
 });
 
-// Charcoal alert icons
-const charcoalRedIcon = new L.Icon({
-  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41]
+const charcoalRedIcon = L.divIcon({
+  html: `<svg width="30" height="42" viewBox="0 0 30 42" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M15 0C6.71573 0 0 6.71573 0 15C0 26.25 15 42 15 42C15 42 30 26.25 30 15C30 6.71573 23.2843 0 15 0Z" fill="#ef4444"/>
+    <circle cx="15" cy="15" r="5" fill="#ffffff"/>
+  </svg>`,
+  iconSize: [30, 42],
+  iconAnchor: [15, 42],
+  popupAnchor: [0, -40],
+  className: ''
 });
 
-const charcoalYellowIcon = new L.Icon({
-  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-yellow.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41]
+const charcoalYellowIcon = L.divIcon({
+  html: `<svg width="30" height="42" viewBox="0 0 30 42" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M15 0C6.71573 0 0 6.71573 0 15C0 26.25 15 42 15 42C15 42 30 26.25 30 15C30 6.71573 23.2843 0 15 0Z" fill="#eab308"/>
+    <circle cx="15" cy="15" r="5" fill="#ffffff"/>
+  </svg>`,
+  iconSize: [30, 42],
+  iconAnchor: [15, 42],
+  popupAnchor: [0, -40],
+  className: ''
 });
 
-const blueIcon = new L.Icon({
-  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
-  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
-  iconSize: [25, 41],
-  iconAnchor: [12, 41],
-  popupAnchor: [1, -34],
-  shadowSize: [41, 41]
+const charcoalGreenIcon = L.divIcon({
+  html: `<svg width="30" height="42" viewBox="0 0 30 42" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M15 0C6.71573 0 0 6.71573 0 15C0 26.25 15 42 15 42C15 42 30 26.25 30 15C30 6.71573 23.2843 0 15 0Z" fill="#22c55e"/>
+    <circle cx="15" cy="15" r="5" fill="#ffffff"/>
+  </svg>`,
+  iconSize: [30, 42],
+  iconAnchor: [15, 42],
+  popupAnchor: [0, -40],
+  className: ''
+});
+
+const charcoalMagentaIcon = L.divIcon({
+  html: `<svg width="30" height="42" viewBox="0 0 30 42" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M15 0C6.71573 0 0 6.71573 0 15C0 26.25 15 42 15 42C15 42 30 26.25 30 15C30 6.71573 23.2843 0 15 0Z" fill="#d946ef"/>
+    <circle cx="15" cy="15" r="5" fill="#ffffff"/>
+  </svg>`,
+  iconSize: [30, 42],
+  iconAnchor: [15, 42],
+  popupAnchor: [0, -40],
+  className: ''
+});
+
+const charcoalCoalBayIcon = L.divIcon({
+  html: `<svg width="30" height="42" viewBox="0 0 30 42" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M15 0C6.71573 0 0 6.71573 0 15C0 26.25 15 42 15 42C15 42 30 26.25 30 15C30 6.71573 23.2843 0 15 0Z" fill="#374151"/>
+    <circle cx="15" cy="15" r="5" fill="#ffffff"/>
+  </svg>`,
+  iconSize: [30, 42],
+  iconAnchor: [15, 42],
+  popupAnchor: [0, -40],
+  className: ''
+});
+
+
+const blueIcon = L.divIcon({
+  html: `<svg width="30" height="42" viewBox="0 0 30 42" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M15 0C6.71573 0 0 6.71573 0 15C0 26.25 15 42 15 42C15 42 30 26.25 30 15C30 6.71573 23.2843 0 15 0Z" fill="#3b82f6"/>
+    <circle cx="15" cy="15" r="5" fill="#ffffff"/>
+  </svg>`,
+  iconSize: [30, 42],
+  iconAnchor: [15, 42],
+  popupAnchor: [0, -40],
+  className: ''
 });
 
 import 'leaflet/dist/leaflet.css';
@@ -745,7 +787,7 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
   const dispatch = useDispatch();
   const [mapInstance, setMapInstance] = useState(null);
   const [loadingWaterway, setLoadingWaterway] = useState(false);
-  const kmlUrls = useSelector(state => state.settings.kmlUrls);
+  const kmlUrls = useSelector(state => state.settings?.kmlUrls) || [];
   const polygonColor = useSelector(state => state.settings?.polygonColor) || '#ffffff';
   const mapCenterRaw = useSelector(state => state.settings?.mapCenter);
   const mapCenter = useMemo(() => {
@@ -1447,7 +1489,7 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
               isMulti
               options={options}
               value={selectedVals}
-              onChange={setSelectedVals}
+              onChange={(val) => setSelectedVals(val || [])}
               placeholder={placeholder}
               menuPortalTarget={document.body}
               styles={{ 
@@ -2078,9 +2120,7 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
               }
 
               floodOptions = {
-                fill: true,
-                fillColor: fillColor,
-                fillOpacity: fillOpacity,
+                fill: false,
                 color: fillColor,
                 weight: 2.5
               };
@@ -2623,14 +2663,29 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
           const lng = parseFloat(alert.longitude);
           if (isNaN(lat) || isNaN(lng)) return null;
 
-          const icon = alert.confidence === 'High' ? charcoalRedIcon : charcoalYellowIcon;
+          const icon = alert.confidence === 'High' ? charcoalRedIcon : (alert.confidence === 'Clearing' ? charcoalGreenIcon : (alert.confidence === 'Thatch Kitchen' ? charcoalMagentaIcon : (alert.confidence === 'Coal Bay' ? charcoalCoalBayIcon : charcoalYellowIcon)));
+
+          let headerColor = '#d97706';
+          let headerTitle = `Charcoal Alert (${alert.confidence} Conf)`;
+          if (alert.confidence === 'High') {
+            headerColor = '#dc2626';
+          } else if (alert.confidence === 'Clearing') {
+            headerColor = '#16a34a';
+            headerTitle = 'Foliage Clearing Anomaly';
+          } else if (alert.confidence === 'Thatch Kitchen') {
+            headerColor = '#d946ef';
+            headerTitle = 'Thatch Kitchen Structure';
+          } else if (alert.confidence === 'Coal Bay') {
+            headerColor = '#374151';
+            headerTitle = 'Coal Bay (Charcoal Kiln)';
+          }
 
           return (
             <Marker key={alert.id} position={[lat, lng]} icon={icon}>
               <Popup>
                 <div style={{ minWidth: '180px', fontFamily: 'Inter, sans-serif', fontSize: '0.85rem' }}>
-                  <div style={{ fontWeight: '700', color: alert.confidence === 'High' ? '#dc2626' : '#d97706', borderBottom: '1px solid #eee', paddingBottom: '4px', marginBottom: '6px' }}>
-                    Charcoal Alert ({alert.confidence} Conf)
+                  <div style={{ fontWeight: '700', color: headerColor, borderBottom: '1px solid #eee', paddingBottom: '4px', marginBottom: '6px' }}>
+                    {headerTitle}
                   </div>
                   <div><strong>Field:</strong> {alert.fieldName}</div>
                   <div><strong>Date:</strong> {new Date(alert.detectedAt).toLocaleDateString()}</div>

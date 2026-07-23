@@ -66,6 +66,7 @@ import CharcoalTab from './components/CharcoalTab';
 import DrainageTab from './components/DrainageTab';
 import { logout, stopImpersonating } from './store/authSlice';
 import { logAction } from './store/auditSlice';
+import { setCharcoalAlerts } from './store/charcoalSlice';
 
 const MODULES = {
   overview: ['dashboard', 'map', 'charcoal', 'drainage'],
@@ -182,6 +183,29 @@ export default function App() {
     }
   }, [currentUser]);
 
+  const triggerAnomalyDetection = async (farmId) => {
+    if (!currentUser) return;
+    setIsDetectingAnomalies(true);
+    try {
+      const response = await fetch('/api/gee/detect-charcoal', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          farmId,
+          email: currentUser.email
+        })
+      });
+      const resData = await response.json();
+      if (response.ok && resData.alerts) {
+        dispatch(setCharcoalAlerts(resData.alerts));
+      }
+    } catch (err) {
+      console.error('[GEE Startup] Anomaly detection error:', err);
+    } finally {
+      setIsDetectingAnomalies(false);
+    }
+  };
+
   const handleFarmChange = async (farmId) => {
     dispatch(abortSync());
     setIsFarmLoading(true);
@@ -197,6 +221,7 @@ export default function App() {
     
     try {
       await dispatch(fetchInitialData());
+      await triggerAnomalyDetection(farmId);
     } catch (err) {
       console.error('Failed to load farm data:', err);
     } finally {
@@ -807,6 +832,7 @@ export default function App() {
   }, []);
   const [activeModule, setActiveModule] = useState('overview');
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isDetectingAnomalies, setIsDetectingAnomalies] = useState(false);
   const [newUnit, setNewUnit] = useState('');
   const [newJobTitle, setNewJobTitle] = useState('');
   const [newAnimalType, setNewAnimalType] = useState('');
@@ -883,19 +909,26 @@ export default function App() {
   }, [displayAppName]);
 
   useEffect(() => {
-    const handleOnline = () => {
+    const handleOnline = async () => {
       setIsOnline(true);
-      dispatch(fetchInitialData());
+      await dispatch(fetchInitialData());
+      await triggerAnomalyDetection(activeFarmId);
     };
     const handleOffline = () => setIsOnline(false);
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
-    dispatch(fetchInitialData());
+    
+    const initLoad = async () => {
+      await dispatch(fetchInitialData());
+      await triggerAnomalyDetection(activeFarmId);
+    };
+    initLoad();
+    
     return () => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
     }
-  }, [dispatch]);
+  }, [dispatch, activeFarmId]);
 
   useEffect(() => {
     if (activeTab && currentUser) {
@@ -1262,6 +1295,13 @@ export default function App() {
             <RefreshCw size={54} className="spin" style={{ marginBottom: '24px', color: '#ffffff' }} />
             <h2 style={{ color: '#ffffff', marginBottom: '8px', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', textTransform: 'none', fontWeight: 'bold' }}>Updating {displayAppName}...</h2>
             <p style={{ color: '#9ca3af', maxWidth: '280px', textAlign: 'center', wordWrap: 'break-word', whiteSpace: 'normal', lineHeight: '1.4', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>Downloading the latest version.<br />The app will reload automatically.</p>
+          </div>
+        )}
+        {isDetectingAnomalies && (
+          <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: '#111111', zIndex: 9999, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#ffffff' }}>
+            <RefreshCw size={54} className="spin" style={{ marginBottom: '24px', color: '#ffffff' }} />
+            <h2 style={{ color: '#ffffff', marginBottom: '8px', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif', textTransform: 'none', fontWeight: 'bold' }}>Running GEE Anomaly Detection...</h2>
+            <p style={{ color: '#9ca3af', maxWidth: '280px', textAlign: 'center', wordWrap: 'break-word', whiteSpace: 'normal', lineHeight: '1.4', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif' }}>Scanning property for foliage clearings, thatch structures, and charcoal kiln mounds.</p>
           </div>
         )}
         {isFarmLoading && (
@@ -2915,7 +2955,7 @@ export default function App() {
                               isMulti
                               options={employeeOptions}
                               value={selectedMtnEmployees}
-                              onChange={setSelectedMtnEmployees}
+                              onChange={(val) => setSelectedMtnEmployees(val || [])}
                               placeholder="Search and select employees..."
                               styles={{
                                 control: (base, state) => ({

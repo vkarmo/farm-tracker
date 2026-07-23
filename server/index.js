@@ -2843,44 +2843,76 @@ app.post('/api/gee/detect-charcoal', async (req, res) => {
       return res.status(403).json({ error: 'Forbidden. You do not have access to this farm.' });
     }
 
-    let polygons = [];
-    if (Array.isArray(fieldIds) && fieldIds.length > 0) {
-      const fieldRes = await session.run(`
-        MATCH (f:Field)-[:BELONGS_TO]->(:Farm {id: $farmId})
-        WHERE f.id IN $fieldIds
-        RETURN f
-      `, { farmId, fieldIds });
-      polygons = fieldRes.records.map(rec => {
-        const pStr = rec.get('f').properties.polygon;
-        return typeof pStr === 'string' ? JSON.parse(pStr) : pStr;
-      }).filter(Boolean);
-    } else {
-      const fieldRes = await session.run(`
-        MATCH (f:Field)-[:BELONGS_TO]->(:Farm {id: $farmId})
-        WHERE f.name = "NMK Property" OR f.name CONTAINS "NMK Property"
-        RETURN f LIMIT 1
-      `, { farmId });
-      if (fieldRes.records.length > 0) {
-        const pStr = fieldRes.records[0].get('f').properties.polygon;
-        const p = typeof pStr === 'string' ? JSON.parse(pStr) : pStr;
-        if (p) polygons.push(p);
-      }
-    }
+    // Fetch all fields for the active farm to identify overall boundary and regular fields
+    const fieldsQueryRes = await session.run(`
+      MATCH (f:Field)-[:BELONGS_TO]->(:Farm {id: $farmId})
+      RETURN f
+    `, { farmId });
+    const allFields = fieldsQueryRes.records.map(rec => {
+      const f = rec.get('f').properties;
+      return {
+        id: f.id,
+        name: f.name,
+        isOverallMap: f.isOverallMap === true || f.isOverallMap === 'true',
+        polygon: typeof f.polygon === 'string' ? JSON.parse(f.polygon) : f.polygon
+      };
+    }).filter(f => f.polygon && Array.isArray(f.polygon) && f.polygon.length > 0);
 
-    if (polygons.length === 0) {
-      // Try to find any fields
-      const fallbackRes = await session.run(`
-        MATCH (f:Field)-[:BELONGS_TO]->(:Farm {id: $farmId})
-        RETURN f LIMIT 3
-      `, { farmId });
-      polygons = fallbackRes.records.map(rec => {
-        const pStr = rec.get('f').properties.polygon;
-        return typeof pStr === 'string' ? JSON.parse(pStr) : pStr;
-      }).filter(Boolean);
-    }
-
-    if (polygons.length === 0) {
+    if (allFields.length === 0) {
       return res.status(400).json({ error: 'No field boundary polygons could be resolved.' });
+    }
+
+    // Identify the overall map field
+    let overallField = allFields.find(f => f.isOverallMap) || allFields.find(f => f.name === 'NMK Property');
+    if (!overallField) {
+      overallField = allFields.reduce((largest, current) => {
+        return (current.polygon.length > largest.polygon.length) ? current : largest;
+      }, allFields[0]);
+    }
+
+    const overallCoords = overallField.polygon.map(pt => [pt[1], pt[0]]);
+    if (overallCoords[0][0] !== overallCoords[overallCoords.length - 1][0] || overallCoords[0][1] !== overallCoords[overallCoords.length - 1][1]) {
+      overallCoords.push(overallCoords[0]);
+    }
+    const overallGeometry = ee.Geometry.Polygon([overallCoords]);
+
+    // Identify regular fields (excluding the overall field)
+    const regularFields = allFields.filter(f => f.id !== overallField.id);
+    const regularGeometries = regularFields.map(f => {
+      const coords = f.polygon.map(pt => [pt[1], pt[0]]);
+      if (coords[0][0] !== coords[coords.length - 1][0] || coords[0][1] !== coords[coords.length - 1][1]) {
+        coords.push(coords[0]);
+      }
+      return {
+        id: f.id,
+        name: f.name,
+        geometry: ee.Geometry.Polygon([coords])
+      };
+    });
+
+    // Compute the portion of the overall field where combined regular fields are not present
+    let outsideGeometry = overallGeometry;
+    if (regularGeometries.length > 0) {
+      const regularMultiPoly = ee.Geometry.MultiPolygon(regularGeometries.map(rg => rg.geometry));
+      outsideGeometry = overallGeometry.difference(regularMultiPoly);
+    }
+
+    const boundaryGeometry = overallGeometry;
+
+    // Define the charcoal-specific geometry (if limited by user dropdown selection)
+    let charcoalGeometry = overallGeometry;
+    if (Array.isArray(fieldIds) && fieldIds.length > 0) {
+      const selectedFieldsList = allFields.filter(f => fieldIds.includes(f.id));
+      if (selectedFieldsList.length > 0) {
+        const eePolys = selectedFieldsList.map(f => {
+          const coords = f.polygon.map(pt => [pt[1], pt[0]]);
+          if (coords[0][0] !== coords[coords.length - 1][0] || coords[0][1] !== coords[coords.length - 1][1]) {
+            coords.push(coords[0]);
+          }
+          return ee.Geometry.Polygon([coords]);
+        });
+        charcoalGeometry = eePolys.length === 1 ? eePolys[0] : ee.Geometry.MultiPolygon(eePolys);
+      }
     }
 
     const props = await getSettingsNode(session, farmId);
@@ -2896,25 +2928,6 @@ app.post('/api/gee/detect-charcoal', async (req, res) => {
     }
 
     await initializeGee(creds);
-
-    let boundaryGeometry;
-    if (polygons.length === 1) {
-      const p = polygons[0];
-      const geeCoords = p.map(pt => [pt[1], pt[0]]);
-      if (geeCoords[0][0] !== geeCoords[geeCoords.length - 1][0] || geeCoords[0][1] !== geeCoords[geeCoords.length - 1][1]) {
-        geeCoords.push(geeCoords[0]);
-      }
-      boundaryGeometry = ee.Geometry.Polygon([geeCoords]);
-    } else {
-      const eePolys = polygons.map(p => {
-        const geeCoords = p.map(pt => [pt[1], pt[0]]);
-        if (geeCoords[0][0] !== geeCoords[geeCoords.length - 1][0] || geeCoords[0][1] !== geeCoords[geeCoords.length - 1][1]) {
-          geeCoords.push(geeCoords[0]);
-        }
-        return ee.Geometry.Polygon([geeCoords]);
-      });
-      boundaryGeometry = ee.Geometry.MultiPolygon(eePolys);
-    }
 
     const baseDate = new Date('2026-06-07T12:00:00-04:00');
     // Recent collection: last 45 days (larger window to guarantee cloud-free imagery fallback)
@@ -2947,35 +2960,123 @@ app.post('/api/gee/detect-charcoal', async (req, res) => {
     const swirRecent = recentImg.select('B12').rename('swir_recent');
 
     // Sudden Vegetation Loss: NDVI drops by at least 0.20 and is currently low (< 0.35)
+    const dem = ee.Image('USGS/SRTMGL1_003').clip(boundaryGeometry);
+    const slope = ee.Terrain.slope(dem);
+    const aspect = ee.Terrain.aspect(dem);
+
+    // Thatch structure detection: Roof slopes down on both sides of the high point (ridge aspect std dev + local dem max)
+    const aspectRad = aspect.multiply(Math.PI / 180);
+    const sinAspect = aspectRad.sin();
+    const cosAspect = aspectRad.cos();
+    const sinStd = sinAspect.reduceNeighborhood({
+      reducer: ee.Reducer.stdDev(),
+      kernel: ee.Kernel.circle(45, 'meters')
+    });
+    const cosStd = cosAspect.reduceNeighborhood({
+      reducer: ee.Reducer.stdDev(),
+      kernel: ee.Kernel.circle(45, 'meters')
+    });
+    const isDoubleSloped = sinStd.gt(0.15).or(cosStd.gt(0.15));
+
+    const localMean = dem.focalMean(45, 'circle', 'meters');
+    const isRidge = dem.gt(localMean).and(dem.subtract(localMean).gt(0.2));
+    const roofTopography = isRidge.and(isDoubleSloped);
+
+    // Dry biomass thatch material signature (high SWIR reflectance, low NDVI)
+    const swir1Val = recentImg.select('B11');
+    const thatchMaterial = swirRecent.gt(1800).and(swir1Val.gt(1600)).and(ndviRecent.lt(0.25));
+    const thatchKitchen = roofTopography.and(thatchMaterial).rename('thatch_kitchen');
+
+    // Coal Bay (kiln mound) detection: Mound-like local peak topography + bare soil/dry wood reflectance
+    const demMax = dem.focalMax(30, 'circle', 'meters');
+    const demMean = dem.focalMean(30, 'circle', 'meters');
+    const isMound = dem.eq(demMax).and(dem.subtract(demMean).gt(0.3));
+    const coalBayMaterial = ndviRecent.lt(0.3).and(swirRecent.gt(1600)).and(swir1Val.gt(1500));
+    const coalBay = isMound.and(coalBayMaterial).rename('coal_bay');
+
+    // Sudden Vegetation Loss: NDVI drops by at least 0.20 and is currently low (< 0.35)
     const vegLoss = ndviDiff.gt(0.20).and(ndviRecent.lt(0.35)).rename('veg_loss');
     // Thermal or scorched ground: NBR < 0.0 or SWIR2 (B12) value > 2200
     const thermalScorched = nbrRecent.lt(0.0).or(swirRecent.gt(2200)).rename('thermal_scorched');
 
     const highConf = vegLoss.and(thermalScorched).rename('high_conf');
-    const lowConf = vegLoss.add(thermalScorched).gt(0).and(highConf.not()).rename('low_conf');
+    const clearing = vegLoss.and(thermalScorched.not()).rename('clearing');
+    const lowConf = thermalScorched.and(vegLoss.not()).rename('low_conf');
 
-    // Vectorize high & low confidence masks
+    // Vectorize masks
     const highVectors = highConf.selfMask().reduceToVectors({
-      geometry: boundaryGeometry,
+      geometry: charcoalGeometry,
+      scale: 20,
+      maxPixels: 1e8
+    });
+
+    const clearingVectors = clearing.selfMask().reduceToVectors({
+      geometry: boundaryGeometry, // scans all polygon fields (overallGeometry)
       scale: 20,
       maxPixels: 1e8
     });
 
     const lowVectors = lowConf.selfMask().reduceToVectors({
-      geometry: boundaryGeometry,
+      geometry: charcoalGeometry,
       scale: 20,
       maxPixels: 1e8
     });
+
+    const coalBayVectors = coalBay.selfMask().reduceToVectors({
+      geometry: boundaryGeometry, // scans all polygon fields (overallGeometry)
+      scale: 20,
+      maxPixels: 1e8
+    });
+
+    let thatchList = ee.FeatureCollection([]);
+
+    // 1. Scan each regular field polygon (exclude overall field)
+    for (const rg of regularGeometries) {
+      const thatchVectorsReg = thatchKitchen.selfMask().reduceToVectors({
+        geometry: rg.geometry,
+        scale: 20,
+        maxPixels: 1e8
+      });
+      const thatchListReg = thatchVectorsReg.map(function(f) {
+        return ee.Feature(f.geometry().centroid(1), {
+          confidence: 'Thatch Kitchen',
+          fieldId: rg.id,
+          fieldName: rg.name
+        });
+      });
+      thatchList = thatchList.merge(thatchListReg);
+    }
+
+    // 2. Scan the portion of the overall field where regular fields are not present
+    const thatchVectorsOutside = thatchKitchen.selfMask().reduceToVectors({
+      geometry: outsideGeometry,
+      scale: 20,
+      maxPixels: 1e8
+    });
+    const thatchListOutside = thatchVectorsOutside.map(function(f) {
+      return ee.Feature(f.geometry().centroid(1), {
+        confidence: 'Thatch Kitchen',
+        fieldId: overallField.id,
+        fieldName: 'Outside Fields / Wildlands'
+      });
+    });
+    thatchList = thatchList.merge(thatchListOutside);
 
     // Map each to its centroid and confidence property
     const highList = highVectors.map(function(f) {
       return ee.Feature(f.geometry().centroid(1), { confidence: 'High' });
     });
+    const clearingList = clearingVectors.map(function(f) {
+      return ee.Feature(f.geometry().centroid(1), { confidence: 'Clearing' });
+    });
     const lowList = lowVectors.map(function(f) {
       return ee.Feature(f.geometry().centroid(1), { confidence: 'Low' });
     });
+    const coalBayList = coalBayVectors.map(function(f) {
+      return ee.Feature(f.geometry().centroid(1), { confidence: 'Coal Bay' });
+    });
 
-    const combinedFC = highList.merge(lowList);
+    const combinedFC = highList.merge(clearingList).merge(lowList).merge(thatchList).merge(coalBayList);
     
     // Evaluate combined signals
     const rawAlerts = await new Promise((resolve, reject) => {
@@ -2992,8 +3093,18 @@ app.post('/api/gee/detect-charcoal', async (req, res) => {
       return {
         id: f.id,
         name: f.name,
-        polygon: typeof f.polygon === 'string' ? JSON.parse(f.polygon) : f.polygon
+        polygon: typeof f.polygon === 'string' ? JSON.parse(f.polygon) : f.polygon,
+        isOverallMap: f.isOverallMap === true || f.isOverallMap === 'true'
       };
+    });
+
+    // Sort fieldsList so that overall maps are at the end, regular fields are checked first
+    fieldsList.sort((a, b) => {
+      const aOverall = a.isOverallMap || a.name === 'NMK Property';
+      const bOverall = b.isOverallMap || b.name === 'NMK Property';
+      if (aOverall && !bOverall) return 1;
+      if (!aOverall && bOverall) return -1;
+      return 0;
     });
 
     const timestamp = new Date().toISOString();
@@ -3006,13 +3117,16 @@ app.post('/api/gee/detect-charcoal', async (req, res) => {
         const lat = coords[1];
 
         // Determine container field
-        let fieldId = null;
-        let fieldName = "Outside Fields / Wildlands";
-        for (const f of fieldsList) {
-          if (Array.isArray(f.polygon) && isPointInPolygon(lng, lat, f.polygon)) {
-            fieldId = f.id;
-            fieldName = f.name;
-            break;
+        let fieldId = feat.properties.fieldId || null;
+        let fieldName = feat.properties.fieldName;
+        if (!fieldName) {
+          fieldName = "Outside Fields / Wildlands";
+          for (const f of fieldsList) {
+            if (Array.isArray(f.polygon) && isPointInPolygon(lng, lat, f.polygon)) {
+              fieldId = f.id;
+              fieldName = f.name;
+              break;
+            }
           }
         }
 

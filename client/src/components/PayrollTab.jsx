@@ -1004,7 +1004,7 @@ export default function PayrollTab() {
                 isMulti
                 options={jobTitleOptions}
                 value={selectedTitles}
-                onChange={setSelectedTitles}
+                onChange={(val) => setSelectedTitles(val || [])}
                 placeholder="All job titles..."
                 styles={{
                   control: (base) => ({
