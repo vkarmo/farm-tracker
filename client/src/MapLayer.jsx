@@ -102,7 +102,7 @@ const rotatePoint = (x, y, angle, cx = 50, cy = 50) => {
   return { x: rx, y: ry };
 };
 
-const FieldLayoutMapOverlay = ({ field, recommendations, selectedRecId }) => {
+export const FieldLayoutMapOverlay = ({ field, recommendations, selectedRecId }) => {
   const dispatch = useDispatch();
   const map = useMap();
   const [zoom, setZoom] = useState(map.getZoom());
@@ -883,9 +883,7 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
   }, []);
 
   // Floating Filter Panel state
-  const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(() => {
-    return localStorage.getItem('map_filter_panel_open') === 'true';
-  });
+  const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
 
   // Helper for safe array retrieval from localStorage
   const getArrayFromLocalStorage = (key) => {
@@ -916,13 +914,72 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
   const [selectedNurseries, setSelectedNurseries] = useState(() => getArrayFromLocalStorage('map_selected_nurseries'));
 
   const [charcoalFilterMode, setCharcoalFilterMode] = useState(() => localStorage.getItem('map_charcoal_filter_mode') || 'all');
-  const [selectedCharcoalAlerts, setSelectedCharcoalAlerts] = useState(() => getArrayFromLocalStorage('map_selected_charcoal'));
-
-  // Sync to localStorage
+  const [selectedCharcoalAlerts, setSelectedCharcoalAlerts] = useState(() => getArrayFromLocalStorage('map_selected_charcoal'));  // Ensure selected filters only contain items belonging to the current active farm lists
   useEffect(() => {
-    localStorage.setItem('map_filter_panel_open', String(isFilterPanelOpen));
-  }, [isFilterPanelOpen]);
+    if (Array.isArray(selectedFields) && selectedFields.length > 0) {
+      const validIds = new Set((fields || []).filter(Boolean).map(f => f.id));
+      const filtered = selectedFields.filter(opt => opt && validIds.has(opt.value));
+      if (filtered.length !== selectedFields.length) {
+        setSelectedFields(filtered);
+        localStorage.setItem('map_selected_fields', JSON.stringify(filtered));
+      }
+    }
+  }, [fields]);
 
+  useEffect(() => {
+    if (Array.isArray(selectedPois) && selectedPois.length > 0) {
+      const validIds = new Set((pois || []).filter(Boolean).map(p => p.id));
+      const filtered = selectedPois.filter(opt => opt && validIds.has(opt.value));
+      if (filtered.length !== selectedPois.length) {
+        setSelectedPois(filtered);
+        localStorage.setItem('map_selected_pois', JSON.stringify(filtered));
+      }
+    }
+  }, [pois]);
+
+  useEffect(() => {
+    if (Array.isArray(selectedEquipment) && selectedEquipment.length > 0) {
+      const validIds = new Set((equipment || []).filter(Boolean).map(e => e.id));
+      const filtered = selectedEquipment.filter(opt => opt && validIds.has(opt.value));
+      if (filtered.length !== selectedEquipment.length) {
+        setSelectedEquipment(filtered);
+        localStorage.setItem('map_selected_equipment', JSON.stringify(filtered));
+      }
+    }
+  }, [equipment]);
+
+  useEffect(() => {
+    if (Array.isArray(selectedSoilTests) && selectedSoilTests.length > 0) {
+      const validIds = new Set((soilTests || []).filter(Boolean).map(s => s.id));
+      const filtered = selectedSoilTests.filter(opt => opt && validIds.has(opt.value));
+      if (filtered.length !== selectedSoilTests.length) {
+        setSelectedSoilTests(filtered);
+        localStorage.setItem('map_selected_soil_tests', JSON.stringify(filtered));
+      }
+    }
+  }, [soilTests]);
+
+  useEffect(() => {
+    if (Array.isArray(selectedNurseries) && selectedNurseries.length > 0) {
+      const validIds = new Set((nurseries || []).filter(Boolean).map(n => n.id));
+      const filtered = selectedNurseries.filter(opt => opt && validIds.has(opt.value));
+      if (filtered.length !== selectedNurseries.length) {
+        setSelectedNurseries(filtered);
+        localStorage.setItem('map_selected_nurseries', JSON.stringify(filtered));
+      }
+    }
+  }, [nurseries]);
+
+  useEffect(() => {
+    if (Array.isArray(selectedCharcoalAlerts) && selectedCharcoalAlerts.length > 0) {
+      const validIds = new Set((charcoalAlerts || []).filter(Boolean).map(c => c.id));
+      const filtered = selectedCharcoalAlerts.filter(opt => opt && validIds.has(opt.value));
+      if (filtered.length !== selectedCharcoalAlerts.length) {
+        setSelectedCharcoalAlerts(filtered);
+        localStorage.setItem('map_selected_charcoal', JSON.stringify(filtered));
+      }
+    }
+  }, [charcoalAlerts]);
   useEffect(() => {
     localStorage.setItem('map_fields_filter_mode', fieldsFilterMode);
   }, [fieldsFilterMode]);
@@ -1565,6 +1622,7 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
                   <option value="Contours">{formatLabel("Elevation Contours (2m)")}</option>
                 </optgroup>
                 <option value="CropLayout">{formatLabel("Crop Layout Overlay")}</option>
+                <option value="PredictedSettledWater">{formatLabel("Predicted Settled Water")}</option>
                 <optgroup label={formatLabel("Satellite Indices")}>
                   <option value="CurrentSatellite">{formatLabel("Current Satellite View")}</option>
                   <option value="TrueColor">{formatLabel("True Color (RGB)")}</option>
@@ -1989,8 +2047,8 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
           const linkedAiRecs = (recommendations || []).filter(r => r.isAI && linkedIds.includes(r.id));
           const hasAiRec = linkedAiRecs.length > 0;
 
-          const showImagery = fieldImagery[field.id] && fieldImagery[field.id] !== 'none';
-          const isLoaded = geeStatus[field.id]?.status === 'success' || geeStatus[field.id]?.status === 'failed';
+          const showImagery = (fieldImagery[field.id] && fieldImagery[field.id] !== 'none') || showFloodOverlay;
+          const isLoaded = geeStatus[field.id]?.status === 'success' || geeStatus[field.id]?.status === 'failed' || showFloodOverlay;
           
           const showCropLayoutForField = (fieldImagery[field.id] && fieldImagery[field.id].startsWith('CropLayout_')) || (fieldImagery[field.id] === 'CropLayout' && hasAiRec);
           const makeTransparent = (showImagery && isLoaded) || showCropLayoutForField;
@@ -2089,6 +2147,7 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
                           <option value="SoilMoisture">{formatLabel("Soil Moisture")}</option>
                           <option value="FalseColor">{formatLabel("False Color (Biomass)")}</option>
                         </optgroup>
+                        <option value="PredictedSettledWater">{formatLabel("Predicted Settled Water")}</option>
                         <option value="GEE_Weather">{formatLabel("Weather Forecast (GEE GFS)")}</option>
                       </select>
                     </div>
@@ -2332,10 +2391,10 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
                   </div>
                 </Popup>
               </Polygon>
-              {fieldImagery[field.id] && fieldImagery[field.id] !== 'none' && fieldImagery[field.id] !== 'GEE_Weather' && !fieldImagery[field.id].startsWith('CropLayout') && (
+              {((fieldImagery[field.id] && fieldImagery[field.id] !== 'none' && fieldImagery[field.id] !== 'GEE_Weather' && !fieldImagery[field.id].startsWith('CropLayout')) || showFloodOverlay) && (
                 <FieldImageryOverlay 
                   polygon={positions} 
-                  indexType={fieldImagery[field.id]} 
+                  indexType={showFloodOverlay ? 'PredictedSettledWater' : fieldImagery[field.id]} 
                   dateOffset={fieldImageryOffsets[field.id] || 0}
                   fieldId={field.id}
                 />
@@ -2499,7 +2558,7 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
                 <Polyline
                   positions={channelPts}
                   pathOptions={{
-                    color: '#0f172a', // Slate gray casing
+                    color: '#7f1d1d', // Dark red casing
                     weight: 8,
                     opacity: 0.8,
                     lineCap: 'round',
@@ -2513,7 +2572,7 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
                 <Polyline
                   positions={channelPts}
                   pathOptions={{
-                    color: '#38bdf8', // Sky blue ditch fill
+                    color: '#ef4444', // Bright red fill
                     weight: 4,
                     opacity: 1.0,
                     lineCap: 'round',
@@ -2606,7 +2665,7 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
           );
         })}
 
-        <MapFlyTo center={flyTarget || mapCenter} />
+        {flyTarget && <MapFlyTo center={flyTarget} />}
       </MapContainer>
     </div>
 

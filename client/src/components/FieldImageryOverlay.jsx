@@ -195,6 +195,9 @@ function getColor(val, indexType) {
     if (val < 0.75) return '#fff9c4'; // Light yellow
     return '#fbc02d'; // Yellow high
   }
+  if (indexType === 'PredictedSettledWater') {
+    return val > 0.70 ? '#29b6f6' : 'transparent';
+  }
   return '#2e7d32';
 }
 
@@ -223,6 +226,16 @@ export default function FieldImageryOverlay({ polygon, indexType, dateOffset = 0
     if (!sanitizedPolygon || sanitizedPolygon.length < 3 || !indexType || indexType === 'none') {
       setTileUrl(null);
       setGeeError(false);
+      return;
+    }
+
+    if (indexType === 'PredictedSettledWater') {
+      setTileUrl(null);
+      setGeeError(false);
+      setGeeLoading(false);
+      window.dispatchEvent(new CustomEvent('gee-status-change', {
+        detail: { fieldId, status: 'success' }
+      }));
       return;
     }
 
@@ -369,6 +382,95 @@ export default function FieldImageryOverlay({ polygon, indexType, dateOffset = 0
 
     // 3. Render High-Quality Imagery utilizing ONLY high-resolution bands (3-5m PlanetScope / 10m Sentinel-2):
     //    We explicitly bypass/skip all coarse bands (>10m) to return the highest spatial quality available.
+    if (indexType === 'PredictedSettledWater') {
+      const sampleSize = 32;
+      const sampleW = canvasWidth / sampleSize;
+      const sampleH = canvasHeight / sampleSize;
+
+      // User style request: fill color of white with 50% opacity, white outline (slightly thicker than field outline)
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+
+      for (let i = 0; i < sampleSize; i++) {
+        for (let j = 0; j < sampleSize; j++) {
+          const cx = (i + 0.5) * sampleW;
+          const cy = (j + 0.5) * sampleH;
+
+          // Check boundary clipping to keep drawing strictly in polygon
+          const cellLng = minLng + (cx / canvasWidth) * (maxLng - minLng);
+          const cellLat = minLat + (1.0 - cy / canvasHeight) * (maxLat - minLat);
+
+          const globalMinLat = 6.7290;
+          const globalMaxLat = 6.7366;
+          const globalMinLng = -10.8759;
+          const globalMaxLng = -10.8622;
+          const globalLatCenter = (globalMinLat + globalMaxLat) / 2;
+          const globalLngCenter = (globalMinLng + globalMaxLng) / 2;
+
+          const dx = (cellLng - globalLngCenter) / (globalMaxLng - globalMinLng);
+          const dy = (cellLat - globalLatCenter) / (globalMaxLat - globalMinLat);
+
+          const cellPoint = [cellLat, cellLng];
+          const distToCreek = getDistanceToCreek(cellPoint);
+          const maxInfluenceDist = 0.0012; // ~130 meters
+          const creekInfluence = Math.max(0, 1.0 - distToCreek / maxInfluenceDist);
+
+          const distanceToCenter = Math.sqrt(dx * dx + dy * dy);
+          let baseElev = 1.0 - distanceToCenter;
+          baseElev = baseElev * 0.7 + (dx + dy + 1.0) * 0.15;
+          baseElev = baseElev * (1.0 - 0.75 * creekInfluence);
+
+          if (baseElev < 0.28) {
+            ctx.beginPath();
+            ctx.arc(cx, cy, sampleW * 1.35, 0, 2 * Math.PI);
+            ctx.fill();
+          }
+        }
+      }
+
+      ctx.strokeStyle = '#ffffff';
+      ctx.lineWidth = 3.0; // thicker than field outline
+      for (let i = 0; i < sampleSize; i++) {
+        for (let j = 0; j < sampleSize; j++) {
+          const cx = (i + 0.5) * sampleW;
+          const cy = (j + 0.5) * sampleH;
+
+          const cellLng = minLng + (cx / canvasWidth) * (maxLng - minLng);
+          const cellLat = minLat + (1.0 - cy / canvasHeight) * (maxLat - minLat);
+
+          const globalMinLat = 6.7290;
+          const globalMaxLat = 6.7366;
+          const globalMinLng = -10.8759;
+          const globalMaxLng = -10.8622;
+          const globalLatCenter = (globalMinLat + globalMaxLat) / 2;
+          const globalLngCenter = (globalMinLng + globalMaxLng) / 2;
+
+          const dx = (cellLng - globalLngCenter) / (globalMaxLng - globalMinLng);
+          const dy = (cellLat - globalLatCenter) / (globalMaxLat - globalMinLat);
+
+          const cellPoint = [cellLat, cellLng];
+          const distToCreek = getDistanceToCreek(cellPoint);
+          const maxInfluenceDist = 0.0012; // ~130 meters
+          const creekInfluence = Math.max(0, 1.0 - distToCreek / maxInfluenceDist);
+
+          const distanceToCenter = Math.sqrt(dx * dx + dy * dy);
+          let baseElev = 1.0 - distanceToCenter;
+          baseElev = baseElev * 0.7 + (dx + dy + 1.0) * 0.15;
+          baseElev = baseElev * (1.0 - 0.75 * creekInfluence);
+
+          if (baseElev < 0.28) {
+            ctx.beginPath();
+            ctx.arc(cx, cy, sampleW * 1.35, 0, 2 * Math.PI);
+            ctx.stroke();
+          }
+        }
+      }
+
+      return {
+        url: canvas.toDataURL(),
+        bounds: [[minLat, minLng], [maxLat, maxLng]]
+      };
+    }
+
     const gridSize = 512;
     const cellWidth = canvasWidth / gridSize;
     const cellHeight = canvasHeight / gridSize;
@@ -497,6 +599,15 @@ export default function FieldImageryOverlay({ polygon, indexType, dateOffset = 0
         } else if (indexType === 'TrueColor' || indexType === 'CurrentSatellite') {
           // RGB rendering of the 10m bands (B4, B3, B2)
           val = vegFactor;
+        } else if (indexType === 'PredictedSettledWater') {
+          // Identify areas in the selected fields with the lowest elevation
+          const distanceToCenter = Math.sqrt(dx * dx + dy * dy);
+          let baseElev = 1.0 - distanceToCenter;
+          baseElev = baseElev * 0.7 + (dx + dy + 1.0) * 0.15;
+          baseElev = baseElev * (1.0 - 0.75 * creekInfluence);
+
+          // Lower values of baseElev represent lowest elevation (basins/depressions)
+          val = 1.0 - baseElev;
         }
         val = Math.max(0.01, Math.min(0.99, val));
 

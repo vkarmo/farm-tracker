@@ -462,15 +462,19 @@ export const MapSearchBox = ({ onLocationFound, onClear, polygon, setPolygon, ac
 
 export const MapFlyTo = ({ center }) => {
   const map = useMap();
+  const isFirst = useRef(true);
+  const lat = center && center[0] !== undefined && center[0] !== null ? parseFloat(center[0]) : null;
+  const lng = center && center[1] !== undefined && center[1] !== null ? parseFloat(center[1]) : null;
+
   useEffect(() => {
-    if (center && center.length >= 2) {
-      const lat = parseFloat(center[0]);
-      const lng = parseFloat(center[1]);
-      if (!isNaN(lat) && !isNaN(lng)) {
-        map.flyTo([lat, lng], 16);
+    if (lat !== null && lng !== null && !isNaN(lat) && !isNaN(lng)) {
+      if (isFirst.current) {
+        isFirst.current = false;
+        return;
       }
+      map.flyTo([lat, lng], 16);
     }
-  }, [center, map]);
+  }, [lat, lng, map]);
   return null;
 };
 

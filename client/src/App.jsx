@@ -596,7 +596,7 @@ export default function App() {
   const [geeTesting, setGeeTesting] = useState(false);
   const [geeTestStatus, setGeeTestStatus] = useState(null);
   const [testFieldId, setTestFieldId] = useState('');
-  const [testIndexType, setTestIndexType] = useState('CurrentSatellite');
+  const [testIndexType, setTestIndexType] = useState('none');
   const [testGeeStatus, setTestGeeStatus] = useState({});
 
   useEffect(() => {
@@ -1095,15 +1095,9 @@ export default function App() {
     }, [activeFarmId]);
 
     useMapEvents({
-      click(e) {
-        if (currentUser?.role === 'Admin Viewer' || isFarmLoading || isInitialMount.current) return;
-        dispatch(setMapCenter([e.latlng.lat, e.latlng.lng]));
-        dispatch(saveSettings());
-      },
       zoomend(e) {
         if (currentUser?.role === 'Admin Viewer' || isFarmLoading || isInitialMount.current) return;
         dispatch(setMapZoom(e.target.getZoom()));
-        dispatch(saveSettings());
       }
     });
     return null;
