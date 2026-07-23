@@ -1464,24 +1464,15 @@ export default function DashboardTab() {
           {totalAnomalies > 0 && (
             <div className="anomalies-dashboard-card">
               {/* Left Side Total Stats */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px', flexShrink: 0 }}>
-                <div style={{ 
-                  background: '#ef4444', 
-                  borderRadius: '12px', 
-                  width: '48px', 
-                  height: '48px', 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  justifyContent: 'center',
-                  boxShadow: '0 4px 8px -2px rgba(239, 68, 68, 0.3)'
-                }}>
+              <div className="anomalies-stats-container">
+                <div className="anomalies-main-icon-container">
                   <AlertOctagon size={24} color="white" />
                 </div>
                 <div>
-                  <div style={{ fontSize: '0.8rem', color: '#7f1d1d', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.05em' }}>DETECTED ANOMALIES</div>
-                  <div style={{ display: 'flex', alignItems: 'baseline', gap: '8px' }}>
-                    <div style={{ fontSize: '2.5rem', fontWeight: '800', color: '#b91c1c', lineHeight: 1 }}>{totalAnomalies}</div>
-                    <span style={{ fontSize: '0.9rem', color: '#7f1d1d', fontWeight: '600' }}>Active alerts require verification</span>
+                  <div className="anomalies-title">DETECTED ANOMALIES</div>
+                  <div className="anomalies-value-row">
+                    <div className="anomalies-value">{totalAnomalies}</div>
+                    <span className="anomalies-subtitle">Active alerts require verification</span>
                   </div>
                 </div>
               </div>
@@ -1490,14 +1481,9 @@ export default function DashboardTab() {
               <div className="anomalies-card-divider" />
 
               {/* Right Side Categories Grid */}
-              <div style={{ 
-                flexGrow: 1,
-                display: 'grid',
-                gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
-                gap: '12px 24px'
-              }}>
+              <div className="anomalies-categories-grid">
                 {highConfCount > 0 && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div className="anomalies-category-item">
                     <div style={{ background: '#fecaca', borderRadius: '8px', padding: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <AlertOctagon size={22} color="#ef4444" />
                     </div>
@@ -1508,7 +1494,7 @@ export default function DashboardTab() {
                   </div>
                 )}
                 {clearingCount > 0 && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div className="anomalies-category-item">
                     <div style={{ background: '#dcfce7', borderRadius: '8px', padding: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <Trees size={22} color="#22c55e" />
                     </div>
@@ -1519,7 +1505,7 @@ export default function DashboardTab() {
                   </div>
                 )}
                 {thatchCount > 0 && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div className="anomalies-category-item">
                     <div style={{ background: '#fdf2ff', borderRadius: '8px', padding: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <Home size={22} color="#d946ef" />
                     </div>
@@ -1530,7 +1516,7 @@ export default function DashboardTab() {
                   </div>
                 )}
                 {coalBayCount > 0 && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div className="anomalies-category-item">
                     <div style={{ background: '#f3f4f6', borderRadius: '8px', padding: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <Flame size={22} color="#374151" />
                     </div>
@@ -1541,7 +1527,7 @@ export default function DashboardTab() {
                   </div>
                 )}
                 {lowConfCount > 0 && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <div className="anomalies-category-item">
                     <div style={{ background: '#fef3c7', borderRadius: '8px', padding: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <AlertTriangle size={22} color="#f59e0b" />
                     </div>
