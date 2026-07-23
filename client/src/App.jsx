@@ -29,7 +29,7 @@ import 'leaflet/dist/leaflet.css';
 import { CACHE_NAME } from './config/cache';
 import packageJson from '../package.json';
 
-import { Wifi, WifiOff, CloudOff, Target, Tractor, Leaf, DollarSign, MapPin, Rabbit, Settings, BarChart, Layers, Box, ClipboardList, ShieldAlert, Calculator, CalendarClock, AlertTriangle, LogOut, Database, Users, Contact, Briefcase, RefreshCw, Home, Baby, FlaskConical, Map, Check, ChevronDown, ChevronRight, MessageSquare } from 'lucide-react';
+import { Wifi, WifiOff, CloudOff, Target, Tractor, Leaf, DollarSign, MapPin, Rabbit, Settings, BarChart, Layers, Box, ClipboardList, ShieldAlert, Calculator, CalendarClock, AlertTriangle, LogOut, Database, Users, Contact, Briefcase, RefreshCw, Home, Baby, FlaskConical, Map, Check, ChevronDown, ChevronRight, MessageSquare, AlertOctagon, Waves } from 'lucide-react';
 import NmkLogo from './components/NmkLogo';
 import MapLayer from './MapLayer';
 
@@ -62,11 +62,13 @@ import AuditTab from './components/AuditTab';
 import PayrollTab from './components/PayrollTab';
 import GpsLogTab from './components/GpsLogTab';
 import MessagingTab from './components/MessagingTab';
+import CharcoalTab from './components/CharcoalTab';
+import DrainageTab from './components/DrainageTab';
 import { logout, stopImpersonating } from './store/authSlice';
 import { logAction } from './store/auditSlice';
 
 const MODULES = {
-  overview: ['dashboard', 'map'],
+  overview: ['dashboard', 'map', 'charcoal', 'drainage'],
   agronomy: ['field', 'nursery', 'crop', 'soilTests', 'pest'],
   livestock: ['livestock', 'breeding', 'kits', 'livestockDiseases'],
   finance: ['finance', 'budget', 'harvest'],
@@ -264,7 +266,8 @@ export default function App() {
       'Objective': 'Objectives',
       'LivestockDisease': 'Livestock Diseases',
       'PointOfInterest': 'Points of Interest',
-      'Recommendation': 'Crop Recommendations'
+      'Recommendation': 'Crop Recommendations',
+      'CharcoalAlert': 'Charcoal Alerts'
     };
     return mapping[primary] || primary;
   };
@@ -1432,6 +1435,8 @@ export default function App() {
               {hasAccess('dashboard') && <button onClick={() => setActiveTab('dashboard')} className={`btn ${activeTab === 'dashboard' ? 'tab-btn-active' : ''}`}><BarChart size={16} style={{ marginRight: 6 }} /> Dashboard</button>}
               {hasAccess('map') && <button onClick={() => setActiveTab('map')} className={`btn ${activeTab === 'map' ? 'tab-btn-active' : ''}`}><MapPin size={16} style={{ marginRight: 6 }} /> Map</button>}
               {hasAccess('poi') && <button onClick={() => setActiveTab('poi')} className={`btn ${activeTab === 'poi' ? 'tab-btn-active' : ''}`}><MapPin size={16} style={{ marginRight: 6 }} /> Points of Interest</button>}
+              {hasAccess('charcoal') && <button onClick={() => setActiveTab('charcoal')} className={`btn ${activeTab === 'charcoal' ? 'tab-btn-active' : ''}`}><AlertOctagon size={16} style={{ marginRight: 6 }} /> Charcoal Alerts</button>}
+              {hasAccess('drainage') && <button onClick={() => setActiveTab('drainage')} className={`btn ${activeTab === 'drainage' ? 'tab-btn-active' : ''}`}><Waves size={16} style={{ marginRight: 6 }} /> Drainage Planning</button>}
             </>
           )}
           {activeModule === 'agronomy' && (
@@ -1490,7 +1495,7 @@ export default function App() {
           )}
         </nav>
 
-        <main className={`container ${['dashboard', 'map', 'field', 'nursery', 'soilTests', 'equipment', 'gps', 'poi', 'settings', 'pest', 'crop', 'budget', 'livestock', 'livestockDiseases', 'payroll', 'incident', 'deadline', 'kits', 'breeding', 'employee', 'assignment', 'planning', 'finance', 'sync', 'admin', 'harvest', 'activity'].includes(activeTab) ? 'container-wide' : ''} ${currentUser?.role === 'Viewer' || currentUser?.role === 'Admin Viewer' ? 'role-viewer' : ''}`} style={{ marginTop: '20px' }}>
+        <main className={`container ${['dashboard', 'map', 'field', 'nursery', 'soilTests', 'equipment', 'gps', 'poi', 'settings', 'pest', 'crop', 'budget', 'livestock', 'livestockDiseases', 'payroll', 'incident', 'deadline', 'kits', 'breeding', 'employee', 'assignment', 'planning', 'finance', 'sync', 'admin', 'harvest', 'activity', 'charcoal', 'drainage'].includes(activeTab) ? 'container-wide' : ''} ${currentUser?.role === 'Viewer' || currentUser?.role === 'Admin Viewer' ? 'role-viewer' : ''}`} style={{ marginTop: '20px' }}>
 
           {activeTab === 'dashboard' && <DashboardTab key={activeFarmId} />}
           {activeTab === 'map' && (
@@ -1500,6 +1505,8 @@ export default function App() {
             </div>
           )}
           {activeTab === 'poi' && <PoiTab key={activeFarmId} />}
+          {activeTab === 'charcoal' && <CharcoalTab key={activeFarmId} activeFarmId={activeFarmId} />}
+          {activeTab === 'drainage' && <DrainageTab key={activeFarmId} activeFarmId={activeFarmId} />}
 
           {/* Modular Entity CRUD Component Wrappers */}
           {activeTab === 'field' && <FieldTab key={activeFarmId} />}
@@ -2726,8 +2733,13 @@ export default function App() {
                               style={{ fontSize: '0.65rem', padding: '2px 3px', borderRadius: '2px', width: '100%', border: '1px solid #ccc', background: 'white' }}
                               disabled={!testFieldId}
                             >
-                              <option value="Elevation">{formatImagerLabel("Elevation (Topography)")}</option>
                               <option value="none">{formatImagerLabel("None (Standard)")}</option>
+                              <optgroup label={formatImagerLabel("Copernicus Terrain Models (GEE)")}>
+                                <option value="Elevation">{formatImagerLabel("Elevation (Topography)")}</option>
+                                <option value="Slope">{formatImagerLabel("Slope Percentage")}</option>
+                                <option value="Aspect">{formatImagerLabel("Aspect Angle")}</option>
+                                <option value="Contours">{formatImagerLabel("Elevation Contours (2m)")}</option>
+                              </optgroup>
                               <optgroup label={formatImagerLabel("Satellite Indices")}>
                                 <option value="CurrentSatellite">{formatImagerLabel("Current Satellite (High-Res RGB)")}</option>
                                 <option value="TrueColor">{formatImagerLabel("True Color (RGB)")}</option>

@@ -108,17 +108,67 @@ export default function PlanningTab() {
     }
   };
 
-  const [activeView, setActiveView] = useState('goals'); // goals or objectives
+  const [activeView, setActiveView] = useState(() => localStorage.getItem('active_planning_activeView') || 'goals');
 
-  const [goalData, setGoalData] = useState(INIT_GOAL);
-  const [editingGoalId, setEditingGoalId] = useState(null);
+  const [goalData, setGoalData] = useState(() => {
+    try {
+      const val = localStorage.getItem('active_planning_goalData');
+      return val ? JSON.parse(val) : INIT_GOAL;
+    } catch (e) {
+      return INIT_GOAL;
+    }
+  });
+  const [editingGoalId, setEditingGoalId] = useState(() => localStorage.getItem('active_planning_editingGoalId') || null);
 
-  const [objectiveData, setObjectiveData] = useState(INIT_OBJECTIVE);
-  const [editingObjId, setEditingObjId] = useState(null);
+  const [objectiveData, setObjectiveData] = useState(() => {
+    try {
+      const val = localStorage.getItem('active_planning_objectiveData');
+      return val ? JSON.parse(val) : INIT_OBJECTIVE;
+    } catch (e) {
+      return INIT_OBJECTIVE;
+    }
+  });
+  const [editingObjId, setEditingObjId] = useState(() => localStorage.getItem('active_planning_editingObjId') || null);
 
   const [selectedNodeId, setSelectedNodeId] = useState(null);
-  const [activeTab, setActiveTab] = useState('roster');
+  const [activeTab, setActiveTab] = useState(() => localStorage.getItem('active_planning_activeTab') || 'roster');
   const [collapsedColumns, setCollapsedColumns] = useState({});
+
+  useEffect(() => {
+    localStorage.setItem('active_planning_activeView', activeView);
+  }, [activeView]);
+  useEffect(() => {
+    localStorage.setItem('active_planning_goalData', JSON.stringify(goalData));
+  }, [goalData]);
+  useEffect(() => {
+    if (editingGoalId) {
+      localStorage.setItem('active_planning_editingGoalId', editingGoalId);
+    } else {
+      localStorage.removeItem('active_planning_editingGoalId');
+    }
+  }, [editingGoalId]);
+  useEffect(() => {
+    localStorage.setItem('active_planning_objectiveData', JSON.stringify(objectiveData));
+  }, [objectiveData]);
+  useEffect(() => {
+    if (editingObjId) {
+      localStorage.setItem('active_planning_editingObjId', editingObjId);
+    } else {
+      localStorage.removeItem('active_planning_editingObjId');
+    }
+  }, [editingObjId]);
+  useEffect(() => {
+    localStorage.setItem('active_planning_activeTab', activeTab);
+  }, [activeTab]);
+
+  const clearDraftPlanning = () => {
+    localStorage.removeItem('active_planning_activeView');
+    localStorage.removeItem('active_planning_goalData');
+    localStorage.removeItem('active_planning_editingGoalId');
+    localStorage.removeItem('active_planning_objectiveData');
+    localStorage.removeItem('active_planning_editingObjId');
+    localStorage.removeItem('active_planning_activeTab');
+  };
 
   const resetForm = () => {
     setGoalData(INIT_GOAL);
@@ -126,6 +176,7 @@ export default function PlanningTab() {
     setObjectiveData(INIT_OBJECTIVE);
     setEditingObjId(null);
     setActiveTab('roster');
+    clearDraftPlanning();
   };
 
   const reduxEditingGoalId = useSelector(state => state.planning.editingGoalId);

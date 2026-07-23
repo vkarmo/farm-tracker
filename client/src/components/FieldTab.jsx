@@ -647,8 +647,13 @@ export default function FieldTab() {
                                           onChange={(e) => setFieldImagery(prev => ({ ...prev, [editingId || 'active']: e.target.value }))}
                                           style={{ padding: '4px', borderRadius: '4px', width: '100%', background: 'white' }}
                                         >
-                                          <option value="Elevation">{formatLabel("Elevation (Topography)")}</option>
                                           <option value="none">{formatLabel("None (Standard)")}</option>
+                                          <optgroup label={formatLabel("Copernicus Terrain Models (GEE)")}>
+                                            <option value="Elevation">{formatLabel("Elevation (Topography)")}</option>
+                                            <option value="Slope">{formatLabel("Slope Percentage")}</option>
+                                            <option value="Aspect">{formatLabel("Aspect Angle")}</option>
+                                            <option value="Contours">{formatLabel("Elevation Contours (2m)")}</option>
+                                          </optgroup>
                                           <optgroup label={formatLabel("Satellite Indices")}>
                                             <option value="CurrentSatellite">{formatLabel("Current Satellite View")}</option>
                                             <option value="TrueColor">{formatLabel("True Color (RGB)")}</option>
@@ -778,6 +783,44 @@ export default function FieldTab() {
                                       <div style={{ minWidth: '200px' }}>
                                         <strong>{field.name}</strong><br />
                                         Area: {field.area} ac<br />
+                                        
+                                        <div style={{ marginTop: '6px', borderTop: '1px solid #cbd5e1', paddingTop: '6px', fontSize: '0.8rem', color: '#334155' }}>
+                                          <div style={{ fontWeight: 600, color: 'var(--color-primary-dark)', marginBottom: '4px' }}>Copernicus Zonal Statistics:</div>
+                                          {field.averageElevation !== undefined && field.averageElevation !== null ? (
+                                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '4px', background: '#f8fafc', padding: '6px', borderRadius: '4px', border: '1px solid #e2e8f0', marginBottom: '8px' }}>
+                                              <div><strong>Elev:</strong> {field.averageElevation}m</div>
+                                              <div><strong>Range:</strong> {field.elevationRange}m</div>
+                                              <div><strong>Slope:</strong> {field.averageSlopePercentage}%</div>
+                                              <div><strong>Aspect:</strong> {field.dominantAspectDirection}</div>
+                                            </div>
+                                          ) : (
+                                            <div style={{ fontStyle: 'italic', fontSize: '0.72rem', color: '#64748b', marginBottom: '8px' }}>No topography stats computed yet.</div>
+                                          )}
+                                          
+                                          {field.ndviHistory ? (
+                                            (() => {
+                                              try {
+                                                const ndviList = JSON.parse(field.ndviHistory);
+                                                const eviList = field.eviHistory ? JSON.parse(field.eviHistory) : [];
+                                                if (ndviList.length > 0) {
+                                                  const latestNdvi = ndviList[ndviList.length - 1];
+                                                  const latestEvi = eviList.length > 0 ? eviList[eviList.length - 1] : null;
+                                                  return (
+                                                    <div style={{ background: '#f1f8e9', padding: '6px', borderRadius: '4px', border: '1px solid #c5e1a5', fontSize: '0.72rem', color: '#33691e', marginBottom: '8px' }}>
+                                                      <strong>Vegetation ({latestNdvi.timestamp}):</strong>
+                                                      <div style={{ display: 'flex', gap: '8px', marginTop: '2px' }}>
+                                                        <div>NDVI: <strong>{latestNdvi.value}</strong></div>
+                                                        {latestEvi && <div>EVI: <strong>{latestEvi.value}</strong></div>}
+                                                      </div>
+                                                    </div>
+                                                  );
+                                                }
+                                              } catch (e) {}
+                                              return null;
+                                            })()
+                                          ) : null}
+                                        </div>
+
                                         <div style={{ marginTop: '8px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                           <div>
                                             <label className="imager-select-label" style={{ display: 'block', marginBottom: '4px' }}>{formatLabel("Field Imagery:")}</label>
@@ -787,9 +830,14 @@ export default function FieldTab() {
                                               onChange={(e) => setFieldImagery(prev => ({ ...prev, [field.id]: e.target.value }))}
                                               style={{ padding: '4px', borderRadius: '4px', width: '100%', background: 'white' }}
                                             >
-                                              <option value="Elevation">{formatLabel("Elevation (Topography)")}</option>
-                                              <option value="none">{formatLabel("None (Standard)")}</option>
-                                              <optgroup label={formatLabel("Satellite Indices")}>
+                                               <option value="none">{formatLabel("None (Standard)")}</option>
+                                               <optgroup label={formatLabel("Copernicus Terrain Models (GEE)")}>
+                                                 <option value="Elevation">{formatLabel("Elevation (Topography)")}</option>
+                                                 <option value="Slope">{formatLabel("Slope Percentage")}</option>
+                                                 <option value="Aspect">{formatLabel("Aspect Angle")}</option>
+                                                 <option value="Contours">{formatLabel("Elevation Contours (2m)")}</option>
+                                               </optgroup>
+                                               <optgroup label={formatLabel("Satellite Indices")}>
                                                 <option value="CurrentSatellite">{formatLabel("Current Satellite View")}</option>
                                                 <option value="TrueColor">{formatLabel("True Color (RGB)")}</option>
                                                 <option value="NDVI">{formatLabel("NDVI (Vegetation Index)")}</option>
@@ -818,7 +866,10 @@ export default function FieldTab() {
                                                         fieldImagery[field.id] === 'GEE_Humidity' ? 'Weather: Relative Humidity (GEE)' :
                                                           fieldImagery[field.id] === 'GEE_Pressure' ? 'Weather: Sea Level Pressure (GEE)' :
                                                             fieldImagery[field.id] === 'CurrentSatellite' ? 'Current Satellite (High-Res)' :
-                                                              fieldImagery[field.id] === 'Elevation' ? 'Elevation (Topography)' : 'Sentinel-2 (10m Index)'}
+                                                              fieldImagery[field.id] === 'Elevation' ? 'Elevation (Topography)' :
+                                                                fieldImagery[field.id] === 'Slope' ? 'Slope Percentage' :
+                                                                  fieldImagery[field.id] === 'Aspect' ? 'Aspect Angle' :
+                                                                    fieldImagery[field.id] === 'Contours' ? 'Elevation Contours (2m)' : 'Sentinel-2 (10m Index)'}
                                               </div>
                                               {geeStatus[field.id] && geeStatus[field.id].status === 'failed' && (
                                                 <div style={{ marginTop: '4px', color: '#c62828', fontWeight: 600, fontSize: '0.65rem', lineHeight: '1.2' }}>

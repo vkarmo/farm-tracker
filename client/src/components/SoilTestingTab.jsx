@@ -374,8 +374,13 @@ export default function SoilTestingTab() {
                                         onChange={(e) => setFieldImagery(prev => ({ ...prev, [f.id]: e.target.value }))}
                                         style={{ padding: '4px', borderRadius: '4px', width: '100%', background: 'white' }}
                                       >
-                                        <option value="Elevation">{formatLabel("Elevation (Topography)")}</option>
                                         <option value="none">{formatLabel("None (Standard)")}</option>
+                                        <optgroup label={formatLabel("Copernicus Terrain Models (GEE)")}>
+                                          <option value="Elevation">{formatLabel("Elevation (Topography)")}</option>
+                                          <option value="Slope">{formatLabel("Slope Percentage")}</option>
+                                          <option value="Aspect">{formatLabel("Aspect Angle")}</option>
+                                          <option value="Contours">{formatLabel("Elevation Contours (2m)")}</option>
+                                        </optgroup>
                                         <optgroup label={formatLabel("Satellite Indices")}>
                                           <option value="CurrentSatellite">{formatLabel("Current Satellite View")}</option>
                                           <option value="TrueColor">{formatLabel("True Color (RGB)")}</option>
@@ -398,14 +403,17 @@ export default function SoilTestingTab() {
                                     {fieldImagery[f.id] && fieldImagery[f.id] !== 'none' && (
                                       <div style={{ marginTop: '8px', padding: '6px', background: '#f1f8e9', borderRadius: '4px', border: '1px solid #c5e1a5', fontSize: '0.72rem', color: '#33691e' }}>
                                         <div style={{ fontWeight: 700, marginBottom: '2px' }}>
-                                          {fieldImagery[f.id] === 'GEE_Clouds' ? 'Weather: Clouds (GEE)' :
-                                           fieldImagery[f.id] === 'GEE_Precip' ? 'Weather: Precipitation (GEE)' :
-                                           fieldImagery[f.id] === 'GEE_Temp' ? 'Weather: Temperature (GEE)' :
-                                           fieldImagery[f.id] === 'GEE_Wind' ? 'Weather: Wind Speed (GEE)' :
-                                           fieldImagery[f.id] === 'GEE_Humidity' ? 'Weather: Relative Humidity (GEE)' :
-                                           fieldImagery[f.id] === 'GEE_Pressure' ? 'Weather: Sea Level Pressure (GEE)' :
-                                           fieldImagery[f.id] === 'CurrentSatellite' ? 'Current Satellite (High-Res)' :
-                                           fieldImagery[f.id] === 'Elevation' ? 'Elevation (Topography)' : 'Sentinel-2 (10m Index)'}
+                                           {fieldImagery[f.id] === 'GEE_Clouds' ? 'Weather: Clouds (GEE)' :
+                                            fieldImagery[f.id] === 'GEE_Precip' ? 'Weather: Precipitation (GEE)' :
+                                            fieldImagery[f.id] === 'GEE_Temp' ? 'Weather: Temperature (GEE)' :
+                                            fieldImagery[f.id] === 'GEE_Wind' ? 'Weather: Wind Speed (GEE)' :
+                                            fieldImagery[f.id] === 'GEE_Humidity' ? 'Weather: Relative Humidity (GEE)' :
+                                            fieldImagery[f.id] === 'GEE_Pressure' ? 'Weather: Sea Level Pressure (GEE)' :
+                                            fieldImagery[f.id] === 'CurrentSatellite' ? 'Current Satellite (High-Res)' :
+                                            fieldImagery[f.id] === 'Elevation' ? 'Elevation (Topography)' :
+                                            fieldImagery[f.id] === 'Slope' ? 'Slope Percentage' :
+                                            fieldImagery[f.id] === 'Aspect' ? 'Aspect Angle' :
+                                            fieldImagery[f.id] === 'Contours' ? 'Elevation Contours (2m)' : 'Sentinel-2 (10m Index)'}
                                         </div>
                                         {geeStatus[f.id] && geeStatus[f.id].status === 'failed' && (
                                           <div style={{ marginTop: '4px', color: '#c62828', fontWeight: 600, fontSize: '0.65rem', lineHeight: '1.2' }}>

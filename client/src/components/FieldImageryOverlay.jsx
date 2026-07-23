@@ -139,6 +139,21 @@ function getColor(val, indexType) {
     if (val < 0.9) return '#fdae61'; // Light orange ridge
     return '#a50026'; // Red peak
   }
+  if (indexType === 'Slope') {
+    if (val < 0.2) return '#006837'; // Gentle slope green
+    if (val < 0.4) return '#78c679'; // Mild yellow-green
+    if (val < 0.7) return '#fdae61'; // Moderate orange
+    return '#a50026'; // Steep red
+  }
+  if (indexType === 'Aspect') {
+    if (val < 0.25) return '#d73027'; // North - Red
+    if (val < 0.5) return '#fee08b'; // East - Yellow
+    if (val < 0.75) return '#66bd63'; // South - Green
+    return '#313695'; // West - Blue
+  }
+  if (indexType === 'Contours') {
+    return val > 0.5 ? '#ef4444' : 'transparent';
+  }
   if (indexType === 'GEE_Temp') {
     if (val < 0.2) return '#0000ff'; // Dark Blue (cold)
     if (val < 0.4) return '#00ffff'; // Cyan
@@ -422,6 +437,20 @@ export default function FieldImageryOverlay({ polygon, indexType, dateOffset = 0
           baseElev = baseElev * (1.0 - 0.75 * creekInfluence);
           // Add noise
           val = baseElev + noise * 0.5;
+        } else if (indexType === 'Slope') {
+          const distanceToCenter = Math.sqrt(dx * dx + dy * dy);
+          val = Math.max(0.01, Math.min(0.99, distanceToCenter * 0.8 + noise * 0.2));
+        } else if (indexType === 'Aspect') {
+          const angle = Math.atan2(dy, dx);
+          val = (angle + Math.PI) / (2 * Math.PI);
+        } else if (indexType === 'Contours') {
+          const distanceToCenter = Math.sqrt(dx * dx + dy * dy);
+          let baseElev = 1.0 - distanceToCenter;
+          baseElev = baseElev * 0.7 + (dx + dy + 1.0) * 0.15;
+          baseElev = baseElev * (1.0 - 0.75 * creekInfluence);
+          const elevMeters = baseElev * 100;
+          const mod = elevMeters % 10;
+          val = mod < 0.8 ? 1.0 : 0.0;
         } else if (indexType === 'GEE_Temp') {
           // Horizontal gradient + weather noise
           val = 0.5 + 0.1 * dy + noise * 0.5;

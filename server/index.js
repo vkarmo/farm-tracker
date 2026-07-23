@@ -1601,8 +1601,8 @@ app.post('/api/gee/tile-url', async (req, res) => {
     // Use the lowest meter from the minimum native resolution of the dataset and the requested scale to get high resolution imagery
     const requestedScale = parseFloat(geeScale) || parseFloat(props.geeScale) || 3.0;
     let scaleValue = Math.min(requestedScale, 10); // Sentinel-2 high-res bands native minimum is 10m
-    if (indexType === 'Elevation') {
-      scaleValue = Math.min(requestedScale, 1); // 1m for USGS 3DEP native minimum
+    if (['Elevation', 'Slope', 'Aspect', 'Contours'].includes(indexType)) {
+      scaleValue = Math.min(requestedScale, 10); // 10m for Copernicus DEM GLO 30 / Slope / Aspect / Contours
     } else if (['GEE_Temp', 'GEE_Precip', 'GEE_Wind', 'GEE_Humidity', 'GEE_Clouds', 'GEE_Pressure'].includes(indexType)) {
       scaleValue = Math.max(requestedScale, 100); // Enforce minimum scale of 100m for weather GEE requests to prevent memory errors
     }
@@ -1642,7 +1642,7 @@ app.post('/api/gee/tile-url', async (req, res) => {
     let baseImage = null;
     const isGeeWeather = ['GEE_Temp', 'GEE_Precip', 'GEE_Wind', 'GEE_Humidity', 'GEE_Clouds', 'GEE_Pressure'].includes(indexType);
 
-    if (indexType !== 'Elevation' && !isGeeWeather) {
+    if (!['Elevation', 'Slope', 'Aspect', 'Contours'].includes(indexType) && !isGeeWeather) {
       // Determine the specific high-resolution bands required for the requested index type
       let selectedBands = ['B2', 'B3', 'B4']; // Default/TrueColor (RGB)
       if (indexType === 'NDVI') {
@@ -1661,18 +1661,33 @@ app.post('/api/gee/tile-url', async (req, res) => {
       let collection = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
         .filterBounds(geometry)
         .filterDate(startDateStr, endDateStr)
+        .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 20))
         .select(selectedBands);
         
-      // Sort by lowest cloud cover
-      let sorted = collection.sort('CLOUDY_PIXEL_PERCENTAGE');
+      // Sort by most recent
+      let sorted = collection.sort('system:time_start', false);
       
-      // Get the size of collection asynchronously
-      const count = await new Promise((resolve, reject) => {
+      let count = await new Promise((resolve, reject) => {
         sorted.size().evaluate((c, err) => {
           if (err) reject(err);
           else resolve(c);
         });
       });
+      
+      if (count === 0) {
+        // Fallback: relax cloud filter and sort by lowest cloud cover
+        let fallbackCol = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
+          .filterBounds(geometry)
+          .filterDate(startDateStr, endDateStr)
+          .select(selectedBands);
+        sorted = fallbackCol.sort('CLOUDY_PIXEL_PERCENTAGE');
+        count = await new Promise((resolve, reject) => {
+          sorted.size().evaluate((c, err) => {
+            if (err) reject(err);
+            else resolve(c);
+          });
+        });
+      }
       
       if (count === 0) {
         return res.status(404).json({ error: 'No Sentinel-2 imagery found for the specified bounds and date range.' });
@@ -1760,13 +1775,10 @@ app.post('/api/gee/tile-url', async (req, res) => {
           palette: ['#311b92', '#512da8', '#d1c4e9', '#fff9c4', '#fbc02d', '#f57f17']
         };
       }
-    } else if (indexType === 'Elevation') {
-      // Resample individual datasets to bicubic before mosaicking to preserve projection details
-      const usgs3dep1m = ee.ImageCollection('USGS/3DEP/1m').map(img => img.resample('bicubic')).mosaic();
-      const usgs3dep10m = ee.Image('USGS/3DEP/10m').resample('bicubic');
-      const srtm = ee.Image('USGS/SRTMGL1_003').select('elevation').resample('bicubic');
-      // unmask() loses default projection info, so we assign srtm's projection as the default for the composite
-      const elevation = usgs3dep1m.unmask(usgs3dep10m).unmask(srtm).select(['elevation']).setDefaultProjection(srtm.projection());
+    } else if (['Elevation', 'Slope', 'Aspect', 'Contours'].includes(indexType)) {
+      const copernicusDemCollection = ee.ImageCollection('COPERNICUS/DEM/GLO30').select('DEM');
+      const dem = copernicusDemCollection.mosaic().rename('elevation');
+      const elevation = dem.setDefaultProjection(copernicusDemCollection.first().projection());
       
       const stats = elevation.reduceRegion({
         reducer: ee.Reducer.minMax(),
@@ -1795,12 +1807,41 @@ app.post('/api/gee/tile-url', async (req, res) => {
         visMax += 1;
       }
       
-      processedImage = elevation.resample('bicubic').reproject({ crs: 'EPSG:3857', scale: scaleValue }).clip(geometry);
-      visParams = {
-        min: visMin,
-        max: visMax,
-        palette: ['#08306b', '#006837', '#31a354', '#78c679', '#c2e699', '#fee08b', '#fdae61', '#f46d43', '#d73027', '#a50026']
-      };
+      if (indexType === 'Elevation') {
+        processedImage = elevation.resample('bicubic').reproject({ crs: 'EPSG:3857', scale: scaleValue }).clip(geometry);
+        visParams = {
+          min: visMin,
+          max: visMax,
+          palette: ['#08306b', '#006837', '#31a354', '#78c679', '#c2e699', '#fee08b', '#fdae61', '#f46d43', '#d73027', '#a50026']
+        };
+      } else if (indexType === 'Slope') {
+        const slopeDegrees = ee.Terrain.slope(elevation);
+        const slopePercentage = slopeDegrees.multiply(Math.PI / 180).tan().multiply(100).rename('slope');
+        processedImage = slopePercentage.resample('bicubic').reproject({ crs: 'EPSG:3857', scale: scaleValue }).clip(geometry);
+        visParams = {
+          min: 0,
+          max: 30,
+          palette: ['#006837', '#1a9850', '#66bd63', '#a6d96a', '#d9ef8b', '#fee08b', '#fdae61', '#f46d43', '#d73027', '#a50026']
+        };
+      } else if (indexType === 'Aspect') {
+        const aspect = ee.Terrain.aspect(elevation).rename('aspect');
+        processedImage = aspect.resample('bicubic').reproject({ crs: 'EPSG:3857', scale: scaleValue }).clip(geometry);
+        visParams = {
+          min: 0,
+          max: 360,
+          palette: ['#d73027', '#fdae61', '#fee08b', '#d9ef8b', '#66bd63', '#1a9850', '#313695']
+        };
+      } else if (indexType === 'Contours') {
+        const rounded = elevation.divide(2.0).round();
+        const contours = ee.Algorithms.CannyEdgeDetector(rounded, 0.1).multiply(255).rename('contours');
+        const maskedContours = contours.updateMask(contours);
+        processedImage = maskedContours.reproject({ crs: 'EPSG:3857', scale: scaleValue }).clip(geometry);
+        visParams = {
+          min: 0,
+          max: 255,
+          palette: ['#ef4444']
+        };
+      }
     } else if (indexType === 'NDVI') {
       // Calculate NDVI: (B8 - B4) / (B8 + B4)
       const ndvi = baseImage.normalizedDifference(['B8', 'B4']).rename('NDVI');
@@ -1917,6 +1958,118 @@ app.post('/api/gee/tile-url', async (req, res) => {
   }
 });
 
+// Helper to route and smooth coordinate paths for a given array of scores
+function getPathForScores(data, scores, latsList, lngsList, isEastWest) {
+  const waterwayPoints = [];
+  if (isEastWest) {
+    for (const lng of lngsList) {
+      const idxs = [];
+      data.forEach((d, idx) => {
+        if (d.lng === lng) idxs.push(idx);
+      });
+      let bestIdx = -1;
+      let maxScore = -Infinity;
+      for (const idx of idxs) {
+        if (scores[idx] > maxScore) {
+          maxScore = scores[idx];
+          bestIdx = idx;
+        }
+      }
+      if (bestIdx !== -1) {
+        waterwayPoints.push([data[bestIdx].lat, data[bestIdx].lng]);
+      }
+    }
+  } else {
+    for (const lat of latsList) {
+      const idxs = [];
+      data.forEach((d, idx) => {
+        if (d.lat === lat) idxs.push(idx);
+      });
+      let bestIdx = -1;
+      let maxScore = -Infinity;
+      for (const idx of idxs) {
+        if (scores[idx] > maxScore) {
+          maxScore = scores[idx];
+          bestIdx = idx;
+        }
+      }
+      if (bestIdx !== -1) {
+        waterwayPoints.push([data[bestIdx].lat, data[bestIdx].lng]);
+      }
+    }
+  }
+
+  // Smooth path
+  const smoothedPoints = [];
+  const windowSize = 7;
+  const halfWindow = Math.floor(windowSize / 2);
+  if (waterwayPoints.length > 0) {
+    if (isEastWest) {
+      for (let i = 0; i < waterwayPoints.length; i++) {
+        let sumLat = 0;
+        let count = 0;
+        for (let w = -halfWindow; w <= halfWindow; w++) {
+          const idx = i + w;
+          if (idx >= 0 && idx < waterwayPoints.length) {
+            sumLat += waterwayPoints[idx][0];
+            count++;
+          }
+        }
+        smoothedPoints.push([Number((sumLat / count).toFixed(6)), waterwayPoints[i][1]]);
+      }
+    } else {
+      for (let i = 0; i < waterwayPoints.length; i++) {
+        let sumLng = 0;
+        let count = 0;
+        for (let w = -halfWindow; w <= halfWindow; w++) {
+          const idx = i + w;
+          if (idx >= 0 && idx < waterwayPoints.length) {
+            sumLng += waterwayPoints[idx][1];
+            count++;
+          }
+        }
+        smoothedPoints.push([waterwayPoints[i][0], Number((sumLng / count).toFixed(6))]);
+      }
+    }
+  }
+  return smoothedPoints;
+}
+
+// Haversine distance calculator
+function getDistanceMeters(lat1, lon1, lat2, lon2) {
+  const R = 6371e3;
+  const phi1 = lat1 * Math.PI / 180;
+  const phi2 = lat2 * Math.PI / 180;
+  const deltaPhi = (lat2 - lat1) * Math.PI / 180;
+  const deltaLambda = (lon2 - lon1) * Math.PI / 180;
+
+  const a = Math.sin(deltaPhi / 2) * Math.sin(deltaPhi / 2) +
+            Math.cos(phi1) * Math.cos(phi2) *
+            Math.sin(deltaLambda / 2) * Math.sin(deltaLambda / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+  return R * c;
+}
+
+// Compute path deviation from ground truth
+function calculatePathDeviation(path, groundTruth) {
+  if (!groundTruth || groundTruth.length === 0) return 0;
+  if (!path || path.length === 0) return 999999;
+
+  let totalMinDist = 0;
+  for (const gt of groundTruth) {
+    let minDist = Infinity;
+    for (const pt of path) {
+      const d = getDistanceMeters(gt.lat, gt.lng, pt[0], pt[1]);
+      if (d < minDist) {
+        minDist = d;
+      }
+    }
+    totalMinDist += minDist;
+  }
+  return totalMinDist / groundTruth.length;
+}
+
 // GEE Find Waterways Endpoint
 app.post('/api/gee/find-waterways', async (req, res) => {
   const session = driver.session();
@@ -1927,6 +2080,39 @@ app.post('/api/gee/find-waterways', async (req, res) => {
     }
     if (minLat === undefined || maxLat === undefined || minLng === undefined || maxLng === undefined) {
       return res.status(400).json({ error: 'Missing bounding box bounds' });
+    }
+
+    // Load ground truth points from Database (POIs)
+    const poiResult = await session.run(`
+      MATCH (poi:PointOfInterest)-[:BELONGS_TO]->(:Farm {id: $farmId})
+      WHERE poi.type = 'Waterway' OR toLower(poi.name) CONTAINS 'waterway' OR poi.type = 'Water Source'
+      RETURN poi
+    `, { farmId });
+
+    const groundTruth = [];
+    for (const record of poiResult.records) {
+      const poi = record.get('poi').properties;
+      if (poi.points) {
+        try {
+          const pts = typeof poi.points === 'string' ? JSON.parse(poi.points) : poi.points;
+          if (Array.isArray(pts)) {
+            pts.forEach(pt => {
+              if (Array.isArray(pt) && pt.length >= 2) {
+                groundTruth.push({ lat: Number(pt[0]), lng: Number(pt[1]) });
+              }
+            });
+          }
+        } catch (e) {}
+      }
+    }
+
+    // Add any ground truth points passed in body
+    if (Array.isArray(req.body.groundTruthPoints)) {
+      req.body.groundTruthPoints.forEach(pt => {
+        if (Array.isArray(pt) && pt.length >= 2) {
+          groundTruth.push({ lat: Number(pt[0]), lng: Number(pt[1]) });
+        }
+      });
     }
 
     const props = await getSettingsNode(session, farmId);
@@ -1954,7 +2140,7 @@ app.post('/api/gee/find-waterways', async (req, res) => {
     const merit = ee.Image('MERIT/Hydro/v1_0_1');
     const meritUpa = merit.select('upa'); // Upstream area in km2
     const meritHnd = merit.select('hnd'); // Height above nearest drainage in m
-    const srtm = ee.Image('USGS/SRTMGL1_003').select('elevation');
+    const srtm = ee.ImageCollection('COPERNICUS/DEM/GLO30').select('DEM').mosaic().rename('elevation');
 
     // 2. Active water surfaces from Sentinel-1 SAR (last 1 year)
     const s1Collection = ee.ImageCollection('COPERNICUS/S1_GRD')
@@ -2028,70 +2214,72 @@ app.post('/api/gee/find-waterways', async (req, res) => {
         };
       });
 
-      // Filter to find the points that satisfy intersection and compute scores
-      const intersectionPoints = [];
-      const allPointsWithScores = [];
-
       // Calculate min/max elevation to scale relative depth
       const elevations = data.map(d => d.elevation).filter(e => e !== null);
       const maxElev = elevations.length > 0 ? Math.max(...elevations) : 1000;
       const minElev = elevations.length > 0 ? Math.min(...elevations) : 0;
       const elevRange = maxElev - minElev || 1;
 
-      for (const d of data) {
-        // 1. DEM valley depth: lower elevation in the current bounding box gets higher score
+      // 1. Existing method scores (combined)
+      const scoresExisting = data.map(d => {
         let depthScore = 0;
         if (d.elevation !== null) {
           depthScore = ((maxElev - d.elevation) / elevRange) * 1000;
         }
-
-        // 2. DEM Flow Accumulation and Drainage channels from MERIT Hydro
         let meritScore = 0;
         if (d.upa !== null) {
-          // Upstream drainage area (upa) in km2. Prefer channels.
           meritScore += Math.min(d.upa * 1000, 500);
         }
         if (d.hnd !== null) {
-          // Height above nearest drainage (hnd) in meters. Closer to 0 is the valley floor.
           meritScore += Math.max(0, 500 - d.hnd * 100);
         }
-
-        // 3. Active water (Sentinel-1 SAR VV backscatter < -16 dB)
         let sarScore = 0;
         const hasSar = d.sar_vv !== null && d.sar_vv !== 0 && d.sar_vv < -16;
         if (hasSar) {
           sarScore = 500 + Math.max(0, -16 - d.sar_vv) * 50;
         }
-
-        // 4. Permanent water (Sentinel-2 dry-season NDWI > 0.0)
         let ndwiScore = 0;
         const hasNdwi = d.ndwi_dry !== null && d.ndwi_dry !== -1 && d.ndwi_dry > 0.0;
         if (hasNdwi) {
           ndwiScore = 500 + d.ndwi_dry * 1000;
         }
+        return depthScore + meritScore + sarScore + ndwiScore;
+      });
 
-        const score = depthScore + meritScore + sarScore + ndwiScore;
-        const intersect = hasSar && hasNdwi;
-
-        const pt = {
-          lat: d.lat,
-          lng: d.lng,
-          score,
-          intersect
-        };
-
-        allPointsWithScores.push(pt);
-        if (intersect) {
-          intersectionPoints.push(pt);
+      // 2. Sentinel-2 NDWI method scores (S2 index + relative depth)
+      const scoresS2 = data.map(d => {
+        let depthScore = 0;
+        if (d.elevation !== null) {
+          depthScore = ((maxElev - d.elevation) / elevRange) * 1000;
         }
-      }
+        let ndwiScore = 0;
+        const hasNdwi = d.ndwi_dry !== null && d.ndwi_dry !== -1 && d.ndwi_dry > 0.0;
+        if (hasNdwi) {
+          ndwiScore = 500 + d.ndwi_dry * 1000;
+        }
+        return depthScore + ndwiScore;
+      });
 
-      // Determine the general orientation of the waterway inside the bounding box
+      // 3. Copernicus DEM Terrain-only method scores (elevation depth + MERIT Hydro terrain flow metrics)
+      const scoresTerrain = data.map(d => {
+        let depthScore = 0;
+        if (d.elevation !== null) {
+          depthScore = ((maxElev - d.elevation) / elevRange) * 1000;
+        }
+        let meritScore = 0;
+        if (d.upa !== null) {
+          meritScore += Math.min(d.upa * 1000, 500);
+        }
+        if (d.hnd !== null) {
+          meritScore += Math.max(0, 500 - d.hnd * 100);
+        }
+        return depthScore + meritScore;
+      });
+
+      // Determine general orientation using scoresExisting
       let isEastWest = false;
-      // We look at the top 15% highest scoring points (which represent the valley floor / waterway corridor)
-      const sortedPoints = [...allPointsWithScores].sort((a, b) => b.score - a.score);
-      const topPoints = sortedPoints.slice(0, Math.max(5, Math.floor(allPointsWithScores.length * 0.15)));
-      
+      const sortedPoints = data.map((d, i) => ({ ...d, score: scoresExisting[i] })).sort((a, b) => b.score - a.score);
+      const topPoints = sortedPoints.slice(0, Math.max(5, Math.floor(data.length * 0.15)));
       if (topPoints.length >= 3) {
         const lats = topPoints.map(p => p.lat);
         const lngs = topPoints.map(p => p.lng);
@@ -2105,88 +2293,736 @@ app.post('/api/gee/find-waterways', async (req, res) => {
       const latsList = Array.from(new Set(data.map(d => d.lat))).sort((a, b) => b - a); // North to South
       const lngsList = Array.from(new Set(data.map(d => d.lng))).sort((a, b) => a - b); // West to East
 
-      const waterwayPoints = [];
+      // Generate paths for all three methods
+      const pathExisting = getPathForScores(data, scoresExisting, latsList, lngsList, isEastWest);
+      const pathS2 = getPathForScores(data, scoresS2, latsList, lngsList, isEastWest);
+      const pathTerrain = getPathForScores(data, scoresTerrain, latsList, lngsList, isEastWest);
 
-      if (isEastWest) {
-        // Group by longitude, pick the highest-scoring latitude
-        for (const lng of lngsList) {
-          const colPoints = allPointsWithScores.filter(p => p.lng === lng);
-          let bestPt = null;
-          let maxScore = -Infinity;
-          for (const p of colPoints) {
-            if (p.score > maxScore) {
-              maxScore = p.score;
-              bestPt = p;
-            }
-          }
-          if (bestPt) {
-            waterwayPoints.push([bestPt.lat, bestPt.lng]);
-          }
-        }
-      } else {
-        // Group by latitude, pick the highest-scoring longitude
-        for (const lat of latsList) {
-          const rowPoints = allPointsWithScores.filter(p => p.lat === lat);
-          let bestPt = null;
-          let maxScore = -Infinity;
-          for (const p of rowPoints) {
-            if (p.score > maxScore) {
-              maxScore = p.score;
-              bestPt = p;
-            }
-          }
-          if (bestPt) {
-            waterwayPoints.push([bestPt.lat, bestPt.lng]);
-          }
-        }
-      }
+      // Perform validation
+      let devExisting = 0;
+      let devS2 = 0;
+      let devTerrain = 0;
+      let winner = 'existing';
+      let winnerPoints = pathExisting;
+      let logMsg = '';
 
-      // Smooth the waterway coordinates to prevent jagged lines
-      const smoothedPoints = [];
-      const windowSize = 7;
-      const halfWindow = Math.floor(windowSize / 2);
+      if (groundTruth.length > 0) {
+        devExisting = calculatePathDeviation(pathExisting, groundTruth);
+        devS2 = calculatePathDeviation(pathS2, groundTruth);
+        devTerrain = calculatePathDeviation(pathTerrain, groundTruth);
 
-      if (waterwayPoints.length > 0) {
-        if (isEastWest) {
-          // Smooth the latitudes (index 0) along the West-East line
-          for (let i = 0; i < waterwayPoints.length; i++) {
-            let sumLat = 0;
-            let count = 0;
-            for (let w = -halfWindow; w <= halfWindow; w++) {
-              const idx = i + w;
-              if (idx >= 0 && idx < waterwayPoints.length) {
-                sumLat += waterwayPoints[idx][0];
-                count++;
-              }
-            }
-            smoothedPoints.push([Number((sumLat / count).toFixed(6)), waterwayPoints[i][1]]);
-          }
+        // Find minimum deviation
+        const minDev = Math.min(devExisting, devS2, devTerrain);
+        if (minDev === devTerrain) {
+          winner = 'terrain';
+          winnerPoints = pathTerrain;
+        } else if (minDev === devS2) {
+          winner = 'sentinel2';
+          winnerPoints = pathS2;
         } else {
-          // Smooth the longitudes (index 1) along the North-South line
-          for (let i = 0; i < waterwayPoints.length; i++) {
-            let sumLng = 0;
-            let count = 0;
-            for (let w = -halfWindow; w <= halfWindow; w++) {
-              const idx = i + w;
-              if (idx >= 0 && idx < waterwayPoints.length) {
-                sumLng += waterwayPoints[idx][1];
-                count++;
-              }
-            }
-            smoothedPoints.push([waterwayPoints[i][0], Number((sumLng / count).toFixed(6))]);
-          }
+          winner = 'existing';
+          winnerPoints = pathExisting;
         }
+
+        logMsg = `Waterway detection validated against ${groundTruth.length} ground truth reference points. Method comparison:\n` +
+                 `- Existing (Combined) Method: Mean deviation of ${devExisting.toFixed(2)} meters.\n` +
+                 `- Sentinel-2 NDWI Method: Mean deviation of ${devS2.toFixed(2)} meters.\n` +
+                 `- Copernicus DEM Terrain-only Method: Mean deviation of ${devTerrain.toFixed(2)} meters.\n` +
+                 `Selected "${winner}" as the active waterway detection method going forward because it matches ground truth closest.`;
+      } else {
+        logMsg = `No hand-marked KML or POI waterway reference points available for validation. Defaulted to "existing" method as fallback.`;
       }
+
+      // Write winning method and validation log to settings
+      const dbPromise = (async () => {
+        const session2 = driver.session();
+        try {
+          // Update GlobalSettings
+          await session2.run(`
+            MATCH (s:GlobalSettings)-[:BELONGS_TO]->(:Farm {id: $farmId})
+            SET s.activeWaterwayMethod = $winner,
+                s.waterwayValidationLog = $logMsg
+          `, { farmId, winner, logMsg });
+
+          // Create an AuditLog entry
+          const auditId = `audit_${Date.now()}_${Math.random().toString().replace('.', '')}`;
+          await session2.run(`
+            MATCH (farm:Farm {id: $farmId})
+            CREATE (l:AuditLog {
+              id: $id,
+              timestamp: $timestamp,
+              actionType: 'SYSTEM',
+              details: $details,
+              tab: 'Map'
+            })
+            CREATE (l)-[:BELONGS_TO]->(farm)
+          `, {
+            farmId,
+            id: auditId,
+            timestamp: new Date().toISOString(),
+            details: `Waterway detection validated. Winner: ${winner}. Deviation scores: Existing=${devExisting.toFixed(2)}m, S2=${devS2.toFixed(2)}m, Terrain=${devTerrain.toFixed(2)}m. ${groundTruth.length} points compared.`
+          });
+        } catch (dbErr) {
+          console.error('Error writing waterway settings to DB:', dbErr);
+        } finally {
+          await session2.close();
+        }
+      })();
 
       const validElevations = data.map(d => d.elevation).filter(e => e !== null);
       const avgElevation = validElevations.length > 0 
         ? Number((validElevations.reduce((sum, e) => sum + e, 0) / validElevations.length).toFixed(2))
         : null;
 
-      res.json({ points: smoothedPoints, mapElevation: avgElevation });
+      res.json({
+        points: winnerPoints,
+        mapElevation: avgElevation,
+        validation: {
+          winner,
+          groundTruthCount: groundTruth.length,
+          scores: {
+            existing: devExisting,
+            sentinel2: devS2,
+            terrain: devTerrain
+          },
+          log: logMsg
+        }
+      });
     });
   } catch (err) {
     console.error('find-waterways endpoint error:', err);
+    res.status(500).json({ error: err.message || err });
+  } finally {
+    await session.close();
+  }
+});
+
+});
+
+// GEE Flood Risk Analysis and Drainage Planning Endpoint
+app.post('/api/gee/flood-drainage-analysis', async (req, res) => {
+  const session = driver.session();
+  try {
+    const { farmId, email } = req.body;
+    if (email && !(await checkFarmAccess(session, email, farmId))) {
+      return res.status(403).json({ error: 'Forbidden. You do not have access to this farm.' });
+    }
+
+    const props = await getSettingsNode(session, farmId);
+    const perfectPrivateKey = (props.geePrivateKey || '').replace(/\\n/g, '\n');
+    const creds = {
+      client_email: props.geeClientEmail || '',
+      private_key: perfectPrivateKey,
+      project_id: props.geeProjectId || ''
+    };
+
+    if (!creds.client_email || !creds.private_key || !creds.project_id) {
+      return res.status(400).json({ error: 'Google Earth Engine credentials are not fully configured in settings.' });
+    }
+
+    await initializeGee(creds);
+
+    // Retrieve fields
+    const fieldsRes = await session.run(`
+      MATCH (f:Field)-[:BELONGS_TO]->(:Farm {id: $farmId})
+      RETURN f
+    `, { farmId });
+
+    const fields = fieldsRes.records.map(r => r.get('f').properties);
+    if (fields.length === 0) {
+      return res.status(400).json({ error: 'No fields found for this farm. Please create fields/crop blocks first.' });
+    }
+
+    // Load waterway POIs to find nearest waterway
+    const waterwayRes = await session.run(`
+      MATCH (poi:PointOfInterest)-[:BELONGS_TO]->(:Farm {id: $farmId})
+      WHERE poi.type = 'Waterway' OR toLower(poi.name) CONTAINS 'waterway' OR poi.type = 'Water Source'
+      RETURN poi
+    `, { farmId });
+
+    const waterways = waterwayRes.records.map(r => {
+      const p = r.get('poi').properties;
+      if (p.points) {
+        try {
+          return { id: p.id, name: p.name, points: typeof p.points === 'string' ? JSON.parse(p.points) : p.points };
+        } catch (e) {}
+      }
+      return null;
+    }).filter(Boolean);
+
+    // Load GEE layers
+    const merit = ee.Image('MERIT/Hydro/v1_0_1');
+    const meritUpa = merit.select('upa');
+    const meritHnd = merit.select('hnd');
+    const srtm = ee.ImageCollection('COPERNICUS/DEM/GLO30').select('DEM').mosaic();
+    const slope = ee.Terrain.slope(srtm);
+
+    // Build sample points in Node.js
+    const points = [];
+    const fieldsMetadata = {};
+
+    fields.forEach(field => {
+      let boundary = [];
+      try {
+        boundary = typeof field.boundary === 'string' ? JSON.parse(field.boundary) : field.boundary;
+      } catch (e) {}
+
+      if (!Array.isArray(boundary) || boundary.length === 0) return;
+
+      const cleanBoundary = boundary.filter(pt => pt && pt.length >= 2).map(pt => [Number(pt[0]), Number(pt[1])]);
+      if (cleanBoundary.length === 0) return;
+
+      let sumLat = 0, sumLng = 0;
+      cleanBoundary.forEach(pt => {
+        sumLat += pt[0];
+        sumLng += pt[1];
+      });
+      const centroidLat = sumLat / cleanBoundary.length;
+      const centroidLng = sumLng / cleanBoundary.length;
+
+      fieldsMetadata[field.id] = {
+        name: field.name,
+        centroid: [centroidLat, centroidLng],
+        boundary: cleanBoundary
+      };
+
+      // Add interior point
+      points.push({
+        lat: centroidLat,
+        lng: centroidLng,
+        fieldId: field.id,
+        role: 'interior'
+      });
+
+      // Add boundary and upslope buffer points
+      cleanBoundary.forEach((pt, i) => {
+        points.push({
+          lat: pt[0],
+          lng: pt[1],
+          fieldId: field.id,
+          role: 'boundary',
+          index: i
+        });
+
+        const offsetLat = pt[0] + (pt[0] - centroidLat) * 0.2;
+        const offsetLng = pt[1] + (pt[1] - centroidLng) * 0.2;
+        points.push({
+          lat: offsetLat,
+          lng: offsetLng,
+          fieldId: field.id,
+          role: 'upslope',
+          index: i
+        });
+      });
+    });
+
+    if (points.length === 0) {
+      return res.status(400).json({ error: 'No clean field boundary coordinates found.' });
+    }
+
+    const eeFeatures = points.map((p, idx) => {
+      return ee.Feature(ee.Geometry.Point([p.lng, p.lat]), {
+        idx,
+        fieldId: p.fieldId,
+        role: p.role,
+        lat: p.lat,
+        lng: p.lng,
+        index: p.index !== undefined ? p.index : null
+      });
+    });
+
+    const compositeImage = ee.Image.cat([
+      srtm.rename('elevation'),
+      slope.rename('slope'),
+      meritUpa.rename('upa'),
+      meritHnd.rename('hnd')
+    ]);
+
+    const featureCollection = ee.FeatureCollection(eeFeatures);
+    const sampled = compositeImage.reduceRegions({
+      collection: featureCollection,
+      reducer: ee.Reducer.first(),
+      scale: 10
+    });
+
+    sampled.evaluate(async (resultVal, err) => {
+      if (err) {
+        console.error('GEE sampled error:', err);
+        return res.status(500).json({ error: 'GEE evaluation failed: ' + (err.message || err) });
+      }
+
+      if (!resultVal || !resultVal.features) {
+        return res.status(500).json({ error: 'No features returned from GEE' });
+      }
+
+      const sampledByField = {};
+      resultVal.features.forEach(f => {
+        const props = f.properties || {};
+        const fieldId = props.fieldId;
+        if (!fieldId) return;
+
+        if (!sampledByField[fieldId]) {
+          sampledByField[fieldId] = {
+            interior: [],
+            boundary: [],
+            upslope: []
+          };
+        }
+
+        const dataPt = {
+          lat: props.lat,
+          lng: props.lng,
+          index: props.index !== undefined ? props.index : null,
+          elevation: props.elevation !== undefined ? props.elevation : null,
+          slope: props.slope !== undefined ? props.slope : 0.01,
+          upa: props.upa !== undefined ? props.upa : 0
+        };
+
+        sampledByField[fieldId][props.role].push(dataPt);
+      });
+
+      const recommendations = [];
+      const session3 = driver.session();
+
+      try {
+        await session3.run(`
+          MATCH (poi:PointOfInterest)-[:BELONGS_TO]->(:Farm {id: $farmId})
+          WHERE poi.type = 'Drainage Recommendation'
+          DETACH DELETE poi
+        `, { farmId });
+
+        for (const fieldId of Object.keys(sampledByField)) {
+          const fieldMeta = fieldsMetadata[fieldId];
+          const fieldData = sampledByField[fieldId];
+
+          let maxBoundaryPt = null;
+          let maxUpa = -Infinity;
+          fieldData.boundary.forEach(pt => {
+            if (pt.upa > maxUpa) {
+              maxUpa = pt.upa;
+              maxBoundaryPt = pt;
+            }
+          });
+
+          let maxUpslopeSlope = 0;
+          fieldData.upslope.forEach(pt => {
+            if (pt.slope > maxUpslopeSlope) maxUpslopeSlope = pt.slope;
+          });
+
+          let avgInteriorSlope = 0;
+          let interiorCount = 0;
+          fieldData.interior.forEach(pt => {
+            avgInteriorSlope += pt.slope;
+            interiorCount++;
+          });
+          avgInteriorSlope = interiorCount > 0 ? avgInteriorSlope / interiorCount : 0.01;
+
+          const hasSlopeTransition = maxUpslopeSlope > 5.7 && avgInteriorSlope < 2.3;
+          const hasConvergence = maxUpa > 0.05;
+          const isFloodProne = hasConvergence || hasSlopeTransition;
+
+          if (isFloodProne && maxBoundaryPt) {
+            const areaM2 = maxUpa * 1e6;
+            const C = 0.35;
+            const I = 1.8e-5; // m/s
+            const Q = C * I * areaM2;
+
+            const localSlopeDeg = maxBoundaryPt.slope;
+            const localSlopeRad = (localSlopeDeg * Math.PI) / 180;
+            const S = Math.max(0.01, Math.sin(localSlopeRad));
+
+            const flowDepth = Math.pow((Q * 0.03) / (2.5 * 0.7 * Math.sqrt(S)), 0.375);
+            const channelDepth = flowDepth * 1.2;
+            const bottomWidth = flowDepth * 1.5;
+
+            const widthCm = Math.max(30, Math.round(bottomWidth * 100));
+            const depthCm = Math.max(20, Math.round(channelDepth * 100));
+
+            let nearestWaterway = null;
+            let minDist = Infinity;
+            let routingDirection = 'North';
+
+            waterways.forEach(w => {
+              w.points.forEach(pt => {
+                const dist = getDistanceMeters(maxBoundaryPt.lat, maxBoundaryPt.lng, pt[0], pt[1]);
+                if (dist < minDist) {
+                  minDist = dist;
+                  nearestWaterway = pt;
+                }
+              });
+            });
+
+            if (nearestWaterway) {
+              const lat1 = (maxBoundaryPt.lat * Math.PI) / 180;
+              const lat2 = (nearestWaterway[0] * Math.PI) / 180;
+              const lon1 = (maxBoundaryPt.lng * Math.PI) / 180;
+              const lon2 = (nearestWaterway[1] * Math.PI) / 180;
+              const dLon = lon2 - lon1;
+
+              const yAngle = Math.sin(dLon) * Math.cos(lat2);
+              const xAngle = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLon);
+              let brng = (Math.atan2(yAngle, xAngle) * 180) / Math.PI;
+              brng = (brng + 360) % 360;
+
+              const directions = ['North', 'North-East', 'East', 'South-East', 'South', 'South-West', 'West', 'North-West'];
+              const index = Math.round(brng / 45) % 8;
+              routingDirection = directions[index];
+            }
+
+            const matchingUpslopePt = fieldData.upslope.find(pt => pt.index === maxBoundaryPt.index) || { lat: maxBoundaryPt.lat, lng: maxBoundaryPt.lng };
+            const flowPath = [[matchingUpslopePt.lat, matchingUpslopePt.lng], [maxBoundaryPt.lat, maxBoundaryPt.lng]];
+
+            const recId = `poi_drainage_${fieldId}_${Date.now()}`;
+            const recName = `Interception Channel - ${fieldMeta.name}`;
+            const desc = `Recommended interception channel to protect ${fieldMeta.name}. Sized for a 10-year design storm in Bomi County. Dimensions: ${widthCm}cm wide x ${depthCm}cm deep. Route water toward: ${routingDirection} (nearest waterway).`;
+
+            const metadataObj = {
+              fieldProtected: fieldMeta.name,
+              fieldId,
+              widthCm,
+              depthCm,
+              direction: routingDirection,
+              peakFlow: Q.toFixed(3),
+              upslopeArea: areaM2.toFixed(0),
+              flowPath,
+              hasSlopeTransition,
+              hasConvergence
+            };
+
+            const newPoi = {
+              id: recId,
+              name: recName,
+              type: 'Drainage Recommendation',
+              description: desc,
+              points: JSON.stringify([[maxBoundaryPt.lat, maxBoundaryPt.lng]]),
+              drawColor: '#0288d1',
+              isLine: false,
+              createdBy: 'SYSTEM',
+              createdAt: new Date().toISOString()
+            };
+
+            await session3.run(`
+              MATCH (farm:Farm {id: $farmId})
+              CREATE (poi:PointOfInterest {
+                id: $id,
+                name: $name,
+                type: $type,
+                description: $description,
+                points: $points,
+                drawColor: $drawColor,
+                isLine: $isLine,
+                createdBy: $createdBy,
+                createdAt: datetime(),
+                fieldProtected: $fieldProtected,
+                recommendedWidth: toInteger($width),
+                recommendedDepth: toInteger($depth),
+                routingDirection: $direction,
+                peakFlow: toFloat($peakFlow),
+                upslopeArea: toFloat($upslopeArea),
+                metadata: $metadata
+              })
+              CREATE (poi)-[:BELONGS_TO]->(farm)
+            `, {
+              farmId,
+              id: recId,
+              name: recName,
+              type: 'Drainage Recommendation',
+              description: desc,
+              points: newPoi.points,
+              drawColor: newPoi.drawColor,
+              isLine: newPoi.isLine,
+              createdBy: newPoi.createdBy,
+              fieldProtected: fieldMeta.name,
+              width: widthCm,
+              depth: depthCm,
+              direction: routingDirection,
+              peakFlow: Q,
+              upslopeArea: areaM2,
+              metadata: JSON.stringify(metadataObj)
+            });
+
+            recommendations.push({
+              id: recId,
+              name: recName,
+              lat: maxBoundaryPt.lat,
+              lng: maxBoundaryPt.lng,
+              fieldProtected: fieldMeta.name,
+              widthCm,
+              depthCm,
+              direction: routingDirection,
+              peakFlow: Q.toFixed(3),
+              upslopeArea: areaM2.toFixed(0)
+            });
+          }
+        }
+
+        const auditId = `audit_drainage_${Date.now()}`;
+        await session3.run(`
+          MATCH (farm:Farm {id: $farmId})
+          CREATE (l:AuditLog {
+            id: $id,
+            timestamp: $timestamp,
+            actionType: 'SYSTEM',
+            details: $details,
+            tab: 'Map'
+          })
+          CREATE (l)-[:BELONGS_TO]->(farm)
+        `, {
+          farmId,
+          id: auditId,
+          timestamp: new Date().toISOString(),
+          details: `Seasonal flood risk analysis and drainage planning completed. Generated ${recommendations.length} drainage channel recommendations.`
+        });
+
+      } catch (dbErr) {
+        console.error('Error saving drainage recommendations to DB:', dbErr);
+      } finally {
+        await session3.close();
+      }
+
+      res.json({ success: true, recommendations });
+    });
+
+  } catch (err) {
+    console.error('flood-drainage-analysis endpoint error:', err);
+    res.status(500).json({ error: err.message || err });
+  } finally {
+    await session.close();
+  }
+});
+
+// Point-in-polygon helper
+function isPointInPolygon(lng, lat, polygon) {
+  let inside = false;
+  for (let i = 0, j = polygon.length - 1; i < polygon.length; j = i++) {
+    const latI = polygon[i][0], lngI = polygon[i][1];
+    const latJ = polygon[j][0], lngJ = polygon[j][1];
+    const intersect = ((latI > lat) !== (latJ > lat))
+        && (lng < (lngJ - lngI) * (lat - latI) / (latJ - latI) + lngI);
+    if (intersect) inside = !inside;
+  }
+  return inside;
+}
+
+// GEE Detect Illegal Charcoal Burning Endpoint
+app.post('/api/gee/detect-charcoal', async (req, res) => {
+  const session = driver.session();
+  try {
+    const { farmId, email } = req.body;
+    if (email && !(await checkFarmAccess(session, email, farmId))) {
+      return res.status(403).json({ error: 'Forbidden. You do not have access to this farm.' });
+    }
+
+    // 1. Fetch NMK Property boundary polygon
+    const fieldRes = await session.run(`
+      MATCH (f:Field)
+      WHERE f.name = "NMK Property" OR f.name CONTAINS "NMK Property"
+      RETURN f LIMIT 1
+    `);
+
+    let polygon = null;
+    if (fieldRes.records.length > 0) {
+      const pStr = fieldRes.records[0].get('f').properties.polygon;
+      polygon = typeof pStr === 'string' ? JSON.parse(pStr) : pStr;
+    }
+
+    if (!polygon) {
+      // Fallback: try to find any field or fallback to a default bbox for Bomi County NMK Property
+      const fallbackRes = await session.run(`MATCH (f:Field) RETURN f`);
+      if (fallbackRes.records.length > 0) {
+        const pStr = fallbackRes.records[0].get('f').properties.polygon;
+        polygon = typeof pStr === 'string' ? JSON.parse(pStr) : pStr;
+      }
+    }
+
+    if (!polygon || !Array.isArray(polygon) || polygon.length < 3) {
+      return res.status(400).json({ error: 'NMK Property polygon could not be resolved in database.' });
+    }
+
+    const props = await getSettingsNode(session, farmId);
+    const perfectPrivateKey = (props.geePrivateKey || '').replace(/\\n/g, '\n');
+    const creds = {
+      client_email: props.geeClientEmail || '',
+      private_key: perfectPrivateKey,
+      project_id: props.geeProjectId || ''
+    };
+
+    if (!creds.client_email || !creds.private_key || !creds.project_id) {
+      return res.status(400).json({ error: 'Google Earth Engine credentials are not fully configured in settings.' });
+    }
+
+    await initializeGee(creds);
+
+    const geeCoords = polygon.map(p => [p[1], p[0]]);
+    if (geeCoords[0][0] !== geeCoords[geeCoords.length - 1][0] || geeCoords[0][1] !== geeCoords[geeCoords.length - 1][1]) {
+      geeCoords.push(geeCoords[0]);
+    }
+    const boundaryGeometry = ee.Geometry.Polygon([geeCoords]);
+
+    const baseDate = new Date('2026-06-07T12:00:00-04:00');
+    // Recent collection: last 45 days (larger window to guarantee cloud-free imagery fallback)
+    const recentStart = new Date(baseDate.getTime() - 45 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const recentEnd = baseDate.toISOString().split('T')[0];
+    
+    // Baseline collection: preceding 3 to 12 months
+    const baselineStart = new Date(baseDate.getTime() - 365 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const baselineEnd = new Date(baseDate.getTime() - 90 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+
+    const recentCollection = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
+      .filterBounds(boundaryGeometry)
+      .filterDate(recentStart, recentEnd)
+      .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 35));
+
+    const baselineCollection = ee.ImageCollection('COPERNICUS/S2_SR_HARMONIZED')
+      .filterBounds(boundaryGeometry)
+      .filterDate(baselineStart, baselineEnd)
+      .filter(ee.Filter.lt('CLOUDY_PIXEL_PERCENTAGE', 35));
+
+    const recentImg = recentCollection.median();
+    const baselineImg = baselineCollection.median();
+
+    // Calculate signals
+    const ndviRecent = recentImg.normalizedDifference(['B8', 'B4']).rename('ndvi_recent');
+    const ndviBaseline = baselineImg.normalizedDifference(['B8', 'B4']).rename('ndvi_baseline');
+    const ndviDiff = ndviBaseline.subtract(ndviRecent).rename('ndvi_diff');
+
+    const nbrRecent = recentImg.normalizedDifference(['B8', 'B12']).rename('nbr_recent');
+    const swirRecent = recentImg.select('B12').rename('swir_recent');
+
+    // Sudden Vegetation Loss: NDVI drops by at least 0.20 and is currently low (< 0.35)
+    const vegLoss = ndviDiff.gt(0.20).and(ndviRecent.lt(0.35)).rename('veg_loss');
+    // Thermal or scorched ground: NBR < 0.0 or SWIR2 (B12) value > 2200
+    const thermalScorched = nbrRecent.lt(0.0).or(swirRecent.gt(2200)).rename('thermal_scorched');
+
+    const highConf = vegLoss.and(thermalScorched).rename('high_conf');
+    const lowConf = vegLoss.add(thermalScorched).gt(0).and(highConf.not()).rename('low_conf');
+
+    // Vectorize high & low confidence masks
+    const highVectors = highConf.selfMask().reduceToVectors({
+      geometry: boundaryGeometry,
+      scale: 20,
+      maxPixels: 1e8
+    });
+
+    const lowVectors = lowConf.selfMask().reduceToVectors({
+      geometry: boundaryGeometry,
+      scale: 20,
+      maxPixels: 1e8
+    });
+
+    // Map each to its centroid and confidence property
+    const highList = highVectors.map(function(f) {
+      return ee.Feature(f.geometry().centroid(), { confidence: 'High' });
+    });
+    const lowList = lowVectors.map(function(f) {
+      return ee.Feature(f.geometry().centroid(), { confidence: 'Low' });
+    });
+
+    const combinedFC = highList.merge(lowList);
+    
+    // Evaluate combined signals
+    const rawAlerts = await new Promise((resolve, reject) => {
+      combinedFC.evaluate((result, error) => {
+        if (error) reject(error);
+        else resolve(result);
+      });
+    });
+
+    // Get containment crop blocks
+    const fieldsRes = await session.run('MATCH (f:Field) RETURN f');
+    const fieldsList = fieldsRes.records.map(rec => {
+      const f = rec.get('f').properties;
+      return {
+        id: f.id,
+        name: f.name,
+        polygon: typeof f.polygon === 'string' ? JSON.parse(f.polygon) : f.polygon
+      };
+    });
+
+    const timestamp = new Date().toISOString();
+
+    if (rawAlerts && rawAlerts.features) {
+      for (const feat of rawAlerts.features) {
+        const coords = feat.geometry.coordinates; // [lng, lat]
+        const confidence = feat.properties.confidence;
+        const lng = coords[0];
+        const lat = coords[1];
+
+        // Determine container field
+        let fieldId = null;
+        let fieldName = "Outside Fields / Wildlands";
+        for (const f of fieldsList) {
+          if (Array.isArray(f.polygon) && isPointInPolygon(lng, lat, f.polygon)) {
+            fieldId = f.id;
+            fieldName = f.name;
+            break;
+          }
+        }
+
+        // Round coordinates for deterministic ID
+        const roundedLat = Number(lat.toFixed(4));
+        const roundedLng = Number(lng.toFixed(4));
+        const alertId = `alert_${roundedLat.toString().replace('.', '_')}_${roundedLng.toString().replace('.', '_')}`;
+
+        await session.run(`
+          MATCH (farm:Farm {id: $farmId})
+          MERGE (a:CharcoalAlert {id: $id})
+          MERGE (a)-[:BELONGS_TO]->(farm)
+          ON CREATE SET a.latitude = $latitude,
+                        a.longitude = $longitude,
+                        a.detectedAt = $timestamp,
+                        a.confidence = $confidence,
+                        a.status = 'Pending Inspection',
+                        a.fieldName = $fieldName,
+                        a.fieldId = $fieldId
+          ON MATCH SET a.confidence = $confidence,
+                       a.fieldName = $fieldName,
+                       a.fieldId = $fieldId
+        `, {
+          farmId,
+          id: alertId,
+          latitude: lat,
+          longitude: lng,
+          timestamp,
+          confidence,
+          fieldName,
+          fieldId
+        });
+      }
+    }
+
+    // Return all alerts for the farm
+    const allAlertsRes = await session.run(`
+      MATCH (a:CharcoalAlert)-[:BELONGS_TO]->(:Farm {id: $farmId})
+      RETURN a
+    `, { farmId });
+    const allAlerts = allAlertsRes.records.map(rec => rec.get('a').properties);
+
+    res.json({ success: true, alerts: allAlerts });
+  } catch (err) {
+    console.error('GEE Charcoal detection error:', err);
+    res.status(500).json({ error: err.message || err });
+  } finally {
+    await session.close();
+  }
+});
+
+// Update Charcoal Alert Status Endpoint
+app.post('/api/charcoal-alerts/update-status', async (req, res) => {
+  const session = driver.session();
+  try {
+    const { id, status } = req.body;
+    if (!id || !status) {
+      return res.status(400).json({ error: 'Missing alert ID or status.' });
+    }
+    await session.run(`
+      MATCH (a:CharcoalAlert {id: $id})
+      SET a.status = $status
+      RETURN a
+    `, { id, status });
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Update status error:', err);
     res.status(500).json({ error: err.message || err });
   } finally {
     await session.close();
@@ -2269,7 +3105,7 @@ async function getGeeSatelliteStats(coords, settingsNode) {
           // 1. DEM elevation & drainage indices
           const merit = ee.Image('MERIT/Hydro/v1_0_1');
           const meritHnd = merit.select('hnd'); // Height above nearest drainage
-          const srtm = ee.Image('USGS/SRTMGL1_003').select('elevation');
+          const srtm = ee.ImageCollection('COPERNICUS/DEM/GLO30').select('DEM').mosaic().rename('elevation');
 
           // 2. Active water surfaces (Sentinel-1 SAR)
           const s1Collection = ee.ImageCollection('COPERNICUS/S1_GRD')
@@ -3128,7 +3964,8 @@ app.get('/api/all-data', async (req, res) => {
        livestockDiseases: 'MATCH (n:LivestockDisease)-[:BELONGS_TO]->(:Farm {id: $farmId}) RETURN n',
        poi: 'MATCH (n:PointOfInterest)-[:BELONGS_TO]->(:Farm {id: $farmId}) RETURN n',
        recommendations: 'MATCH (n:Recommendation)-[:BELONGS_TO]->(:Farm {id: $farmId}) RETURN n',
-       payroll: 'MATCH (n:Payroll)-[:BELONGS_TO]->(:Farm {id: $farmId}) RETURN n'
+       payroll: 'MATCH (n:Payroll)-[:BELONGS_TO]->(:Farm {id: $farmId}) RETURN n',
+       charcoalAlerts: 'MATCH (n:CharcoalAlert)-[:BELONGS_TO]->(:Farm {id: $farmId}) RETURN n'
     };
 
     const data = {};

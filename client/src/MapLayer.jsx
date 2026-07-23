@@ -10,6 +10,7 @@ import { setMapCenter, setVisibleMapLayers, saveSettings } from './store/setting
 import { addPoi } from './store/poiSlice';
 import { updateField } from './store/fieldsSlice';
 import { queueAction } from './store/syncSlice';
+import { updateCharcoalAlertStatus } from './store/charcoalSlice';
 import { kml } from '@tmcw/togeojson';
 import L from 'leaflet';
 import { CurrentLocationButton, MapFlyTo } from './components/MapSearchBox';
@@ -35,6 +36,35 @@ const brownIcon = new L.Icon({
   popupAnchor: [1, -34],
   shadowSize: [41, 41]
 });
+
+// Charcoal alert icons
+const charcoalRedIcon = new L.Icon({
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-red.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41]
+});
+
+const charcoalYellowIcon = new L.Icon({
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-yellow.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41]
+});
+
+const blueIcon = new L.Icon({
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/0.7.7/images/marker-shadow.png',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41]
+});
+
 import 'leaflet/dist/leaflet.css';
 
 const MapEventsHelper = ({ setMapInstance }) => {
@@ -701,6 +731,7 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
   const mapZoom = useSelector(state => state.settings?.mapZoom) || 13;
   const pois = useSelector(state => state.poi?.list) || [];
   const soilTests = useSelector(state => state.soilTests?.tests) || [];
+  const charcoalAlerts = useSelector(state => state.charcoal?.list) || [];
   const themeFontImagerCapitalize = useSelector(state => state.settings?.themeFontImagerCapitalize) || false;
   const formatLabel = (txt) => themeFontImagerCapitalize ? txt.toUpperCase() : txt;
   const currentUser = useSelector(state => state.auth?.currentUser);
@@ -722,6 +753,12 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
   const [showWaterways, setShowWaterways] = useState(true);
   const [adminBoundaries, setAdminBoundaries] = useState(null);
   const [showAdminBoundaries, setShowAdminBoundaries] = useState(true);
+  const [waterwayValidation, setWaterwayValidation] = useState(null);
+  const [showFloodOverlay, setShowFloodOverlay] = useState(() => localStorage.getItem('map_show_flood_overlay') === 'true');
+
+  useEffect(() => {
+    localStorage.setItem('map_show_flood_overlay', String(showFloodOverlay));
+  }, [showFloodOverlay]);
 
   const anyFieldHasCropLayout = useMemo(() => {
     return Object.values(fieldImagery).some(val => val && val.startsWith('CropLayout'));
@@ -861,6 +898,15 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
     }
   });
 
+  const [charcoalFilterMode, setCharcoalFilterMode] = useState(() => localStorage.getItem('map_charcoal_filter_mode') || 'all');
+  const [selectedCharcoalAlerts, setSelectedCharcoalAlerts] = useState(() => {
+    try {
+      return JSON.parse(localStorage.getItem('map_selected_charcoal')) || [];
+    } catch (e) {
+      return [];
+    }
+  });
+
   // Sync to localStorage
   useEffect(() => {
     localStorage.setItem('map_filter_panel_open', String(isFilterPanelOpen));
@@ -903,6 +949,14 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
   }, [nurseriesFilterMode]);
 
   useEffect(() => {
+    localStorage.setItem('map_charcoal_filter_mode', charcoalFilterMode);
+  }, [charcoalFilterMode]);
+
+  useEffect(() => {
+    localStorage.setItem('map_selected_charcoal', JSON.stringify(selectedCharcoalAlerts));
+  }, [selectedCharcoalAlerts]);
+
+  useEffect(() => {
     localStorage.setItem('map_selected_nurseries', JSON.stringify(selectedNurseries));
   }, [selectedNurseries]);
 
@@ -922,6 +976,55 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
     const southWest = bounds.getSouthWest();
     const northEast = bounds.getNorthEast();
     
+    // Extract ground truth points from active KML layers & POIs containing 'waterway'
+    const groundTruthPoints = [];
+    
+    // 1. POIs
+    pois.forEach(poi => {
+      const isWaterway = poi.type === 'Waterway' || poi.type === 'Water Source' || (poi.name && poi.name.toLowerCase().includes('waterway'));
+      if (isWaterway && poi.points) {
+        try {
+          const pts = typeof poi.points === 'string' ? JSON.parse(poi.points) : poi.points;
+          if (Array.isArray(pts)) {
+            pts.forEach(pt => {
+              if (Array.isArray(pt) && pt.length >= 2) {
+                groundTruthPoints.push([Number(pt[0]), Number(pt[1])]);
+              }
+            });
+          }
+        } catch (e) {}
+      }
+    });
+
+    // 2. KML layers
+    geoJsonLayers.forEach(layer => {
+      if (layer.features) {
+        layer.features.forEach(feature => {
+          const isWaterway = feature.properties && (
+            (feature.properties.name && feature.properties.name.toLowerCase().includes('waterway')) ||
+            (feature.properties.type && feature.properties.type.toLowerCase().includes('waterway')) ||
+            (feature.properties.description && feature.properties.description.toLowerCase().includes('waterway'))
+          );
+          if (isWaterway && feature.geometry) {
+            const coords = feature.geometry.coordinates;
+            if (feature.geometry.type === 'LineString') {
+              coords.forEach(c => {
+                groundTruthPoints.push([c[1], c[0]]); // GeoJSON [lng, lat] -> [lat, lng]
+              });
+            } else if (feature.geometry.type === 'Point') {
+              groundTruthPoints.push([coords[1], coords[0]]);
+            } else if (feature.geometry.type === 'Polygon') {
+              if (coords[0]) {
+                coords[0].forEach(c => {
+                  groundTruthPoints.push([c[1], c[0]]);
+                });
+              }
+            }
+          }
+        });
+      }
+    });
+
     setLoadingWaterway(true);
     try {
       const res = await fetch('/api/gee/find-waterways', {
@@ -933,7 +1036,8 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
           minLng: southWest.lng,
           maxLng: northEast.lng,
           farmId: localStorage.getItem('activeFarmId') || 'default_farm',
-          email: currentUser?.email
+          email: currentUser?.email,
+          groundTruthPoints
         })
       });
       
@@ -946,6 +1050,10 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
       if (!data.points || data.points.length === 0) {
         alert('No waterway detected in the current view area.');
         return;
+      }
+
+      if (data.validation) {
+        setWaterwayValidation(data.validation);
       }
       
       let country = '';
@@ -973,7 +1081,7 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
         id: poiId,
         name: `Waterway ${new Date().toLocaleDateString()}`,
         type: 'Water Source',
-        description: 'Auto-detected waterway centerline from GEE elevation minima',
+        description: `Auto-detected waterway centerline via active method (${data.validation?.winner || 'existing'})`,
         points: JSON.stringify(data.points),
         drawColor: '#4fc3f7',
         area: '',
@@ -992,7 +1100,10 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
       
       dispatch(addPoi(newPoi));
       dispatch(queueAction({ type: 'poi/addPoi', payload: newPoi, meta: { id: Date.now() } }));
-      alert(`Successfully detected waterway! Saved as Point of Interest: "${newPoi.name}"`);
+      
+      if (!data.validation || data.validation.groundTruthCount === 0) {
+        alert(`Successfully detected waterway! Saved as Point of Interest: "${newPoi.name}"`);
+      }
     } catch (err) {
       console.error(err);
       alert(`Waterway detection failed: ${err.message}`);
@@ -1060,13 +1171,14 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
     });
   }, [fields, fieldImagery, fieldImageryOffsets]);
 
-  const visibleMapLayers = useSelector(state => state.settings?.visibleMapLayers) || ['fields', 'nurseries', 'pois', 'equipment', 'soilTests'];
+  const visibleMapLayers = useSelector(state => state.settings?.visibleMapLayers) || ['fields', 'nurseries', 'pois', 'equipment', 'soilTests', 'charcoalAlerts'];
 
   // Formatting options for select dropdowns
   const fieldOptions = fields.map(f => ({ value: f.id, label: f.name || 'Unnamed Field' }));
   const poiOptions = pois.map(p => ({ value: p.id, label: `${p.name || 'Unnamed POI'} (${p.type || 'N/A'})` }));
   const equipmentOptions = equipment.map(e => ({ value: e.id, label: `${e.name || 'Unnamed Asset'} (${e.type || 'N/A'})` }));
   const nurseryOptions = nurseries.map(n => ({ value: n.id, label: n.name || 'Unnamed Nursery' }));
+  const charcoalOptions = charcoalAlerts.map(a => ({ value: a.id, label: `${a.fieldName} - ${a.confidence} Conf (${new Date(a.detectedAt).toLocaleDateString()})` }));
   const soilTestOptions = soilTests.map(t => {
     const relatedField = fields.find(f => f.id === t.fieldId);
     const dateStr = t.date || t.testResults?.[0]?.date || 'No Date';
@@ -1096,6 +1208,7 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
   });
 
   const displayedPois = pois.filter(poi => {
+    if (poi.type === 'Drainage Recommendation') return false;
     if (!visibleMapLayers.includes('pois')) return false;
     if (poisFilterMode === 'specific') {
       return selectedPois.some(opt => opt.value === poi.id);
@@ -1115,6 +1228,14 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
     if (!visibleMapLayers.includes('soilTests')) return false;
     if (soilTestsFilterMode === 'specific') {
       return selectedSoilTests.some(opt => opt.value === test.id);
+    }
+    return true;
+  });
+
+  const displayedCharcoalAlerts = charcoalAlerts.filter(alert => {
+    if (!visibleMapLayers.includes('charcoalAlerts')) return false;
+    if (charcoalFilterMode === 'specific') {
+      return selectedCharcoalAlerts.some(opt => opt.value === alert.id);
     }
     return true;
   });
@@ -1284,6 +1405,25 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
   const activeWeatherDataState = fieldWeather[activeWeatherKey];
   const activeWeatherData = activeWeatherDataState?.data;
 
+  const handleUpdateCharcoalStatusOnMap = async (id, status) => {
+    try {
+      const response = await fetch('/api/charcoal-alerts/update-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, status })
+      });
+      if (response.ok) {
+        dispatch(updateCharcoalAlertStatus({ id, status }));
+      } else {
+        const resData = await response.json();
+        alert(resData.error || 'Failed to update alert status.');
+      }
+    } catch (err) {
+      console.error(err);
+      alert('Network error while updating alert status.');
+    }
+  };
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Static Toolbar matching other maps */}
@@ -1404,7 +1544,12 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
                   <option value="mixed" disabled>{formatLabel("-- Mixed Overlays --")}</option>
                 )}
                 <option value="none">{formatLabel("None (Standard)")}</option>
-                <option value="Elevation">{formatLabel("Elevation (Topography)")}</option>
+                <optgroup label={formatLabel("Copernicus Terrain Models (GEE)")}>
+                  <option value="Elevation">{formatLabel("Elevation (Topography)")}</option>
+                  <option value="Slope">{formatLabel("Slope Percentage")}</option>
+                  <option value="Aspect">{formatLabel("Aspect Angle")}</option>
+                  <option value="Contours">{formatLabel("Elevation Contours (2m)")}</option>
+                </optgroup>
                 <option value="CropLayout">{formatLabel("Crop Layout Overlay")}</option>
                 <optgroup label={formatLabel("Satellite Indices")}>
                   <option value="CurrentSatellite">{formatLabel("Current Satellite View")}</option>
@@ -1589,6 +1734,17 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
               'Select nurseries...'
             )}
 
+            {renderLayerFilterItem(
+              'charcoalAlerts',
+              'Charcoal Alerts',
+              charcoalFilterMode,
+              setCharcoalFilterMode,
+              selectedCharcoalAlerts,
+              setSelectedCharcoalAlerts,
+              charcoalOptions,
+              'Select status...'
+            )}
+
             {/* LISGIS and Admin Boundaries Box */}
             <div style={{ background: '#e2e8f0', borderTop: '1px solid #cbd5e1', borderBottom: '1px solid #cbd5e1', padding: '12px 16px', margin: '8px -16px 0 -16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {/* LISGIS Waterways Layer (simple toggle) */}
@@ -1614,6 +1770,19 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
                     style={{ width: '15px', height: '15px', margin: 0 }}
                   />
                   Admin Boundaries
+                </label>
+              </div>
+
+              {/* Flood Risk Overlay (simple toggle) */}
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-start' }}>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '0.8rem', fontWeight: 600, cursor: 'pointer', margin: 0 }}>
+                  <input 
+                    type="checkbox" 
+                    checked={showFloodOverlay}
+                    onChange={(e) => setShowFloodOverlay(e.target.checked)}
+                    style={{ width: '15px', height: '15px', margin: 0 }}
+                  />
+                  🌧️ Flood Risk & Drainage
                 </label>
               </div>
             </div>
@@ -1785,6 +1954,40 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
           const showCropLayoutForField = (fieldImagery[field.id] && fieldImagery[field.id].startsWith('CropLayout_')) || (fieldImagery[field.id] === 'CropLayout' && hasAiRec);
           const makeTransparent = (showImagery && isLoaded) || showCropLayoutForField;
 
+          let floodOptions = {};
+          if (showFloodOverlay) {
+            const drainageRec = pois.find(p => p.type === 'Drainage Recommendation' && p.fieldProtected === field.name);
+            if (drainageRec) {
+              let upa = 0;
+              try {
+                if (drainageRec.metadata) {
+                  const meta = typeof drainageRec.metadata === 'string' ? JSON.parse(drainageRec.metadata) : drainageRec.metadata;
+                  upa = parseFloat(meta.upslopeArea) / 1e6;
+                } else if (drainageRec.upslopeArea) {
+                  upa = parseFloat(drainageRec.upslopeArea) / 1e6;
+                }
+              } catch(e) {}
+
+              let fillColor = '#eab308';
+              let fillOpacity = 0.3;
+              if (upa > 0.20) {
+                fillColor = '#dc2626';
+                fillOpacity = 0.45;
+              } else if (upa > 0.05) {
+                fillColor = '#ea580c';
+                fillOpacity = 0.38;
+              }
+
+              floodOptions = {
+                fill: true,
+                fillColor: fillColor,
+                fillOpacity: fillOpacity,
+                color: fillColor,
+                weight: 2.5
+              };
+            }
+          }
+
           return (
             <React.Fragment key={field.id}>
               <Polygon 
@@ -1795,7 +1998,8 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
                   weight: 1.5,
                   opacity: 0.6,
                   fill: true,
-                  fillOpacity: makeTransparent ? 0.0 : 0.2
+                  fillOpacity: makeTransparent ? 0.0 : 0.2,
+                  ...floodOptions
                 }} 
                 positions={positions}
               >
@@ -1823,7 +2027,12 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
                         style={{ padding: '4px', borderRadius: '4px', width: '100%', background: 'white' }}
                       >
                         <option value="none">{formatLabel("None (Standard)")}</option>
-                        <option value="Elevation">{formatLabel("Elevation (Topography)")}</option>
+                        <optgroup label={formatLabel("Copernicus Terrain Models (GEE)")}>
+                          <option value="Elevation">{formatLabel("Elevation (Topography)")}</option>
+                          <option value="Slope">{formatLabel("Slope Percentage")}</option>
+                          <option value="Aspect">{formatLabel("Aspect Angle")}</option>
+                          <option value="Contours">{formatLabel("Elevation Contours (2m)")}</option>
+                        </optgroup>
                         {linkedAiRecs.map(rec => (
                           <option key={rec.id} value={`CropLayout_${rec.id}`}>
                             {formatLabel(`Layout: ${rec.name}`)}
@@ -1903,9 +2112,12 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
                         ) : (
                           <>
                             <div style={{ fontWeight: 700, marginBottom: '2px' }}>
-                              {fieldImagery[field.id] === 'CurrentSatellite' ? 'Current Satellite (High-Res)' :
-                               fieldImagery[field.id] === 'Elevation' ? 'Elevation (Topography)' : 'Sentinel-2 (10m Index)'}
-                            </div>
+                               {fieldImagery[field.id] === 'CurrentSatellite' ? 'Current Satellite (High-Res)' :
+                                fieldImagery[field.id] === 'Elevation' ? 'Elevation (Topography)' :
+                                 fieldImagery[field.id] === 'Slope' ? 'Slope Percentage' :
+                                  fieldImagery[field.id] === 'Aspect' ? 'Aspect Angle' :
+                                   fieldImagery[field.id] === 'Contours' ? 'Elevation Contours (2m)' : 'Sentinel-2 (10m Index)'}
+                             </div>
                             {geeStatus[field.id] && geeStatus[field.id].status === 'failed' && (
                               <div style={{ marginTop: '4px', color: '#c62828', fontWeight: 600, fontSize: '0.65rem', lineHeight: '1.2' }}>
                                 {`⚠ GEE Failed: ${geeStatus[field.id].error}. Showing simulation.`}
@@ -2146,17 +2358,81 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
               </Polygon>
             );
           } else if (mappedPts.length === 1) {
+            const isDrainage = poi.type === 'Drainage Recommendation';
             return (
-              <Marker key={poi.id} position={mappedPts[0]}>
+              <Marker key={poi.id} position={mappedPts[0]} icon={isDrainage ? blueIcon : undefined}>
                 <Popup>
-                  <strong>POI: {poi.name}</strong><br/>
-                  {poi.type}
+                  <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.85rem' }}>
+                    <strong style={{ color: isDrainage ? '#0288d1' : 'inherit' }}>{poi.name}</strong><br/>
+                    <span style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', fontWeight: 700 }}>{poi.type}</span>
+                    <div style={{ marginTop: '6px', fontSize: '0.8rem', lineHeight: '1.4' }}>{poi.description}</div>
+                  </div>
                 </Popup>
               </Marker>
             );
           }
           return null;
         })}
+
+        {/* Render Flood Risk & Drainage overlay flow paths and recommendation markers */}
+        {showFloodOverlay && pois.filter(poi => poi.type === 'Drainage Recommendation').map(poi => {
+          let coords = [];
+          if (poi.points) {
+            try { coords = typeof poi.points === 'string' ? JSON.parse(poi.points) : poi.points; } catch(e) {}
+          }
+          const mappedPts = coords.map(pt => [pt[0], pt[1]]);
+          if (mappedPts.length === 0) return null;
+
+          let flowPathCoords = null;
+          try {
+            if (poi.metadata) {
+              const meta = typeof poi.metadata === 'string' ? JSON.parse(poi.metadata) : poi.metadata;
+              if (meta && Array.isArray(meta.flowPath) && meta.flowPath.length >= 2) {
+                flowPathCoords = meta.flowPath;
+              }
+            }
+          } catch(e) {}
+
+          return (
+            <React.Fragment key={`flood_group_${poi.id}`}>
+              {/* Traced flow path line */}
+              {flowPathCoords && (
+                <Polyline
+                  positions={flowPathCoords}
+                  pathOptions={{
+                    color: '#06b6d4',
+                    weight: 3.5,
+                    dashArray: '8, 8',
+                    opacity: 0.9,
+                    className: 'animated-flow-path'
+                  }}
+                />
+              )}
+
+              {/* Recommendation Marker */}
+              <Marker position={mappedPts[0]} icon={blueIcon}>
+                <Popup>
+                  <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.85rem' }}>
+                    <strong style={{ color: '#0288d1' }}>{poi.name}</strong><br/>
+                    <span style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', fontWeight: 700 }}>Drainage Recommendation</span>
+                    <div style={{ marginTop: '6px', fontSize: '0.8rem', lineHeight: '1.4' }}>{poi.description}</div>
+                  </div>
+                </Popup>
+              </Marker>
+            </React.Fragment>
+          );
+        })}
+
+        <style dangerouslySetInnerHTML={{__html: `
+          @keyframes flowDash {
+            to {
+              stroke-dashoffset: -20;
+            }
+          }
+          .animated-flow-path {
+            animation: flowDash 1.2s linear infinite;
+          }
+        `}} />
 
         {/* Render Soil Tests */}
         {displayedSoilTests.flatMap(test => 
@@ -2169,9 +2445,195 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
             </Marker>
           ))
         )}
+        {/* Render Charcoal Alerts */}
+        {displayedCharcoalAlerts.map(alert => {
+          const lat = parseFloat(alert.latitude);
+          const lng = parseFloat(alert.longitude);
+          if (isNaN(lat) || isNaN(lng)) return null;
+
+          const icon = alert.confidence === 'High' ? charcoalRedIcon : charcoalYellowIcon;
+
+          return (
+            <Marker key={alert.id} position={[lat, lng]} icon={icon}>
+              <Popup>
+                <div style={{ minWidth: '180px', fontFamily: 'Inter, sans-serif', fontSize: '0.85rem' }}>
+                  <div style={{ fontWeight: '700', color: alert.confidence === 'High' ? '#dc2626' : '#d97706', borderBottom: '1px solid #eee', paddingBottom: '4px', marginBottom: '6px' }}>
+                    Charcoal Alert ({alert.confidence} Conf)
+                  </div>
+                  <div><strong>Field:</strong> {alert.fieldName}</div>
+                  <div><strong>Date:</strong> {new Date(alert.detectedAt).toLocaleDateString()}</div>
+                  <div style={{ marginTop: '4px' }}><strong>Status:</strong> <span style={{ fontWeight: '600' }}>{alert.status}</span></div>
+                  
+                  <div style={{ display: 'flex', gap: '4px', marginTop: '8px' }}>
+                    <button
+                      onClick={() => handleUpdateCharcoalStatusOnMap(alert.id, 'Confirmed')}
+                      disabled={alert.status === 'Confirmed'}
+                      style={{ fontSize: '0.7rem', padding: '2px 6px', background: '#fee2e2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '4px', cursor: 'pointer' }}
+                    >
+                      Confirm
+                    </button>
+                    <button
+                      onClick={() => handleUpdateCharcoalStatusOnMap(alert.id, 'False Alarm')}
+                      disabled={alert.status === 'False Alarm'}
+                      style={{ fontSize: '0.7rem', padding: '2px 6px', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '4px', cursor: 'pointer' }}
+                    >
+                      False
+                    </button>
+                    <button
+                      onClick={() => handleUpdateCharcoalStatusOnMap(alert.id, 'Resolved')}
+                      disabled={alert.status === 'Resolved'}
+                      style={{ fontSize: '0.7rem', padding: '2px 6px', background: '#dcfce7', color: '#16a34a', border: '1px solid #bbf7d0', borderRadius: '4px', cursor: 'pointer' }}
+                    >
+                      Resolve
+                    </button>
+                  </div>
+                </div>
+              </Popup>
+            </Marker>
+          );
+        })}
+
         <MapFlyTo center={flyTarget || mapCenter} />
       </MapContainer>
     </div>
+
+    {/* Waterway Validation Report Modal */}
+    {waterwayValidation && (
+      <div style={{
+        position: 'fixed',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundColor: 'rgba(15, 23, 42, 0.45)',
+        backdropFilter: 'blur(8px)',
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        zIndex: 9999,
+        fontFamily: 'Inter, sans-serif',
+        animation: 'fadeIn 0.25s ease-out'
+      }}>
+        <div style={{
+          backgroundColor: '#ffffff',
+          borderRadius: '16px',
+          padding: '24px',
+          maxWidth: '550px',
+          width: '90%',
+          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+          border: '1px solid rgba(226, 232, 240, 0.8)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '16px'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e2e8f0', paddingBottom: '12px' }}>
+            <h3 style={{ margin: 0, fontSize: '1.2rem', color: '#0f172a', fontWeight: '700', display: 'flex', alignItems: 'center', gap: '8px' }}>
+              🌊 Waterway Path Validation Report
+            </h3>
+            <button 
+              onClick={() => setWaterwayValidation(null)}
+              style={{
+                background: 'none',
+                border: 'none',
+                fontSize: '1.25rem',
+                color: '#64748b',
+                cursor: 'pointer',
+                padding: '4px',
+                display: 'flex',
+                alignItems: 'center'
+              }}
+            >
+              &times;
+            </button>
+          </div>
+
+          <div>
+            <div style={{ marginBottom: '14px', padding: '12px', borderRadius: '8px', background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#166534', fontSize: '0.85rem' }}>
+              <strong>Active Method Elected:</strong> <span style={{ textTransform: 'uppercase', fontWeight: 700 }}>{waterwayValidation.winner}</span>
+              <div style={{ fontSize: '0.75rem', marginTop: '4px', opacity: 0.9 }}>
+                This method has the lowest mean distance deviation compared to the KML/POI ground truth reference points.
+              </div>
+            </div>
+
+            <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#475569', marginBottom: '6px' }}>Method Parallel Comparison Matrix:</div>
+            <div style={{ overflowX: 'auto', border: '1px solid #e2e8f0', borderRadius: '8px' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8rem', textAlign: 'left' }}>
+                <thead>
+                  <tr style={{ background: '#f8fafc', borderBottom: '1px solid #e2e8f0' }}>
+                    <th style={{ padding: '8px 12px', fontWeight: 600, color: '#334155' }}>Method</th>
+                    <th style={{ padding: '8px 12px', fontWeight: 600, color: '#334155' }}>Avg Deviation (meters)</th>
+                    <th style={{ padding: '8px 12px', fontWeight: 600, color: '#334155' }}>Status</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr style={{ borderBottom: '1px solid #e2e8f0', background: waterwayValidation.winner === 'existing' ? '#f0fdf4' : 'transparent' }}>
+                    <td style={{ padding: '8px 12px', fontWeight: 500 }}>Existing (Combined)</td>
+                    <td style={{ padding: '8px 12px' }}>{waterwayValidation.scores.existing ? `${waterwayValidation.scores.existing.toFixed(2)}m` : '0m'}</td>
+                    <td style={{ padding: '8px 12px', color: waterwayValidation.winner === 'existing' ? '#15803d' : '#64748b', fontWeight: waterwayValidation.winner === 'existing' ? 700 : 400 }}>
+                      {waterwayValidation.winner === 'existing' ? '★ Selected' : 'Inactive'}
+                    </td>
+                  </tr>
+                  <tr style={{ borderBottom: '1px solid #e2e8f0', background: waterwayValidation.winner === 'sentinel2' ? '#f0fdf4' : 'transparent' }}>
+                    <td style={{ padding: '8px 12px', fontWeight: 500 }}>Sentinel-2 Water Index</td>
+                    <td style={{ padding: '8px 12px' }}>{waterwayValidation.scores.sentinel2 ? `${waterwayValidation.scores.sentinel2.toFixed(2)}m` : '0m'}</td>
+                    <td style={{ padding: '8px 12px', color: waterwayValidation.winner === 'sentinel2' ? '#15803d' : '#64748b', fontWeight: waterwayValidation.winner === 'sentinel2' ? 700 : 400 }}>
+                      {waterwayValidation.winner === 'sentinel2' ? '★ Selected' : 'Inactive'}
+                    </td>
+                  </tr>
+                  <tr style={{ background: waterwayValidation.winner === 'terrain' ? '#f0fdf4' : 'transparent' }}>
+                    <td style={{ padding: '8px 12px', fontWeight: 500 }}>Copernicus Terrain Flow</td>
+                    <td style={{ padding: '8px 12px' }}>{waterwayValidation.scores.terrain ? `${waterwayValidation.scores.terrain.toFixed(2)}m` : '0m'}</td>
+                    <td style={{ padding: '8px 12px', color: waterwayValidation.winner === 'terrain' ? '#15803d' : '#64748b', fontWeight: waterwayValidation.winner === 'terrain' ? 700 : 400 }}>
+                      {waterwayValidation.winner === 'terrain' ? '★ Selected' : 'Inactive'}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+            <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#475569' }}>Audit Reasoning Log:</div>
+            <textarea 
+              readOnly
+              value={waterwayValidation.log}
+              style={{
+                width: '100%',
+                height: '110px',
+                borderRadius: '8px',
+                border: '1px solid #cbd5e1',
+                background: '#f8fafc',
+                padding: '10px',
+                fontSize: '0.75rem',
+                fontFamily: 'SFMono-Regular, Consolas, Liberation Mono, Menlo, monospace',
+                resize: 'none',
+                color: '#334155',
+                lineHeight: '1.4'
+              }}
+            />
+          </div>
+
+          <div style={{ display: 'flex', justifyContent: 'flex-end', borderTop: '1px solid #e2e8f0', paddingTop: '12px' }}>
+            <button
+              onClick={() => setWaterwayValidation(null)}
+              style={{
+                background: '#0f172a',
+                color: '#ffffff',
+                border: 'none',
+                padding: '8px 18px',
+                borderRadius: '8px',
+                fontSize: '0.8rem',
+                fontWeight: '600',
+                cursor: 'pointer',
+                boxShadow: '0 4px 6px -1px rgba(0,0,0,0.1)'
+              }}
+            >
+              Close Report
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
     </div>
   );
 };

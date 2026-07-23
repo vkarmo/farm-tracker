@@ -113,8 +113,8 @@ export default function PayrollTab() {
   };
 
   // View state: 'list' or 'form'
-  const [viewMode, setViewMode] = useState('list');
-  const [editingId, setEditingId] = useState(null);
+  const [viewMode, setViewMode] = useState(() => localStorage.getItem('active_payroll_viewMode') || 'list');
+  const [editingId, setEditingId] = useState(() => localStorage.getItem('active_payroll_editingId') || null);
   const [showReportModal, setShowReportModal] = useState(false);
   const [generatedFile, setGeneratedFile] = useState(null);
   const [showCancelConfirm, setShowCancelConfirm] = useState(false);
@@ -134,9 +134,16 @@ export default function PayrollTab() {
     return d.toISOString().split('T')[0];
   };
 
-  const [fromDate, setFromDate] = useState(getPastDateStr(13));
-  const [toDate, setToDate] = useState(getPastDateStr(0));
-  const [pulledEmployees, setPulledEmployees] = useState([]);
+  const [fromDate, setFromDate] = useState(() => localStorage.getItem('active_payroll_fromDate') || getPastDateStr(13));
+  const [toDate, setToDate] = useState(() => localStorage.getItem('active_payroll_toDate') || getPastDateStr(0));
+  const [pulledEmployees, setPulledEmployees] = useState(() => {
+    try {
+      const val = localStorage.getItem('active_payroll_pulledEmployees');
+      return val ? JSON.parse(val) : [];
+    } catch (e) {
+      return [];
+    }
+  });
 
   // Exchange rate fallback mechanism identical to BudgetTab, rounded to integer
   const historicalRate = useMemo(() => {
@@ -164,22 +171,87 @@ export default function PayrollTab() {
   const activeRate = Math.round(liveRate ? parseFloat(liveRate) : historicalRate);
   const defaultExchangeRate = Math.round(parseFloat(activeBudget.exchangeRate) || activeRate);
 
-  const [customExchangeRate, setCustomExchangeRate] = useState(defaultExchangeRate);
+  const [customExchangeRate, setCustomExchangeRate] = useState(() => {
+    const val = localStorage.getItem('active_payroll_customExchangeRate');
+    return val ? Math.round(parseFloat(val)) : defaultExchangeRate;
+  });
 
   // Sync customExchangeRate with default active budget exchange rate or activeRate when not editing
   useEffect(() => {
-    if (!editingId) {
+    if (!editingId && !localStorage.getItem('active_payroll_customExchangeRate')) {
       setCustomExchangeRate(defaultExchangeRate);
     }
   }, [defaultExchangeRate, editingId]);
 
   // Default selection filter to Supervisor, Security, and Farm Worker
-  const [selectedTitles, setSelectedTitles] = useState([
-    { value: 'Supervisor', label: 'Supervisor' },
-    { value: 'Security', label: 'Security' },
-    { value: 'Farm Worker', label: 'Farm Worker' }
-  ]);
-  const [attendance, setAttendance] = useState({});
+  const [selectedTitles, setSelectedTitles] = useState(() => {
+    try {
+      const val = localStorage.getItem('active_payroll_selectedTitles');
+      return val ? JSON.parse(val) : [
+        { value: 'Supervisor', label: 'Supervisor' },
+        { value: 'Security', label: 'Security' },
+        { value: 'Farm Worker', label: 'Farm Worker' }
+      ];
+    } catch (e) {
+      return [
+        { value: 'Supervisor', label: 'Supervisor' },
+        { value: 'Security', label: 'Security' },
+        { value: 'Farm Worker', label: 'Farm Worker' }
+      ];
+    }
+  });
+  const [attendance, setAttendance] = useState(() => {
+    try {
+      const val = localStorage.getItem('active_payroll_attendance');
+      return val ? JSON.parse(val) : {};
+    } catch (e) {
+      return {};
+    }
+  });
+
+  useEffect(() => {
+    localStorage.setItem('active_payroll_viewMode', viewMode);
+  }, [viewMode]);
+  useEffect(() => {
+    if (editingId) {
+      localStorage.setItem('active_payroll_editingId', editingId);
+    } else {
+      localStorage.removeItem('active_payroll_editingId');
+    }
+  }, [editingId]);
+  useEffect(() => {
+    localStorage.setItem('active_payroll_fromDate', fromDate);
+  }, [fromDate]);
+  useEffect(() => {
+    localStorage.setItem('active_payroll_toDate', toDate);
+  }, [toDate]);
+  useEffect(() => {
+    localStorage.setItem('active_payroll_pulledEmployees', JSON.stringify(pulledEmployees));
+  }, [pulledEmployees]);
+  useEffect(() => {
+    if (customExchangeRate) {
+      localStorage.setItem('active_payroll_customExchangeRate', customExchangeRate);
+    } else {
+      localStorage.removeItem('active_payroll_customExchangeRate');
+    }
+  }, [customExchangeRate]);
+  useEffect(() => {
+    localStorage.setItem('active_payroll_selectedTitles', JSON.stringify(selectedTitles));
+  }, [selectedTitles]);
+  useEffect(() => {
+    localStorage.setItem('active_payroll_attendance', JSON.stringify(attendance));
+  }, [attendance]);
+
+  const clearDraftWorksheet = () => {
+    localStorage.removeItem('active_payroll_viewMode');
+    localStorage.removeItem('active_payroll_editingId');
+    localStorage.removeItem('active_payroll_fromDate');
+    localStorage.removeItem('active_payroll_toDate');
+    localStorage.removeItem('active_payroll_pulledEmployees');
+    localStorage.removeItem('active_payroll_customExchangeRate');
+    localStorage.removeItem('active_payroll_selectedTitles');
+    localStorage.removeItem('active_payroll_attendance');
+  };
 
   const parseLocalDate = (dateStr) => {
     if (!dateStr) return new Date();
@@ -493,6 +565,7 @@ export default function PayrollTab() {
     setViewMode('list');
     setEditingId(null);
     setAttendance({}); // Reset clean state
+    clearDraftWorksheet();
   };
 
   // Delete Worksheet (Direct or list action)
@@ -1770,6 +1843,8 @@ export default function PayrollTab() {
                   setShowCancelConfirm(false);
                   setViewMode('list');
                   setEditingId(null);
+                  setAttendance({});
+                  clearDraftWorksheet();
                 }}
                 style={{
                   flex: 1,

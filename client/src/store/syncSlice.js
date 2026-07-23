@@ -19,6 +19,7 @@ import { setPests } from './pestsSlice';
 import { setDiseases } from './livestockDiseasesSlice';
 import { setPayrolls } from './payrollSlice';
 import { setSoilTests } from './soilTestsSlice';
+import { setCharcoalAlerts } from './charcoalSlice';
 
 export const syncSlice = createSlice({
   name: 'sync',
@@ -254,6 +255,9 @@ export const fetchInitialData = () => async (dispatch, getState) => {
       });
       console.log('[Sync] Dispatching parsed payrolls to store. Count:', parsedPayrolls.length);
       dispatch(setPayrolls(parsedPayrolls));
+    }
+    if (data.charcoalAlerts) {
+      dispatch(setCharcoalAlerts(data.charcoalAlerts));
     }
 
   } catch (err) {
