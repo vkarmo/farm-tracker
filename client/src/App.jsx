@@ -221,7 +221,6 @@ export default function App() {
     
     try {
       await dispatch(fetchInitialData());
-      await triggerAnomalyDetection(farmId);
     } catch (err) {
       console.error('Failed to load farm data:', err);
     } finally {
@@ -229,6 +228,7 @@ export default function App() {
       setTimeout(() => {
         setIsFarmLoading(false);
         setSwitchingToFarmId(null);
+        triggerAnomalyDetection(farmId);
       }, 600);
     }
   };
@@ -912,17 +912,13 @@ export default function App() {
     const handleOnline = async () => {
       setIsOnline(true);
       await dispatch(fetchInitialData());
-      await triggerAnomalyDetection(activeFarmId);
+      if (activeFarmId) {
+        await triggerAnomalyDetection(activeFarmId);
+      }
     };
     const handleOffline = () => setIsOnline(false);
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
-    
-    const initLoad = async () => {
-      await dispatch(fetchInitialData());
-      await triggerAnomalyDetection(activeFarmId);
-    };
-    initLoad();
     
     return () => {
       window.removeEventListener('online', handleOnline);

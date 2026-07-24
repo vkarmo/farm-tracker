@@ -215,7 +215,18 @@ export default function FieldTab() {
   };
 
   const columns = [
-    { key: 'name', header: 'Field Name' },
+    { 
+      key: 'name', 
+      header: 'Field Name',
+      render: (row) => {
+        const isOverall = row.isOverallMap === true || row.isOverallMap === 'true';
+        return (
+          <span style={isOverall ? { fontWeight: 'bold', color: '#dc2626' } : undefined}>
+            {row.name}
+          </span>
+        );
+      }
+    },
     { key: 'year', header: 'Vintage' },
     { key: 'area', header: 'Acres' },
     { key: 'soil_type', header: 'Soil' },
@@ -319,6 +330,13 @@ export default function FieldTab() {
                   onEdit={handleEdit}
                   onDelete={handleDelete}
                   itemLabel="Field"
+                  rowStyle={(row) => {
+                    const isOverall = row.isOverallMap === true || row.isOverallMap === 'true';
+                    if (isOverall) {
+                      return { fontWeight: 'bold', color: '#dc2626' };
+                    }
+                    return {};
+                  }}
                 />
               )}
 
@@ -457,16 +475,17 @@ export default function FieldTab() {
                                 try { positions = typeof field.polygon === 'string' ? JSON.parse(field.polygon) : field.polygon; } catch (e) { }
                               }
                               if (positions.length === 0) return null;
+                              const isOverall = field.isOverallMap === true || field.isOverallMap === 'true';
                               return (
                                 <Polygon
                                   key={field.id}
                                   positions={positions}
                                   pathOptions={{
                                     color: field.drawColor || '#ff9800',
-                                    weight: 2,
+                                    weight: isOverall ? 6 : 4,
                                     opacity: 0.9,
                                     fill: true,
-                                    fillOpacity: 0.35
+                                    fillOpacity: isOverall ? 0 : 0.35
                                   }}
                                 >
                                   <Popup>
@@ -485,16 +504,17 @@ export default function FieldTab() {
                                 try { positions = typeof field.polygon === 'string' ? JSON.parse(field.polygon) : field.polygon; } catch (e) { }
                               }
                               if (positions.length === 0) return null;
+                              const isOverall = field.isOverallMap === true || field.isOverallMap === 'true';
                               return (
                                 <Polygon
                                   key={field.id}
                                   positions={positions}
                                   pathOptions={{
                                     color: '#ffffff',
-                                    weight: 1,
+                                    weight: isOverall ? 3 : 2,
                                     opacity: 0.4,
                                     fill: true,
-                                    fillOpacity: 0.05,
+                                    fillOpacity: isOverall ? 0 : 0.05,
                                     dashArray: '5,5'
                                   }}
                                 >
@@ -590,16 +610,52 @@ export default function FieldTab() {
                   </div>
 
                   <form onSubmit={handleSubmit}>
-                    <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', justifyContent: 'flex-end' }}>
+                    <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', justifyContent: 'flex-end', alignItems: 'center' }}>
+                      {formData.isOverallMap && (
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          style={{ background: '#dc2626', borderColor: '#dc2626', color: 'white', display: 'flex', alignItems: 'center', gap: '6px' }}
+                          onClick={async () => {
+                            const activePoly = polygonPositions.length > 0 ? polygonPositions : (formData.polygon ? (typeof formData.polygon === 'string' ? JSON.parse(formData.polygon) : formData.polygon) : []);
+                            if (activePoly.length === 0) {
+                              alert("Please draw or load a polygon on the map before conforming.");
+                              return;
+                            }
+                            if (window.confirm("Conform the edges of this overall property field to the detected road shapes?")) {
+                              try {
+                                const response = await fetch('/api/fields/conform', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ polygon: activePoly })
+                                });
+                                const data = await response.json();
+                                if (data.success && data.polygon) {
+                                  setPolygonPositions(data.polygon);
+                                  setFormData(prev => ({ ...prev, polygon: data.polygon }));
+                                  alert("Boundary shape successfully conformed to detected roads!");
+                                } else {
+                                  alert("Failed to conform shape: " + (data.message || data.error));
+                                }
+                              } catch (err) {
+                                console.error(err);
+                                alert("An error occurred while conforming boundary shape.");
+                              }
+                            }
+                          }}
+                        >
+                          Conform Shape
+                        </button>
+                      )}
                       <button type="submit" className="btn btn-primary">
                         <CheckCircle2 size={16} style={{ marginRight: 6 }} /> {editingId ? 'Update Field' : 'Save Field Data'}
                       </button>
                     </div>
                     <div className="form-grid">
-                      <div className="form-group form-grid-full" style={{ display: 'flex', gap: '15px', alignItems: 'flex-end', marginBottom: '15px' }}>
-                        <div style={{ flex: 1 }}>
+                      <div className="form-group form-grid-full" style={{ display: 'flex', gap: '15px', alignItems: 'flex-end', marginBottom: '15px', flexWrap: 'wrap' }}>
+                        <div style={{ flex: '1 1 200px', minWidth: '200px' }}>
                           <label>Field Name / Identifier</label>
-                          <input type="text" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} placeholder="e.g. North Pasture" />
+                          <input type="text" value={formData.name} onChange={e => setFormData({ ...formData, name: e.target.value })} placeholder="e.g. North Pasture" style={{ width: '100%' }} />
                         </div>
                         <button type="button" onClick={() => {
                           if (!editingId) {
@@ -607,9 +663,32 @@ export default function FieldTab() {
                           } else {
                             setShowRecommendations(true);
                           }
-                        }} className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px 24px', height: '44px', fontSize: '1rem', fontWeight: 600 }}>
+                        }} className="btn btn-secondary" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', padding: '12px 24px', height: '44px', fontSize: '1rem', fontWeight: 600, flex: '1 1 auto' }}>
                           <Lightbulb size={20} /> Recommendations
                         </button>
+                      </div>
+
+                      <div className="form-group form-grid-full" style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', marginBottom: '15px' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <input
+                            type="checkbox"
+                            id="isOverallMap"
+                            checked={formData.isOverallMap === true}
+                            onChange={e => setFormData({ ...formData, isOverallMap: e.target.checked })}
+                            style={{ width: '18px', height: '18px', margin: 0, cursor: 'pointer' }}
+                          />
+                          <label htmlFor="isOverallMap" style={{ margin: 0, fontWeight: 500, cursor: 'pointer' }}>Is Overall Property Boundary / Map</label>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                          <input
+                            type="checkbox"
+                            id="includeInStats"
+                            checked={formData.includeInStats !== false}
+                            onChange={e => setFormData({ ...formData, includeInStats: e.target.checked })}
+                            style={{ width: '18px', height: '18px', margin: 0, cursor: 'pointer' }}
+                          />
+                          <label htmlFor="includeInStats" style={{ margin: 0, fontWeight: 500, cursor: 'pointer' }}>Include in Dashboard Statistics</label>
+                        </div>
                       </div>
                       <div className="form-group form-grid-full" style={{ marginBottom: '15px' }}>
                         <label>Draw Field Location on Map (Click to add points to polygon)</label>
@@ -645,10 +724,10 @@ export default function FieldTab() {
                                   positions={latLngs}
                                   pathOptions={{
                                     color: formData.drawColor || polygonColor,
-                                    weight: 1.5,
+                                    weight: (formData.isOverallMap === true || formData.isOverallMap === 'true') ? 4.5 : 1.5,
                                     opacity: 0.6,
                                     fill: true,
-                                    fillOpacity: makeActiveTransparent ? 0.0 : 0.2
+                                    fillOpacity: (formData.isOverallMap === true || formData.isOverallMap === 'true') ? 0 : (makeActiveTransparent ? 0.0 : 0.2)
                                   }}
                                 >
                                   <Popup>
@@ -778,6 +857,8 @@ export default function FieldTab() {
                               const isLoaded = geeStatus[field.id]?.status === 'success' || geeStatus[field.id]?.status === 'failed';
                               const makeTransparent = showImagery && isLoaded;
 
+                              const isOverall = field.isOverallMap === true || field.isOverallMap === 'true';
+
                               return (
                                 <React.Fragment key={field.id}>
                                   <Polygon
@@ -785,10 +866,10 @@ export default function FieldTab() {
                                     positions={positions}
                                     pathOptions={{
                                       color: field.drawColor || polygonColor,
-                                      weight: isBg ? 0.8 : 1.5,
+                                      weight: isOverall ? (isBg ? 2.4 : 4.5) : (isBg ? 1.6 : 3.0),
                                       opacity: 0.6,
                                       fill: true,
-                                      fillOpacity: makeTransparent ? 0.0 : (isBg ? 0.05 : 0.3),
+                                      fillOpacity: isOverall ? 0 : (makeTransparent ? 0.0 : (isBg ? 0.05 : 0.3)),
                                       dashArray: isBg ? '5,5' : undefined,
                                       bubblingMouseEvents: false
                                     }}
@@ -939,6 +1020,36 @@ export default function FieldTab() {
 
                                             </div>
                                           )}
+                                          {isOverall && !isBg && (
+                                            <button
+                                              type="button"
+                                              className="btn btn-primary"
+                                              style={{ padding: '4px 8px', fontSize: '0.85rem', width: '100%', background: '#dc2626', borderColor: '#dc2626', color: 'white', marginBottom: '6px' }}
+                                              onClick={async () => {
+                                                if (window.confirm("Conform the edges of this overall property field to the detected road shapes?")) {
+                                                  try {
+                                                    const response = await fetch('/api/fields/conform', {
+                                                      method: 'POST',
+                                                      headers: { 'Content-Type': 'application/json' },
+                                                      body: JSON.stringify({ id: field.id })
+                                                    });
+                                                    const data = await response.json();
+                                                    if (data.success && data.polygon) {
+                                                      dispatch(updateField({ id: field.id, polygon: JSON.stringify(data.polygon) }));
+                                                      alert("Boundary shape successfully conformed to detected roads!");
+                                                    } else {
+                                                      alert("Failed to conform shape: " + (data.message || data.error));
+                                                    }
+                                                  } catch (err) {
+                                                    console.error(err);
+                                                    alert("An error occurred while conforming boundary shape.");
+                                                  }
+                                                }
+                                              }}
+                                            >
+                                              Conform Shape
+                                            </button>
+                                          )}
                                           {!isBg && (
                                             <button
                                               type="button"
@@ -1026,26 +1137,6 @@ export default function FieldTab() {
                           onChange={e => setFormData({ ...formData, layoutRotation: e.target.value === '' ? '' : parseInt(e.target.value) })}
                           placeholder="Auto-aligned"
                         />
-                      </div>
-                      <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '20px' }}>
-                        <input
-                          type="checkbox"
-                          id="includeInStats"
-                          checked={formData.includeInStats !== false}
-                          onChange={e => setFormData({ ...formData, includeInStats: e.target.checked })}
-                          style={{ width: '18px', height: '18px', margin: 0, cursor: 'pointer' }}
-                        />
-                        <label htmlFor="includeInStats" style={{ margin: 0, fontWeight: 500, cursor: 'pointer' }}>Include in Dashboard Statistics</label>
-                      </div>
-                      <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '10px' }}>
-                        <input
-                          type="checkbox"
-                          id="isOverallMap"
-                          checked={formData.isOverallMap === true}
-                          onChange={e => setFormData({ ...formData, isOverallMap: e.target.checked })}
-                          style={{ width: '18px', height: '18px', margin: 0, cursor: 'pointer' }}
-                        />
-                        <label htmlFor="isOverallMap" style={{ margin: 0, fontWeight: 500, cursor: 'pointer' }}>Is Overall Property Boundary / Map</label>
                       </div>
                     </div>
                   </form>

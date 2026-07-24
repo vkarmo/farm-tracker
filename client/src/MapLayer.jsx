@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useMemo, useCallback } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { MapContainer, TileLayer, Polygon, Polyline, Popup, GeoJSON, Marker, useMap, SVGOverlay } from 'react-leaflet';
+import { MapContainer, TileLayer, Polygon, Polyline, Popup, GeoJSON, Marker, useMap, SVGOverlay, Circle } from 'react-leaflet';
 import { fetchGeoLocationInfo } from './components/PoiTab';
 import { parseStructuredData, getReportStructuredData } from './components/RecommendationViewer';
 import FieldImageryOverlay, { getDeterministicSceneDate, getDeterministicCloudCover, isPointInPolygon, getDistanceToCreek } from './components/FieldImageryOverlay';
@@ -20,7 +20,7 @@ import Select from 'react-select';
 // Custom inline SVG icons to prevent any network image load errors (offline-ready)
 const orangeIcon = L.divIcon({
   html: `<svg width="30" height="42" viewBox="0 0 30 42" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M15 0C6.71573 0 0 6.71573 0 15C0 26.25 15 42 15 42C15 42 30 26.25 30 15C30 6.71573 23.2843 0 15 0Z" fill="#f97316"/>
+    <path d="M15 0C6.71573 0 0 6.71573 0 15C0 26.25 15 42 15 42C15 42 30 26.25 30 15C30 6.71573 23.2843 0 15 0Z" fill="#f97316" stroke="#ffffff" stroke-width="1.5"/>
     <circle cx="15" cy="15" r="5" fill="#ffffff"/>
   </svg>`,
   iconSize: [30, 42],
@@ -31,7 +31,7 @@ const orangeIcon = L.divIcon({
 
 const brownIcon = L.divIcon({
   html: `<svg width="30" height="42" viewBox="0 0 30 42" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M15 0C6.71573 0 0 6.71573 0 15C0 26.25 15 42 15 42C15 42 30 26.25 30 15C30 6.71573 23.2843 0 15 0Z" fill="#d97706"/>
+    <path d="M15 0C6.71573 0 0 6.71573 0 15C0 26.25 15 42 15 42C15 42 30 26.25 30 15C30 6.71573 23.2843 0 15 0Z" fill="#d97706" stroke="#ffffff" stroke-width="1.5"/>
     <circle cx="15" cy="15" r="5" fill="#ffffff"/>
   </svg>`,
   iconSize: [30, 42],
@@ -42,7 +42,7 @@ const brownIcon = L.divIcon({
 
 const charcoalRedIcon = L.divIcon({
   html: `<svg width="30" height="42" viewBox="0 0 30 42" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M15 0C6.71573 0 0 6.71573 0 15C0 26.25 15 42 15 42C15 42 30 26.25 30 15C30 6.71573 23.2843 0 15 0Z" fill="#ef4444"/>
+    <path d="M15 0C6.71573 0 0 6.71573 0 15C0 26.25 15 42 15 42C15 42 30 26.25 30 15C30 6.71573 23.2843 0 15 0Z" fill="#ef4444" stroke="#ffffff" stroke-width="1.5"/>
     <circle cx="15" cy="15" r="5" fill="#ffffff"/>
   </svg>`,
   iconSize: [30, 42],
@@ -53,7 +53,7 @@ const charcoalRedIcon = L.divIcon({
 
 const charcoalYellowIcon = L.divIcon({
   html: `<svg width="30" height="42" viewBox="0 0 30 42" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M15 0C6.71573 0 0 6.71573 0 15C0 26.25 15 42 15 42C15 42 30 26.25 30 15C30 6.71573 23.2843 0 15 0Z" fill="#eab308"/>
+    <path d="M15 0C6.71573 0 0 6.71573 0 15C0 26.25 15 42 15 42C15 42 30 26.25 30 15C30 6.71573 23.2843 0 15 0Z" fill="#eab308" stroke="#ffffff" stroke-width="1.5"/>
     <circle cx="15" cy="15" r="5" fill="#ffffff"/>
   </svg>`,
   iconSize: [30, 42],
@@ -64,7 +64,7 @@ const charcoalYellowIcon = L.divIcon({
 
 const charcoalGreenIcon = L.divIcon({
   html: `<svg width="30" height="42" viewBox="0 0 30 42" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M15 0C6.71573 0 0 6.71573 0 15C0 26.25 15 42 15 42C15 42 30 26.25 30 15C30 6.71573 23.2843 0 15 0Z" fill="#22c55e"/>
+    <path d="M15 0C6.71573 0 0 6.71573 0 15C0 26.25 15 42 15 42C15 42 30 26.25 30 15C30 6.71573 23.2843 0 15 0Z" fill="#22c55e" stroke="#ffffff" stroke-width="1.5"/>
     <circle cx="15" cy="15" r="5" fill="#ffffff"/>
   </svg>`,
   iconSize: [30, 42],
@@ -75,7 +75,7 @@ const charcoalGreenIcon = L.divIcon({
 
 const charcoalMagentaIcon = L.divIcon({
   html: `<svg width="30" height="42" viewBox="0 0 30 42" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M15 0C6.71573 0 0 6.71573 0 15C0 26.25 15 42 15 42C15 42 30 26.25 30 15C30 6.71573 23.2843 0 15 0Z" fill="#d946ef"/>
+    <path d="M15 0C6.71573 0 0 6.71573 0 15C0 26.25 15 42 15 42C15 42 30 26.25 30 15C30 6.71573 23.2843 0 15 0Z" fill="#fc2bc1" stroke="#ffffff" stroke-width="1.5"/>
     <circle cx="15" cy="15" r="5" fill="#ffffff"/>
   </svg>`,
   iconSize: [30, 42],
@@ -86,7 +86,18 @@ const charcoalMagentaIcon = L.divIcon({
 
 const charcoalCoalBayIcon = L.divIcon({
   html: `<svg width="30" height="42" viewBox="0 0 30 42" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M15 0C6.71573 0 0 6.71573 0 15C0 26.25 15 42 15 42C15 42 30 26.25 30 15C30 6.71573 23.2843 0 15 0Z" fill="#374151"/>
+    <path d="M15 0C6.71573 0 0 6.71573 0 15C0 26.25 15 42 15 42C15 42 30 26.25 30 15C30 6.71573 23.2843 0 15 0Z" fill="#2bacfc" stroke="#ffffff" stroke-width="1.5"/>
+    <circle cx="15" cy="15" r="5" fill="#ffffff"/>
+  </svg>`,
+  iconSize: [30, 42],
+  iconAnchor: [15, 42],
+  popupAnchor: [0, -40],
+  className: ''
+});
+
+const charcoalBlackIcon = L.divIcon({
+  html: `<svg width="30" height="42" viewBox="0 0 30 42" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M15 0C6.71573 0 0 6.71573 0 15C0 26.25 15 42 15 42C15 42 30 26.25 30 15C30 6.71573 23.2843 0 15 0Z" fill="#000000" stroke="#ffffff" stroke-width="2"/>
     <circle cx="15" cy="15" r="5" fill="#ffffff"/>
   </svg>`,
   iconSize: [30, 42],
@@ -98,7 +109,18 @@ const charcoalCoalBayIcon = L.divIcon({
 
 const blueIcon = L.divIcon({
   html: `<svg width="30" height="42" viewBox="0 0 30 42" fill="none" xmlns="http://www.w3.org/2000/svg">
-    <path d="M15 0C6.71573 0 0 6.71573 0 15C0 26.25 15 42 15 42C15 42 30 26.25 30 15C30 6.71573 23.2843 0 15 0Z" fill="#3b82f6"/>
+    <path d="M15 0C6.71573 0 0 6.71573 0 15C0 26.25 15 42 15 42C15 42 30 26.25 30 15C30 6.71573 23.2843 0 15 0Z" fill="#3b82f6" stroke="#ffffff" stroke-width="1.5"/>
+    <circle cx="15" cy="15" r="5" fill="#ffffff"/>
+  </svg>`,
+  iconSize: [30, 42],
+  iconAnchor: [15, 42],
+  popupAnchor: [0, -40],
+  className: ''
+});
+
+const aquaIcon = L.divIcon({
+  html: `<svg width="30" height="42" viewBox="0 0 30 42" fill="none" xmlns="http://www.w3.org/2000/svg">
+    <path d="M15 0C6.71573 0 0 6.71573 0 15C0 26.25 15 42 15 42C15 42 30 26.25 30 15C30 6.71573 23.2843 0 15 0Z" fill="#00bcd4" stroke="#ffffff" stroke-width="2.5"/>
     <circle cx="15" cy="15" r="5" fill="#ffffff"/>
   </svg>`,
   iconSize: [30, 42],
@@ -787,6 +809,7 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
   const dispatch = useDispatch();
   const [mapInstance, setMapInstance] = useState(null);
   const [loadingWaterway, setLoadingWaterway] = useState(false);
+  const [loadingSettledWater, setLoadingSettledWater] = useState(false);
   const kmlUrls = useSelector(state => state.settings?.kmlUrls) || [];
   const polygonColor = useSelector(state => state.settings?.polygonColor) || '#ffffff';
   const mapCenterRaw = useSelector(state => state.settings?.mapCenter);
@@ -957,6 +980,14 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
 
   const [charcoalFilterMode, setCharcoalFilterMode] = useState(() => localStorage.getItem('map_charcoal_filter_mode') || 'all');
   const [selectedCharcoalAlerts, setSelectedCharcoalAlerts] = useState(() => getArrayFromLocalStorage('map_selected_charcoal'));  // Ensure selected filters only contain items belonging to the current active farm lists
+  const [activeCharcoalCategories, setActiveCharcoalCategories] = useState({
+    High: true,
+    Clearing: true,
+    'Thatch Kitchen': true,
+    'Coal Bay': true,
+    Low: true,
+    Infrastructure: true
+  });
   useEffect(() => {
     if (Array.isArray(selectedFields) && selectedFields.length > 0) {
       const validIds = new Set((fields || []).filter(Boolean).map(f => f.id));
@@ -1222,6 +1253,94 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
     }
   };
 
+  const handleDetectSettledWater = async () => {
+    if (!mapInstance) {
+      alert('Map is not fully initialized yet.');
+      return;
+    }
+    const bounds = mapInstance.getBounds();
+    const southWest = bounds.getSouthWest();
+    const northEast = bounds.getNorthEast();
+
+    setLoadingSettledWater(true);
+    try {
+      const res = await fetch('/api/gee/detect-settled-water', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          minLat: southWest.lat,
+          maxLat: northEast.lat,
+          minLng: southWest.lng,
+          maxLng: northEast.lng,
+          farmId: localStorage.getItem('activeFarmId') || 'default_farm',
+          email: currentUser?.email
+        })
+      });
+
+      if (!res.ok) {
+        const errData = await res.json();
+        throw new Error(errData.error || 'Failed to detect settled water');
+      }
+
+      const data = await res.json();
+      if (!data.features || data.features.length === 0) {
+        alert('No settled water detected in the current view area.');
+        return;
+      }
+
+      const userEmail = currentUser?.email || currentUser?.name || 'Unknown User';
+      const zoomLevel = mapInstance ? mapInstance.getZoom() : null;
+
+      // Add each feature as a POI
+      for (const feat of data.features) {
+        let country = '';
+        let region = '';
+        let county = '';
+        let city = '';
+        try {
+          const geoInfo = await fetchGeoLocationInfo(feat.centroid[0], feat.centroid[1], googleMapsApiKey);
+          country = geoInfo.country || '';
+          region = geoInfo.region || '';
+          county = geoInfo.county || '';
+          city = geoInfo.city || '';
+        } catch (geoErr) {
+          console.warn('Geocoding error in handleDetectSettledWater:', geoErr);
+        }
+
+        const poiId = `poi_water_${Date.now()}_${Math.floor(Math.random() * 1000)}`;
+        const newPoi = {
+          id: poiId,
+          name: feat.name,
+          type: 'Water Source',
+          description: feat.description,
+          points: JSON.stringify(feat.points),
+          drawColor: '#00bcd4', // Aqua color
+          area: feat.area ? String(feat.area) : '',
+          length: '',
+          isLine: false, // It's a polygon!
+          country,
+          region,
+          county,
+          city,
+          zoomLevel: zoomLevel !== null ? Number(zoomLevel) : null,
+          createdBy: userEmail,
+          lastUpdatedBy: userEmail,
+          createdAt: new Date().toISOString()
+        };
+
+        dispatch(addPoi(newPoi));
+        dispatch(queueAction({ type: 'poi/addPoi', payload: newPoi, meta: { id: Date.now() } }));
+      }
+
+      alert(`Successfully detected settled water! Saved ${data.features.length} features as Points of Interest.`);
+    } catch (err) {
+      console.error(err);
+      alert(`Settled water detection failed: ${err.message}`);
+    } finally {
+      setLoadingSettledWater(false);
+    }
+  };
+
   // Weather GEE data fetching effect
   useEffect(() => {
     if (!fields || fields.length === 0) return;
@@ -1347,6 +1466,7 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
 
   const displayedCharcoalAlerts = charcoalAlerts.filter(alert => {
     if (!visibleMapLayers.includes('charcoalAlerts')) return false;
+    if (!activeCharcoalCategories[alert.confidence]) return false;
     if (charcoalFilterMode === 'specific') {
       return Array.isArray(selectedCharcoalAlerts) && selectedCharcoalAlerts.some(opt => opt && opt.value === alert.id);
     }
@@ -1585,6 +1705,29 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
         >
           <Droplet size={16} style={{ color: '#006064' }} /> 
           {loadingWaterway ? 'Scanning...' : 'Find Waterway'}
+        </button>
+        <button
+          type="button"
+          onClick={handleDetectSettledWater}
+          disabled={loadingSettledWater}
+          className="btn map-toolbar-btn"
+          id="detect-settled-water-btn"
+          style={{ 
+            flexShrink: 0, 
+            padding: '6px 10px', 
+            fontSize: '0.85rem', 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: '4px', 
+            cursor: 'pointer',
+            background: '#e0f2f1',
+            color: '#004d40',
+            borderColor: '#b2dfdb'
+          }}
+          title="Detect Settled Water (Swamps, Ponds, Lakes) & Save as POIs"
+        >
+          <Droplet size={16} style={{ color: '#004d40' }} /> 
+          {loadingSettledWater ? 'Scanning...' : 'Detect Settled Water'}
         </button>
       </div>
 
@@ -1859,6 +2002,38 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
               'Select status...'
             )}
 
+            {visibleMapLayers.includes('charcoalAlerts') && (
+              <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '6px', padding: '10px 12px', marginTop: '-4px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <span style={{ fontSize: '0.75rem', fontWeight: '700', color: '#475569', marginBottom: '2px' }}>Anomaly Categories:</span>
+                {[
+                  { key: 'High', label: 'High Confidence Kiln', color: '#dc2626' },
+                  { key: 'Clearing', label: 'Foliage Clearing', color: '#16a34a' },
+                  { key: 'Thatch Kitchen', label: 'Thatch Kitchen', color: '#fc2bc1' },
+                  { key: 'Coal Bay', label: 'Coal Bay', color: '#2bacfc' },
+                  { key: 'Low', label: 'Thermal Heat (Low Conf)', color: '#f59e0b' },
+                  { key: 'Infrastructure', label: 'Infrastructure', color: '#000000' }
+                ].map(cat => (
+                  <label key={cat.key} style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.75rem', color: '#334155', cursor: 'pointer', margin: 0 }}>
+                    <input
+                      type="checkbox"
+                      checked={activeCharcoalCategories[cat.key]}
+                      onChange={(e) => setActiveCharcoalCategories(prev => ({ ...prev, [cat.key]: e.target.checked }))}
+                      style={{
+                        accentColor: cat.color,
+                        width: '14px',
+                        height: '14px',
+                        cursor: 'pointer'
+                      }}
+                    />
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{ width: '8px', height: '8px', borderRadius: '50%', background: cat.color, display: 'inline-block' }}></span>
+                      {cat.label}
+                    </span>
+                  </label>
+                ))}
+              </div>
+            )}
+
             {/* LISGIS and Admin Boundaries Box */}
             <div style={{ background: '#e2e8f0', borderTop: '1px solid #cbd5e1', borderBottom: '1px solid #cbd5e1', padding: '12px 16px', margin: '8px -16px 0 -16px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
               {/* LISGIS Waterways Layer (simple toggle) */}
@@ -2127,6 +2302,8 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
             }
           }
 
+          const isOverall = field.isOverallMap === true || field.isOverallMap === 'true';
+
           return (
             <React.Fragment key={field.id}>
               <Polygon 
@@ -2134,10 +2311,10 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
                 pathOptions={{ 
                   stroke: strokeEnabled,
                   color: useCommonColor ? polygonColor : (field.drawColor || polygonColor),
-                  weight: 1.5,
+                  weight: isOverall ? 4.5 : 3.0,
                   opacity: 0.6,
                   fill: true,
-                  fillOpacity: makeTransparent ? 0.0 : 0.2,
+                  fillOpacity: isOverall ? 0 : (makeTransparent ? 0.0 : 0.2),
                   ...floodOptions
                 }} 
                 positions={positions}
@@ -2491,31 +2668,63 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
               </Polyline>
             );
           } else if (mappedPts.length > 2) {
+            const isSettledWater = poi.name && poi.name.includes('Settled Water');
+            
+            // Centroid calculation for placemarker
+            let centroid = [0, 0];
+            if (isSettledWater) {
+              let latSum = 0, lngSum = 0;
+              mappedPts.forEach(pt => {
+                latSum += pt[0];
+                lngSum += pt[1];
+              });
+              centroid = [latSum / mappedPts.length, lngSum / mappedPts.length];
+            }
+
             return (
-              <Polygon 
-                key={poi.id} 
-                pathOptions={{ 
-                  stroke: strokeEnabled,
-                  color: useCommonColor ? polygonColor : (poi.drawColor || polygonColor), 
-                  weight: 1.2, 
-                  opacity: 0.6, 
-                  fillOpacity: 0.5 
-                }} 
-                positions={mappedPts}
-              >
-                <Popup>
-                  <strong>POI: {poi.name}</strong><br/>
-                  {poi.type}
-                </Popup>
-              </Polygon>
+              <React.Fragment key={poi.id}>
+                <Polygon 
+                  key={poi.id} 
+                  pathOptions={{ 
+                    stroke: strokeEnabled,
+                    color: isSettledWater ? '#ffffff' : (useCommonColor ? polygonColor : (poi.drawColor || polygonColor)), 
+                    fillColor: isSettledWater ? '#00bcd4' : (useCommonColor ? polygonColor : (poi.drawColor || polygonColor)),
+                    weight: isSettledWater ? 1.5 : 1.2, 
+                    opacity: isSettledWater ? 1.0 : 0.85, 
+                    fillOpacity: isSettledWater ? 0.30 : 0.5,
+                    dashArray: isSettledWater ? '3, 3' : undefined
+                  }} 
+                  positions={mappedPts}
+                >
+                  <Popup>
+                    <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.85rem' }}>
+                      <strong style={{ color: isSettledWater ? '#00bcd4' : 'inherit' }}>{poi.name}</strong><br/>
+                      <span style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', fontWeight: 700 }}>{poi.type}</span>
+                      <div style={{ marginTop: '6px', fontSize: '0.8rem', lineHeight: '1.4' }}>{poi.description}</div>
+                    </div>
+                  </Popup>
+                </Polygon>
+                {isSettledWater && (
+                  <Marker key={`marker_${poi.id}`} position={centroid} icon={aquaIcon}>
+                    <Popup>
+                      <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.85rem' }}>
+                        <strong style={{ color: '#00bcd4' }}>{poi.name} (Placemarker)</strong><br/>
+                        <span style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', fontWeight: 700 }}>{poi.type}</span>
+                        <div style={{ marginTop: '6px', fontSize: '0.8rem', lineHeight: '1.4' }}>{poi.description}</div>
+                      </div>
+                    </Popup>
+                  </Marker>
+                )}
+              </React.Fragment>
             );
           } else if (mappedPts.length === 1) {
             const isDrainage = poi.type === 'Drainage Recommendation';
+            const isSettledWater = poi.name && poi.name.includes('Settled Water');
             return (
-              <Marker key={poi.id} position={mappedPts[0]} icon={isDrainage ? blueIcon : orangeIcon}>
+              <Marker key={poi.id} position={mappedPts[0]} icon={isSettledWater ? aquaIcon : (isDrainage ? blueIcon : orangeIcon)}>
                 <Popup>
                   <div style={{ fontFamily: 'Inter, sans-serif', fontSize: '0.85rem' }}>
-                    <strong style={{ color: isDrainage ? '#0288d1' : 'inherit' }}>{poi.name}</strong><br/>
+                    <strong style={{ color: isSettledWater ? '#00bcd4' : (isDrainage ? '#0288d1' : 'inherit') }}>{poi.name}</strong><br/>
                     <span style={{ fontSize: '0.75rem', color: '#64748b', textTransform: 'uppercase', fontWeight: 700 }}>{poi.type}</span>
                     <div style={{ marginTop: '6px', fontSize: '0.8rem', lineHeight: '1.4' }}>{poi.description}</div>
                   </div>
@@ -2663,7 +2872,7 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
           const lng = parseFloat(alert.longitude);
           if (isNaN(lat) || isNaN(lng)) return null;
 
-          const icon = alert.confidence === 'High' ? charcoalRedIcon : (alert.confidence === 'Clearing' ? charcoalGreenIcon : (alert.confidence === 'Thatch Kitchen' ? charcoalMagentaIcon : (alert.confidence === 'Coal Bay' ? charcoalCoalBayIcon : charcoalYellowIcon)));
+          const icon = alert.confidence === 'High' ? charcoalRedIcon : (alert.confidence === 'Clearing' ? charcoalGreenIcon : (alert.confidence === 'Thatch Kitchen' ? charcoalMagentaIcon : (alert.confidence === 'Coal Bay' ? charcoalCoalBayIcon : (alert.confidence === 'Infrastructure' ? charcoalBlackIcon : charcoalYellowIcon))));
 
           let headerColor = '#d97706';
           let headerTitle = `Charcoal Alert (${alert.confidence} Conf)`;
@@ -2673,50 +2882,88 @@ const MapLayer = ({ fields, nurseries = [], equipment = [] }) => {
             headerColor = '#16a34a';
             headerTitle = 'Foliage Clearing Anomaly';
           } else if (alert.confidence === 'Thatch Kitchen') {
-            headerColor = '#d946ef';
+            headerColor = '#fc2bc1';
             headerTitle = 'Thatch Kitchen Structure';
           } else if (alert.confidence === 'Coal Bay') {
-            headerColor = '#374151';
+            headerColor = '#2bacfc';
             headerTitle = 'Coal Bay (Charcoal Kiln)';
+          } else if (alert.confidence === 'Infrastructure') {
+            headerColor = '#000000';
+            headerTitle = 'Infrastructure Anomaly';
+          } else if (alert.confidence === 'Low') {
+            headerColor = '#f59e0b';
+            headerTitle = 'Thermal Heat (Potential Active Kiln)';
+          }
+
+          const popupThemeColor = headerColor === '#000000' ? '#1e293b' : headerColor;
+
+          let parsedGeoJSON = null;
+          if (alert.geometry) {
+            try {
+              parsedGeoJSON = typeof alert.geometry === 'string' ? JSON.parse(alert.geometry) : alert.geometry;
+            } catch (e) {
+              console.error('Failed to parse alert geometry:', e);
+            }
           }
 
           return (
-            <Marker key={alert.id} position={[lat, lng]} icon={icon}>
-              <Popup>
-                <div style={{ minWidth: '180px', fontFamily: 'Inter, sans-serif', fontSize: '0.85rem' }}>
-                  <div style={{ fontWeight: '700', color: headerColor, borderBottom: '1px solid #eee', paddingBottom: '4px', marginBottom: '6px' }}>
-                    {headerTitle}
+            <React.Fragment key={alert.id}>
+              {parsedGeoJSON && (
+                <GeoJSON
+                  key={`geojson_${alert.id}`}
+                  data={parsedGeoJSON}
+                  style={{
+                    color: '#ffffff',
+                    fillColor: headerColor,
+                    fillOpacity: alert.confidence === 'Infrastructure' ? 0.50 : 0.30,
+                    weight: alert.confidence === 'Infrastructure' ? 2.0 : 1.5,
+                    dashArray: alert.confidence === 'Infrastructure' ? undefined : '3, 3'
+                  }}
+                />
+              )}
+              <Marker position={[lat, lng]} icon={icon}>
+                <Popup>
+                  <div style={{ minWidth: '200px', fontFamily: 'Inter, sans-serif', fontSize: '0.85rem' }}>
+                    <div style={{ fontWeight: '700', color: popupThemeColor, borderBottom: '1px solid #eee', paddingBottom: '4px', marginBottom: '6px' }}>
+                      {headerTitle}
+                    </div>
+                    <div><strong>Field:</strong> {alert.fieldName}</div>
+                    <div><strong>Date:</strong> {new Date(alert.detectedAt).toLocaleDateString()}</div>
+                    <div style={{ marginTop: '4px' }}><strong>Status:</strong> <span style={{ fontWeight: '600' }}>{alert.status}</span></div>
+                    
+                    {alert.triggerDetails && (
+                      <div style={{ marginTop: '8px', fontSize: '0.75rem', color: '#475569', background: '#f8fafc', padding: '6px', borderRadius: '4px', borderLeft: `3px solid ${popupThemeColor}`, lineHeight: '1.3' }}>
+                        <strong>Trigger:</strong> {alert.triggerDetails}
+                      </div>
+                    )}
+                    
+                    <div style={{ display: 'flex', gap: '4px', marginTop: '10px' }}>
+                      <button
+                        onClick={() => handleUpdateCharcoalStatusOnMap(alert.id, 'Confirmed')}
+                        disabled={alert.status === 'Confirmed'}
+                        style={{ fontSize: '0.7rem', padding: '2px 6px', background: '#fee2e2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '4px', cursor: 'pointer' }}
+                      >
+                        Confirm
+                      </button>
+                      <button
+                        onClick={() => handleUpdateCharcoalStatusOnMap(alert.id, 'False Alarm')}
+                        disabled={alert.status === 'False Alarm'}
+                        style={{ fontSize: '0.7rem', padding: '2px 6px', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '4px', cursor: 'pointer' }}
+                      >
+                        False
+                      </button>
+                      <button
+                        onClick={() => handleUpdateCharcoalStatusOnMap(alert.id, 'Resolved')}
+                        disabled={alert.status === 'Resolved'}
+                        style={{ fontSize: '0.7rem', padding: '2px 6px', background: '#dcfce7', color: '#16a34a', border: '1px solid #bbf7d0', borderRadius: '4px', cursor: 'pointer' }}
+                      >
+                        Resolve
+                      </button>
+                    </div>
                   </div>
-                  <div><strong>Field:</strong> {alert.fieldName}</div>
-                  <div><strong>Date:</strong> {new Date(alert.detectedAt).toLocaleDateString()}</div>
-                  <div style={{ marginTop: '4px' }}><strong>Status:</strong> <span style={{ fontWeight: '600' }}>{alert.status}</span></div>
-                  
-                  <div style={{ display: 'flex', gap: '4px', marginTop: '8px' }}>
-                    <button
-                      onClick={() => handleUpdateCharcoalStatusOnMap(alert.id, 'Confirmed')}
-                      disabled={alert.status === 'Confirmed'}
-                      style={{ fontSize: '0.7rem', padding: '2px 6px', background: '#fee2e2', color: '#dc2626', border: '1px solid #fecaca', borderRadius: '4px', cursor: 'pointer' }}
-                    >
-                      Confirm
-                    </button>
-                    <button
-                      onClick={() => handleUpdateCharcoalStatusOnMap(alert.id, 'False Alarm')}
-                      disabled={alert.status === 'False Alarm'}
-                      style={{ fontSize: '0.7rem', padding: '2px 6px', background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '4px', cursor: 'pointer' }}
-                    >
-                      False
-                    </button>
-                    <button
-                      onClick={() => handleUpdateCharcoalStatusOnMap(alert.id, 'Resolved')}
-                      disabled={alert.status === 'Resolved'}
-                      style={{ fontSize: '0.7rem', padding: '2px 6px', background: '#dcfce7', color: '#16a34a', border: '1px solid #bbf7d0', borderRadius: '4px', cursor: 'pointer' }}
-                    >
-                      Resolve
-                    </button>
-                  </div>
-                </div>
-              </Popup>
-            </Marker>
+                </Popup>
+              </Marker>
+            </React.Fragment>
           );
         })}
 

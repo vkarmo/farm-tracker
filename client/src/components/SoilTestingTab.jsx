@@ -252,7 +252,13 @@ export default function SoilTestingTab() {
                     <label>Related Field *</label>
                     <select value={testData.fieldId} onChange={e => setTestData({ ...testData, fieldId: e.target.value })} required>
                       <option value="">Select a Field...</option>
-                      {[...fields].sort((a,b) => (a.name || '').localeCompare(b.name || '')).map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+                      {[...fields].sort((a,b) => {
+                        const aOverall = a.isOverallMap === true || a.isOverallMap === 'true';
+                        const bOverall = b.isOverallMap === true || b.isOverallMap === 'true';
+                        if (aOverall && !bOverall) return -1;
+                        if (!aOverall && bOverall) return 1;
+                        return (a.name || '').localeCompare(b.name || '');
+                      }).map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
                     </select>
                   </div>
 

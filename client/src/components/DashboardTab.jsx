@@ -1507,22 +1507,22 @@ export default function DashboardTab() {
                 {thatchCount > 0 && (
                   <div className="anomalies-category-item">
                     <div style={{ background: '#fdf2ff', borderRadius: '8px', padding: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <Home size={22} color="#d946ef" />
+                      <Home size={22} color="#fc2bc1" />
                     </div>
                     <div>
                       <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: '600' }}>Thatch Kitchens</div>
-                      <div style={{ fontSize: '1.1rem', fontWeight: '700', color: '#d946ef' }}>{thatchCount}</div>
+                      <div style={{ fontSize: '1.1rem', fontWeight: '700', color: '#fc2bc1' }}>{thatchCount}</div>
                     </div>
                   </div>
                 )}
                 {coalBayCount > 0 && (
                   <div className="anomalies-category-item">
-                    <div style={{ background: '#f3f4f6', borderRadius: '8px', padding: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                      <Flame size={22} color="#374151" />
+                    <div style={{ background: '#f0f9ff', borderRadius: '8px', padding: '6px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Flame size={22} color="#0284c7" />
                     </div>
                     <div>
                       <div style={{ fontSize: '0.75rem', color: '#64748b', fontWeight: '600' }}>Coal Bays</div>
-                      <div style={{ fontSize: '1.1rem', fontWeight: '700', color: '#374151' }}>{coalBayCount}</div>
+                      <div style={{ fontSize: '1.1rem', fontWeight: '700', color: '#0284c7' }}>{coalBayCount}</div>
                     </div>
                   </div>
                 )}

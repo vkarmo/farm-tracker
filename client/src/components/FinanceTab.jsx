@@ -389,7 +389,13 @@ export default function FinanceTab() {
                         {[...livestock].sort((a, b) => (a.type || '').localeCompare(b.type || '')).map(l => <option key={l.id} value={l.id}>Animal Type: {l.type} - Tag: {l.tagNumber}</option>)}
                       </optgroup>
                       <optgroup label="Fields">
-                        {[...fields].sort((a, b) => (a.name || '').localeCompare(b.name || '')).map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+                        {[...fields].sort((a, b) => {
+                          const aOverall = a.isOverallMap === true || a.isOverallMap === 'true';
+                          const bOverall = b.isOverallMap === true || b.isOverallMap === 'true';
+                          if (aOverall && !bOverall) return -1;
+                          if (!aOverall && bOverall) return 1;
+                          return (a.name || '').localeCompare(b.name || '');
+                        }).map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
                       </optgroup>
                       <optgroup label="Crops">
                         {[...crops].sort((a, b) => (a.name || '').localeCompare(b.name || '')).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}

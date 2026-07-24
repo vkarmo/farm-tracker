@@ -151,7 +151,13 @@ export default function LivestockTab() {
                   <label>Assigned Pasture / Field (Optional)</label>
                   <select value={liveData.fieldId} onChange={e => setLiveData({...liveData, fieldId: e.target.value})}>
                     <option value="">No specific field assignment...</option>
-                    {[...fields].sort((a,b) => (a.name || '').localeCompare(b.name || '')).map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
+                    {[...fields].sort((a,b) => {
+                      const aOverall = a.isOverallMap === true || a.isOverallMap === 'true';
+                      const bOverall = b.isOverallMap === true || b.isOverallMap === 'true';
+                      if (aOverall && !bOverall) return -1;
+                      if (!aOverall && bOverall) return 1;
+                      return (a.name || '').localeCompare(b.name || '');
+                    }).map(f => <option key={f.id} value={f.id}>{f.name}</option>)}
                   </select>
                 </div>
                 <div className="form-group">

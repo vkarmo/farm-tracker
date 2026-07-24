@@ -154,7 +154,13 @@ export default function ActivityTab() {
                       {[...crops].sort((a,b) => (a.name || '').localeCompare(b.name || '')).map(c => <option key={c.id} value={c.id}>{c.name} ({c.variety})</option>)}
                     </optgroup>
                     <optgroup label="Physical Fields">
-                      {[...fields].sort((a,b) => (a.name || '').localeCompare(b.name || '')).map(f => <option key={f.id} value={f.id}>{f.name} ({f.year})</option>)}
+                      {[...fields].sort((a,b) => {
+                        const aOverall = a.isOverallMap === true || a.isOverallMap === 'true';
+                        const bOverall = b.isOverallMap === true || b.isOverallMap === 'true';
+                        if (aOverall && !bOverall) return -1;
+                        if (!aOverall && bOverall) return 1;
+                        return (a.name || '').localeCompare(b.name || '');
+                      }).map(f => <option key={f.id} value={f.id}>{f.name} ({f.year})</option>)}
                     </optgroup>
                     <optgroup label="Nursery Beds">
                       {[...nurseries].sort((a,b) => (a.name || '').localeCompare(b.name || '')).map(n => <option key={n.id} value={n.id}>{n.name}</option>)}

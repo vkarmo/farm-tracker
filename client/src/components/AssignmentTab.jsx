@@ -312,7 +312,13 @@ function AssignmentTabComponent() {
                       {[...crops].sort((a,b) => (a.name || '').localeCompare(b.name || '')).map(c => <option key={c.id} value={c.id}>{c.name || 'Unnamed'} ({c.variety || 'Unknown'})</option>)}
                     </optgroup>
                     <optgroup label="Physical Fields">
-                      {[...fields].sort((a,b) => (a.name || '').localeCompare(b.name || '')).map(f => <option key={f.id} value={f.id}>{f.name || 'Unnamed'} ({f.area || 0} acres)</option>)}
+                      {[...fields].sort((a,b) => {
+                        const aOverall = a.isOverallMap === true || a.isOverallMap === 'true';
+                        const bOverall = b.isOverallMap === true || b.isOverallMap === 'true';
+                        if (aOverall && !bOverall) return -1;
+                        if (!aOverall && bOverall) return 1;
+                        return (a.name || '').localeCompare(b.name || '');
+                      }).map(f => <option key={f.id} value={f.id}>{f.name || 'Unnamed'} ({f.area || 0} acres)</option>)}
                     </optgroup>
                     <optgroup label="Nursery Beds">
                       {[...nurseries].sort((a,b) => (a.name || '').localeCompare(b.name || '')).map(n => <option key={n.id} value={n.id}>{n.name || 'Unnamed'}</option>)}

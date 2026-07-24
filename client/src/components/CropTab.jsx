@@ -340,7 +340,13 @@ export default function CropTab() {
                   <select value={cropData.fieldId} onChange={e => setCropData({ ...cropData, fieldId: e.target.value })}>
                     <option value="">{cropData.sowType === 'Direct' ? 'Select a physical field...' : 'Select a configured nursery bed...'}</option>
                     {cropData.sowType === 'Direct'
-                      ? [...fields].sort((a, b) => (a.name || '').localeCompare(b.name || '')).map(f => <option key={f.id} value={f.id}>{f.name} ({f.year})</option>)
+                      ? [...fields].sort((a, b) => {
+                          const aOverall = a.isOverallMap === true || a.isOverallMap === 'true';
+                          const bOverall = b.isOverallMap === true || b.isOverallMap === 'true';
+                          if (aOverall && !bOverall) return -1;
+                          if (!aOverall && bOverall) return 1;
+                          return (a.name || '').localeCompare(b.name || '');
+                        }).map(f => <option key={f.id} value={f.id}>{f.name} ({f.year})</option>)
                       : [...nurseries].sort((a, b) => (a.name || '').localeCompare(b.name || '')).map(n => <option key={n.id} value={n.id}>{n.name} (Cap: {n.capacity})</option>)
                     }
                   </select>

@@ -1,5 +1,19 @@
 import { createSlice } from '@reduxjs/toolkit';
 
+const sortFieldsList = (list) => {
+  return [...list].sort((a, b) => {
+    const isOverallA = a.isOverallMap === true || a.isOverallMap === 'true' || a.name === 'NMK Property';
+    const isOverallB = b.isOverallMap === true || b.isOverallMap === 'true' || b.name === 'NMK Property';
+    
+    if (isOverallA && !isOverallB) return -1;
+    if (!isOverallA && isOverallB) return 1;
+    
+    const nameA = (a.name || '').toLowerCase();
+    const nameB = (b.name || '').toLowerCase();
+    return nameA.localeCompare(nameB);
+  });
+};
+
 export const fieldsSlice = createSlice({
   name: 'fields',
   initialState: {
@@ -21,6 +35,7 @@ export const fieldsSlice = createSlice({
       } else {
         state.data.push(sanitizedField);
       }
+      state.data = sortFieldsList(state.data);
     },
     updateField: (state, action) => {
       const idx = state.data.findIndex(f => f.id === action.payload.id);
@@ -34,12 +49,13 @@ export const fieldsSlice = createSlice({
             : !!isNmk
         };
       }
+      state.data = sortFieldsList(state.data);
     },
     deleteField: (state, action) => {
-      state.data = state.data.filter(f => f.id !== action.payload);
+      state.data = sortFieldsList(state.data.filter(f => f.id !== action.payload));
     },
     setFields: (state, action) => {
-      state.data = (action.payload || []).map(f => {
+      const mapped = (action.payload || []).map(f => {
         const isNmk = f.name && (f.name === 'NMK Property' || f.name.includes('NMK Property'));
         return {
           ...f,
@@ -48,6 +64,7 @@ export const fieldsSlice = createSlice({
             : !!isNmk
         };
       });
+      state.data = sortFieldsList(mapped);
     }
   }
 });

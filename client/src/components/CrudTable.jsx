@@ -31,8 +31,13 @@ export default function CrudTable({
 
   const sortedData = useMemo(() => {
     let sortableItems = [...data];
-    if (sortConfig.key !== null) {
-      sortableItems.sort((a, b) => {
+    sortableItems.sort((a, b) => {
+      const aOverall = a.isOverallMap === true || a.isOverallMap === 'true';
+      const bOverall = b.isOverallMap === true || b.isOverallMap === 'true';
+      if (aOverall && !bOverall) return -1;
+      if (!aOverall && bOverall) return 1;
+
+      if (sortConfig.key !== null) {
         let valA = a[sortConfig.key];
         let valB = b[sortConfig.key];
         
@@ -64,9 +69,9 @@ export default function CrudTable({
 
         if (valA < valB) return sortConfig.direction === 'asc' ? -1 : 1;
         if (valA > valB) return sortConfig.direction === 'asc' ? 1 : -1;
-        return 0;
-      });
-    }
+      }
+      return 0;
+    });
     return sortableItems;
   }, [data, sortConfig]);
 
