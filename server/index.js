@@ -2638,7 +2638,7 @@ app.post('/api/gee/detect-settled-water', async (req, res) => {
 
         const waterVectors = smoothBinaryImage(settledWater).selfMask().reduceToVectors({
           geometry: boundsGeometry,
-          scale: 3,
+          scale: 1,
           maxPixels: 1e8
         });
 

@@ -383,12 +383,12 @@ export default function FieldImageryOverlay({ polygon, indexType, dateOffset = 0
     // 3. Render High-Quality Imagery utilizing ONLY high-resolution bands (3-5m PlanetScope / 10m Sentinel-2):
     //    We explicitly bypass/skip all coarse bands (>10m) to return the highest spatial quality available.
     if (indexType === 'PredictedSettledWater') {
-      const sampleSize = 32;
+      const sampleSize = 128;
       const sampleW = canvasWidth / sampleSize;
       const sampleH = canvasHeight / sampleSize;
 
-      // User style request: fill color of white with 50% opacity, white outline (slightly thicker than field outline)
-      ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+      // Precompute settled water mask at higher resolution to ensure smooth curves
+      const mask = Array.from({ length: sampleSize }, () => new Array(sampleSize).fill(false));
 
       for (let i = 0; i < sampleSize; i++) {
         for (let j = 0; j < sampleSize; j++) {
@@ -419,7 +419,17 @@ export default function FieldImageryOverlay({ polygon, indexType, dateOffset = 0
           baseElev = baseElev * 0.7 + (dx + dy + 1.0) * 0.15;
           baseElev = baseElev * (1.0 - 0.75 * creekInfluence);
 
-          if (baseElev < 0.28) {
+          mask[i][j] = baseElev < 0.28;
+        }
+      }
+
+      // Draw the fill color for all settled water cells (50% white)
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+      for (let i = 0; i < sampleSize; i++) {
+        for (let j = 0; j < sampleSize; j++) {
+          if (mask[i][j]) {
+            const cx = (i + 0.5) * sampleW;
+            const cy = (j + 0.5) * sampleH;
             ctx.beginPath();
             ctx.arc(cx, cy, sampleW * 1.35, 0, 2 * Math.PI);
             ctx.fill();
@@ -427,40 +437,27 @@ export default function FieldImageryOverlay({ polygon, indexType, dateOffset = 0
         }
       }
 
+      // Draw white outline only for outer boundary cells to match smooth irregular shapes
       ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = 3.0; // thicker than field outline
       for (let i = 0; i < sampleSize; i++) {
         for (let j = 0; j < sampleSize; j++) {
-          const cx = (i + 0.5) * sampleW;
-          const cy = (j + 0.5) * sampleH;
-
-          const cellLng = minLng + (cx / canvasWidth) * (maxLng - minLng);
-          const cellLat = minLat + (1.0 - cy / canvasHeight) * (maxLat - minLat);
-
-          const globalMinLat = 6.7290;
-          const globalMaxLat = 6.7366;
-          const globalMinLng = -10.8759;
-          const globalMaxLng = -10.8622;
-          const globalLatCenter = (globalMinLat + globalMaxLat) / 2;
-          const globalLngCenter = (globalMinLng + globalMaxLng) / 2;
-
-          const dx = (cellLng - globalLngCenter) / (globalMaxLng - globalMinLng);
-          const dy = (cellLat - globalLatCenter) / (globalMaxLat - globalMinLat);
-
-          const cellPoint = [cellLat, cellLng];
-          const distToCreek = getDistanceToCreek(cellPoint);
-          const maxInfluenceDist = 0.0012; // ~130 meters
-          const creekInfluence = Math.max(0, 1.0 - distToCreek / maxInfluenceDist);
-
-          const distanceToCenter = Math.sqrt(dx * dx + dy * dy);
-          let baseElev = 1.0 - distanceToCenter;
-          baseElev = baseElev * 0.7 + (dx + dy + 1.0) * 0.15;
-          baseElev = baseElev * (1.0 - 0.75 * creekInfluence);
-
-          if (baseElev < 0.28) {
-            ctx.beginPath();
-            ctx.arc(cx, cy, sampleW * 1.35, 0, 2 * Math.PI);
-            ctx.stroke();
+          if (mask[i][j]) {
+            // Determine if cell is on the boundary
+            let isBoundary = false;
+            if (i === 0 || i === sampleSize - 1 || j === 0 || j === sampleSize - 1) {
+              isBoundary = true;
+            } else if (!mask[i - 1][j] || !mask[i + 1][j] || !mask[i][j - 1] || !mask[i][j + 1]) {
+              isBoundary = true;
+            }
+            
+            if (isBoundary) {
+              const cx = (i + 0.5) * sampleW;
+              const cy = (j + 0.5) * sampleH;
+              ctx.beginPath();
+              ctx.arc(cx, cy, sampleW * 1.35, 0, 2 * Math.PI);
+              ctx.stroke();
+            }
           }
         }
       }
